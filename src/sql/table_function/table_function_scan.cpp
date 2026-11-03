@@ -1981,7 +1981,7 @@ public:
       column_ids_(context.column_ids_), options_(context.options_),
       path_(), format_(FileTableFormat::CSV), header_(true),
       reader_(context.allocator_), json_in_(), json_path_(), json_object_(),
-      parquet_rows_(), parquet_pos_(0),
+      parquet_rows_(), parquet_pos_(0), file_size_(-1), file_mtime_(-1),
       columns_(), values_(), cells_(), row_(),
       glob_files_(), glob_pos_(0), opened_(false) {}
   int open() override
@@ -2154,6 +2154,16 @@ private:
     } else {
       format_ = format;
       header_ = header;
+      std::string text(options_.ptr(), options_.length());
+      const size_t stat_pos = text.rfind("\nFSTAT\t");
+      if (std::string::npos != stat_pos) {
+        long long size = -1;
+        long long mtime = -1;
+        if (2 == sscanf(text.c_str() + stat_pos + 1, "FSTAT\t%lld\t%lld", &size, &mtime)) {
+          file_size_ = static_cast<int64_t>(size);
+          file_mtime_ = static_cast<int64_t>(mtime);
+        }
+      }
     }
     return ret;
   }
@@ -2171,6 +2181,15 @@ private:
       LOG_USER_ERROR(OB_NOT_SUPPORTED, "file sql is disabled, set enable_file_sql = ON first");
     } else if (OB_FAIL(session->get_secure_file_priv(secure_priv))) {
     } else if (OB_FAIL(ObResolverUtils::check_secure_path(secure_priv, path_))) {
+    } else if (file_size_ >= 0 && FileTableFormat::GLOB != format_) {
+      struct stat file_stat;
+      std::string path_text(path_.ptr(), path_.length());
+      if (0 != ::stat(path_text.c_str(), &file_stat)
+          || static_cast<int64_t>(file_stat.st_size) != file_size_
+          || static_cast<int64_t>(file_stat.st_mtime) != file_mtime_) {
+        ret = OB_INVALID_DATA;
+        LOG_WARN("file changed after schema inference", K(ret), K(path_));
+      }
     }
     return ret;
   }
@@ -2368,6 +2387,8 @@ private:
   JsonObject json_object_;
   std::vector<std::vector<JsonValue>> parquet_rows_;
   int64_t parquet_pos_;
+  int64_t file_size_;
+  int64_t file_mtime_;
   ObSEArray<FileTableColumn, 16> columns_;
   ObSEArray<ObObj, 16> values_;
   ObSEArray<ObObj, 16> cells_;

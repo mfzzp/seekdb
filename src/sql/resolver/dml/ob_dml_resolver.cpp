@@ -46,6 +46,8 @@
 #include "sql/ob_sql_utils.h"
 #include <cstdlib>
 #include <cstring>
+#include <string>
+#include <sys/stat.h>
 
 namespace oceanbase
 {
@@ -3963,7 +3965,22 @@ int ObDMLResolver::bind_file_table_function(const TableFunctionCall &call, Table
     ObString options;
     if (OB_FAIL(serialize_file_table_options(*allocator_, path, format, header, columns, options))) {
     } else {
-      item->function_table_options_ = options;
+      ObSqlString with_stat;
+      struct stat file_stat;
+      std::string path_text(path.ptr(), path.length());
+      if (0 == ::stat(path_text.c_str(), &file_stat)) {
+        with_stat.append(options);
+        with_stat.append_fmt("\nFSTAT\t%lld\t%lld",
+                             static_cast<long long>(file_stat.st_size),
+                             static_cast<long long>(file_stat.st_mtime));
+        ObString final_options;
+        if (OB_FAIL(ob_write_string(*allocator_, with_stat.string(), final_options))) {
+        } else {
+          item->function_table_options_ = final_options;
+        }
+      } else {
+        item->function_table_options_ = options;
+      }
     }
   }
   return ret;
