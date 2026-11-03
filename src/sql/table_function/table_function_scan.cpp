@@ -30,6 +30,9 @@
 #include <cstring>
 #include <cmath>
 #include <sys/stat.h>
+#ifndef _WIN32
+#include <dirent.h>
+#endif
 #include <string>
 #include <vector>
 #include <algorithm>
@@ -2253,45 +2256,82 @@ private:
     int ret = OB_SUCCESS;
     glob_files_.reuse();
     glob_pos_ = 0;
-    std::string pattern(path_.ptr(), path_.length());
-    std::filesystem::path pattern_path(pattern);
-    std::string dir = pattern_path.parent_path().string();
-    std::string filter = pattern_path.filename().string();
-    if (dir.empty()) { dir = "."; }
-    std::error_code ec;
+    const std::string pattern(path_.ptr(), path_.length());
+    std::string dir;
+    std::string filter;
+    const size_t slash = pattern.find_last_of("/\\");
+    if (std::string::npos == slash) {
+      dir = ".";
+      filter = pattern;
+    } else {
+      dir = pattern.substr(0, slash);
+      filter = pattern.substr(slash + 1);
+      if (dir.empty()) { dir = "/"; }
+    }
     std::vector<std::string> files;
+    const bool has_wildcard = std::string::npos != filter.find('*')
+                              || std::string::npos != filter.find('?');
+#ifdef _WIN32
+    std::filesystem::path pattern_path(pattern);
+    std::error_code ec;
     if (!std::filesystem::exists(dir, ec) || ec) {
       ret = OB_FILE_NOT_EXIST;
+    } else if (!has_wildcard) {
+      if (std::filesystem::is_regular_file(pattern_path, ec) && !ec) {
+        std::string full = pattern_path.string();
+        for (size_t j = 0; j < full.size(); ++j) {
+          if ('\\' == full[j]) { full[j] = '/'; }
+        }
+        files.push_back(full);
+      }
     } else {
-      if (std::string::npos == filter.find('*') && std::string::npos == filter.find('?')) {
-        if (std::filesystem::is_regular_file(pattern_path, ec) && !ec) {
-          std::string full = pattern_path.string();
+      for (std::filesystem::directory_iterator it(dir, ec), end;
+           OB_SUCC(ret) && !ec && it != end; it.increment(ec)) {
+        std::error_code file_ec;
+        if (!it->is_regular_file(file_ec) || file_ec) {
+          continue;
+        }
+        const std::string name = it->path().filename().string();
+        if (file_glob_match(name.c_str(), filter.c_str())) {
+          std::string full = it->path().string();
           for (size_t j = 0; j < full.size(); ++j) {
             if ('\\' == full[j]) { full[j] = '/'; }
           }
           files.push_back(full);
         }
+      }
+      if (ec) { ret = OB_IO_ERROR; }
+    }
+#else
+    if (!has_wildcard) {
+      struct stat st;
+      if (0 == ::stat(pattern.c_str(), &st) && S_ISREG(st.st_mode)) {
+        files.push_back(pattern);
       } else {
-        for (std::filesystem::directory_iterator it(dir, ec), end;
-             OB_SUCC(ret) && !ec && it != end; it.increment(ec)) {
-          std::error_code file_ec;
-          if (!it->is_regular_file(file_ec) || file_ec) {
-            continue;
-          }
-          const std::string name = it->path().filename().string();
-          if (file_glob_match(name.c_str(), filter.c_str())) {
-            std::string full = it->path().string();
-            for (size_t j = 0; j < full.size(); ++j) {
-              if ('\\' == full[j]) { full[j] = '/'; }
-            }
+        ret = OB_FILE_NOT_EXIST;
+      }
+    } else {
+      DIR *dirp = ::opendir(dir.c_str());
+      if (NULL == dirp) {
+        ret = OB_FILE_NOT_EXIST;
+      } else {
+        struct dirent *entry = NULL;
+        while (OB_SUCC(ret) && NULL != (entry = ::readdir(dirp))) {
+          const char *name = entry->d_name;
+          if (0 == strcmp(name, ".") || 0 == strcmp(name, "..")) { continue; }
+          if (!file_glob_match(name, filter.c_str())) { continue; }
+          std::string full = dir;
+          if (full.empty() || '/' != full[full.size() - 1]) { full.push_back('/'); }
+          full.append(name);
+          struct stat st;
+          if (0 == ::stat(full.c_str(), &st) && S_ISREG(st.st_mode)) {
             files.push_back(full);
           }
         }
-        if (ec) {
-          ret = OB_IO_ERROR;
-        }
+        ::closedir(dirp);
       }
     }
+#endif
     if (OB_SUCC(ret)) {
       std::sort(files.begin(), files.end());
       for (size_t i = 0; OB_SUCC(ret) && i < files.size(); ++i) {
