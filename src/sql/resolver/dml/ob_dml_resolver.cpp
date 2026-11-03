@@ -3888,21 +3888,49 @@ int ObDMLResolver::bind_file_table_function(const TableFunctionCall &call, Table
   if (OB_SUCC(ret) && !format_name.empty()) {
     if (FileTableFormat::CSV == format) {
       if (0 != format_name.case_compare("csv")) {
-        ret = OB_ERR_PARSER_SYNTAX;
+        ret = OB_ERR_PARSE_SQL;
+        LOG_USER_ERROR(OB_ERR_PARSE_SQL, ob_errpkt_strerror(OB_ERR_PARSER_SYNTAX),
+                       format_name.length(), format_name.ptr(), 1);
       }
     } else if (FileTableFormat::JSONL == format) {
       if (0 != format_name.case_compare("newline_delimited")
           && 0 != format_name.case_compare("ndjson")
           && 0 != format_name.case_compare("json")) {
-        ret = OB_ERR_PARSER_SYNTAX;
+        ret = OB_ERR_PARSE_SQL;
+        LOG_USER_ERROR(OB_ERR_PARSE_SQL, ob_errpkt_strerror(OB_ERR_PARSER_SYNTAX),
+                       format_name.length(), format_name.ptr(), 1);
       }
     } else {
-      ret = OB_ERR_PARSER_SYNTAX;
+      ret = OB_ERR_PARSE_SQL;
+      LOG_USER_ERROR(OB_ERR_PARSE_SQL, ob_errpkt_strerror(OB_ERR_PARSER_SYNTAX),
+                     format_name.length(), format_name.ptr(), 1);
     }
   }
-  if (OB_SUCC(ret) && FileTableFormat::GLOB != format) {
+  if (OB_SUCC(ret)) {
+    ObString check_path = path;
+    char glob_dir[4096];
+    if (FileTableFormat::GLOB == format) {
+      int64_t wildcard = -1;
+      for (int64_t i = 0; i < path.length(); ++i) {
+        if ('*' == path.ptr()[i] || '?' == path.ptr()[i]) { wildcard = i; break; }
+      }
+      if (wildcard >= 0 && wildcard < static_cast<int64_t>(sizeof(glob_dir))) {
+        int64_t cut = wildcard;
+        while (cut > 0 && '/' != path.ptr()[cut - 1] && '\\' != path.ptr()[cut - 1]) {
+          --cut;
+        }
+        int64_t dir_len = cut > 0 ? cut - 1 : 0;
+        if (0 == dir_len) { dir_len = 1; }
+        if (dir_len > 0 && dir_len <= path.length()
+            && dir_len < static_cast<int64_t>(sizeof(glob_dir))) {
+          MEMCPY(glob_dir, path.ptr(), dir_len);
+          glob_dir[dir_len] = '\0';
+          check_path.assign_ptr(glob_dir, static_cast<int32_t>(dir_len));
+        }
+      }
+    }
     if (OB_FAIL(session_info_->get_secure_file_priv(secure_priv))) {
-    } else if (OB_FAIL(ObResolverUtils::check_secure_path(secure_priv, path))) {
+    } else if (OB_FAIL(ObResolverUtils::check_secure_path(secure_priv, check_path))) {
     }
   }
   ObSEArray<FileTableColumn, 16> columns;
