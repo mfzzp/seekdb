@@ -2302,15 +2302,43 @@ private:
     if (JsonValueType::JNULL == value.type_) {
       obj.set_null();
     } else if (JsonValueType::JBOOL == value.type_) {
-      obj.set_bool(value.bool_);
+      if (ObTinyIntType == column.meta_.get_type()) {
+        obj.set_bool(value.bool_);
+      } else {
+        const char *text = value.bool_ ? "true" : "false";
+        ObString copy;
+        if (OB_FAIL(ob_write_string(allocator_, ObString(static_cast<int32_t>(strlen(text)), text),
+                                    copy))) {
+        } else {
+          ret = make_obj(column, copy, true, obj);
+        }
+      }
     } else if (JsonValueType::JINT == value.type_) {
       if (ObDoubleType == column.meta_.get_type()) {
         obj.set_double(static_cast<double>(value.int_));
-      } else {
+      } else if (ObIntType == column.meta_.get_type()) {
         obj.set_int(value.int_);
+      } else {
+        const std::string text = std::to_string(value.int_);
+        ObString copy;
+        if (OB_FAIL(ob_write_string(allocator_, ObString(static_cast<int32_t>(text.size()),
+                                                         text.data()), copy))) {
+        } else {
+          ret = make_obj(column, copy, true, obj);
+        }
       }
     } else if (JsonValueType::JDOUBLE == value.type_) {
-      obj.set_double(value.double_);
+      if (ObDoubleType == column.meta_.get_type()) {
+        obj.set_double(value.double_);
+      } else {
+        const std::string text = std::to_string(value.double_);
+        ObString copy;
+        if (OB_FAIL(ob_write_string(allocator_, ObString(static_cast<int32_t>(text.size()),
+                                                         text.data()), copy))) {
+        } else {
+          ret = make_obj(column, copy, true, obj);
+        }
+      }
     } else if (JsonValueType::JSTRING == value.type_) {
       ret = make_obj(column,
                      ObString(static_cast<int32_t>(value.str_.size()), value.str_.data()),
