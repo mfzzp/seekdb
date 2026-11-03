@@ -42,8 +42,13 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <processthreadsapi.h>
+#include <sys/types.h>
 #include <io.h>       // for _commit (fsync equivalent)
 #include <direct.h>   // for _mkdir
+#ifndef _MODE_T_DEFINED
+typedef int mode_t;
+#define _MODE_T_DEFINED
+#endif
 // Windows doesn't have POSIX fsync(); _commit() is the equivalent for file descriptors
 #ifndef fsync
 #define fsync(fd) _commit(fd)

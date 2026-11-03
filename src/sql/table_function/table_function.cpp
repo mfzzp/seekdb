@@ -34,6 +34,10 @@ int bind_json_table(ObDMLResolver &resolver, const TableFunctionCall &call, Tabl
 { return resolver.bind_json_table_function(call, item); }
 int bind_hybrid(ObDMLResolver &resolver, const TableFunctionCall &call, TableItem *&item)
 { return resolver.bind_hybrid_table_function(call, item); }
+int bind_file(ObDMLResolver &resolver, const TableFunctionCall &call, TableItem *&item)
+{ return resolver.bind_file_table_function(call, item); }
+int compile_file_options(const TableItem &item, ObIAllocator &allocator, ObString &options)
+{ return ob_write_string(allocator, item.function_table_options_, options); }
 TableFunctionColumn generator_column()
 {
   TableFunctionColumn result;
@@ -53,7 +57,21 @@ const TableFunctionDescriptor BUILTINS[] = {
   {JSON_TABLE_FUNCTION_ID, "json_table", "json_table(document, path COLUMNS (...))",
    "Columns are declared by COLUMNS.", 0, -1, nullptr, 0, bind_json_table, create_json_table_scan, nullptr, nullptr, 0, compile_json_table_options, true},
   {HYBRID_SEARCH_FUNCTION_ID, "hybrid_search", "hybrid_search(table_name, configuration)",
-   "Columns come from the bound search query.", 2, 2, nullptr, 0, bind_hybrid, nullptr}
+   "Columns come from the bound search query.", 2, 2, nullptr, 0, bind_hybrid, nullptr},
+  {READ_CSV_FUNCTION_ID, "read_csv", "read_csv(path [, format] [, header=...] [, sample_size=-1])",
+   "Read a CSV file as a table.", 1, -1, nullptr, 0, bind_file, create_file_table_scan,
+   nullptr, nullptr, 0, compile_file_options},
+  {READ_JSON_FUNCTION_ID, "read_json", "read_json(path [, format='newline_delimited'])",
+   "Read a newline-delimited JSON file as a table.", 1, -1, nullptr, 0, bind_file, create_file_table_scan,
+   nullptr, nullptr, 0, compile_file_options},
+  {READ_NDJSON_FUNCTION_ID, "read_ndjson", "read_ndjson(path)",
+   "Read a newline-delimited JSON file as a table.", 1, -1, nullptr, 0, bind_file, create_file_table_scan,
+   nullptr, nullptr, 0, compile_file_options},
+  {READ_PARQUET_FUNCTION_ID, "read_parquet", "read_parquet(path)",
+   "Read a Parquet file as a table.", 1, -1, nullptr, 0, bind_file, create_file_table_scan,
+   nullptr, nullptr, 0, compile_file_options},
+  {GLOB_FUNCTION_ID, "glob", "glob(pattern)", "List files matching a glob pattern.",
+   1, 1, nullptr, 0, bind_file, create_file_table_scan, nullptr, nullptr, 0, compile_file_options}
 };
 }
 

@@ -42,6 +42,10 @@
 #include "sql/resolver/dcl/ob_dcl_resolver.h"
 #include "sql/resolver/ddl/ob_ddl_resolver.h"
 #include "sql/hybrid_search/ob_hybrid_search_executor.h"
+#include "sql/resolver/ob_resolver_utils.h"
+#include "sql/ob_sql_utils.h"
+#include <cstdlib>
+#include <cstring>
 
 namespace oceanbase
 {
@@ -1405,7 +1409,7 @@ int ObDMLResolver::resolve_into_variables(const ParseNode *node,
             OZ (pl_vars.push_back(expr));
           } else {
             /*
-             * Directly execute select 1 into a in sql; mysql will report “ERROR 1327 (42000): Undeclared variable: a”
+             * Directly execute select 1 into a in sql; mysql will report 鈥淓RROR 1327 (42000): Undeclared variable: a鈥?
              * */
             ret = OB_ERR_SP_UNDECLARED_VAR;
             LOG_USER_ERROR(OB_ERR_SP_UNDECLARED_VAR, static_cast<int>(ch_node->str_len_), ch_node->str_value_);
@@ -3700,6 +3704,239 @@ int ObDMLResolver::bind_unnest_table_function(const TableFunctionCall &call, Tab
   for (int64_t i = 0; OB_SUCC(ret) && i < item->function_table_expr_->get_param_count(); ++i) {
     OZ (add_unnest_columns(*item, *item->function_table_expr_->get_param_expr(i), i,
         item->function_table_expr_->get_param_count(), offset));
+  }
+  return ret;
+}
+
+static int get_file_arg_string(const ParseNode *node, ObString &value)
+{
+  int ret = OB_SUCCESS;
+  if (OB_ISNULL(node)) {
+    ret = OB_INVALID_ARGUMENT;
+  } else if (T_VARCHAR == node->type_ || T_CHAR == node->type_
+             || (T_QUESTIONMARK == node->type_ && node->str_len_ > 0 && nullptr != node->str_value_)) {
+    value.assign_ptr(node->str_value_, node->str_len_);
+  } else {
+    ret = OB_INVALID_ARGUMENT;
+  }
+  return ret;
+}
+
+static const ParseNode *get_file_named_arg(const ParseNode *node, const char *name)
+{
+  const ParseNode *result = nullptr;
+  if (OB_NOT_NULL(node) && T_OP_EQ == node->type_ && node->num_child_ >= 2) {
+    const ParseNode *left = node->children_[0];
+    const char *ident = nullptr;
+    int32_t ident_len = 0;
+    if (OB_NOT_NULL(left) && T_IDENT == left->type_) {
+      ident = left->str_value_;
+      ident_len = left->str_len_;
+    } else if (OB_NOT_NULL(left) && T_COLUMN_REF == left->type_
+               && OB_NOT_NULL(left->str_value_)) {
+      ident = left->str_value_;
+      ident_len = left->str_len_;
+    }
+    const int32_t name_len = static_cast<int32_t>(strlen(name));
+    if (nullptr != ident && ident_len == name_len && 0 == strncasecmp(ident, name, name_len)) {
+      result = node->children_[1];
+    }
+  }
+  return result;
+}
+
+static int get_file_bool_value(const ParseNode *node, bool &value)
+{
+  int ret = OB_SUCCESS;
+  if (OB_ISNULL(node)) {
+    ret = OB_INVALID_ARGUMENT;
+  } else if (T_BOOL == node->type_ || T_INT == node->type_ || T_QUESTIONMARK == node->type_) {
+    value = node->value_ != 0;
+  } else {
+    ret = OB_INVALID_ARGUMENT;
+  }
+  return ret;
+}
+
+static int get_file_int_value(const ParseNode *node, int64_t &value)
+{
+  int ret = OB_SUCCESS;
+  if (OB_ISNULL(node)) {
+    ret = OB_INVALID_ARGUMENT;
+  } else if (T_INT == node->type_ || T_QUESTIONMARK == node->type_) {
+    value = node->value_;
+  } else if (T_OP_NEG == node->type_ && 1 == node->num_child_
+             && OB_NOT_NULL(node->children_[0])
+             && (T_INT == node->children_[0]->type_
+                 || T_QUESTIONMARK == node->children_[0]->type_)) {
+    value = -node->children_[0]->value_;
+  } else {
+    ret = OB_INVALID_ARGUMENT;
+  }
+  return ret;
+}
+
+int ObDMLResolver::bind_file_table_function(const TableFunctionCall &call, TableItem *&item)
+{
+  int ret = OB_SUCCESS;
+  ObString path;
+  ObString format_name;
+  bool header = true;
+  const ParseNode *args = call.arguments_;
+  FileTableFormat format = FileTableFormat::CSV;
+  auto eval_const_node = [&](const ParseNode *node, ObObj &value) -> int {
+    int local_ret = OB_SUCCESS;
+    ObRawExpr *expr = nullptr;
+    ParamStore empty_params;
+    const ParamStore *params = nullptr == params_.param_list_ ? &empty_params : params_.param_list_;
+    if (OB_ISNULL(node)) {
+      local_ret = OB_INVALID_ARGUMENT;
+    } else if (OB_FAIL(ObResolverUtils::resolve_const_expr(params_, *node, expr, nullptr))) {
+      local_ret = OB_INVALID_ARGUMENT;
+    } else if (OB_FAIL(ObSQLUtils::calc_const_expr(session_info_, *expr, value,
+                                                   *allocator_, *params))) {
+      local_ret = OB_INVALID_ARGUMENT;
+    }
+    return local_ret;
+  };
+  if (0 == call.name_.case_compare("read_csv")) {
+    format = FileTableFormat::CSV;
+  } else if (0 == call.name_.case_compare("read_json")
+             || 0 == call.name_.case_compare("read_ndjson")) {
+    format = FileTableFormat::JSONL;
+  } else if (0 == call.name_.case_compare("read_parquet")) {
+    format = FileTableFormat::PARQUET;
+  } else if (0 == call.name_.case_compare("glob")) {
+    format = FileTableFormat::GLOB;
+  } else {
+    ret = OB_ERR_UNEXPECTED;
+  }
+  bool enabled = false;
+  ObString secure_priv;
+  if (OB_SUCC(ret) && (OB_ISNULL(session_info_) || OB_FAIL(session_info_->get_enable_file_sql(enabled)))) {
+    ret = OB_ERR_UNEXPECTED;
+  } else if (OB_SUCC(ret) && !enabled) {
+    ret = OB_NOT_SUPPORTED;
+    LOG_USER_ERROR(OB_NOT_SUPPORTED, "file sql is disabled, set enable_file_sql = ON first");
+  }
+  for (int32_t i = 0; OB_SUCC(ret) && OB_NOT_NULL(args) && i < args->num_child_; ++i) {
+    const ParseNode *arg = args->children_[i];
+    if (OB_ISNULL(arg)) {
+      ret = OB_INVALID_ARGUMENT;
+    } else if (T_OP_EQ == arg->type_) {
+      const ParseNode *header_node = get_file_named_arg(arg, "header");
+      const ParseNode *sample_node = get_file_named_arg(arg, "sample_size");
+      const ParseNode *format_node = get_file_named_arg(arg, "format");
+      if (nullptr != header_node) {
+        ObObj value;
+        if (OB_FAIL(eval_const_node(header_node, value))) {
+        } else {
+          header = value.get_bool();
+        }
+      } else if (nullptr != sample_node) {
+        ObObj value;
+        int64_t sample_size = 0;
+        if (OB_FAIL(eval_const_node(sample_node, value))) {
+        } else {
+          sample_size = value.get_int();
+          if (-1 != sample_size) {
+            ret = OB_NOT_SUPPORTED;
+            LOG_USER_ERROR(OB_NOT_SUPPORTED, "only sample_size = -1 is supported");
+          }
+        }
+      } else if (nullptr != format_node) {
+        ObObj value;
+        if (OB_FAIL(eval_const_node(format_node, value))) {
+        } else {
+          format_name = value.get_string();
+        }
+      } else {
+        ret = OB_INVALID_ARGUMENT;
+        LOG_USER_ERROR(OB_INVALID_ARGUMENT, "unknown file table function option");
+      }
+    } else if (path.empty()) {
+      if (OB_FAIL(get_file_arg_string(arg, path))) {
+        ret = OB_INVALID_ARGUMENT;
+        LOG_USER_ERROR(OB_INVALID_ARGUMENT, "first argument of file table function must be a file path");
+      }
+    } else if (format_name.empty()) {
+      if (OB_FAIL(get_file_arg_string(arg, format_name))) {
+      }
+    } else {
+      ret = OB_INVALID_ARGUMENT;
+    }
+  }
+  if (OB_SUCC(ret) && path.empty()) {
+    ret = OB_INVALID_ARGUMENT;
+    LOG_USER_ERROR(OB_INVALID_ARGUMENT, "file table function requires a file path");
+  }
+#ifdef _WIN32
+  char normalized_path[4096];
+  if (OB_SUCC(ret) && !path.empty()) {
+    if (path.length() >= static_cast<int64_t>(sizeof(normalized_path))) {
+      ret = OB_INVALID_ARGUMENT;
+    } else {
+      MEMCPY(normalized_path, path.ptr(), path.length());
+      normalized_path[path.length()] = '\0';
+      for (int64_t i = 0; i < path.length(); ++i) {
+        if ('/' == normalized_path[i]) { normalized_path[i] = '\\'; }
+      }
+      path.assign_ptr(normalized_path, path.length());
+    }
+  }
+#endif
+  if (OB_SUCC(ret) && !format_name.empty()) {
+    if (FileTableFormat::CSV == format) {
+      if (0 != format_name.case_compare("csv")) {
+        ret = OB_ERR_PARSER_SYNTAX;
+      }
+    } else if (FileTableFormat::JSONL == format) {
+      if (0 != format_name.case_compare("newline_delimited")
+          && 0 != format_name.case_compare("ndjson")
+          && 0 != format_name.case_compare("json")) {
+        ret = OB_ERR_PARSER_SYNTAX;
+      }
+    } else {
+      ret = OB_ERR_PARSER_SYNTAX;
+    }
+  }
+  if (OB_SUCC(ret) && FileTableFormat::GLOB != format) {
+    if (OB_FAIL(session_info_->get_secure_file_priv(secure_priv))) {
+    } else if (OB_FAIL(ObResolverUtils::check_secure_path(secure_priv, path))) {
+    }
+  }
+  ObSEArray<FileTableColumn, 16> columns;
+  if (OB_SUCC(ret) && OB_FAIL(infer_file_table_schema(*allocator_, path, format, header, columns))) {
+  }
+  if (OB_SUCC(ret)) {
+    // The path and the inferred schema are carried in function_table_options_.
+    // Do not keep the original path expression as a scan argument: table
+    // function arguments may be parameter markers at this stage and are not
+    // needed by the file scanner.
+    TableFunctionCall scan_call = call;
+    scan_call.arguments_ = nullptr;
+    if (OB_FAIL(create_function_scan_item(scan_call, item))) {
+    }
+  }
+  for (int64_t i = 0; OB_SUCC(ret) && i < columns.count(); ++i) {
+    ColumnItem *column = nullptr;
+    const FileTableColumn &file_column = columns.at(i);
+    if (OB_FAIL(resolve_function_table_column_item(*item,
+                                                   file_column.meta_,
+                                                   file_column.accuracy_,
+                                                   file_column.name_,
+                                                   OB_APP_MIN_COLUMN_ID + i,
+                                                   column))) {
+    } else if (OB_NOT_NULL(column) && !file_column.nullable_) {
+      column->expr_->set_result_flag(NOT_NULL_FLAG);
+    }
+  }
+  if (OB_SUCC(ret)) {
+    ObString options;
+    if (OB_FAIL(serialize_file_table_options(*allocator_, path, format, header, columns, options))) {
+    } else {
+      item->function_table_options_ = options;
+    }
   }
   return ret;
 }
@@ -8357,7 +8594,7 @@ int ObDMLResolver::get_all_column_ref(ObRawExpr *expr, ObIArray<ObColumnRefRawEx
  * create table t1(SYSTIMESTAMP int) partition by range(SYSTIMESTAMP) (partition "p0" values less than 10000);
  * select SYSTIMESTAMP from dual; ==> select "SYSTIMESTAMP" from dual;
  * Only in this way can the part expr be truly reparsed, otherwise it will be misparsed as a function, essentially here it represents an ordinary column property, currently known keywords are:
- * SYSTIMESTAMP、CURRENT_DATE、LOCALTIMESTAMP、CURRENT_TIMESTAMP、SESSIONTIMEZONE、DBTIMEZONE、
+ * SYSTIMESTAMP銆丆URRENT_DATE銆丩OCALTIMESTAMP銆丆URRENT_TIMESTAMP銆丼ESSIONTIMEZONE銆丏BTIMEZONE銆?
  * bug:
  */
 
