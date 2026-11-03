@@ -430,7 +430,8 @@ int infer_csv_schema(ObIAllocator &allocator,
       for (int64_t i = 0; OB_SUCC(local_ret) && i < fields.count(); ++i) {
         FileColumnState &state = states.at(i);
         const ObString &value = fields.at(i);
-        const bool is_null = value.empty() && !quoted.at(i);
+        const bool is_null = (value.empty() && !quoted.at(i))
+                             || 0 == value.case_compare("NULL");
         if (is_null) {
           state.nullable_ = true;
         } else {
@@ -1444,6 +1445,23 @@ inline int parquet_plain_values(const uint8_t *data,
   return ret;
 }
 
+inline void parquet_days_to_date(int32_t days, std::string &out)
+{
+  int64_t z = static_cast<int64_t>(days) + 719468;
+  const int64_t era = (z >= 0 ? z : z - 146096) / 146097;
+  const uint32_t doe = static_cast<uint32_t>(z - era * 146097);
+  const uint32_t yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+  int64_t y = static_cast<int64_t>(yoe) + era * 400;
+  const uint32_t doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+  const uint32_t mp = (5 * doy + 2) / 153;
+  const uint32_t d = doy - (153 * mp + 2) / 5 + 1;
+  const uint32_t m = mp < 10 ? mp + 3 : mp - 9;
+  if (m <= 2) { ++y; }
+  char buf[32];
+  snprintf(buf, sizeof(buf), "%04lld-%02u-%02u", static_cast<long long>(y), m, d);
+  out.assign(buf);
+}
+
 inline int parquet_dictionary_values(const uint8_t *data,
                                      int64_t len,
                                      int32_t type,
@@ -1586,6 +1604,16 @@ inline int parquet_decode_column(const std::string &file,
       } else {
         ret = OB_NOT_SUPPORTED;
         break;
+      }
+      if (6 == column.converted_type_) {
+        for (size_t i = 0; i < non_null.size(); ++i) {
+          if (JsonValueType::JINT == non_null[i].type_) {
+            std::string date;
+            parquet_days_to_date(static_cast<int32_t>(non_null[i].int_), date);
+            non_null[i].type_ = JsonValueType::JSTRING;
+            non_null[i].str_ = date;
+          }
+        }
       }
       int64_t value_index = 0;
       for (int64_t i = 0; OB_SUCC(ret) && i < num_values; ++i) {
@@ -2356,7 +2384,7 @@ private:
     int ret = OB_SUCCESS;
     const ObObjType type = column.meta_.get_type();
     obj.set_null();
-    if (field.empty() && !quoted) {
+    if ((field.empty() && !quoted) || 0 == field.case_compare("NULL")) {
       // NULL
     } else if (ObTinyIntType == type) {
       bool value = false;
