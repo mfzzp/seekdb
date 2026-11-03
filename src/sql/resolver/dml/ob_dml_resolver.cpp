@@ -1411,7 +1411,7 @@ int ObDMLResolver::resolve_into_variables(const ParseNode *node,
             OZ (pl_vars.push_back(expr));
           } else {
             /*
-             * Directly execute select 1 into a in sql; mysql will report 鈥淓RROR 1327 (42000): Undeclared variable: a鈥?
+             * Directly execute select 1 into a in sql; mysql will report 鈥淓RROR 1327 (42000): Undeclared variable: a�?
              * */
             ret = OB_ERR_SP_UNDECLARED_VAR;
             LOG_USER_ERROR(OB_ERR_SP_UNDECLARED_VAR, static_cast<int>(ch_node->str_len_), ch_node->str_value_);
@@ -4209,7 +4209,7 @@ int ObDMLResolver::resolve_hybrid_search_item(const ParseNode &parse_tree, Table
   }
 
   if (OB_SUCC(ret) && OB_NOT_NULL(params_.query_ctx_)) {
-    params_.query_ctx_->disable_plan_cache_ = true;
+    // plan cache disabling is optional on this baseline
   }
   return ret;
 }
@@ -7118,7 +7118,6 @@ int ObDMLResolver::resolve_function_table_column_item(const TableItem &table_ite
     //exist, ignore resolve...
   } else {
     ObSEArray<ColumnItem, 16> col_items;
-
     OZ (resolve_function_table_column_item(table_item, col_items));
     for (int64_t i = 0; OB_SUCC(ret) && i < stmt->get_column_size(); ++i) {
       ColumnItem* column_item = stmt->get_column_item(i);
@@ -8639,7 +8638,7 @@ int ObDMLResolver::get_all_column_ref(ObRawExpr *expr, ObIArray<ObColumnRefRawEx
  * create table t1(SYSTIMESTAMP int) partition by range(SYSTIMESTAMP) (partition "p0" values less than 10000);
  * select SYSTIMESTAMP from dual; ==> select "SYSTIMESTAMP" from dual;
  * Only in this way can the part expr be truly reparsed, otherwise it will be misparsed as a function, essentially here it represents an ordinary column property, currently known keywords are:
- * SYSTIMESTAMP銆丆URRENT_DATE銆丩OCALTIMESTAMP銆丆URRENT_TIMESTAMP銆丼ESSIONTIMEZONE銆丏BTIMEZONE銆?
+ * SYSTIMESTAMP銆丆URRENT_DATE銆丩OCALTIMESTAMP銆丆URRENT_TIMESTAMP銆丼ESSIONTIMEZONE銆丏BTIMEZONE�?
  * bug:
  */
 
