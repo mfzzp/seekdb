@@ -1,3 +1,4 @@
+﻿# trigger file sql suite only
 # owner: database-competition
 # owner group: SQL
 # description: Query local CSV, JSONL and Parquet files as database tables.
