@@ -1,0 +1,147 @@
+/*
+ * Copyright (c) 2025 OceanBase.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#ifndef OCEANBASE_COMMON_OB_ALL_VIRTUAL_TABLE_ITERATOR_
+#define OCEANBASE_COMMON_OB_ALL_VIRTUAL_TABLE_ITERATOR_
+
+#include "lib/container/ob_se_array.h"
+#include "common/row/ob_row_iterator.h"
+#include "common/ob_common_types.h"
+#include "share/object/ob_obj_cast.h"
+#include "sql/table_function/table_function.h"
+#include "sql/ob_sql_context.h"
+
+namespace oceanbase
+{
+namespace share
+{
+namespace schema
+{
+class ObTableSchema;
+class ObSchemaGetterGuard;
+}
+}
+namespace sql
+{
+class ObSQLSessionInfo;
+}
+namespace common
+{
+class ObIAllocator;
+class ObVTableScanParam;
+class ObVirtualTableIterator : public ObNewRowIterator
+{
+  static const int64_t VT_COLUMN_COUNT = 64;
+public:
+  ObVirtualTableIterator()
+    : allocator_(NULL),
+      output_column_ids_(),
+      reserved_column_cnt_(0),
+      schema_guard_(NULL),
+      definition_(NULL),
+      timeout_(INT64_MAX),
+      cur_row_(),
+      session_(NULL),
+      row_calc_buf_("VTITER_CALC_BUF"),
+      cast_ctx_(),
+      scan_param_(NULL)
+    {}
+  virtual ~ObVirtualTableIterator() {}
+  virtual void reset();
+  inline void set_allocator(common::ObIAllocator *allocator);
+  inline void set_reserved_column_cnt(int64_t count);
+  inline int set_output_column_ids(const common::ObIArray<uint64_t> &column_ids);
+  inline void set_schema_guard(share::schema::ObSchemaGetterGuard *schema_guard);
+  inline share::schema::ObSchemaGetterGuard *get_schema_guard() const;
+  void set_function_definition(const sql::TableFunctionDescriptor *definition) { definition_ = definition; }
+  void set_timeout(int64_t timeout) { timeout_ = timeout; }
+  const sql::TableFunctionColumn *get_output_column(uint64_t column_id) const;
+  const sql::TableFunctionColumn *get_output_column(const char *name) const;
+  inline void set_scan_param(const ObVTableScanParam *scan_param) { scan_param_ = scan_param; }
+  inline const ObVTableScanParam *get_scan_param() { return scan_param_; }
+  virtual int open();
+  virtual int inner_open() { return common::OB_SUCCESS; };
+  virtual int get_next_row(common::ObNewRow *&row);
+  virtual int inner_get_next_row(common::ObNewRow *&row) = 0;
+  virtual int get_next_row() override; // interface for static typing engine.
+  virtual int get_next_rows(int64_t &count, int64_t capacity) override;
+  virtual int close();
+  virtual int inner_close() { return common::OB_SUCCESS; }
+  virtual inline void set_session(sql::ObSQLSessionInfo *session) { session_ = session; }
+  virtual inline int set_key_ranges(const common::ObIArray<common::ObNewRange> &key_ranges)
+  {
+    return key_ranges_.assign(key_ranges);
+  }
+  virtual const common::ObIArray<common::ObNewRange> &get_key_ranges() { return key_ranges_; }
+  virtual int check_priv(const ObString &level_str, const ObString &db_name,
+                         const ObString &table_name, bool &passed);
+  void set_scan_flag(const common::ObQueryFlag &scan_flag) { scan_flag_ = scan_flag; }
+  bool is_reverse_scan() const { return common::ObQueryFlag::Reverse == scan_flag_.scan_order_; }
+  VIRTUAL_TO_STRING_KV(K_(output_column_ids));
+private:
+  int init_sql_schema_guard_();
+protected:
+  common::ObIAllocator *allocator_;
+  common::ObSEArray<uint64_t, VT_COLUMN_COUNT> output_column_ids_;
+  int64_t reserved_column_cnt_;
+  share::schema::ObSchemaGetterGuard *schema_guard_;
+  sql::ObSqlSchemaGuard sql_schema_guard_;
+  const sql::TableFunctionDescriptor *definition_;
+  int64_t timeout_;
+  common::ObNewRow cur_row_;
+  common::ObQueryFlag scan_flag_;
+  sql::ObSQLSessionInfo *session_;
+  common::ObSEArray<common::ObNewRange, 16> key_ranges_;
+  common::ObArenaAllocator row_calc_buf_;
+
+private:
+  common::ObCastCtx cast_ctx_;
+  const ObVTableScanParam *scan_param_;
+private:
+  DISALLOW_COPY_AND_ASSIGN(ObVirtualTableIterator);
+};
+
+void ObVirtualTableIterator::set_allocator(common::ObIAllocator *allocator)
+{
+  allocator_ = allocator;
+}
+
+void ObVirtualTableIterator::set_reserved_column_cnt(int64_t count)
+{
+  reserved_column_cnt_ = count;
+}
+
+int ObVirtualTableIterator::set_output_column_ids(const common::ObIArray<uint64_t> &column_ids)
+{
+  int ret = common::OB_SUCCESS;
+  if (OB_SUCCESS != (ret = output_column_ids_.assign(column_ids))) {
+  }
+  return ret;
+}
+
+void ObVirtualTableIterator::set_schema_guard(share::schema::ObSchemaGetterGuard *schema_guard)
+{
+  schema_guard_ = schema_guard;
+}
+
+share::schema::ObSchemaGetterGuard * ObVirtualTableIterator::get_schema_guard() const
+{
+  return schema_guard_;
+}
+
+}//common
+}//oceanbase
+#endif /* OCEANBASE_COMMON_OB_ALL_VIRTUAL_TABLE_ITERATOR_ */
