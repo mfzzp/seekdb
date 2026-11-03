@@ -2994,9 +2994,17 @@ int ObSelectResolver::resolve_into_outfile_with_format(const ParseNode *node, Ob
   ObExternalFileFormat external_format;
   ParseNode* format_node = NULL;
   ParseNode* option_node = NULL;
-  if (node->num_child_ != 3) {
+  if (node->num_child_ != 3 && node->num_child_ != 5) {
     ret = OB_ERR_UNEXPECTED;
   } else if (OB_FAIL(resolve_into_const_node(node->children_[0], into_item.outfile_name_))) {
+  } else if (node->num_child_ >= 5) {
+    if (OB_NOT_NULL(node->children_[3])) {
+      into_item.with_header_ = node->children_[3]->value_ != 0;
+    }
+    if (OB_NOT_NULL(node->children_[4])) {
+      into_item.null_str_.set_varchar(ObString(node->children_[4]->str_len_,
+                                               node->children_[4]->str_value_));
+    }
   }
   if (OB_SUCC(ret) && NULL != (format_node = node->children_[1])) { // format
     for (int i = 0; OB_SUCC(ret) && i < format_node->num_child_; ++i) {
@@ -3107,7 +3115,8 @@ int ObSelectResolver::resolve_into_clause(const ParseNode *node)
       if (T_INTO_OUTFILE == node->type_) { // into outfile
         if (is_in_set_query()) {
           ret = OB_INAPPROPRIATE_INTO;
-        } else if (node->num_child_ == 3 && NULL != node->children_[1]
+        } else if ((node->num_child_ == 3 || node->num_child_ == 5)
+            && NULL != node->children_[1]
             && T_EXTERNAL_FILE_FORMAT == node->children_[1]->type_) { // Handle with `FORMAT`
           if (OB_FAIL(resolve_into_outfile_with_format(node, *into_item))) {
           }

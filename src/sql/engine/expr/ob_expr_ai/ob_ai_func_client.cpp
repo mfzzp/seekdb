@@ -33,6 +33,57 @@ ObAIFuncClient::ObAIFuncClient()
   timeout_sec_ = 60; // default timeout 1 minute
 }
 
+#ifdef __EMSCRIPTEN__
+// Browser callers supply vectors. A native libcurl client cannot use the
+// browser's HTTP transport; reject requests before accepting work or ownership.
+ObAIFuncClient::~ObAIFuncClient() = default;
+
+void ObAIFuncClient::clean_up()
+{
+  curl_handles_.reset();
+  response_buffers_.reset();
+  is_finished_.store(true);
+}
+
+void ObAIFuncClient::reset()
+{
+  clean_up();
+}
+
+int ObAIFuncClient::init(common::ObIAllocator &, const ObString &, ObArray<ObString> &)
+{
+  return OB_NOT_SUPPORTED;
+}
+
+int ObAIFuncClient::send_post(common::ObIAllocator &, const ObString &,
+                            ObArray<ObString> &, ObJsonObject *, ObJsonObject *&)
+{
+  return OB_NOT_SUPPORTED;
+}
+
+int ObAIFuncClient::send_post_batch(common::ObIAllocator &, const ObString &,
+                                  ObArray<ObString> &, ObArray<ObJsonObject *> &,
+                                  ObArray<ObJsonObject *> &)
+{
+  return OB_NOT_SUPPORTED;
+}
+
+int ObAIFuncClient::send_post_batch_no_wait(ObArray<ObJsonObject *> &)
+{
+  return OB_NOT_SUPPORTED;
+}
+
+bool ObAIFuncClient::check_batch_finished()
+{
+  // No request can be accepted by this backend. Result retrieval reports why.
+  return true;
+}
+
+int ObAIFuncClient::get_batch_result(ObArray<ObJsonObject *> &)
+{
+  return OB_NOT_SUPPORTED;
+}
+#else
 void ObAIFuncClient::reset() 
 {
   if (url_ != nullptr && allocator_ != nullptr) {
@@ -42,14 +93,13 @@ void ObAIFuncClient::reset()
     int ret = OB_ERR_UNEXPECTED;
     LOG_USER_ERROR(OB_ERR_UNEXPECTED, "can not free url_");
   } 
-  // Release batch buffers while the allocator is still valid.
-  clean_up();
+  allocator_ = nullptr;
   if (OB_NOT_NULL(header_list_)) {
     curl_slist_free_all(header_list_);
     header_list_ = nullptr;
   }
-  allocator_ = nullptr;
   is_finished_.store(false);
+  clean_up();
 }
 
 ObAIFuncClient::~ObAIFuncClient() 
@@ -66,9 +116,8 @@ ObAIFuncClient::~ObAIFuncClient()
     allocator_->free(url_);
     url_ = nullptr;
   }
-  // Keep the allocator alive until the outstanding batch buffers are freed.
-  clean_up();
   allocator_ = nullptr;
+  clean_up();
   if (OB_NOT_NULL(curlm_)) {
     curl_multi_cleanup(curlm_);
     curlm_ = nullptr;
@@ -145,12 +194,9 @@ int ObAIFuncClient::send_post(ObJsonObject *data, ObJsonObject *&response)
     ObStringBuffer response_buf(allocator_);
     int64_t http_code = 0;
     if (OB_FAIL(init_easy_handle(curl_, data, response_buf))) {
-    }
-    // Retry with a fresh response buffer; partial HTTP bodies are not JSON.
+    } 
+    // retry if need
     for (int64_t i = 0; OB_SUCC(ret) && i <= max_retry_times_; ++i) {
-      if (i > 0) {
-        response_buf.reset();
-      }
       http_code = 0;
       if (CURLE_OK != (res = curl_easy_perform(curl_))) {
         LOG_WARN("perform curl failed", K(res));
@@ -176,7 +222,7 @@ int ObAIFuncClient::send_post(ObJsonObject *data, ObJsonObject *&response)
         ret = OB_CURL_ERROR;
         char http_code_str[1024];
         ObString err_msg = response_buf.string();
-        snprintf(http_code_str, sizeof(http_code_str), "http status code: %ld, error message: %.*s", http_code, err_msg.length(), err_msg.ptr());
+        snprintf(http_code_str, sizeof(http_code_str), "http status code: %ld, error message: %s", http_code, err_msg.ptr());
         ObString ob_http_code_str(http_code_str);
         FORWARD_USER_ERROR(ret, http_code_str);
       }
@@ -186,8 +232,6 @@ int ObAIFuncClient::send_post(ObJsonObject *data, ObJsonObject *&response)
         if (OB_FAIL(ObJsonBaseFactory::get_json_base(
               allocator_, response_buf.string(), ObJsonInType::JSON_TREE,
               ObJsonInType::JSON_TREE, j_tree))) {
-          ret = OB_ERR_INVALID_JSON_TEXT;
-        } else if (OB_ISNULL(j_tree) || j_tree->json_type() != ObJsonNodeType::J_OBJECT) {
           ret = OB_ERR_INVALID_JSON_TEXT;
         } else {
           response = static_cast<ObJsonObject *>(j_tree);
@@ -230,34 +274,16 @@ int ObAIFuncClient::send_post_batch(ObArray<ObJsonObject *> &data_array, ObArray
     const int64_t num_data = data_array.count();
     for (int64_t i = 0; OB_SUCC(ret) && i < num_data; ++i) {
       ObJsonObject *data = data_array.at(i);
-      CURL *curl_handle = nullptr;
-      ObStringBuffer *response_buf = nullptr;
-      bool tracked_handle = false;
-      bool tracked_buffer = false;
-      if (OB_ISNULL(data)) {
-        ret = OB_INVALID_ARGUMENT;
-      } else if (OB_ISNULL(curl_handle = curl_easy_init())) {
-        ret = OB_ALLOCATE_MEMORY_FAILED;
-      } else if (OB_ISNULL(response_buf = OB_NEWx(ObStringBuffer, allocator_, allocator_))) {
-        ret = OB_ALLOCATE_MEMORY_FAILED;
-      } else if (OB_FAIL(init_easy_handle(curl_handle, data, *response_buf))) {
+      CURL *curl_handle = curl_easy_init();
+      ObStringBuffer* response_buf = OB_NEWx(ObStringBuffer, allocator_, allocator_);
+      if (OB_FAIL(init_easy_handle(curl_handle, data, *response_buf))) {
       } else if (OB_FAIL(curl_handles_.push_back(curl_handle))) {
+      } else if (OB_FAIL(response_buffers_.push_back(response_buf))) {
       } else {
-        tracked_handle = true;
-        if (OB_FAIL(response_buffers_.push_back(response_buf))) {
-        } else {
-          tracked_buffer = true;
-          if (CURLM_OK != curl_multi_add_handle(curlm_, curl_handle)) {
-            ret = OB_CURL_ERROR;
-          }
+        CURLMcode mc = curl_multi_add_handle(curlm_, curl_handle);
+        if (mc != CURLM_OK) {
+          ret = OB_CURL_ERROR;
         }
-      }
-      // Anything not transferred to the member arrays must be freed here.
-      if (!tracked_handle && OB_NOT_NULL(curl_handle)) {
-        curl_easy_cleanup(curl_handle);
-      }
-      if (!tracked_buffer && OB_NOT_NULL(response_buf)) {
-        OB_DELETEx(ObStringBuffer, allocator_, response_buf);
       }
     }
     if (OB_SUCC(ret)) {
@@ -303,27 +329,20 @@ int ObAIFuncClient::send_post_batch(common::ObIAllocator &allocator,
   }
   if (OB_SUCC(ret)) {
     if (OB_FAIL(init(allocator, url, headers))) {
-    } else {
-      // Retry the whole multi-request batch.  Failed attempts may have
-      // appended partial responses, so drop them before each attempt.
-      int last_ret = OB_SUCCESS;
-      for (int64_t i = 0; OB_SUCC(ret) && i <= max_retry_times_; ++i) {
-        responses.reset();
-        last_ret = send_post_batch(data_array, responses);
-        if (is_timeout()) {
-          ret = OB_TIMEOUT;
-        } else if (OB_SUCC(last_ret)) {
-          break;
-        } else if (OB_CURL_ERROR == last_ret && i < max_retry_times_) {
-          int64_t delay_ms = 1000 * (1 << i) + rand() % 1000;
-          ob_usleep(delay_ms * 1000);
-        } else {
-          // Keep the last network error instead of returning success after
-          // all retry attempts have failed.
-          ret = last_ret;
-        }
-      }
     }
+    // retry if need
+    for (int64_t i = 0; OB_SUCC(ret) && i < max_retry_times_; ++i) {
+      ret = send_post_batch(data_array, responses);
+      if (is_timeout()) {
+        ret = OB_TIMEOUT;
+      } else if (OB_CURL_ERROR == ret) {
+        ret = OB_SUCCESS;
+        int64_t delay_ms = 1000 * (1 << i) + rand() % 1000;
+        ob_usleep(delay_ms * 1000);
+      } else if (OB_SUCC(ret)) {
+        break;
+      }
+    } 
   }
   return ret;
 }
@@ -342,43 +361,26 @@ int ObAIFuncClient::send_post_batch_no_wait(ObArray<ObJsonObject *> &data_array)
     const int64_t num_data = data_array.count();
     for (int64_t i = 0; OB_SUCC(ret) && i < num_data; ++i) {
       ObJsonObject *data_item = data_array.at(i);
-      CURL *curl_handle = nullptr;
-      ObStringBuffer *response_buf = nullptr;
-      bool tracked_handle = false;
-      bool tracked_buffer = false;
+      CURL *curl_handle = curl_easy_init();
+      ObStringBuffer* response_buf = OB_NEWx(ObStringBuffer, allocator_, allocator_);
       if (OB_ISNULL(data_item)) {
         ret = OB_INVALID_ARGUMENT;
-      } else if (OB_ISNULL(curl_handle = curl_easy_init())) {
-        ret = OB_ALLOCATE_MEMORY_FAILED;
-      } else if (OB_ISNULL(response_buf = OB_NEWx(ObStringBuffer, allocator_, allocator_))) {
+      } else if (OB_ISNULL(curl_handle)) {
         ret = OB_ALLOCATE_MEMORY_FAILED;
       } else if (OB_FAIL(init_easy_handle(curl_handle, data_item, *response_buf))) {
       } else if (OB_FAIL(curl_handles_.push_back(curl_handle))) {
+      } else if (OB_FAIL(response_buffers_.push_back(response_buf))) {
       } else {
-        tracked_handle = true;
-        if (OB_FAIL(response_buffers_.push_back(response_buf))) {
-        } else {
-          tracked_buffer = true;
-          if (CURLM_OK != curl_multi_add_handle(curlm_, curl_handle)) {
-            ret = OB_CURL_ERROR;
-          }
+        CURLMcode mc = curl_multi_add_handle(curlm_, curl_handle);
+        if (mc != CURLM_OK) {
+          ret = OB_CURL_ERROR;
         }
       }
-      if (!tracked_handle && OB_NOT_NULL(curl_handle)) {
-        curl_easy_cleanup(curl_handle);
-      }
-      if (!tracked_buffer && OB_NOT_NULL(response_buf)) {
-        OB_DELETEx(ObStringBuffer, allocator_, response_buf);
-      }
     }
-    if (OB_SUCC(ret)) {
-      int running_handles = 0;
-      if (CURLM_OK != curl_multi_perform(curlm_, &running_handles)) {
-        ret = OB_CURL_ERROR;
-      }
-    }
-    if (OB_FAIL(ret)) {
-      clean_up();
+    int running_handles = 0;
+    CURLMcode mc = curl_multi_perform(curlm_, &running_handles);
+    if (mc != CURLM_OK) {
+      ret = OB_CURL_ERROR;
     }
   }
   return ret;
@@ -386,11 +388,9 @@ int ObAIFuncClient::send_post_batch_no_wait(ObArray<ObJsonObject *> &data_array)
 
 bool ObAIFuncClient::check_batch_finished() 
 {
-  if (OB_ISNULL(curlm_)) {
-    return false;
-  }
   int running_handles = 0;
-  if (CURLM_OK == curl_multi_perform(curlm_, &running_handles) && running_handles == 0) {
+  CURLMcode mc = curl_multi_perform(curlm_, &running_handles);
+  if (running_handles == 0) {
     is_finished_.store(true);
   }
   return is_finished_.load();
@@ -406,12 +406,10 @@ int ObAIFuncClient::get_batch_result(ObArray<ObJsonObject *> &responses)
       if (msg->msg == CURLMSG_DONE) {
         CURL *easy_handle = msg->easy_handle;
         CURLcode res = msg->data.result;
-        if (res != CURLE_OK) {
-          ret = OB_CURL_ERROR;
-        } else {
-          long response_code = 0;
-          if (CURLE_OK != curl_easy_getinfo(easy_handle, CURLINFO_RESPONSE_CODE, &response_code)
-              || response_code < 200 || response_code >= 300) {
+        if (res == CURLE_OK) {
+          long response_code;
+          curl_easy_getinfo(easy_handle, CURLINFO_RESPONSE_CODE, &response_code);
+          if (response_code != 200) {
             ret = OB_CURL_ERROR;
           }
         }
@@ -430,8 +428,6 @@ int ObAIFuncClient::get_batch_result(ObArray<ObJsonObject *> &responses)
       } else if (OB_FAIL(ObJsonBaseFactory::get_json_base(
               allocator_, response_str, ObJsonInType::JSON_TREE,
               ObJsonInType::JSON_TREE, j_tree))) {
-        ret = OB_ERR_INVALID_JSON_TEXT;
-      } else if (OB_ISNULL(j_tree) || j_tree->json_type() != ObJsonNodeType::J_OBJECT) {
         ret = OB_ERR_INVALID_JSON_TEXT;
       } else if (OB_FAIL(responses.push_back(static_cast<ObJsonObject *>(j_tree)))) {
       }
@@ -468,11 +464,10 @@ int ObAIFuncClient::init_easy_handle(CURL *curl, ObJsonObject *body, ObStringBuf
       LOG_WARN("set timeout failed", K(res), K(timeout_sec_));
     } else if (CURLE_OK !=(res = curl_easy_setopt(curl, CURLOPT_HTTPHEADER, header_list_))) {
       LOG_WARN("set headers failed", K(res));
-    } else if (CURLE_OK != (res = curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, body_str.length()))) {
-      LOG_WARN("set post size failed", K(res), K(body_str.length()));
-    } else if (CURLE_OK != (res = curl_easy_setopt(curl, CURLOPT_COPYPOSTFIELDS, body_str.ptr()))) {
-      // COPYPOSTFIELDS owns the bytes after the temporary JSON buffer dies.
-      LOG_WARN("copy post body failed", K(res));
+    } else if (CURLE_OK !=(res = curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body_str.ptr()))) {
+      LOG_WARN("set post failed", K(res), K(body_str.ptr()));
+    } else if (CURLE_OK != (res = curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE,body_str.length()))) {
+      LOG_WARN("set post failed", K(res), K(body_str.length()));
     } else if (CURLE_OK != (res = curl_easy_setopt(curl, CURLOPT_POST, 1))) {
       LOG_WARN("set post method failed", K(res));
     }
@@ -532,6 +527,7 @@ bool ObAIFuncClient::is_timeout()
 {
   return ObTimeUtility::current_time() > abs_timeout_ts_;
 }
+#endif
 
 } // namespace common
 } // namespace oceanbase
