@@ -36,7 +36,9 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#ifdef _WIN32
 #include <filesystem>
+#endif
 #include <fstream>
 #include <map>
 
