@@ -33,6 +33,8 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <filesystem>
+#include <fstream>
 
 namespace oceanbase {
 namespace sql {
@@ -456,6 +458,355 @@ int infer_csv_schema(ObIAllocator &allocator,
   return ret;
 }
 
+enum class JsonValueType : uint8_t
+{
+  JNULL = 0,
+  JBOOL,
+  JINT,
+  JDOUBLE,
+  JSTRING,
+};
+
+struct JsonValue
+{
+  JsonValue() : type_(JsonValueType::JNULL), bool_(false), int_(0), double_(0.0), str_() {}
+  JsonValueType type_;
+  bool bool_;
+  int64_t int_;
+  double double_;
+  std::string str_;
+};
+
+struct JsonField
+{
+  std::string name_;
+  JsonValue value_;
+};
+
+struct JsonObject
+{
+  std::vector<JsonField> fields_;
+};
+
+inline void json_skip_ws(const std::string &text, size_t &pos)
+{
+  while (pos < text.size() && (' ' == text[pos] || '\t' == text[pos]
+                               || '\r' == text[pos] || '\n' == text[pos])) {
+    ++pos;
+  }
+}
+
+inline int json_hex_value(char c)
+{
+  if (c >= '0' && c <= '9') { return c - '0'; }
+  if (c >= 'a' && c <= 'f') { return c - 'a' + 10; }
+  if (c >= 'A' && c <= 'F') { return c - 'A' + 10; }
+  return -1;
+}
+
+inline void json_append_utf8(std::string &out, uint32_t cp)
+{
+  if (cp <= 0x7F) {
+    out.push_back(static_cast<char>(cp));
+  } else if (cp <= 0x7FF) {
+    out.push_back(static_cast<char>(0xC0 | (cp >> 6)));
+    out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+  } else if (cp <= 0xFFFF) {
+    out.push_back(static_cast<char>(0xE0 | (cp >> 12)));
+    out.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+    out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+  } else {
+    out.push_back(static_cast<char>(0xF0 | (cp >> 18)));
+    out.push_back(static_cast<char>(0x80 | ((cp >> 12) & 0x3F)));
+    out.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+    out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+  }
+}
+
+inline int json_parse_string(const std::string &text, size_t &pos, std::string &out)
+{
+  int ret = OB_SUCCESS;
+  if (pos >= text.size() || '"' != text[pos]) {
+    ret = OB_INVALID_DATA;
+  } else {
+    ++pos;
+    while (OB_SUCC(ret) && pos < text.size() && '"' != text[pos]) {
+      char c = text[pos++];
+      if ('\\' == c) {
+        if (pos >= text.size()) {
+          ret = OB_INVALID_DATA;
+        } else {
+          const char esc = text[pos++];
+          switch (esc) {
+            case '"': out.push_back('"'); break;
+            case '\\': out.push_back('\\'); break;
+            case '/': out.push_back('/'); break;
+            case 'b': out.push_back('\b'); break;
+            case 'f': out.push_back('\f'); break;
+            case 'n': out.push_back('\n'); break;
+            case 'r': out.push_back('\r'); break;
+            case 't': out.push_back('\t'); break;
+            case 'u': {
+              if (pos + 4 > text.size()) {
+                ret = OB_INVALID_DATA;
+                break;
+              }
+              uint32_t cp = 0;
+              for (int i = 0; OB_SUCC(ret) && i < 4; ++i) {
+                const int h = json_hex_value(text[pos + i]);
+                if (h < 0) { ret = OB_INVALID_DATA; }
+                else { cp = (cp << 4) | static_cast<uint32_t>(h); }
+              }
+              if (OB_SUCC(ret)) {
+                pos += 4;
+                if (cp >= 0xD800 && cp <= 0xDBFF && pos + 6 <= text.size()
+                    && '\\' == text[pos] && 'u' == text[pos + 1]) {
+                  uint32_t low = 0;
+                  bool low_ok = true;
+                  for (int i = 0; i < 4; ++i) {
+                    const int h = json_hex_value(text[pos + 2 + i]);
+                    if (h < 0) { low_ok = false; break; }
+                    low = (low << 4) | static_cast<uint32_t>(h);
+                  }
+                  if (low_ok && low >= 0xDC00 && low <= 0xDFFF) {
+                    pos += 6;
+                    cp = 0x10000 + ((cp - 0xD800) << 10) + (low - 0xDC00);
+                  }
+                }
+                json_append_utf8(out, cp);
+              }
+              break;
+            }
+            default: ret = OB_INVALID_DATA; break;
+          }
+        }
+      } else if (static_cast<unsigned char>(c) < 0x20) {
+        ret = OB_INVALID_DATA;
+      } else {
+        out.push_back(c);
+      }
+    }
+    if (OB_SUCC(ret)) {
+      if (pos >= text.size()) { ret = OB_INVALID_DATA; }
+      else { ++pos; }
+    }
+  }
+  return ret;
+}
+
+inline int json_parse_value(const std::string &text, size_t &pos, JsonValue &value)
+{
+  int ret = OB_SUCCESS;
+  json_skip_ws(text, pos);
+  if (pos >= text.size()) {
+    ret = OB_INVALID_DATA;
+  } else if ('"' == text[pos]) {
+    value.type_ = JsonValueType::JSTRING;
+    ret = json_parse_string(text, pos, value.str_);
+  } else if ('t' == text[pos] && pos + 4 <= text.size()
+             && 0 == text.compare(pos, 4, "true")) {
+    value.type_ = JsonValueType::JBOOL;
+    value.bool_ = true;
+    pos += 4;
+  } else if ('f' == text[pos] && pos + 5 <= text.size()
+             && 0 == text.compare(pos, 5, "false")) {
+    value.type_ = JsonValueType::JBOOL;
+    value.bool_ = false;
+    pos += 5;
+  } else if ('n' == text[pos] && pos + 4 <= text.size()
+             && 0 == text.compare(pos, 4, "null")) {
+    value.type_ = JsonValueType::JNULL;
+    pos += 4;
+  } else if ('{' == text[pos] || '[' == text[pos]) {
+    ret = OB_NOT_SUPPORTED;
+  } else {
+    const size_t start = pos;
+    if ('-' == text[pos]) { ++pos; }
+    bool digits = false;
+    while (pos < text.size() && text[pos] >= '0' && text[pos] <= '9') {
+      digits = true;
+      ++pos;
+    }
+    bool is_double = false;
+    if (pos < text.size() && '.' == text[pos]) {
+      is_double = true;
+      ++pos;
+      while (pos < text.size() && text[pos] >= '0' && text[pos] <= '9') { ++pos; }
+    }
+    if (pos < text.size() && ('e' == text[pos] || 'E' == text[pos])) {
+      is_double = true;
+      ++pos;
+      if (pos < text.size() && ('+' == text[pos] || '-' == text[pos])) { ++pos; }
+      while (pos < text.size() && text[pos] >= '0' && text[pos] <= '9') { ++pos; }
+    }
+    if (!digits) {
+      ret = OB_INVALID_DATA;
+    } else {
+      const std::string token = text.substr(start, pos - start);
+      char *end = nullptr;
+      if (is_double) {
+        value.type_ = JsonValueType::JDOUBLE;
+        value.double_ = strtod(token.c_str(), &end);
+      } else {
+        value.type_ = JsonValueType::JINT;
+        value.int_ = strtoll(token.c_str(), &end, 10);
+      }
+      if (nullptr == end || '\0' != *end) {
+        ret = OB_INVALID_DATA;
+      }
+    }
+  }
+  return ret;
+}
+
+inline int json_parse_object(const std::string &text, JsonObject &object)
+{
+  int ret = OB_SUCCESS;
+  size_t pos = 0;
+  json_skip_ws(text, pos);
+  if (pos >= text.size() || '{' != text[pos]) {
+    ret = OB_INVALID_DATA;
+  } else {
+    ++pos;
+    json_skip_ws(text, pos);
+    if (pos < text.size() && '}' == text[pos]) {
+      ++pos;
+    } else {
+      while (OB_SUCC(ret)) {
+        json_skip_ws(text, pos);
+        JsonField field;
+        if (OB_FAIL(json_parse_string(text, pos, field.name_))) {
+          ret = OB_INVALID_DATA;
+        } else {
+          json_skip_ws(text, pos);
+          if (pos >= text.size() || ':' != text[pos]) {
+            ret = OB_INVALID_DATA;
+          } else {
+            ++pos;
+            if (OB_FAIL(json_parse_value(text, pos, field.value_))) {
+            } else {
+              bool replaced = false;
+              for (size_t i = 0; !replaced && i < object.fields_.size(); ++i) {
+                if (object.fields_[i].name_ == field.name_) {
+                  object.fields_[i].value_ = field.value_;
+                  replaced = true;
+                }
+              }
+              if (!replaced) {
+                object.fields_.push_back(field);
+              }
+              json_skip_ws(text, pos);
+              if (pos >= text.size()) {
+                ret = OB_INVALID_DATA;
+              } else if ('}' == text[pos]) {
+                ++pos;
+                break;
+              } else if (',' == text[pos]) {
+                ++pos;
+              } else {
+                ret = OB_INVALID_DATA;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  if (OB_SUCC(ret)) {
+    json_skip_ws(text, pos);
+    if (pos != text.size()) { ret = OB_INVALID_DATA; }
+  }
+  return ret;
+}
+
+inline FileInferType json_value_type(const JsonValue &value, int64_t &max_len)
+{
+  FileInferType type = FileInferType::NULL_TYPE;
+  switch (value.type_) {
+    case JsonValueType::JBOOL: type = FileInferType::BOOL_TYPE; break;
+    case JsonValueType::JINT: type = FileInferType::BIGINT_TYPE; break;
+    case JsonValueType::JDOUBLE: type = FileInferType::DOUBLE_TYPE; break;
+    case JsonValueType::JSTRING:
+      max_len = std::max(max_len, static_cast<int64_t>(value.str_.size()));
+      if (file_is_date(ObString(static_cast<int32_t>(value.str_.size()), value.str_.data()))) {
+        type = FileInferType::DATE_TYPE;
+      } else if (file_is_datetime(ObString(static_cast<int32_t>(value.str_.size()),
+                                           value.str_.data()))) {
+        type = FileInferType::DATETIME_TYPE;
+      } else {
+        type = FileInferType::VARCHAR_TYPE;
+      }
+      break;
+    default: type = FileInferType::NULL_TYPE; break;
+  }
+  return type;
+}
+
+int infer_json_schema(ObIAllocator &allocator,
+                      const ObString &path,
+                      ObIArray<FileTableColumn> &columns)
+{
+  int ret = OB_SUCCESS;
+  std::string path_text(path.ptr(), path.length());
+  std::ifstream input(path_text, std::ios::binary);
+  std::string line;
+  std::vector<std::string> names;
+  std::vector<FileColumnState> states;
+  int64_t row_count = 0;
+  if (!input.is_open()) {
+    ret = OB_FILE_NOT_EXIST;
+  }
+  while (OB_SUCC(ret) && std::getline(input, line)) {
+    if (!line.empty() && '\r' == line.back()) { line.pop_back(); }
+    if (line.empty()) { continue; }
+    JsonObject object;
+    if (OB_FAIL(json_parse_object(line, object))) {
+      ret = OB_INVALID_DATA;
+    } else {
+      std::vector<bool> present(names.size(), false);
+      for (size_t i = 0; OB_SUCC(ret) && i < object.fields_.size(); ++i) {
+        const JsonField &field = object.fields_[i];
+        size_t index = names.size();
+        for (size_t j = 0; j < names.size(); ++j) {
+          if (names[j] == field.name_) { index = j; break; }
+        }
+        if (index == names.size()) {
+          names.push_back(field.name_);
+          FileColumnState state;
+          if (row_count > 0) { state.nullable_ = true; }
+          states.push_back(state);
+          present.resize(names.size(), false);
+        }
+        present[index] = true;
+        FileColumnState &state = states[index];
+        if (JsonValueType::JNULL == field.value_.type_) {
+          state.nullable_ = true;
+        } else {
+          const FileInferType type = json_value_type(field.value_, state.max_len_);
+          state.type_ = file_merge_type(state.type_, type);
+        }
+      }
+      for (size_t i = 0; OB_SUCC(ret) && i < present.size(); ++i) {
+        if (!present[i]) { states[i].nullable_ = true; }
+      }
+      ++row_count;
+    }
+  }
+  if (OB_SUCC(ret) && names.empty()) {
+    ret = OB_INVALID_DATA;
+  }
+  for (size_t i = 0; OB_SUCC(ret) && i < names.size(); ++i) {
+    FileTableColumn column;
+    if (OB_FAIL(make_file_column(allocator,
+                                 ObString(static_cast<int32_t>(names[i].size()), names[i].data()),
+                                 states[i].type_, states[i].max_len_,
+                                 states[i].nullable_, column))) {
+    } else if (OB_FAIL(columns.push_back(column))) {
+    }
+  }
+  return ret;
+}
+
 } // anonymous namespace
 
 int infer_file_table_schema(ObIAllocator &allocator,
@@ -467,6 +818,8 @@ int infer_file_table_schema(ObIAllocator &allocator,
   int ret = OB_SUCCESS;
   if (FileTableFormat::CSV == format) {
     ret = infer_csv_schema(allocator, path, header, columns);
+  } else if (FileTableFormat::JSONL == format) {
+    ret = infer_json_schema(allocator, path, columns);
   } else if (FileTableFormat::GLOB == format) {
     FileTableColumn column;
     if (OB_FAIL(make_file_column(allocator, ObString::make_string("file"),
@@ -759,6 +1112,29 @@ private:
   ObNewRow row_;
 };
 
+inline bool file_glob_match(const char *name, const char *pattern)
+{
+  while ('\0' != *pattern) {
+    if ('*' == *pattern) {
+      while ('*' == *pattern) { ++pattern; }
+      if ('\0' == *pattern) { return true; }
+      for (const char *p = name; '\0' != *p; ++p) {
+        if (file_glob_match(p, pattern)) { return true; }
+      }
+      return false;
+    } else if ('?' == *pattern) {
+      if ('\0' == *name) { return false; }
+      ++name;
+      ++pattern;
+    } else {
+      if (*name != *pattern) { return false; }
+      ++name;
+      ++pattern;
+    }
+  }
+  return '\0' == *name;
+}
+
 class FileTableScan final : public ITableFunctionScan
 {
 public:
@@ -766,7 +1142,9 @@ public:
     : exec_ctx_(context.exec_ctx_), allocator_(context.allocator_),
       column_ids_(context.column_ids_), options_(context.options_),
       path_(), format_(FileTableFormat::CSV), header_(true),
-      reader_(context.allocator_), columns_(), values_(), cells_(), row_(), opened_(false) {}
+      reader_(context.allocator_), json_in_(), json_path_(),
+      columns_(), values_(), cells_(), row_(),
+      glob_files_(), glob_pos_(0), opened_(false) {}
   int open() override
   {
     int ret = OB_SUCCESS;
@@ -774,8 +1152,8 @@ public:
       LOG_WARN("failed to load file table options", K(ret));
     } else if (OB_FAIL(check_access())) {
       LOG_WARN("failed to check file table access", K(ret));
-    } else if (OB_FAIL(open_reader())) {
-      LOG_WARN("failed to open file table reader", K(ret));
+    } else if (OB_FAIL(FileTableFormat::GLOB == format_ ? open_glob() : open_reader())) {
+      LOG_WARN("failed to open file table source", K(ret), K(format_));
     } else {
       opened_ = true;
     }
@@ -795,6 +1173,58 @@ public:
     row = nullptr;
     if (!opened_) {
       ret = OB_NOT_INIT;
+    } else if (FileTableFormat::GLOB == format_) {
+      if (glob_pos_ >= glob_files_.count()) {
+        ret = OB_ITER_END;
+      } else if (values_.count() != 1) {
+        ret = OB_ERR_UNEXPECTED;
+      } else {
+        values_.at(0).set_varchar(glob_files_.at(glob_pos_++));
+        for (int64_t i = 0; OB_SUCC(ret) && i < cells_.count(); ++i) {
+          cells_.at(i) = values_.at(0);
+        }
+        if (OB_SUCC(ret)) {
+          row_.cells_ = cells_.get_data();
+          row_.count_ = cells_.count();
+          row = &row_;
+        }
+      }
+    } else if (FileTableFormat::JSONL == format_) {
+      JsonObject &object = json_object_;
+      if (OB_FAIL(next_json_object(object))) {
+        if (OB_ITER_END != ret) {
+          LOG_WARN("failed to read json record", K(ret));
+        }
+      } else if (values_.count() != columns_.count()) {
+        ret = OB_ERR_UNEXPECTED;
+      } else {
+        for (int64_t i = 0; OB_SUCC(ret) && i < columns_.count(); ++i) {
+          const JsonField *found = nullptr;
+          for (size_t j = 0; nullptr == found && j < object.fields_.size(); ++j) {
+            if (object.fields_[j].name_ == std::string(columns_.at(i).name_.ptr(),
+                                                       columns_.at(i).name_.length())) {
+              found = &object.fields_[j];
+            }
+          }
+          if (nullptr == found) {
+            values_.at(i).set_null();
+          } else if (OB_FAIL(make_json_obj(columns_.at(i), found->value_, values_.at(i)))) {
+          }
+        }
+        for (int64_t i = 0; OB_SUCC(ret) && i < cells_.count(); ++i) {
+          const int64_t position = static_cast<int64_t>(column_ids_.at(i)) - OB_APP_MIN_COLUMN_ID;
+          if (position < 0 || position >= values_.count()) {
+            ret = OB_ERR_UNEXPECTED;
+          } else {
+            cells_.at(i) = values_.at(position);
+          }
+        }
+        if (OB_SUCC(ret)) {
+          row_.cells_ = cells_.get_data();
+          row_.count_ = cells_.count();
+          row = &row_;
+        }
+      }
     } else if (FileTableFormat::CSV != format_) {
       ret = OB_NOT_SUPPORTED;
       LOG_USER_ERROR(OB_NOT_SUPPORTED, "file format");
@@ -833,6 +1263,9 @@ public:
   int close() override
   {
     reader_.close();
+    if (json_in_.is_open()) { json_in_.close(); }
+    glob_files_.reuse();
+    glob_pos_ = 0;
     opened_ = false;
     return OB_SUCCESS;
   }
@@ -875,14 +1308,124 @@ private:
   int open_reader()
   {
     int ret = OB_SUCCESS;
-    if (FileTableFormat::CSV != format_) {
+    if (FileTableFormat::CSV == format_) {
+      if (OB_FAIL(reader_.open(path_))) {
+      } else if (header_ && OB_FAIL(reader_.next())) {
+        if (OB_ITER_END == ret) {
+          ret = OB_SUCCESS;
+        }
+      }
+    } else if (FileTableFormat::JSONL == format_) {
+      json_path_.assign(path_.ptr(), path_.length());
+      json_in_.open(json_path_, std::ios::binary);
+      if (!json_in_.is_open()) {
+        ret = OB_FILE_NOT_EXIST;
+      }
+    } else {
       ret = OB_NOT_SUPPORTED;
       LOG_USER_ERROR(OB_NOT_SUPPORTED, "file format");
-    } else if (OB_FAIL(reader_.open(path_))) {
-    } else if (header_ && OB_FAIL(reader_.next())) {
-      if (OB_ITER_END == ret) {
-        ret = OB_SUCCESS;
+    }
+    return ret;
+  }
+  int open_glob()
+  {
+    int ret = OB_SUCCESS;
+    glob_files_.reuse();
+    glob_pos_ = 0;
+    std::string pattern(path_.ptr(), path_.length());
+    std::filesystem::path pattern_path(pattern);
+    std::string dir = pattern_path.parent_path().string();
+    std::string filter = pattern_path.filename().string();
+    if (dir.empty()) { dir = "."; }
+    std::error_code ec;
+    std::vector<std::string> files;
+    if (!std::filesystem::exists(dir, ec) || ec) {
+      ret = OB_FILE_NOT_EXIST;
+    } else {
+      if (std::string::npos == filter.find('*') && std::string::npos == filter.find('?')) {
+        if (std::filesystem::is_regular_file(pattern_path, ec) && !ec) {
+          std::string full = pattern_path.string();
+          for (size_t j = 0; j < full.size(); ++j) {
+            if ('\\' == full[j]) { full[j] = '/'; }
+          }
+          files.push_back(full);
+        }
+      } else {
+        for (std::filesystem::directory_iterator it(dir, ec), end;
+             OB_SUCC(ret) && !ec && it != end; it.increment(ec)) {
+          std::error_code file_ec;
+          if (!it->is_regular_file(file_ec) || file_ec) {
+            continue;
+          }
+          const std::string name = it->path().filename().string();
+          if (file_glob_match(name.c_str(), filter.c_str())) {
+            std::string full = it->path().string();
+            for (size_t j = 0; j < full.size(); ++j) {
+              if ('\\' == full[j]) { full[j] = '/'; }
+            }
+            files.push_back(full);
+          }
+        }
+        if (ec) {
+          ret = OB_IO_ERROR;
+        }
       }
+    }
+    if (OB_SUCC(ret)) {
+      std::sort(files.begin(), files.end());
+      for (size_t i = 0; OB_SUCC(ret) && i < files.size(); ++i) {
+        ObString file;
+        if (OB_FAIL(ob_write_string(allocator_,
+                                    ObString(static_cast<int32_t>(files[i].size()),
+                                             files[i].data()),
+                                    file))) {
+        } else if (OB_FAIL(glob_files_.push_back(file))) {
+        }
+      }
+    }
+    return ret;
+  }
+  int next_json_object(JsonObject &object)
+  {
+    int ret = OB_SUCCESS;
+    object.fields_.clear();
+    std::string line;
+    bool got = false;
+    while (!got && std::getline(json_in_, line)) {
+      if (!line.empty() && '\r' == line.back()) { line.pop_back(); }
+      if (line.empty()) { continue; }
+      if (OB_FAIL(json_parse_object(line, object))) {
+        LOG_WARN("failed to parse JSON line", K(ret));
+      } else {
+        got = true;
+      }
+    }
+    if (OB_SUCC(ret) && !got) {
+      ret = OB_ITER_END;
+    }
+    return ret;
+  }
+  int make_json_obj(const FileTableColumn &column, const JsonValue &value, ObObj &obj)
+  {
+    int ret = OB_SUCCESS;
+    if (JsonValueType::JNULL == value.type_) {
+      obj.set_null();
+    } else if (JsonValueType::JBOOL == value.type_) {
+      obj.set_bool(value.bool_);
+    } else if (JsonValueType::JINT == value.type_) {
+      if (ObDoubleType == column.meta_.get_type()) {
+        obj.set_double(static_cast<double>(value.int_));
+      } else {
+        obj.set_int(value.int_);
+      }
+    } else if (JsonValueType::JDOUBLE == value.type_) {
+      obj.set_double(value.double_);
+    } else if (JsonValueType::JSTRING == value.type_) {
+      ret = make_obj(column,
+                     ObString(static_cast<int32_t>(value.str_.size()), value.str_.data()),
+                     true, obj);
+    } else {
+      ret = OB_INVALID_DATA;
     }
     return ret;
   }
@@ -948,10 +1491,15 @@ private:
   FileTableFormat format_;
   bool header_;
   CsvRecordReader reader_;
+  std::ifstream json_in_;
+  std::string json_path_;
+  JsonObject json_object_;
   ObSEArray<FileTableColumn, 16> columns_;
   ObSEArray<ObObj, 16> values_;
   ObSEArray<ObObj, 16> cells_;
   ObNewRow row_;
+  ObSEArray<ObString, 32> glob_files_;
+  int64_t glob_pos_;
   bool opened_;
 };
 }
