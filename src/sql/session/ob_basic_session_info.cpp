@@ -1906,7 +1906,7 @@ int ObBasicSessionInfo::set_cur_phy_plan(const ObPhysicalPlan *cur_phy_plan)
   return ret;
 }
 
-void ObBasicSessionInfo::set_current_trace_id(common::ObCurTraceId::TraceId *trace_id)
+void ObBasicSessionInfo::set_current_trace_id(const common::ObCurTraceId::TraceId *trace_id)
 {
   if (OB_ISNULL(trace_id)) {
   } else {
@@ -4041,6 +4041,11 @@ int ObBasicSessionInfo::get_enable_parallel_query(bool &v) const
 int ObBasicSessionInfo::get_enable_parallel_ddl(bool &v) const
 {
   return get_bool_sys_var(SYS_VAR__ENABLE_PARALLEL_DDL, v);
+}
+
+int ObBasicSessionInfo::get_enable_file_sql(bool &v) const
+{
+  return get_bool_sys_var(SYS_VAR_ENABLE_FILE_SQL, v);
 }
 
 int ObBasicSessionInfo::get_force_parallel_query_dop(uint64_t &v) const
