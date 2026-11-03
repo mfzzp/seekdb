@@ -20,6 +20,7 @@
 #include <memory>
 
 #include "ob_select_into_op.h"
+#include "lib/string/ob_sql_string.h"
 #include "sql/engine/cmd/ob_variable_set_executor.h"
 #include "lib/charset/ob_charset_string_helper.h"
 #include "sql/engine/px/ob_px_sqc_handler.h"
@@ -38,7 +39,7 @@ OB_SERIALIZE_MEMBER(ObSelectIntoOpInput, task_id_, sqc_id_);
 OB_SERIALIZE_MEMBER((ObSelectIntoSpec, ObOpSpec), into_type_, user_vars_, outfile_name_,
     field_str_, line_str_, closed_cht_, is_optional_, select_exprs_, is_single_, max_file_size_,
     escaped_cht_, cs_type_, parallel_, buffer_size_, is_overwrite_,
-    external_properties_);
+    external_properties_, with_header_, null_str_, column_names_);
 
 
 int ObSelectIntoOp::inner_open()
@@ -253,6 +254,11 @@ int ObSelectIntoOp::inner_get_next_batch(const int64_t max_row_cnt)
     if (OB_FAIL(create_the_only_data_writer(data_writer))) {
     } else if (OB_ISNULL(data_writer)) {
       ret = OB_ERR_UNEXPECTED;
+    } else if (MY_SPEC.with_header_ && !header_written_) {
+      if (OB_FAIL(write_header(data_writer))) {
+      } else {
+        header_written_ = true;
+      }
     }
   }
 
@@ -932,8 +938,12 @@ int ObSelectIntoOp::print_field(const ObObj &obj, ObCsvFileWriter &data_writer)
   if (!has_escape_) {
     OZ(write_obj_to_file(obj, data_writer, false));
   } else if (obj.is_null()) {
-    OZ(write_single_char_to_file(&char_escape_, data_writer));
-    OZ(write_single_char_to_file(&char_n, data_writer));
+    if (MY_SPEC.null_str_.get_val_len() > 0) {
+      OZ(write_obj_to_file(MY_SPEC.null_str_, data_writer, false));
+    } else {
+      OZ(write_single_char_to_file(&char_escape_, data_writer));
+      OZ(write_single_char_to_file(&char_n, data_writer));
+    }
   } else {
     OZ(write_obj_to_file(obj, data_writer, true));
   }
@@ -980,6 +990,29 @@ int ObSelectIntoOp::into_outfile(ObExternalFileWriter *data_writer)
   OZ(csv_data_writer->flush_shared_buf(shared_buf_));
   if (has_compress_) {
     OZ(csv_data_writer->flush_buf());
+  }
+  return ret;
+}
+
+int ObSelectIntoOp::write_header(ObExternalFileWriter *data_writer)
+{
+  int ret = OB_SUCCESS;
+  ObCsvFileWriter *csv_writer = NULL;
+  ObSqlString header;
+  const ObString field = field_str_.get_varchar();
+  const ObString line = line_str_.get_varchar();
+  if (OB_ISNULL(data_writer)
+      || OB_ISNULL(csv_writer = static_cast<ObCsvFileWriter *>(data_writer))) {
+    ret = OB_ERR_UNEXPECTED;
+  }
+  for (int64_t i = 0; OB_SUCC(ret) && i < MY_SPEC.column_names_.count(); ++i) {
+    if (OB_FAIL(header.append(MY_SPEC.column_names_.at(i)))) {
+    } else if (i + 1 < MY_SPEC.column_names_.count() && OB_FAIL(header.append(field))) {
+    }
+  }
+  if (OB_SUCC(ret) && OB_FAIL(header.append(line))) {
+  } else if (OB_SUCC(ret)
+             && OB_FAIL(csv_writer->flush_data(header.ptr(), header.length()))) {
   }
   return ret;
 }
