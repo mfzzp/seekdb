@@ -189,6 +189,11 @@ int TableItem::deep_copy(ObIRawExprCopier &expr_copier,
   table_function_requires_all_columns_ = other.table_function_requires_all_columns_;
   OZ (function_argument_column_counts_.assign(other.function_argument_column_counts_));
   OZ (function_column_names_.assign(other.function_column_names_));
+  if (OB_SUCC(ret) && OB_NOT_NULL(allocator) && !other.function_table_options_.empty()) {
+    OZ (ob_write_string(*allocator, other.function_table_options_, function_table_options_));
+  } else if (OB_SUCC(ret)) {
+    function_table_options_ = other.function_table_options_;
+  }
   SampleInfo *buf = NULL;
   if (other.json_table_def_ != nullptr
       && OB_FAIL(deep_copy_json_table_def(*other.json_table_def_, expr_copier, allocator))) {

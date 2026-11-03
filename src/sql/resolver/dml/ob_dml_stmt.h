@@ -299,6 +299,8 @@ struct TableItem
   bool table_function_requires_all_columns_;
   common::ObSEArray<int64_t, 4> function_argument_column_counts_;
   common::ObSEArray<common::ObString, 8> function_column_names_;
+  // Serialized file-table schema/options consumed by the scan operator.
+  common::ObString function_table_options_;
   int64_t ddl_schema_version_;
   int64_t ddl_table_id_;
   // table partition
