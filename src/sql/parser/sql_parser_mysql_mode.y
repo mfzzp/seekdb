@@ -12238,12 +12238,18 @@ COPY '(' select_stmt ')' TO STRING_VALUE copy_options
   ParseNode *select_node = $3;
   ParseNode *type_str = NULL;
   malloc_terminal_node(type_str, result->malloc_pool_, T_VARCHAR);
-  type_str->str_value_ = const_cast<char *>("csv");
+  type_str->str_value_ = (char *)("csv");
   type_str->str_len_ = 3;
   ParseNode *format_type = NULL;
   malloc_non_terminal_node(format_type, result->malloc_pool_, T_EXTERNAL_FILE_FORMAT_TYPE, 1, type_str);
   ParseNode *format_list = NULL;
-  merge_nodes(format_list, result, T_EXTERNAL_FILE_FORMAT, format_type);
+  ParseNode *field_str = NULL;
+  malloc_terminal_node(field_str, result->malloc_pool_, T_VARCHAR);
+  field_str->str_value_ = (char *)(",");
+  field_str->str_len_ = 1;
+  ParseNode *field_node = NULL;
+  malloc_non_terminal_node(field_node, result->malloc_pool_, T_FIELD_TERMINATED_STR, 1, field_str);
+  malloc_non_terminal_node(format_list, result->malloc_pool_, T_EXTERNAL_FILE_FORMAT, 2, format_type, field_node);
   ParseNode *into_node = NULL;
   malloc_non_terminal_node(into_node, result->malloc_pool_, T_INTO_OUTFILE, 5,
                            $6, format_list, NULL, $7->children_[0], $7->children_[1]);
@@ -12260,7 +12266,7 @@ copy_options:
   malloc_terminal_node(header, result->malloc_pool_, T_BOOL);
   header->value_ = 0;
   malloc_terminal_node(nullstr, result->malloc_pool_, T_VARCHAR);
-  nullstr->str_value_ = const_cast<char *>("");
+  nullstr->str_value_ = (char *)("");
   nullstr->str_len_ = 0;
   malloc_non_terminal_node($$, result->malloc_pool_, T_LINK_NODE, 2, header, nullstr);
 }
@@ -12291,7 +12297,7 @@ copy_options:
   }
   if (NULL == nullstr) {
     malloc_terminal_node(nullstr, result->malloc_pool_, T_VARCHAR);
-    nullstr->str_value_ = const_cast<char *>("");
+    nullstr->str_value_ = (char *)("");
     nullstr->str_len_ = 0;
   }
   malloc_non_terminal_node($$, result->malloc_pool_, T_LINK_NODE, 2, header, nullstr);

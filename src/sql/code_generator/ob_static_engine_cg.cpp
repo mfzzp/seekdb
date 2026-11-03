@@ -5458,8 +5458,10 @@ int ObStaticEngineCG::generate_spec(ObLogSelectInto &op, ObSelectIntoSpec &spec,
   } else if (OB_FAIL(deep_copy_obj(alloc, op.get_closed_cht(), spec.closed_cht_))) {
   } else if (OB_FAIL(deep_copy_obj(alloc, op.get_escaped_cht(), spec.escaped_cht_))) {
   } else if (OB_FAIL(spec.external_properties_.store_str(op.get_external_properties()))) {
+  } else if (OB_FAIL(deep_copy_obj(alloc, op.get_null_str(), spec.null_str_))) {
   } else if (OB_FAIL(spec.user_vars_.init(op.get_user_vars().count()))) {
   } else if (OB_FAIL(spec.select_exprs_.init(op.get_select_exprs().count()))) {
+  } else if (OB_FAIL(spec.column_names_.init(op.get_select_exprs().count()))) {
   } else {
     ObString var;
     for (int64_t i = 0; OB_SUCC(ret) && i < op.get_user_vars().count(); ++i) {
@@ -5475,6 +5477,19 @@ int ObStaticEngineCG::generate_spec(ObLogSelectInto &op, ObSelectIntoSpec &spec,
         ret = OB_ERR_UNEXPECTED;
       } else if (OB_FAIL(generate_rt_expr(*select_expr, rt_expr))) {
       } else if (OB_FAIL(spec.select_exprs_.push_back(rt_expr))) {
+      } else {
+        ObString name;
+        const ObSelectStmt *select_stmt = static_cast<const ObSelectStmt *>(op.get_stmt());
+        if (OB_NOT_NULL(select_stmt) && i < select_stmt->get_select_item_size()) {
+          const SelectItem &item = select_stmt->get_select_item(i);
+          name = item.alias_name_.empty() ? item.expr_name_ : item.alias_name_;
+        }
+        if (name.empty()) { name = select_expr->get_alias_column_name(); }
+        if (name.empty()) { name = select_expr->get_expr_name(); }
+        ObString copied;
+        if (OB_FAIL(ob_write_string(alloc, name, copied))) {
+        } else if (OB_FAIL(spec.column_names_.push_back(copied))) {
+        }
       }
     }
     if (OB_SUCC(ret)) {
@@ -5486,6 +5501,7 @@ int ObStaticEngineCG::generate_spec(ObLogSelectInto &op, ObSelectIntoSpec &spec,
       spec.cs_type_ = op.get_cs_type();
       spec.parallel_ = op.get_parallel();
       spec.is_overwrite_ = op.get_is_overwrite();
+      spec.with_header_ = op.get_with_header();
       spec.plan_->need_drive_dml_query_ = true;
     }
   }
