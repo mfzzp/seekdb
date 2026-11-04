@@ -121,6 +121,14 @@ int ObResolverUtils::get_all_function_table_column_names(const TableItem &table_
                                                          ObIArray<ObString> &column_names)
 {
   int ret = OB_SUCCESS;
+  // Registered table functions carry their bound names, including aliases.
+  // Their argument expression does not describe a PL collection type.
+  if (!table_item.function_column_names_.empty()) {
+    for (int64_t i = 0; OB_SUCC(ret) && i < table_item.function_column_names_.count(); ++i) {
+      OZ (column_names.push_back(table_item.function_column_names_.at(i)));
+    }
+    return ret;
+  }
   ObRawExpr *table_expr = NULL;
   ObPLPackageGuard *package_guard = nullptr;
   const ObUserDefinedType *user_type = NULL;
