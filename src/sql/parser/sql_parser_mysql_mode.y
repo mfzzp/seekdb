@@ -12318,6 +12318,11 @@ copy_option
 copy_option:
 FORMAT opt_equal_mark copy_format_name
 {
+  (void)($2);
+  if (3 != $3->str_len_ || 0 != strncasecmp($3->str_value_, "csv", 3)) {
+    yyerror(NULL, result, "unsupported COPY format\n");
+    YYABORT_PARSE_SQL_ERROR;
+  }
   malloc_terminal_node($$, result->malloc_pool_, T_INT);
   $$->value_ = 0;
 }
@@ -12332,6 +12337,7 @@ FORMAT opt_equal_mark copy_format_name
 }
 | NAME_OB opt_equal_mark BOOL_VALUE
 {
+  (void)($2);
   if (0 != strcasecmp($1->str_value_, "header")) {
     yyerror(NULL, result, "unsupported COPY option\n");
     YYABORT_PARSE_SQL_ERROR;
@@ -12340,6 +12346,7 @@ FORMAT opt_equal_mark copy_format_name
 }
 | NAME_OB opt_equal_mark STRING_VALUE
 {
+  (void)($2);
   if (0 != strcasecmp($1->str_value_, "nullstr")) {
     yyerror(NULL, result, "unsupported COPY option\n");
     YYABORT_PARSE_SQL_ERROR;
