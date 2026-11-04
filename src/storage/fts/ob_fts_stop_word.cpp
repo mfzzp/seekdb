@@ -164,15 +164,36 @@ int ObAddWord::casedown_word(const ObFTWord &src, ObFTWord &dst)
   if (OB_UNLIKELY(src.empty())) {
     ret = OB_INVALID_ARGUMENT;
   } else if (flag_.casedown()) {
-    ObString dst_str;
-    if (OB_FAIL(ObCharset::tolower(
-                    word_meta_.get_collation_type(),
-                    src.get_word().get_string(),
-                    dst_str,
-                    allocator_))) {
+    const ObString &src_str = src.get_word().get_string();
+    bool is_ascii = true;
+    for (int64_t i = 0; is_ascii && i < src_str.length(); ++i) {
+      if (static_cast<unsigned char>(src_str.ptr()[i]) >= 0x80) {
+        is_ascii = false;
+      }
+    }
+    if (is_ascii) {
+      char *buf = static_cast<char *>(allocator_.alloc(src_str.length()));
+      if (OB_ISNULL(buf)) {
+        ret = OB_ALLOCATE_MEMORY_FAILED;
+      } else {
+        for (int64_t i = 0; i < src_str.length(); ++i) {
+          const char c = src_str.ptr()[i];
+          buf[i] = (c >= 'A' && c <= 'Z') ? static_cast<char>(c + ('a' - 'A')) : c;
+        }
+        ObFTWord tmp(src_str.length(), buf, word_meta_);
+        dst = tmp;
+      }
     } else {
-      ObFTWord tmp(dst_str.length(), dst_str.ptr(), word_meta_);
-      dst = tmp;
+      ObString dst_str;
+      if (OB_FAIL(ObCharset::tolower(
+                      word_meta_.get_collation_type(),
+                      src_str,
+                      dst_str,
+                      allocator_))) {
+      } else {
+        ObFTWord tmp(dst_str.length(), dst_str.ptr(), word_meta_);
+        dst = tmp;
+      }
     }
   } else {
     dst = src;
