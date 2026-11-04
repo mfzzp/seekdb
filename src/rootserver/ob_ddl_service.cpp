@@ -7452,10 +7452,12 @@ int ObDDLService::fill_new_column_attributes(
     new_column_schema.set_on_update_current_timestamp(
         alter_column_schema.is_on_update_current_timestamp());
     new_column_schema.set_extended_type_info(alter_column_schema.get_extended_type_info());
+    if (OB_FAIL(new_column_schema.set_ai_column_info(alter_column_schema.get_ai_column_info()))) {
+    }
     new_column_schema.set_srs_id(alter_column_schema.get_srs_id());
     new_column_schema.set_skip_index_attr(alter_column_schema.get_skip_index_attr().get_packed_value());
     new_column_schema.set_lob_chunk_size(alter_column_schema.get_lob_chunk_size());
-    if (OB_FAIL(new_column_schema.get_local_session_var().deep_copy(alter_column_schema.get_local_session_var()))) {
+    if (OB_SUCC(ret) && OB_FAIL(new_column_schema.get_local_session_var().deep_copy(alter_column_schema.get_local_session_var()))) {
     }
   }
   return ret;
@@ -7767,6 +7769,16 @@ int ObDDLService::add_new_column_to_table_schema(
       LOG_USER_ERROR(OB_OP_NOT_ALLOW, "inner table add column without column_id");
     } else {
       alter_column_schema.set_column_id(++max_used_column_id);
+      if (alter_column_schema.is_ai_column()) {
+        share::schema::AiColumnDefinition definition;
+        if (OB_FAIL(alter_column_schema.get_ai_column_definition(definition))) {
+        } else {
+          definition.state_column_id_ = max_used_column_id + 1;
+          definition.request_column_id_ = max_used_column_id + 2;
+          definition.result_spec_column_id_ = max_used_column_id + 3;
+          ret = alter_column_schema.set_ai_column_definition(definition);
+        }
+      }
       alter_column_schema.set_rowkey_position(0);
       alter_column_schema.set_index_position(0);
       alter_column_schema.set_not_part_key();
@@ -8456,6 +8468,8 @@ int ObDDLService::alter_table_column(const ObTableSchema &origin_table_schema,
               if (OB_FAIL(new_column_schema.assign(*orig_column_schema))) {
               } else if (OB_FAIL(fill_new_column_attributes(*alter_column_schema,
                                                      new_column_schema))) {
+              } else if (new_column_schema.is_ai_column() && !orig_column_schema->is_ai_column()
+                         && OB_FAIL(new_column_schema.bind_ai_column_hidden_ids(new_table_schema))) {
               } else if (OB_FAIL(resolve_timestamp_column(alter_column_schema,
                                                           new_table_schema,
                                                           new_column_schema,

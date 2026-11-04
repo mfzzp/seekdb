@@ -342,7 +342,8 @@ all_column_def = dict(
       ('sub_data_type', 'int', 'false', '0'),
       ('skip_index_attr', 'int', 'false', '0'),
       ('lob_chunk_size', 'int', 'false', 'OB_DEFAULT_LOB_CHUNK_SIZE'),
-      ('local_session_vars', 'longtext', 'true')
+      ('local_session_vars', 'longtext', 'true'),
+      ('ai_column_info', 'varbinary:OB_MAX_VARBINARY_LENGTH', 'true')
   ]
   )
 
@@ -2446,6 +2447,37 @@ all_ai_model_endpoint_def = dict(
 )
 def_table_schema(**all_ai_model_endpoint_def)
 
+
+# AI definitions use the owning DDL transaction; row state lives in hidden columns.
+all_ai_column_def = dict(
+    owner = 'seekdb',
+    table_name = '__all_ai_column',
+    table_id = '1131',
+    table_type = 'SYSTEM_TABLE',
+    gm_columns = ['gmt_create', 'gmt_modified'],
+    rowkey_columns = [
+        ('table_id', 'int'),
+        ('column_id', 'int')
+    ],
+    is_cluster_private = False,
+    meta_record_in_sys = False,
+    normal_columns = [
+        ('column_name', 'varchar:OB_MAX_COLUMN_NAME_LENGTH', 'false'),
+        ('schema_version', 'int', 'false'),
+        ('definition_version', 'int', 'false'),
+        ('normalized_expr', 'longtext', 'false'),
+        ('dependency_column_ids', 'longtext', 'false'),
+        ('model_id', 'int', 'false'),
+        ('model_type', 'int', 'false'),
+        ('sync_mode', 'varchar:16', 'false', 'async'),
+        ('max_retries', 'int', 'false', 2),
+        ('state_column_id', 'int', 'false'),
+        ('request_column_id', 'int', 'false'),
+        ('result_spec_column_id', 'int', 'false')
+    ]
+)
+def_table_schema(**all_ai_column_def)
+def_table_schema(**gen_history_table_def(1132, all_ai_column_def))
 
 all_objauth_mysql_def = dict(
     owner = 'cjl476581',

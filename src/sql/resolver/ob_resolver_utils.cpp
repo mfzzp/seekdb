@@ -1681,6 +1681,10 @@ stmt::StmtType ObResolverUtils::get_stmt_type_by_item_type(const ObItemType item
 {
   stmt::StmtType type;
   switch (item_type) {
+    case T_SHOW_AI_COLUMNS: {
+      type = stmt::T_SHOW_COLUMNS;
+      break;
+    }
 #define SET_STMT_TYPE(item_type) \
   case item_type: {              \
     type = stmt::item_type;      \

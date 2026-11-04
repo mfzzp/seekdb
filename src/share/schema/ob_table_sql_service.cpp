@@ -29,6 +29,54 @@ namespace share
 {
 namespace schema
 {
+// Use the caller's SQL client (the owning DDL transaction), never a proxy.
+static int write_ai_column_catalog(ObISQLClient &client, const ObColumnSchemaV2 &column,
+                                   bool deleted = false, int64_t version = 0,
+                                   uint64_t table_id = OB_INVALID_ID)
+{
+  int ret = OB_SUCCESS;
+  if (column.is_ai_column()) {
+    AiColumnDefinition definition;
+    ObDMLSqlSplicer dml;
+    ObDMLExecHelper exec(client);
+    ObSqlString dependencies;
+    int64_t affected = 0;
+    OZ (column.get_ai_column_definition(definition));
+    if (OB_SUCC(ret) && (definition.state_column_id_ == 0 || definition.request_column_id_ == 0
+        || definition.result_spec_column_id_ == 0 || definition.state_column_id_ == definition.request_column_id_
+        || definition.state_column_id_ == definition.result_spec_column_id_
+        || definition.request_column_id_ == definition.result_spec_column_id_)) {
+      ret = OB_ERR_UNEXPECTED;
+    }
+    for (int64_t i = 0; OB_SUCC(ret) && i < definition.dependency_ids_.count(); ++i) {
+      OZ (dependencies.append_fmt("%s%llu", i == 0 ? "" : ",",
+                                  static_cast<unsigned long long>(definition.dependency_ids_.at(i))));
+    }
+    OZ (dml.add_pk_column("table_id", ObSchemaUtils::get_extract_schema_id(
+        table_id == OB_INVALID_ID ? column.get_table_id() : table_id)));
+    OZ (dml.add_pk_column("column_id", column.get_column_id()));
+    if (deleted) {
+      OZ (exec.exec_delete(OB_ALL_AI_COLUMN_TNAME, dml, affected));
+    }
+    const int64_t schema_version = version == 0 ? column.get_schema_version() : version;
+    OZ (dml.add_column("column_name", ObHexEscapeSqlStr(column.get_column_name_str())));
+    OZ (dml.add_column("schema_version", schema_version));
+    OZ (dml.add_column("definition_version", schema_version));
+    OZ (dml.add_column("normalized_expr", ObHexEscapeSqlStr(definition.expression_)));
+    OZ (dml.add_column("dependency_column_ids", ObHexEscapeSqlStr(dependencies.string())));
+    OZ (dml.add_column("model_id", definition.model_id_));
+    OZ (dml.add_column("model_type", definition.model_type_));
+    OZ (dml.add_column("sync_mode", "async"));
+    OZ (dml.add_column("max_retries", definition.max_retries_));
+    OZ (dml.add_column("state_column_id", definition.state_column_id_));
+    OZ (dml.add_column("request_column_id", definition.request_column_id_));
+    OZ (dml.add_column("result_spec_column_id", definition.result_spec_column_id_));
+    if (!deleted) { OZ (exec.exec_insert_update(OB_ALL_AI_COLUMN_TNAME, dml, affected)); }
+    OZ (dml.add_column("is_deleted", deleted ? 1 : 0));
+    OZ (exec.exec_insert_update(OB_ALL_AI_COLUMN_HISTORY_TNAME, dml, affected));
+  }
+  return ret;
+}
 
 int ObTableSqlService::exec_update(
     ObISQLClient &sql_client,
@@ -682,6 +730,9 @@ int ObTableSqlService::drop_table(const ObTableSchema &table_schema,
     }
   }
   bool need_drop_column = (!table_schema.is_view_table() || table_schema.view_column_filled());
+  for (int64_t i = 0; OB_SUCC(ret) && i < table_schema.get_column_count(); ++i) {
+    OZ (write_ai_column_catalog(sql_client, *table_schema.get_column_schema_by_idx(i), true, new_schema_version));
+  }
   // delete from __all_column_history
   if (OB_FAIL(ret)) {
   } else if (need_drop_column && OB_FAIL(delete_from_all_column_history(
@@ -1143,6 +1194,13 @@ int ObTableSqlService::batch_add_columns_for_create_table(common::ObISQLClient &
     } else if (OB_FAIL(exec_dml(sql_client, OB_ALL_COLUMN_HISTORY_TNAME, dml, column_count))) {
     } else if (FALSE_IT(time_guard.click("insert_all_column_history"))) {
     }
+    for (int64_t i = 0; OB_SUCC(ret) && i < tables.count(); ++i) {
+      const ObTableSchema &table = tables.at(i);
+      for (int64_t j = 0; OB_SUCC(ret) && j < table.get_column_count(); ++j) {
+        OZ (write_ai_column_catalog(sql_client, *table.get_column_schema_by_idx(j), false,
+                                    table.get_schema_version(), table.get_table_id()));
+      }
+    }
   }
   return ret;
 }
@@ -1164,6 +1222,10 @@ int ObTableSqlService::add_columns_for_not_core(ObISQLClient &sql_client,
   } else if (OB_FAIL(exec_dml(sql_client, OB_ALL_COLUMN_TNAME, dml, column_count))) {
   } else if (OB_FAIL(dml.set_default_columns("is_deleted", "0"))) {
   } else if (OB_FAIL(exec_dml(sql_client, OB_ALL_COLUMN_HISTORY_TNAME, dml, column_count))) {
+  }
+  for (int64_t i = 0; OB_SUCC(ret) && i < table.get_column_count(); ++i) {
+    OZ (write_ai_column_catalog(sql_client, *table.get_column_schema_by_idx(i), false,
+                                table.get_schema_version(), table.get_table_id()));
   }
   return ret;
 }
@@ -1638,6 +1700,7 @@ int ObTableSqlService::add_single_column(ObISQLClient &sql_client,
     }
   }
 
+  if (OB_SUCC(ret)) { ret = write_ai_column_catalog(sql_client, column); }
   return ret;
 }
 
@@ -1990,6 +2053,10 @@ int ObTableSqlService::delete_single_column(
   
   const uint64_t table_id = new_table_schema.get_table_id();
   const uint64_t column_id = orig_column_schema.get_column_id();
+
+  if (OB_FAIL(write_ai_column_catalog(sql_client, orig_column_schema, true, new_schema_version))) {
+    return ret;
+  }
 
   ObDMLSqlSplicer dml;
   if (OB_FAIL(check_ddl_allowed(new_table_schema))) {
@@ -3188,6 +3255,7 @@ int ObTableSqlService::gen_column_dml_without_check(
                                                     column.get_table_id())))
                          || OB_FAIL(dml.add_pk_column("column_id", column.get_column_id()))
                          || OB_FAIL(dml.add_column("column_name", ObHexEscapeSqlStr(column.get_column_name())))
+                         || OB_FAIL(dml.add_column("ai_column_info", ObHexEscapeSqlStr(column.get_ai_column_info())))
                          || OB_FAIL(dml.add_column("rowkey_position", column.get_rowkey_position()))
                          || OB_FAIL(dml.add_column("index_position", column.get_index_position()))
                          || OB_FAIL(dml.add_column("partition_key_position", column.get_tbl_part_key_pos()))

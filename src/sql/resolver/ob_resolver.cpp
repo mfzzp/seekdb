@@ -16,6 +16,8 @@
 
 #define USING_LOG_PREFIX SQL_RESV
 #include "sql/resolver/ob_resolver.h"
+#include "sql/parser/ob_parser.h"
+#include "lib/string/ob_sql_string.h"
 #include "lib/utility/ob_smart_call.h"
 #include "lib/stat/ob_diagnostic_info_guard.h"
 #include "sql/resolver/cmd/ob_alter_system_resolver.h"
@@ -163,6 +165,56 @@ int ObResolver::resolve(IsPrepared if_prepared, const ParseNode &parse_tree, ObS
     real_parse_tree = &parse_tree;
   }
 
+  if (OB_SUCC(ret) && parse_tree.type_ == T_SHOW_AI_COLUMNS) {
+    const ParseNode *relation = parse_tree.num_child_ == 1 ? parse_tree.children_[0] : nullptr;
+    const share::schema::ObTableSchema *table = nullptr;
+    if (relation == nullptr || relation->num_child_ < 2 || relation->children_[1] == nullptr
+        || (relation->num_child_ > 2 && relation->children_[2] != nullptr)) {
+      return OB_INVALID_ARGUMENT;
+    }
+    const ParseNode *name = relation->children_[1];
+    const ParseNode *database = relation->children_[0];
+    ObString database_name = database == nullptr ? params_.session_info_->get_database_name()
+        : ObString(database->str_len_, database->str_value_);
+    ObString table_name(name->str_len_, name->str_value_);
+    if (OB_FAIL(params_.schema_checker_->get_table_schema(database_name, table_name, false, table))) {
+      return ret;
+    } else if (table == nullptr) {
+      return OB_TABLE_NOT_EXIST;
+    }
+    ObSqlString query;
+    OZ (query.append("SELECT a.column_name AS `Column_name`, a.normalized_expr AS `Expression`, "
+                     "a.sync_mode AS `Sync_mode`, a.max_retries AS `Max_retries` "
+                     "FROM oceanbase.__all_ai_column a JOIN (SELECT COUNT(*) AS n FROM "));
+    auto append_identifier = [&](const ObString &identifier) -> int {
+      int ret = OB_SUCCESS;
+      OZ (query.append("`"));
+      for (int64_t i = 0; OB_SUCC(ret) && i < identifier.length(); ++i) {
+        if (identifier.ptr()[i] == '`') { OZ (query.append("`")); }
+        OZ (query.append(identifier.ptr() + i, 1));
+      }
+      OZ (query.append("`"));
+      return ret;
+    };
+    // Keep a reference to the user table in the SELECT so native privilege
+    // checking applies, including when the definition catalog has no rows.
+    OZ (append_identifier(database_name));
+    OZ (query.append("."));
+    OZ (append_identifier(table_name));
+    OZ (query.append_fmt(" WHERE 1=0) checked ON checked.n=0 WHERE a.table_id=%llu ORDER BY a.column_id",
+                        static_cast<unsigned long long>(table->get_table_id())));
+    ObParser parser(*params_.allocator_, params_.session_info_->get_sql_mode(),
+                    params_.session_info_->get_charsets4parser());
+    ParseResult parsed;
+    OZ (parser.parse(query.string(), parsed));
+    if (OB_SUCC(ret) && (parsed.result_tree_ == nullptr || parsed.result_tree_->num_child_ < 1)) {
+      ret = OB_ERR_UNEXPECTED;
+    }
+    if (OB_SUCC(ret)) {
+      ret = SMART_CALL(resolve(if_prepared, *parsed.result_tree_->children_[0], stmt));
+    }
+    return ret;
+  }
   if (OB_SUCC(ret)) {
     params_.resolver_scope_stmt_type_ = parse_tree.type_;
     params_.session_info_->set_stmt_type(

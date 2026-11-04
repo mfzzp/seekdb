@@ -390,6 +390,17 @@ int ObCreateTableResolver::resolve(const ParseNode &parse_tree)
       if (OB_FAIL(deep_copy_string_in_part_expr(create_table_stmt))) {
       }
     }
+    if (OB_SUCC(ret)) {
+      ObTableSchema &schema = create_table_stmt->get_create_table_arg().schema_;
+      const int64_t count = schema.get_column_count();
+      for (int64_t i = 0; OB_SUCC(ret) && i < count; ++i) {
+        ObColumnSchemaV2 *column = schema.get_column_schema_by_idx(i);
+        if (column != nullptr && column->is_ai_column()) {
+          OZ (resolve_ai_column_dependencies(*column, schema));
+          OZ (add_ai_column_hidden_columns(schema, *column, false));
+        }
+      }
+    }
     if (OB_SUCC(ret) && is_create_as_sel) {
       if (OB_FAIL(resolve_hints(create_table_node->children_[9],
                                *create_table_stmt,

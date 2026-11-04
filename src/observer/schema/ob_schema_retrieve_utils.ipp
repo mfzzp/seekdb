@@ -1056,6 +1056,15 @@ int ObSchemaRetrieveUtils::fill_column_schema(const bool check_deleted, T &resul
       } else {}
     }
 
+    if (OB_SUCC(ret)) {
+      ObString ai_column_info;
+      ObString empty_info;
+      EXTRACT_VARCHAR_FIELD_MYSQL_WITH_DEFAULT_VALUE(result, "ai_column_info", ai_column_info,
+                                                   true, true, empty_info);
+      if (OB_SUCC(ret) && OB_FAIL(column.set_ai_column_info(ai_column_info))) {
+        SHARE_SCHEMA_LOG(WARN, "failed to restore AI column definition", K(ret));
+      }
+    }
     if (OB_SUCC(ret) && column.is_generated_column()) {
       bool skip_null_error = true;
       bool skip_column_error = true;

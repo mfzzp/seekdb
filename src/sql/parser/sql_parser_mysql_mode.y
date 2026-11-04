@@ -385,6 +385,7 @@ END_P SET_VAR DELIMITER
 %type <node> drop_table_stmt table_list drop_view_stmt table_or_tables
 %type <node> explain_stmt explainable_stmt format_name kill_stmt create_outline_stmt alter_outline_stmt drop_outline_stmt opt_outline_target
 %type <node> copy_stmt copy_options copy_option copy_option_list copy_format_name
+%type <node> opt_ai_column_options ai_column_options ai_column_option ai_column_option_value opt_ai_column_dimension
 %type <node> expr_list expr expr_const conf_const simple_expr expr_or_default bit_expr bool_pri predicate explain_or_desc pl_expr_stmt
 %type <node> column_ref multi_delete_table
 %type <node> case_expr func_expr in_expr sub_query_flag search_expr
@@ -6130,6 +6131,26 @@ column_attribute_list column_attribute
 }
 
 column_attribute:
+AI COLUMN '(' relation_name '(' STRING_VALUE ',' expr opt_ai_column_dimension ')' ')' opt_ai_column_options
+{
+  ParseNode *arguments = NULL;
+  ParseNode *function = NULL;
+  ParseNode *prompt = NULL;
+  ParseNode *prefix = NULL;
+  if ($9 == NULL) {
+    malloc_non_terminal_node(arguments, result->malloc_pool_, T_EXPR_LIST, 2, $6, $8);
+  } else {
+    malloc_non_terminal_node(arguments, result->malloc_pool_, T_EXPR_LIST, 3, $6, $8, $9);
+  }
+  malloc_non_terminal_node(function, result->malloc_pool_, T_FUN_SYS, 2, $4, arguments);
+  dup_expr_string(function, result, @4.first_column, @10.last_column);
+  malloc_terminal_node(prompt, result->malloc_pool_, T_VARCHAR);
+  dup_expr_string(prompt, result, @8.first_column, @8.last_column);
+  malloc_terminal_node(prefix, result->malloc_pool_, T_VARCHAR);
+  dup_expr_string(prefix, result, @4.first_column, @7.last_column);
+  malloc_non_terminal_node($$, result->malloc_pool_, T_AI_COLUMN, 4, function, $12, prompt, prefix);
+}
+|
 not NULLX
 {
   (void)($1) ;
@@ -6652,6 +6673,49 @@ opt_empty_table_list:
 }
 ;
 
+
+opt_ai_column_dimension:
+/* empty */ { $$ = NULL; }
+| ',' INTNUM { $$ = $2; }
+;
+
+opt_ai_column_options:
+/* empty */ { $$ = NULL; }
+| WITH '(' ai_column_options ')'
+{
+  merge_nodes($$, result, T_EXPR_LIST, $3);
+}
+;
+
+ai_column_options:
+ai_column_option { $$ = $1; }
+| ai_column_options ',' ai_column_option
+{
+  malloc_non_terminal_node($$, result->malloc_pool_, T_LINK_NODE, 2, $1, $3);
+}
+;
+
+ai_column_option:
+NAME_OB opt_equal_mark ai_column_option_value
+{
+  (void)($2);
+  malloc_non_terminal_node($$, result->malloc_pool_, T_AI_COLUMN_OPTION, 2, $1, $3);
+}
+;
+
+ai_column_option_value:
+STRING_VALUE { $$ = $1; }
+| INTNUM { $$ = $1; }
+| '-' INTNUM
+{
+  if ($2->type_ != T_INT || $2->value_ < 0) {
+    yyerror(NULL, result, "invalid AI COLUMN option integer\n");
+    YYABORT_PARSE_SQL_ERROR;
+  }
+  $$ = $2;
+  $$->value_ = -$$->value_;
+}
+;
 
 opt_equal_mark:
 COMP_EQ     { $$ = NULL; }
@@ -12740,6 +12804,9 @@ CLASS_ORIGIN
  *
  *****************************************************************************/
 show_stmt:
+SHOW AI COLUMNS FROM relation_factor
+{ malloc_non_terminal_node($$, result->malloc_pool_, T_SHOW_AI_COLUMNS, 1, $5); }
+|
 SHOW TABLE FUNCTIONS
 { malloc_terminal_node($$, result->malloc_pool_, T_SHOW_TABLE_FUNCTIONS); }
 | DESCRIBE TABLE FUNCTION relation_name

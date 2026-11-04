@@ -1,0 +1,134 @@
+# Additional DDL checks: no endpoints or HTTP requests are needed.
+--disable_query_log
+--disable_result_log
+connection default;
+--disable_warnings
+drop database if exists ai_column_ddl_extra;
+--enable_warnings
+create database ai_column_ddl_extra;
+--error 0,11118
+call DBMS_AI_SERVICE.DROP_AI_MODEL('ddl_extra_completion');
+call DBMS_AI_SERVICE.CREATE_AI_MODEL('ddl_extra_completion',
+  '{"type":"completion","model_name":"ddl-only-model"}');
+
+# Forward references bind after all user columns have been resolved.
+create table ai_column_ddl_extra.docs(
+  id bigint primary key,
+  tags json AI COLUMN (AI_COMPLETE('ddl_extra_completion', concat('classify, (', content, ')')))
+    WITH (max_retries=0, sync_mode='ASYNC'),
+  content varchar(200)
+);
+let $table_id = `select t.table_id from oceanbase.__all_table t
+  join oceanbase.__all_database d on d.database_id=t.database_id
+  where d.database_name='ai_column_ddl_extra' and t.table_name='docs'`;
+let $ok = `select count(*)=1 and min(max_retries)=0 and min(definition_version)>0
+  from oceanbase.__all_ai_column where table_id=$table_id`;
+if ($ok == 0)
+{
+  --die CREATE did not persist the AI definition
+}
+let $state_id = `select state_column_id from oceanbase.__all_ai_column where table_id=$table_id`;
+let $ok = `select count(*)=3 from oceanbase.__all_column c
+  join oceanbase.__all_ai_column a on c.table_id=a.table_id
+  where a.table_id=$table_id and c.is_hidden=1
+    and c.column_id in (a.state_column_id,a.request_column_id,a.result_spec_column_id)`;
+if ($ok == 0)
+{
+  --die CREATE did not persist three hidden columns
+}
+
+alter table ai_column_ddl_extra.docs modify column tags json AI COLUMN (
+  AI_COMPLETE('ddl_extra_completion', content)
+) WITH (max_retries=5);
+let $ok = `select count(*)=1 and min(max_retries)=5 and min(state_column_id)=$state_id
+  from oceanbase.__all_ai_column where table_id=$table_id`;
+if ($ok == 0)
+{
+  --die MODIFY lost the definition or reallocated its hidden columns
+}
+alter table ai_column_ddl_extra.docs modify column tags json;
+let $ok = `select count(*)=1 and min(max_retries)=5 and min(state_column_id)=$state_id
+  from oceanbase.__all_ai_column where table_id=$table_id`;
+if ($ok == 0)
+{
+  --die ordinary MODIFY lost AI metadata
+}
+let $ok = `select count(*)=1 and min(length(c.ai_column_info))>0
+  from oceanbase.__all_column c join oceanbase.__all_ai_column a
+    on c.table_id=a.table_id and c.column_id=a.column_id
+  where a.table_id=$table_id`;
+if ($ok == 0)
+{
+  --die ordinary MODIFY lost the schema definition blob
+}
+show ai columns from ai_column_ddl_extra.docs;
+
+alter table ai_column_ddl_extra.docs add column label varchar(200) AI COLUMN (
+  AI_COMPLETE('ddl_extra_completion', content)
+);
+let $ok = `select count(*)=2 from oceanbase.__all_ai_column where table_id=$table_id`;
+if ($ok == 0)
+{
+  --die ALTER ADD did not persist the second definition
+}
+--error 1235
+alter table ai_column_ddl_extra.docs drop column content;
+--error 1235
+alter table ai_column_ddl_extra.docs alter column label set default 'manual';
+alter table ai_column_ddl_extra.docs add column converted varchar(200);
+alter table ai_column_ddl_extra.docs modify column converted varchar(200) AI COLUMN (
+  AI_COMPLETE('ddl_extra_completion', content)
+);
+let $ok = `select count(*)=3 from oceanbase.__all_ai_column where table_id=$table_id`;
+if ($ok == 0)
+{
+  --die converting an ordinary column did not persist its definition
+}
+alter table ai_column_ddl_extra.docs drop column converted;
+let $ok = `select count(*)=2 from oceanbase.__all_ai_column where table_id=$table_id`;
+if ($ok == 0)
+{
+  --die DROP COLUMN did not remove its AI definition
+}
+
+--error 1235
+create table ai_column_ddl_extra.bad_dependency(
+  result varchar(200) AI COLUMN (AI_COMPLETE('ddl_extra_completion', another)),
+  another varchar(200) AI COLUMN (AI_COMPLETE('ddl_extra_completion', content)),
+  content varchar(20)
+);
+--error 1210
+create table ai_column_ddl_extra.bad_mode(
+  content varchar(20),
+  result json AI COLUMN (AI_COMPLETE('ddl_extra_completion', content)) WITH (sync_mode='sync')
+);
+--error 1210
+create table ai_column_ddl_extra.bad_retries(
+  content varchar(20),
+  result json AI COLUMN (AI_COMPLETE('ddl_extra_completion', content)) WITH (max_retries=-1)
+);
+--error 1210
+create table ai_column_ddl_extra.duplicate_option(
+  content varchar(20),
+  result json AI COLUMN (AI_COMPLETE('ddl_extra_completion', content))
+    WITH (max_retries=1,max_retries=2)
+);
+let $ok = `select count(*)=0 from oceanbase.__all_table t
+  join oceanbase.__all_database d on d.database_id=t.database_id
+  where d.database_name='ai_column_ddl_extra' and t.table_name in
+    ('bad_dependency','bad_mode','bad_retries','duplicate_option')`;
+if ($ok == 0)
+{
+  --die rejected DDL left table metadata behind
+}
+
+# Ordinary DDL remains independent of the AI attribute.
+create table ai_column_ddl_extra.ordinary(id bigint primary key, content varchar(20));
+alter table ai_column_ddl_extra.ordinary add column n bigint;
+alter table ai_column_ddl_extra.ordinary modify column content varchar(40);
+drop table ai_column_ddl_extra.ordinary;
+drop table ai_column_ddl_extra.docs;
+call DBMS_AI_SERVICE.DROP_AI_MODEL('ddl_extra_completion');
+drop database ai_column_ddl_extra;
+--enable_result_log
+--echo ai_column_ddl_extended=ok
