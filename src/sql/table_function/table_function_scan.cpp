@@ -2294,6 +2294,7 @@ private:
           continue;
         }
         const std::string name = it->path().filename().string();
+        if (!name.empty() && '.' == name[0]) { continue; }
         if (file_glob_match(name.c_str(), filter.c_str())) {
           std::string full = it->path().string();
           for (size_t j = 0; j < full.size(); ++j) {
@@ -2321,6 +2322,7 @@ private:
         while (OB_SUCC(ret) && NULL != (entry = ::readdir(dirp))) {
           const char *name = entry->d_name;
           if (0 == strcmp(name, ".") || 0 == strcmp(name, "..")) { continue; }
+          if ('.' == name[0]) { continue; }
           if (!file_glob_match(name, filter.c_str())) { continue; }
           std::string full = dir;
           if (full.empty() || '/' != full[full.size() - 1]) { full.push_back('/'); }
