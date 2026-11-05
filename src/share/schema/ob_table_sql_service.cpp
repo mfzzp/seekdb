@@ -35,7 +35,7 @@ static int write_ai_column_catalog(ObISQLClient &client, const ObColumnSchemaV2 
                                    uint64_t table_id = OB_INVALID_ID)
 {
   int ret = OB_SUCCESS;
-  if (column.is_ai_column()) {
+  if (column.is_ai_column() && !column.is_hidden()) {
     AiColumnDefinition definition;
     ObDMLSqlSplicer dml;
     ObDMLExecHelper exec(client);
@@ -798,7 +798,7 @@ int ObTableSqlService::drop_table(const ObTableSchema &table_schema,
     if (OB_FAIL(log_operation_wrapper(opt, sql_client))) {
     } else {
       if (is_force_drop_lonely_lob_aux_table) {
-        // Due to some bugs, the lob aux table was not deleted along with the main tableã€‚
+        // Due to some bugs, the lob aux table was not deleted along with the main tableã€?
         // which would affect some features, such as load balancing. 
         // Therefore, a way needs to be provided to force the deletion of the lob aux table.
         // However, since the main table corresponding to the lob aux table has already been deleted
@@ -1028,7 +1028,17 @@ int ObTableSqlService::update_single_column(
   if (OB_SUCC(ret)) {
     const bool only_history = true;
     if (OB_FAIL(add_single_column(sql_client, new_column_schema, only_history))) {
-    } else if (record_ddl_operation) {
+    } else {
+      const ObColumnSchemaV2 *origin_ai_column =
+          origin_table_schema.get_column_schema(new_column_schema.get_column_id());
+      if (new_column_schema.is_unused() && OB_NOT_NULL(origin_ai_column)
+          && origin_ai_column->is_ai_column()
+          && OB_FAIL(write_ai_column_catalog(sql_client, *origin_ai_column, true,
+                                             new_column_schema.get_schema_version(),
+                                             new_table_schema.get_table_id()))) {
+      }
+    }
+    if (OB_SUCC(ret) && record_ddl_operation) {
       // log operation
       ObSchemaOperation opt;
       
