@@ -43,6 +43,9 @@ public:
   int64_t get_row_cnt() const { return write_buffer_.get_row_cnt(); }
   void set_das_ctdef(const ObDASDelCtDef *del_ctdef) { del_ctdef_ = del_ctdef; }
   void set_das_rtdef(ObDASDelRtDef *del_rtdef) { del_rtdef_ = del_rtdef; }
+  // Exposed for internal writers that build delete rows from storage datums
+  // instead of expressions (e.g. the AI column task catalog maintenance).
+  ObDASWriteBuffer &get_delete_buffer() { return write_buffer_; }
   virtual int dump_data() const override
   {
     return write_buffer_.dump_data(*del_ctdef_);
