@@ -40,7 +40,7 @@ function do_install {
     fi
   fi
   target=$2
-  if [[ "$(uname -s)" == "Darwin" ]]; then
+  if [[ "$(uname -s)" == "Darwin" ]] || ! command -v libtool >/dev/null 2>&1; then
     err_msg=$(cp -f $sources $target 2>&1 >/dev/null)
   else
     err_msg=$(libtool --mode=install cp $sources $target 2>&1 >/dev/null)
