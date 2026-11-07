@@ -834,6 +834,8 @@ int ObInsertResolver::check_insert_select_field(ObInsertStmt &insert_stmt,
     const ObColumnRefRawExpr *value_desc = values_desc.at(i);
     if (OB_ISNULL(value_desc)) {
       ret = OB_ERR_UNEXPECTED;
+    } else if (!is_mock && OB_FAIL(check_ai_column_assignment(
+                   value_desc, select_stmt.get_select_item(i).expr_))) {
     } else if (OB_FAIL(ObDMLResolver::check_basic_column_generated(value_desc,
                                                                    &insert_stmt,
                                                                    is_generated_column))) {

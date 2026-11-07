@@ -6007,6 +6007,35 @@ int ObDMLResolver::resolve_partitions(const ParseNode *part_node,
   return ret;
 }
 
+int ObDMLResolver::check_ai_column_assignment(const ObColumnRefRawExpr *column,
+                                             const ObRawExpr *value, bool allow_default)
+{
+  int ret = OB_SUCCESS;
+  const ColumnItem *item = nullptr;
+  const ObColumnSchemaV2 *schema = nullptr;
+  if (OB_ISNULL(column) || OB_ISNULL(value) || OB_ISNULL(session_info_) || OB_ISNULL(get_stmt())) {
+    ret = OB_ERR_UNEXPECTED;
+  } else if (session_info_->is_inner() || (allow_default && value->get_expr_type() == T_DEFAULT)) {
+    // Inner SQL publishes model results; DEFAULT does not supply a result.
+  } else if (OB_ISNULL(item = get_stmt()->get_column_item_by_id(
+                         column->get_table_id(), column->get_column_id()))) {
+    ret = OB_ERR_UNEXPECTED;
+  } else {
+    const uint64_t tid = item->base_tid_ == OB_INVALID_ID ? item->table_id_ : item->base_tid_;
+    const uint64_t cid = item->base_cid_ == OB_INVALID_ID ? item->column_id_ : item->base_cid_;
+    if (OB_FAIL(get_column_schema(tid, cid, schema, true))) {
+    } else if (OB_ISNULL(schema)) {
+      ret = OB_ERR_UNEXPECTED;
+    } else if (schema->is_ai_column()) {
+      ret = OB_NON_DEFAULT_VALUE_FOR_GENERATED_COLUMN;
+      LOG_USER_ERROR(OB_NON_DEFAULT_VALUE_FOR_GENERATED_COLUMN,
+                     column->get_column_name().length(), column->get_column_name().ptr(),
+                     column->get_table_name().length(), column->get_table_name().ptr());
+    }
+  }
+  return ret;
+}
+
 int ObDMLResolver::check_basic_column_generated(const ObColumnRefRawExpr *col_expr,
                                                 ObDMLStmt *dml_stmt,
                                                 bool &is_generated)
@@ -11482,6 +11511,8 @@ int ObDMLResolver::resolve_values_table_for_insert(const ParseNode &table_node,
             } else if (OB_FAIL(resolve_sql_expr(*value_node, expr))) {
             } else if (OB_ISNULL(expr) || OB_ISNULL(table_info.values_desc_.at(j))) {
               ret = OB_ERR_UNEXPECTED;
+            } else if (OB_FAIL(upper_insert_resolver_->check_ai_column_assignment(
+                           table_info.values_desc_.at(j), expr))) {
             } else if (table_info.values_desc_.at(j)->is_generated_column() &&
                        expr->get_expr_type() != T_DEFAULT) {
               ret = OB_NON_DEFAULT_VALUE_FOR_GENERATED_COLUMN;

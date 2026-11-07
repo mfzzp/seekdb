@@ -309,36 +309,6 @@ int ai_collect_task_specs(const share::schema::ObTableSchema &base_schema,
   return ret;
 }
 
-// Null the AI column value in the dml row so that the stored row is
-// invalidated in the same transaction as the task creation.
-int ai_invalidate_ai_column(ObChunkDatumStore::StoredRow &stored_row,
-                            const ObDASDMLBaseCtDef &ctdef,
-                            const uint64_t column_id)
-{
-  int ret = OB_SUCCESS;
-  const IntFixedArray *projector = ai_get_row_projector(ctdef);
-  const int64_t column_idx = ai_find_column_idx(ctdef, column_id);
-  if (OB_ISNULL(projector)) {
-    ret = OB_ERR_UNEXPECTED;
-  } else if (column_idx < 0) {
-    // The AI column is not part of this dml row image (e.g. a minimal delete
-    // image), there is nothing to invalidate.
-    LOG_INFO("ai column is not written by this dml", K(column_id));
-  } else if (column_idx >= projector->count()) {
-    ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("row projector is shorter than the column list", K(ret),
-             K(column_idx), K(projector->count()));
-  } else {
-    const int64_t cell_idx = projector->at(column_idx);
-    if (cell_idx < 0 || cell_idx >= stored_row.cnt_) {
-      LOG_INFO("ai column cell is absent from the dml row image", K(column_id), K(cell_idx));
-    } else {
-      stored_row.cells()[cell_idx].set_null();
-    }
-  }
-  return ret;
-}
-
 int ai_init_task_rtdef(sql::ObDMLRtCtx &rtctx,
                        const int64_t timeout_ts,
                        const int64_t schema_version,
@@ -856,18 +826,6 @@ int ai_write_tasks_for_update(const sql::ObUpdCtDef &upd_ctdef,
                                             *full_row, predicate))) {
       } else if (OB_FAIL(ai_collect_task_specs(*base_schema, &changed_column_ids,
                                                false, predicate, new_specs))) {
-      }
-    }
-    // Invalidate the cached AI column value in the row image that will be
-    // written by this statement, in the same transaction as the task.
-    for (int64_t i = 0; OB_SUCC(ret) && i < new_specs.count(); ++i) {
-      const AiTaskSpec &spec = new_specs.at(i);
-      if (pk_changed) {
-        if (OB_NOT_NULL(new_row) && OB_NOT_NULL(upd_ctdef.dins_ctdef_)) {
-          OZ (ai_invalidate_ai_column(*new_row, *upd_ctdef.dins_ctdef_, spec.column_id_));
-        }
-      } else if (OB_NOT_NULL(full_row)) {
-        OZ (ai_invalidate_ai_column(*full_row, upd_das_ctdef, spec.column_id_));
       }
     }
     if (OB_SUCC(ret) && old_specs.count() > 0) {

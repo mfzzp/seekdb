@@ -129,7 +129,8 @@ int ObDelUpdResolver::resolve_assignments(const ParseNode &parse_node,
         ObRawExpr *expr = value_list.at(i);
         bool is_generated_column = true;
         // Mysql only allows updating generated columns to their default value
-        if (OB_FAIL(check_basic_column_generated(ref_expr, stmt, is_generated_column))) {
+        if (OB_FAIL(check_ai_column_assignment(ref_expr, expr, false))) {
+        } else if (OB_FAIL(check_basic_column_generated(ref_expr, stmt, is_generated_column))) {
         } else {
           if (T_DEFAULT == expr->get_expr_type()) {
             ObDefaultValueUtils utils(stmt, &params_, this);
@@ -513,92 +514,100 @@ int ObDelUpdResolver::resolve_additional_assignments(ObIArray<ObTableAssignment>
       LOG_WARN("fail to get table schema", KPC(table_item), K(table_schema));
     } else if (OB_FAIL(table_schema->has_before_update_row_trigger(*schema_guard, trigger_exist))) {
     } else if (OB_FAIL(generate_wrapper_expr_for_assignemnts(assigns.at(i).assignments_, trigger_exist))) {
-    } else if (OB_FAIL(check_update_vector_col_with_vector_index(table_schema,
-                                                                 schema_guard,
-                                                                 assigns.at(i).assignments_,
-                                                                 update_with_vector_index))) {
     } else {
-      for (ObTableSchema::const_column_iterator iter = table_schema->column_begin();
-          (OB_SUCCESS == ret && iter != table_schema->column_end()); ++iter) {
-        ColumnItem *col_item = NULL;
-        ObColumnSchemaV2 *column_schema = *iter;
-        bool need_assigned = false;
-        uint64_t column_id = OB_INVALID_ID;
-        if (NULL == column_schema) {
-          ret = OB_ERR_UNEXPECTED;
-          LOG_WARN("get column schema fail", K(column_schema));
-        } else if (FALSE_IT(column_id = column_schema->get_column_id())) {
-          //do nothing
-        } else if (OB_FAIL(check_need_assignment(assigns.at(i).assignments_,
-                                                 table_item->table_id_,
-                                                 trigger_exist,
-                                                 *column_schema,
-                                                 need_assigned))) {
-        } else if (FALSE_IT(need_assigned = need_assigned || 
-                                            ((column_schema->is_vec_hnsw_vid_column() ||
-                                              column_schema->is_vec_ivf_center_id_column()) && 
-                                             (update_with_vector_index || T_INSERT_SCOPE == scope)))) {
-        } else if (need_assigned) {
-          // for insert scope, on duplicate key update column list already
-          // exists in insert list, therefore, only need to add assignment.
-          // add assign
-          ObAssignment assignment;
-          ObSEArray<ObColumnRefRawExpr *, 1> col_exprs;
-          if (OB_FAIL(add_column_to_stmt(*table_item, *column_schema, col_exprs))) {
-          } else if (col_exprs.empty()) {
+      // Add AI invalidation first so vector/generated index maintenance sees it
+      // just like an ordinary assignment, independent of schema column order.
+      for (int pass = 0; OB_SUCC(ret) && pass < 2; ++pass) {
+        if (pass == 1) {
+          OZ(check_update_vector_col_with_vector_index(table_schema, schema_guard,
+              assigns.at(i).assignments_, update_with_vector_index));
+        }
+        for (ObTableSchema::const_column_iterator iter = table_schema->column_begin();
+            (OB_SUCCESS == ret && iter != table_schema->column_end()); ++iter) {
+          ColumnItem *col_item = NULL;
+          ObColumnSchemaV2 *column_schema = *iter;
+          bool need_assigned = false;
+          uint64_t column_id = OB_INVALID_ID;
+          if (NULL == column_schema) {
             ret = OB_ERR_UNEXPECTED;
-          } else if (OB_ISNULL(col_item = stmt->get_column_item_by_id(
-              table_item->table_id_, col_exprs.at(0)->get_column_id()))) {
-            ret = OB_ERR_UNEXPECTED;
-          } else {
-            assignment.column_expr_ = col_item->expr_;
-            assignment.is_implicit_ = true;
-            if (column_schema->is_on_update_current_timestamp()) {
-              assignment.column_expr_->set_result_flag(ON_UPDATE_NOW_FLAG);
-              ObDefaultValueUtils utils(stmt, &params_, this);
-              if (OB_FAIL(utils.build_now_expr(col_item, assignment.expr_))) {
-              }
-            } else if (column_schema->is_generated_column()) {
-              if (OB_FAIL(copy_schema_expr(*params_.expr_factory_,
-                                           col_item->expr_->get_dependant_expr(),
-                                           assignment.expr_))) {
-              }
-            } else if (trigger_exist) {
-              assignment.expr_ = col_item->expr_;
-            }
-            if (OB_FAIL(ret)) {
-              //do nothing
-            } else if (OB_FAIL(ObRawExprUtils::build_column_conv_expr(*params_.expr_factory_,
-                                                                      *params_.allocator_,
-                                                                      *col_item->get_expr(),
-                                                                      assignment.expr_,
-                                                                      session_info_))) {
-            } else if (trigger_exist &&
-                      OB_FAIL(ObRawExprUtils::build_wrapper_inner_expr(*params_.expr_factory_, *session_info_, assignment.expr_, assignment.expr_))) {
+            LOG_WARN("get column schema fail", K(column_schema));
+          } else if (column_schema->is_ai_column() != (pass == 0)) {
+            continue;
+          } else if (FALSE_IT(column_id = column_schema->get_column_id())) {
+            //do nothing
+          } else if (OB_FAIL(check_need_assignment(assigns.at(i).assignments_,
+                                                   table_item->table_id_,
+                                                   trigger_exist,
+                                                   *column_schema,
+                                                   need_assigned))) {
+          } else if (FALSE_IT(need_assigned = need_assigned ||
+                                              ((column_schema->is_vec_hnsw_vid_column() ||
+                                                column_schema->is_vec_ivf_center_id_column()) &&
+                                               (update_with_vector_index || T_INSERT_SCOPE == scope)))) {
+          } else if (need_assigned) {
+            // for insert scope, on duplicate key update column list already
+            // exists in insert list, therefore, only need to add assignment.
+            // add assign
+            ObAssignment assignment;
+            ObSEArray<ObColumnRefRawExpr *, 1> col_exprs;
+            if (OB_FAIL(add_column_to_stmt(*table_item, *column_schema, col_exprs))) {
+            } else if (col_exprs.empty()) {
+              ret = OB_ERR_UNEXPECTED;
+            } else if (OB_ISNULL(col_item = stmt->get_column_item_by_id(
+                table_item->table_id_, col_exprs.at(0)->get_column_id()))) {
+              ret = OB_ERR_UNEXPECTED;
             } else {
-              // 1. set geo sub type to cast mode to column covert expr when update
-              // 2. check geo type while doing column covert.
-              if (col_item->is_geo_ && T_FUN_COLUMN_CONV == assignment.expr_->get_expr_type()) {
-                ObColumnRefRawExpr *raw_expr = col_item->get_expr();
-                if (OB_ISNULL(raw_expr)) {
-                  ret = OB_ERR_NULL_VALUE;
-                } else {
-                  ObGeoType geo_type = raw_expr->get_geo_type();
-                  uint64_t cast_mode = assignment.expr_->get_cast_mode();
-                  if (OB_FAIL(ObGeoCastUtils::set_geo_type_to_cast_mode(geo_type, cast_mode))) {
+              assignment.column_expr_ = col_item->expr_;
+              assignment.is_implicit_ = true;
+              if (column_schema->is_ai_column()) {
+                OZ(ObRawExprUtils::build_null_expr(*params_.expr_factory_, assignment.expr_));
+              } else if (column_schema->is_on_update_current_timestamp()) {
+                assignment.column_expr_->set_result_flag(ON_UPDATE_NOW_FLAG);
+                ObDefaultValueUtils utils(stmt, &params_, this);
+                if (OB_FAIL(utils.build_now_expr(col_item, assignment.expr_))) {
+                }
+              } else if (column_schema->is_generated_column()) {
+                if (OB_FAIL(copy_schema_expr(*params_.expr_factory_,
+                                             col_item->expr_->get_dependant_expr(),
+                                             assignment.expr_))) {
+                }
+              } else if (trigger_exist) {
+                assignment.expr_ = col_item->expr_;
+              }
+              if (OB_FAIL(ret)) {
+                //do nothing
+              } else if (OB_FAIL(ObRawExprUtils::build_column_conv_expr(*params_.expr_factory_,
+                                                                        *params_.allocator_,
+                                                                        *col_item->get_expr(),
+                                                                        assignment.expr_,
+                                                                        session_info_))) {
+              } else if (trigger_exist &&
+                        OB_FAIL(ObRawExprUtils::build_wrapper_inner_expr(*params_.expr_factory_, *session_info_, assignment.expr_, assignment.expr_))) {
+              } else {
+                // 1. set geo sub type to cast mode to column covert expr when update
+                // 2. check geo type while doing column covert.
+                if (col_item->is_geo_ && T_FUN_COLUMN_CONV == assignment.expr_->get_expr_type()) {
+                  ObColumnRefRawExpr *raw_expr = col_item->get_expr();
+                  if (OB_ISNULL(raw_expr)) {
+                    ret = OB_ERR_NULL_VALUE;
                   } else {
-                    assignment.expr_->set_cast_mode(cast_mode);
+                    ObGeoType geo_type = raw_expr->get_geo_type();
+                    uint64_t cast_mode = assignment.expr_->get_cast_mode();
+                    if (OB_FAIL(ObGeoCastUtils::set_geo_type_to_cast_mode(geo_type, cast_mode))) {
+                    } else {
+                      assignment.expr_->set_cast_mode(cast_mode);
+                    }
                   }
                 }
-              }
-              if (OB_SUCC(ret)) {
-                if (OB_FAIL(add_assignment(assigns, table_item, col_item, assignment))) {
+                if (OB_SUCC(ret)) {
+                  if (OB_FAIL(add_assignment(assigns, table_item, col_item, assignment))) {
+                  }
                 }
               }
             }
           }
-        }
-      }  // end for
+        }  // end column loop
+      }  // end assignment passes
     }
     // For INSERT ON DUPLICATE KEY UPDATE, if table has vector index column and is heap table,
     // call build_hidden_pk_assignment regardless of whether UPDATE clause contains vector index column
@@ -712,6 +721,24 @@ int ObDelUpdResolver::check_need_assignment(const common::ObIArray<ObAssignment>
   ObDMLStmt *stmt = get_stmt();
   if (OB_ISNULL(stmt)) {
     ret = OB_NOT_INIT;
+  } else if (column.is_ai_column() && !session_info_->is_inner()) {
+    share::schema::AiColumnDefinition definition;
+    const ObTableSchema *schema = nullptr;
+    OZ(column.get_ai_column_definition(definition));
+    OZ(schema_checker_->get_table_schema(column.get_table_id(), schema));
+    for (int64_t i = 0; OB_SUCC(ret) && !need_assign && i < assigns.count(); ++i) {
+      const ObColumnRefRawExpr *assigned = assigns.at(i).column_expr_;
+      const ObColumnSchemaV2 *source = nullptr;
+      if (OB_ISNULL(assigned) || OB_ISNULL(schema)) {
+        ret = OB_ERR_UNEXPECTED;
+      } else if (assigned->get_table_id() == table_id && !assigns.at(i).is_implicit_) {
+        source = schema->get_column_schema(assigned->get_column_id());
+        need_assign = source != nullptr && source->is_rowkey_column();
+        for (int64_t j = 0; !need_assign && j < definition.dependency_ids_.count(); ++j) {
+          need_assign = definition.dependency_ids_.at(j) == assigned->get_column_id();
+        }
+      }
+    }
   } else if (column.is_generated_column()) {
     if (OB_FAIL(ObResolverUtils::check_whether_assigned(stmt, assigns, table_id, column.get_column_id(), exist))) {
     } else if (!exist) {
@@ -2325,6 +2352,7 @@ int ObDelUpdResolver::resolve_insert_values(const ParseNode *node,
             } else if (OB_ISNULL(expr)) {
               ret = OB_ERR_UNEXPECTED;
               LOG_ERROR("fail to resolve sql expr", K(ret), K(expr));
+            } else if (OB_FAIL(check_ai_column_assignment(column_expr, expr))) {
             } else if (T_DEFAULT == expr->get_expr_type()) {
               ColumnItem *column_item = NULL;
               if (OB_ISNULL(column_item = del_upd_stmt->get_column_item_by_id(table_info.table_id_,

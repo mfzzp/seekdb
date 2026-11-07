@@ -1,0 +1,50 @@
+# DML protection and invalidation, without making a model request.
+--disable_query_log
+--disable_warnings
+drop database if exists ai_column_dml_guards;
+--enable_warnings
+create database ai_column_dml_guards;
+call DBMS_AI_SERVICE.CREATE_AI_MODEL('dml_guards_model', '{"type":"completion","model_name":"mock-complete"}');
+call DBMS_AI_SERVICE.CREATE_AI_MODEL_ENDPOINT('dml_guards_endpoint', '{"ai_model_name":"dml_guards_model","url":"http://127.0.0.1:19121/v1/chat/completions","access_key":"test","provider":"openai","request_model_name":"mock-complete"}');
+# Seed a stored result before converting the column to AI. This tests actual
+# result invalidation and restoration rather than NULL-to-NULL updates.
+create table ai_column_dml_guards.docs(id bigint primary key, title varchar(100), content varchar(200), tags json);
+insert into ai_column_dml_guards.docs values(1,'old title','old content','{"seed":1}');
+alter table ai_column_dml_guards.docs modify column tags json AI COLUMN (AI_COMPLETE('dml_guards_model', content)) WITH (sync_mode='async', max_retries=2);
+start transaction;
+update ai_column_dml_guards.docs set title='new title' where id=1;
+select json_extract(tags,'$.seed')=1 as unrelated_preserves_result from ai_column_dml_guards.docs where id=1;
+rollback;
+start transaction;
+update ai_column_dml_guards.docs set content='new content' where id=1;
+select tags is null as dependency_invalidates from ai_column_dml_guards.docs where id=1;
+rollback;
+select json_extract(tags,'$.seed')=1 as rollback_restores_result from ai_column_dml_guards.docs where id=1;
+start transaction;
+update ai_column_dml_guards.docs set id=2 where id=1;
+select tags is null as primary_key_invalidates from ai_column_dml_guards.docs where id=2;
+rollback;
+--disable_result_log
+--error ER_NON_DEFAULT_VALUE_FOR_GENERATED_COLUMN
+update ai_column_dml_guards.docs set tags='{"manual":1}' where id=1;
+--error ER_NON_DEFAULT_VALUE_FOR_GENERATED_COLUMN
+update ai_column_dml_guards.docs set tags=default where id=1;
+--error ER_NON_DEFAULT_VALUE_FOR_GENERATED_COLUMN
+insert into ai_column_dml_guards.docs(id,content,tags) values(2,'text','{"manual":1}');
+--error ER_NON_DEFAULT_VALUE_FOR_GENERATED_COLUMN
+insert into ai_column_dml_guards.docs(id,content,tags) values(2,'text',NULL);
+--error ER_NON_DEFAULT_VALUE_FOR_GENERATED_COLUMN
+insert into ai_column_dml_guards.docs(id,content,tags) select 2,'text','{"manual":1}';
+--error ER_NON_DEFAULT_VALUE_FOR_GENERATED_COLUMN
+insert into ai_column_dml_guards.docs values(2,'title','text','{"manual":1}');
+--error ER_NON_DEFAULT_VALUE_FOR_GENERATED_COLUMN
+insert into ai_column_dml_guards.docs(id,content) values(1,'text') on duplicate key update tags='{"manual":1}';
+create view ai_column_dml_guards.docs_view as select id,title,content,tags from ai_column_dml_guards.docs;
+--error ER_NON_DEFAULT_VALUE_FOR_GENERATED_COLUMN
+update ai_column_dml_guards.docs_view set tags='{"manual":1}' where id=1;
+--enable_result_log
+select count(*)=1 and min(id)=1 and max(json_extract(tags,'$.seed'))=1 as rejected_writes_preserve_row from ai_column_dml_guards.docs;
+drop database ai_column_dml_guards;
+call DBMS_AI_SERVICE.DROP_AI_MODEL_ENDPOINT('dml_guards_endpoint');
+call DBMS_AI_SERVICE.DROP_AI_MODEL('dml_guards_model');
+--enable_query_log
