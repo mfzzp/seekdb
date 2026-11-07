@@ -170,10 +170,18 @@ int ObAddWord::casedown_word(const ObFTWord &src, ObFTWord &dst, char *buf, cons
     const ObString src_str = src.get_word().get_string();
     const ObCharsetInfo *cs = ObCharset::get_charset(word_meta_.get_collation_type());
     bool is_ascii = true;
+    bool needs_ascii_fold = false;
     for (int64_t i = 0; is_ascii && i < src_str.length(); ++i) {
-      is_ascii = static_cast<unsigned char>(src_str.ptr()[i]) < 0x80;
+      const unsigned char c = static_cast<unsigned char>(src_str.ptr()[i]);
+      is_ascii = c < 0x80;
+      needs_ascii_fold = needs_ascii_fold || (c >= 'A' && c <= 'Z');
     }
-    if (is_ascii) {
+    if (is_ascii && !needs_ascii_fold) {
+      // Built-in parsers return document-backed or arena-owned words. Reuse an
+      // already folded word, just as the non-casedown path does, so a new key
+      // needs neither a second copy nor a second hash-table probe.
+      dst = src;
+    } else if (is_ascii) {
       // Keep the existing ASCII folding semantics, including binary input.
       char *out = src_str.length() <= buf_len ? buf
           : static_cast<char *>(allocator_.alloc(src_str.length()));
@@ -201,7 +209,11 @@ int ObAddWord::casedown_word(const ObFTWord &src, ObFTWord &dst, char *buf, cons
         len = cs->cset->casedn(cs, const_cast<char *>(src_str.ptr()), src_str.length(),
                              buf, buf_len);
       }
-      dst = ObFTWord(len, buf, word_meta_);
+      // Chinese and other uncased words usually retain exactly the same bytes.
+      // Keep charset conversion as the authority; only elide the owned copy
+      // after it proves the original word is already normalized.
+      dst = len == src_str.length() && 0 == MEMCMP(buf, src_str.ptr(), len)
+          ? src : ObFTWord(len, buf, word_meta_);
     } else {
       ObString dst_str;
       if (OB_FAIL(ObCharset::tolower(cs, src_str, dst_str, allocator_))) {
