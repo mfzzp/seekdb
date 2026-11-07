@@ -54,6 +54,7 @@ int ObLoadInnerTableSchemaExecutor::load_inner_table_schema(
   }
   if (OB_SUCC(ret) && OB_UNLIKELY(!find)) {
     ret = OB_ERR_UNEXPECTED;
+    LOG_WARN("inner table schema descriptor not found", KR(ret), K(arg));
   }
   LOG_INFO("finish load inner table schema", KR(ret),
       "cost", ObTimeUtility::current_time() - start_ts, K(arg));
@@ -69,6 +70,7 @@ int ObLoadInnerTableSchemaExecutor::load_inner_table_schema(
   ObSqlString insert_header;
   if (!arg.is_valid() || arg.get_table_id() != info.get_inner_table_id() || OB_ISNULL(GCTX.sql_proxy_)) {
     ret = OB_ERR_UNEXPECTED;
+    LOG_WARN("invalid inner table schema load context", KR(ret), K(arg), KP(GCTX.sql_proxy_));
   } else if (OB_FAIL(insert_header.append_fmt("INSERT INTO %s(%s) VALUES ", info.get_inner_table_name(),
               info.get_inner_table_column_names()))) {
   } else if (OB_FAIL(trans.start(GCTX.sql_proxy_))) {
@@ -87,15 +89,19 @@ int ObLoadInnerTableSchemaExecutor::load_inner_table_schema(
         int64_t idx = insert_idx.at(i + j);
         if (idx >= info.get_row_count() || idx < 0) {
           ret = OB_ERR_UNEXPECTED;
+          LOG_WARN("inner table schema row index out of range", KR(ret), K(idx), K(arg));
         } else if (OB_FAIL(info.get_row(idx, row, table_id))) {
+          LOG_WARN("failed to decode inner table schema row", KR(ret), K(idx), K(table_id), K(arg));
         } else if (OB_FAIL(sql.append_fmt("%s(%s)", j != 0 ? ", " : "", row))) {
         } else {
           current_row_count++;
         }
       }
       if (FAILEDx(trans.write(sql.ptr(), affected_rows))) {
-      } else if (current_row_count != affected_rows) {
+        LOG_WARN("failed to insert inner table schema batch", KR(ret), K(i), K(current_row_count), K(arg));
+      } else if (OB_SUCC(ret) && current_row_count != affected_rows) {
         ret = OB_ERR_UNEXPECTED;
+        LOG_WARN("inner table schema affected rows mismatch", KR(ret), K(i), K(current_row_count), K(affected_rows), K(arg));
       }
     }
   }

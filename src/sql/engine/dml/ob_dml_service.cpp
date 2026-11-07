@@ -113,7 +113,7 @@ int ai_get_base_table_schema(sql::ObDMLRtCtx &rtctx,
   table_schema = nullptr;
   if (OB_ISNULL(session)) {
     ret = OB_ERR_UNEXPECTED;
-  } else if (session->is_inner()) {
+  } else if (is_inner_table(table_id) || session->is_inner()) {
     // Bootstrap and DDL inner SQL must not create AI tasks.
   } else if (OB_INVALID_ID == table_id) {
     ret = OB_INVALID_ARGUMENT;
@@ -754,14 +754,14 @@ int ai_write_tasks_for_insert(const sql::ObInsCtDef &ins_ctdef,
 {
   int ret = OB_SUCCESS;
   const ObDASInsCtDef &das_ctdef = ins_ctdef.das_ctdef_;
-  const uint64_t target_table_id = das_ctdef.table_id_;
+  const uint64_t target_table_id = das_ctdef.index_tid_;
   const share::schema::ObTableSchema *base_schema = nullptr;
   const share::schema::ObTableSchema *task_schema = nullptr;
   LOG_INFO("[AI_TASK_DBG] insert hook entry", K(target_table_id), KP(stored_row));
   if (OB_ISNULL(stored_row)) {
     ret = OB_ERR_UNEXPECTED;
     LOG_WARN("insert row image is null", K(ret));
-  } else if ((OB_INVALID_ID == target_table_id || target_table_id > 1000000000ULL)) {
+  } else if ((OB_INVALID_ID == target_table_id || is_inner_table(target_table_id))) {
     LOG_INFO("[AI_TASK_DBG] skip: invalid table id");
   } else if (OB_FAIL(ai_get_base_table_schema(rtctx, target_table_id, base_schema))) {
   } else if (OB_ISNULL(base_schema) || !ai_table_has_ai_column(*base_schema)) {
@@ -793,12 +793,12 @@ int ai_write_tasks_for_update(const sql::ObUpdCtDef &upd_ctdef,
 {
   int ret = OB_SUCCESS;
   const ObDASUpdCtDef &upd_das_ctdef = upd_ctdef.dupd_ctdef_;
-  const uint64_t target_table_id = upd_das_ctdef.table_id_;
+  const uint64_t target_table_id = upd_das_ctdef.index_tid_;
   const share::schema::ObTableSchema *base_schema = nullptr;
   const share::schema::ObTableSchema *task_schema = nullptr;
   if (!row_changed) {
     // no column value changed, no task maintenance
-  } else if ((OB_INVALID_ID == target_table_id || target_table_id > 1000000000ULL)) {
+  } else if ((OB_INVALID_ID == target_table_id || is_inner_table(target_table_id))) {
     // nothing to do
   } else if (OB_FAIL(ai_get_base_table_schema(rtctx, target_table_id, base_schema))) {
   } else if (OB_ISNULL(base_schema) || !ai_table_has_ai_column(*base_schema)) {
@@ -883,13 +883,13 @@ int ai_write_tasks_for_delete(const sql::ObDelCtDef &del_ctdef,
 {
   int ret = OB_SUCCESS;
   const ObDASDelCtDef &das_ctdef = del_ctdef.das_ctdef_;
-  const uint64_t target_table_id = das_ctdef.table_id_;
+  const uint64_t target_table_id = das_ctdef.index_tid_;
   const share::schema::ObTableSchema *base_schema = nullptr;
   const share::schema::ObTableSchema *task_schema = nullptr;
   if (OB_ISNULL(stored_row)) {
     ret = OB_ERR_UNEXPECTED;
     LOG_WARN("delete row image is null", K(ret));
-  } else if ((OB_INVALID_ID == target_table_id || target_table_id > 1000000000ULL)) {
+  } else if ((OB_INVALID_ID == target_table_id || is_inner_table(target_table_id))) {
     // nothing to do
   } else if (OB_FAIL(ai_get_base_table_schema(rtctx, target_table_id, base_schema))) {
   } else if (OB_ISNULL(base_schema) || !ai_table_has_ai_column(*base_schema)) {
