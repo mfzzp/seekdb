@@ -2089,7 +2089,7 @@ int ObDMLService::init_das_dml_rtdef(ObDMLRtCtx &dml_rtctx,
   ObSQLSessionInfo *my_session = GET_MY_SESSION(dml_rtctx.get_exec_ctx());
   ObDASCtx &das_ctx = dml_rtctx.get_exec_ctx().get_das_ctx();
   uint64_t table_loc_id = das_ctdef.table_id_;
-  uint64_t ref_table_id = das_ctdef.table_id_;
+  uint64_t ref_table_id = das_ctdef.index_tid_;
   das_rtdef.ctdef_ = &das_ctdef;
   das_rtdef.timeout_ts_ = plan_ctx->get_ps_timeout_timestamp();
   das_rtdef.prelock_ = my_session->get_prelock();
