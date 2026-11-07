@@ -109,8 +109,13 @@ int ai_get_base_table_schema(sql::ObDMLRtCtx &rtctx,
 {
   int ret = OB_SUCCESS;
   share::schema::ObSchemaGetterGuard *guard = nullptr;
+  ObSQLSessionInfo *session = rtctx.get_exec_ctx().get_my_session();
   table_schema = nullptr;
-  if (OB_INVALID_ID == table_id) {
+  if (OB_ISNULL(session)) {
+    ret = OB_ERR_UNEXPECTED;
+  } else if (session->is_inner()) {
+    // Bootstrap and DDL inner SQL must not create AI tasks.
+  } else if (OB_INVALID_ID == table_id) {
     ret = OB_INVALID_ARGUMENT;
   } else if (OB_FAIL(ai_get_schema_guard(rtctx, guard))) {
   } else if (OB_FAIL(guard->get_table_schema(table_id, table_schema))) {
