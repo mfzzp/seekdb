@@ -22,6 +22,7 @@
 #endif
 #include "lib/net/ob_net_util.h"
 #include "lib/task/ob_timer.h"
+#include "observer/ai_service/ai_column_worker.h"
 #include "lib/random/ob_mysql_random.h"
 #include "lib/container/ob_iarray.h"
 
@@ -483,6 +484,7 @@ private:
   common::ObTimer server_gtimer_;
   common::ObTimer sql_mem_timer_;
   common::ObTimer ctas_clean_up_timer_;
+  AiColumnWorker ai_column_worker_;
   ObServerDutyTask duty_task_;
   ObSqlMemoryTimerTask sql_mem_task_;
   ObCTASCleanUpTask ctas_clean_up_task_;     // repeat & no retry

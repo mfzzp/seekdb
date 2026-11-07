@@ -10988,5 +10988,18 @@
     "info_cn": "是否允许直接查询本地 CSV、JSONL 和 Parquet 文件",
     "background_cn": "",
     "ref_url": ""
+  },
+  "ai_column_strict_read": {
+    "id": 10761,
+    "name": "ai_column_strict_read",
+    "default_value": "0",
+    "base_value": "0",
+    "data_type": "bool",
+    "info": "reject references to AI columns containing rows that are not READY",
+    "flags": "SESSION | NEED_SERIALIZE | INFLUENCE_PLAN",
+    "publish_version": "1.0.0.0",
+    "info_cn": "AI 列严格读取",
+    "background_cn": "",
+    "ref_url": ""
   }
 }

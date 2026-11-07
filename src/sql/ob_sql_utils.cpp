@@ -3373,7 +3373,14 @@ bool ObSQLUtils::is_iter_uncommitted_row(ObExecContext *cur_ctx)
 
 bool ObSQLUtils::is_nested_sql(ObExecContext *cur_ctx)
 {
-  return is_pl_nested_sql(cur_ctx) || is_fk_nested_sql(cur_ctx) || is_online_stat_gathering_nested_sql(cur_ctx);
+  // AI catalog maintenance and strict-read checks share the outer transaction.
+  // Treat these scoped inner statements as nested so ending them cannot end the
+  // business statement or reset its transaction bookkeeping.
+  const bool ai_nested = cur_ctx != nullptr && cur_ctx->get_parent_ctx() != nullptr
+      && cur_ctx->get_my_session() != nullptr
+      && cur_ctx->get_my_session()->get_ai_strict_snapshot() != nullptr;
+  return ai_nested || is_pl_nested_sql(cur_ctx) || is_fk_nested_sql(cur_ctx)
+      || is_online_stat_gathering_nested_sql(cur_ctx);
 }
 
 //bind current execute context to my session,

@@ -527,6 +527,26 @@ int ObDelUpdResolver::resolve_additional_assignments(ObIArray<ObTableAssignment>
           ColumnItem *col_item = NULL;
           ObColumnSchemaV2 *column_schema = *iter;
           bool need_assigned = false;
+          bool reset_ai_metadata = false;
+          bool refresh_ai_request = false;
+          if (column_schema != nullptr && column_schema->is_hidden() && !session_info_->is_inner()) {
+            // The first pass has already added result invalidation. Reset its
+            // state/request in the same row image, including UPDATE rollback.
+            const ObIArray<ObAssignment> &row_assigns = assigns.at(i).assignments_;
+            for (int64_t j = 0; OB_SUCC(ret) && !reset_ai_metadata && j < row_assigns.count(); ++j) {
+              const ObColumnRefRawExpr *ref = row_assigns.at(j).column_expr_;
+              const ObColumnSchemaV2 *ai_col = ref == nullptr ? nullptr
+                  : table_schema->get_column_schema(ref->get_column_id());
+              if (row_assigns.at(j).is_implicit_ && ai_col != nullptr && ai_col->is_ai_column()) {
+                AiColumnDefinition definition;
+                OZ(ai_col->get_ai_column_definition(definition));
+                reset_ai_metadata = column_schema->get_column_id() == definition.state_column_id_
+                    || column_schema->get_column_id() == definition.request_column_id_;
+                refresh_ai_request = column_schema->get_column_id() == definition.request_column_id_
+                    && params_.query_ctx_->ai_retry_table_id_ == table_schema->get_table_id();
+              }
+            }
+          }
           uint64_t column_id = OB_INVALID_ID;
           if (NULL == column_schema) {
             ret = OB_ERR_UNEXPECTED;
@@ -540,7 +560,7 @@ int ObDelUpdResolver::resolve_additional_assignments(ObIArray<ObTableAssignment>
                                                    trigger_exist,
                                                    *column_schema,
                                                    need_assigned))) {
-          } else if (FALSE_IT(need_assigned = need_assigned ||
+          } else if (FALSE_IT(need_assigned = need_assigned || reset_ai_metadata ||
                                               ((column_schema->is_vec_hnsw_vid_column() ||
                                                 column_schema->is_vec_ivf_center_id_column()) &&
                                                (update_with_vector_index || T_INSERT_SCOPE == scope)))) {
@@ -559,7 +579,17 @@ int ObDelUpdResolver::resolve_additional_assignments(ObIArray<ObTableAssignment>
             } else {
               assignment.column_expr_ = col_item->expr_;
               assignment.is_implicit_ = true;
-              if (column_schema->is_ai_column()) {
+              if (refresh_ai_request) {
+                // RETRY must also replace an already-PENDING task whose result
+                // and state are both NULL. A fresh marker prevents no-op elision.
+                ObSysFunRawExpr *uuid = nullptr;
+                OZ(params_.expr_factory_->create_raw_expr(T_FUN_SYS_UUID, uuid));
+                if (OB_SUCC(ret)) {
+                  uuid->set_func_name(ObString::make_string("uuid"));
+                  OZ(uuid->formalize(session_info_));
+                  assignment.expr_ = uuid;
+                }
+              } else if (column_schema->is_ai_column() || reset_ai_metadata) {
                 OZ(ObRawExprUtils::build_null_expr(*params_.expr_factory_, assignment.expr_));
               } else if (column_schema->is_on_update_current_timestamp()) {
                 assignment.column_expr_->set_result_flag(ON_UPDATE_NOW_FLAG);

@@ -178,6 +178,8 @@ public:
   ObExprOperatorFactory &get_expr_op_factory() { return expr_op_factory_; }
   const ObExprOperatorFactory &get_expr_op_factory() const { return expr_op_factory_; }
 
+  common::ObIArray<uint64_t> &get_ai_read_columns() { return ai_read_columns_; }
+  const common::ObIArray<uint64_t> &get_ai_read_columns() const { return ai_read_columns_; }
   int set_field_columns(const common::ColumnsFieldArray &fields);
 
   inline const common::ColumnsFieldArray &get_field_columns() const
@@ -407,6 +409,7 @@ private:
    */
 
   //for fill_result_set
+  common::ObFixedArray<uint64_t, common::ObIAllocator> ai_read_columns_;
   common::ColumnsFieldArray field_columns_;
   common::ParamsFieldArray param_columns_;
   common::ObFixedArray<share::AutoincParam, common::ObIAllocator> autoinc_params_; //auto-increment param

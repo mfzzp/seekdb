@@ -653,7 +653,11 @@ int ObSqlTransControl::stmt_setup_snapshot_(ObSQLSessionInfo *session,
   ObConsistencyLevel cl = plan_ctx->get_consistency_level();
   ObTxReadSnapshot &snapshot = das_ctx.get_snapshot();
   bool can_plain_insert = false;
-  if (cl == ObConsistencyLevel::WEAK || cl == ObConsistencyLevel::FROZEN) {
+  if (session->is_inner() && session->get_ai_strict_snapshot() != nullptr) {
+    // Strictness must use precisely the caller's snapshot, including its own
+    // uncommitted writes, even when a worker commits while this check executes.
+    OZ(snapshot.assign(*session->get_ai_strict_snapshot()));
+  } else if (cl == ObConsistencyLevel::WEAK || cl == ObConsistencyLevel::FROZEN) {
     SCN snapshot_version = SCN::min_scn();
     if (OB_FAIL(txs->get_weak_read_snapshot_version(session->get_ob_max_read_stale_time(),
                                                     snapshot_version))) {

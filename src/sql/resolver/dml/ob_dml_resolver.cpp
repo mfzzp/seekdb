@@ -1889,7 +1889,7 @@ int ObDMLResolver::resolve_basic_column_item(const TableItem &table_item,
     if (OB_FAIL(ret)) {
       //do nothing
     } else if (OB_FAIL(schema_checker_->get_table_schema( tid, table_schema))) {
-    } else if (OB_FAIL(get_column_schema(tid, column_name, col_schema, include_hidden))) {
+    } else if (OB_FAIL(get_column_schema(tid, column_name, col_schema, include_hidden || session_info_->is_inner()))) {
     } else if (OB_ISNULL(col_schema)) {
       ret = OB_ERR_UNEXPECTED;
     } else if (OB_FAIL(ObRawExprUtils::build_column_expr(*params_.expr_factory_, *col_schema, session_info_, col_expr))) {
@@ -1964,6 +1964,27 @@ int ObDMLResolver::resolve_basic_column_item(const TableItem &table_item,
       } else if (OB_FAIL(col_expr->pull_relation_id())) {
       } else {
         col_item = stmt->get_column_item(stmt->get_column_size() - 1);
+      }
+    }
+  }
+  if (OB_SUCC(ret) && !include_hidden && !session_info_->is_inner()
+      && current_scope_ != T_INSERT_SCOPE && col_item != nullptr && params_.query_ctx_ != nullptr) {
+    const ObTableSchema *ai_table = nullptr;
+    OZ(schema_checker_->get_table_schema(col_item->base_tid_, ai_table));
+    const ObColumnSchemaV2 *ai_column = ai_table == nullptr ? nullptr
+        : ai_table->get_column_schema(col_item->base_cid_);
+    if (OB_SUCC(ret) && ai_column != nullptr && ai_column->is_ai_column()
+        && !(current_scope_ == T_UPDATE_SCOPE
+             && params_.query_ctx_->ai_retry_table_id_ == col_item->base_tid_
+             && params_.query_ctx_->ai_retry_column_id_ == col_item->base_cid_)) {
+      ObIArray<uint64_t> &columns = params_.query_ctx_->ai_read_columns_;
+      bool found = false;
+      for (int64_t i = 0; !found && i + 1 < columns.count(); i += 2) {
+        found = columns.at(i) == col_item->base_tid_ && columns.at(i + 1) == col_item->base_cid_;
+      }
+      if (!found) {
+        OZ(columns.push_back(col_item->base_tid_));
+        OZ(columns.push_back(col_item->base_cid_));
       }
     }
   }
@@ -6026,7 +6047,10 @@ int ObDMLResolver::check_ai_column_assignment(const ObColumnRefRawExpr *column,
     if (OB_FAIL(get_column_schema(tid, cid, schema, true))) {
     } else if (OB_ISNULL(schema)) {
       ret = OB_ERR_UNEXPECTED;
-    } else if (schema->is_ai_column()) {
+    } else if (schema->is_ai_column() && !(params_.query_ctx_ != nullptr
+        && params_.query_ctx_->ai_retry_table_id_ == tid
+        && params_.query_ctx_->ai_retry_column_id_ == cid
+        && value->get_expr_type() == T_NULL)) {
       ret = OB_NON_DEFAULT_VALUE_FOR_GENERATED_COLUMN;
       LOG_USER_ERROR(OB_NON_DEFAULT_VALUE_FOR_GENERATED_COLUMN,
                      column->get_column_name().length(), column->get_column_name().ptr(),

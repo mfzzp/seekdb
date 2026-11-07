@@ -2522,7 +2522,10 @@ all_ai_column_task_def = dict(
         ('request_id', 'varchar:128', 'false'),
         ('definition_version', 'int', 'false'),
         ('schema_version', 'int', 'false'),
-        ('last_error', 'varchar:512', 'false')
+        ('last_error', 'varchar:512', 'false'),
+        ('state', 'int', 'false', 0),
+        ('lease_id', 'varchar:128', 'false', ''),
+        ('result_value', 'varchar:OB_MAX_VARCHAR_LENGTH', 'true')
     ]
 )
 def_table_schema(**all_ai_column_task_def)

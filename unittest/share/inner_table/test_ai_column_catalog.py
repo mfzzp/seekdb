@@ -1,5 +1,6 @@
 """Exercise the real inner-table generator for the AI Column catalog foundation."""
 import pathlib
+import re
 import subprocess
 import sys
 import tempfile
@@ -31,6 +32,28 @@ class AiColumnCatalogTest(unittest.TestCase):
                 self.assertIn('"' + name + '"', generated)
             self.assertIn("OB_ALL_AI_COLUMN_TID", generated)
             self.assertIn("OB_ALL_AI_COLUMN_HISTORY_TID", generated)
+            for name in ("__all_ai_column_task", "__all_ai_column_task_history",
+                         "request_id", "lease_id", "state", "result_value",
+                         "eligible_ts", "retry_count"):
+                self.assertIn('"' + name + '"', generated)
+            # Check each task schema itself: similarly named fields in another
+            # system table must not conceal a missing worker catalog column.
+            for suffix in ("task", "task_history"):
+                body = re.search(
+                    r"int ObInnerTableSchema::all_ai_column_" + suffix
+                    + r"_schema\([^\n]+\)\s*\{(.*?)\n\}", generated, re.S
+                )
+                self.assertIsNotNone(body, suffix)
+                for name, sql_type in (("state", "ObIntType"),
+                                       ("lease_id", "ObVarcharType"),
+                                       ("result_value", "ObVarcharType")):
+                    column = re.search(r'ADD_COLUMN_SCHEMA(?:_T)?\("' + name
+                                       + r'",(.*?)\n  \}', body[1], re.S)
+                    self.assertIsNotNone(column, (suffix, name))
+                    self.assertIn(sql_type + ", //column_type", column[1])
+                    if suffix == "task" and name != "result_value":
+                        self.assertIn("false, //is_nullable", column[1])
+                self.assertIn("state_default.set_int(0)", body[1])
             # These ranges are already part of the production source inventory,
             # including the auxiliary LOB tables generated for system tables.
             for name in ("ob_inner_table_schema.1101_1150.cpp",

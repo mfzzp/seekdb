@@ -1,0 +1,85 @@
+# Expired claims, escaped keys, strict transaction visibility and RETRY rollback.
+connection default;
+--exec python3 mysql_test/test_suite/ai_column/include/ai_column_mock.py start 19125
+--disable_warnings
+drop database if exists ai_column_recovery;
+--enable_warnings
+create database ai_column_recovery;
+--error 0,11112
+call DBMS_AI_SERVICE.DROP_AI_MODEL_ENDPOINT('recovery_ep');
+--error 0,11118
+call DBMS_AI_SERVICE.DROP_AI_MODEL('recovery_model');
+call DBMS_AI_SERVICE.CREATE_AI_MODEL('recovery_model', '{"type":"completion","model_name":"mock-complete"}');
+call DBMS_AI_SERVICE.CREATE_AI_MODEL_ENDPOINT('recovery_ep', '{"ai_model_name":"recovery_model","url":"http://127.0.0.1:19125/v1/chat/completions","access_key":"test-key","provider":"openai","request_model_name":"mock-complete"}');
+create table ai_column_recovery.docs(
+  `i``d` varchar(80) primary key,
+  content varchar(200),
+  tags json AI COLUMN (AI_COMPLETE('recovery_model', content)) WITH (sync_mode='async', max_retries=1),
+  score bigint AI COLUMN (AI_COMPLETE('recovery_model', content)) WITH (sync_mode='async', max_retries=1)
+);
+start transaction;
+insert into ai_column_recovery.docs(`i``d`, content) values(concat('key',char(39),char(92)), 'recovered-input');
+select count(*) = 2 and count(distinct task.request_id) = 1 and min(length(task.request_id)) > 0 as durable_request_group
+from oceanbase.__all_ai_column_task task join oceanbase.__all_table t on t.table_id=task.table_id
+join oceanbase.__all_database d on d.database_id=t.database_id where d.database_name='ai_column_recovery';
+# This committed fixture represents a process that died after claiming work.
+update oceanbase.__all_ai_column_task task join oceanbase.__all_table t on t.table_id=task.table_id
+join oceanbase.__all_database d on d.database_id=t.database_id
+set task.state=1, task.status='RUNNING', task.lease_id='expired-owner', task.eligible_ts=date_sub(now(6), interval 1 second)
+where d.database_name='ai_column_recovery';
+commit;
+let $retry = 150;
+let $done = 0;
+while ($retry)
+{
+  let $done = `select ifnull(tags is not null and score=7,0) from ai_column_recovery.docs`;
+  if ($done == 1) { let $retry = 0; }
+  if ($done == 0) { --real_sleep 0.1
+    dec $retry; }
+}
+eval select $done=1 as expired_claim_recovered;
+select json_unquote(json_extract(tags,'$.input'))='recovered-input' and score=7 as escaped_key_results
+from ai_column_recovery.docs;
+set session ai_column_strict_read=on;
+start transaction;
+update ai_column_recovery.docs set content='uncommitted-input';
+select count(*)=1 as ordinary_columns_readable from ai_column_recovery.docs;
+--replace_regex /table_id=[0-9]+, column_id=[0-9]+/table_id=<table_id>, column_id=<column_id>/
+--error 11120
+select tags from ai_column_recovery.docs;
+rollback;
+select tags is not null and score=7 as rollback_restores_readiness from ai_column_recovery.docs;
+set session ai_column_strict_read=off;
+start transaction;
+alter table ai_column_recovery.docs retry ai column tags where status='READY';
+select tags is null and score=7 as retry_targets_one_column from ai_column_recovery.docs;
+select count(*)=1 as retry_task_in_same_transaction
+from oceanbase.__all_ai_column_task task join oceanbase.__all_table t on t.table_id=task.table_id
+join oceanbase.__all_database d on d.database_id=t.database_id where d.database_name='ai_column_recovery';
+rollback;
+set session ai_column_strict_read=on;
+select tags is not null and score=7 as retry_rollback_restores_readiness from ai_column_recovery.docs;
+set session ai_column_strict_read=off;
+# A successfully propagated SQL NULL is READY, not an unfinished result.
+insert into ai_column_recovery.docs(`i``d`,content) values('null-input',null);
+let $retry = 100;
+let $done = 0;
+while ($retry)
+{
+  let $done = `select count(*)=0 from oceanbase.__all_ai_column_task task
+    join oceanbase.__all_table t on t.table_id=task.table_id
+    join oceanbase.__all_database d on d.database_id=t.database_id
+    where d.database_name='ai_column_recovery'`;
+  if ($done == 1) { let $retry = 0; }
+  if ($done == 0) { --real_sleep 0.1
+    dec $retry; }
+}
+eval select $done=1 as null_result_published;
+set session ai_column_strict_read=on;
+select tags is null and score is null as successful_null_is_ready
+from ai_column_recovery.docs where `i``d`='null-input';
+set session ai_column_strict_read=off;
+drop database ai_column_recovery;
+call DBMS_AI_SERVICE.DROP_AI_MODEL_ENDPOINT('recovery_ep');
+call DBMS_AI_SERVICE.DROP_AI_MODEL('recovery_model');
+--exec python3 mysql_test/test_suite/ai_column/include/ai_column_mock.py stop 19125

@@ -79,9 +79,11 @@ int ObUpdateResolver::resolve(const ParseNode &parse_tree)
 
   if (OB_SUCC(ret)) {
     current_scope_ = T_UPDATE_SCOPE;
+    if (parse_tree.is_ai_column_retry_) { OZ(prepare_ai_retry(parse_tree)); }
     // resolve assignments
     ParseNode *assign_list = parse_tree.children_[UPDATE_LIST];
-    if (OB_ISNULL(assign_list) || OB_UNLIKELY(T_ASSIGN_LIST != assign_list->type_)) {
+    if (OB_FAIL(ret)) {
+    } else if (OB_ISNULL(assign_list) || OB_UNLIKELY(T_ASSIGN_LIST != assign_list->type_)) {
       ret = OB_ERR_UNEXPECTED;
       LOG_WARN("invalid assign list node", K(assign_list));
     } else if (OB_FAIL(resolve_assignments(*assign_list,
@@ -107,6 +109,10 @@ int ObUpdateResolver::resolve(const ParseNode &parse_tree)
 
   if (OB_SUCC(ret)) {
     // Parse cascading update columns
+    if (parse_tree.is_ai_column_retry_ && tables_assign.count() == 1
+        && tables_assign.at(0).assignments_.count() == 1) {
+      tables_assign.at(0).assignments_.at(0).is_implicit_ = true;
+    }
     if (OB_FAIL(resolve_additional_assignments(tables_assign,
                                                T_UPDATE_SCOPE))) {
     }
@@ -149,6 +155,106 @@ int ObUpdateResolver::resolve(const ParseNode &parse_tree)
     } else if (OB_FAIL(update_stmt->check_dml_source_from_join())) {
     } else if (OB_FAIL(check_safe_update_mode(update_stmt))) {
     } else { /*do nothing*/ }
+  }
+  return ret;
+}
+
+int ObUpdateResolver::rewrite_ai_retry_status(ParseNode *&node, const ObString &state_name)
+{
+  int ret = OB_SUCCESS;
+  if (node == nullptr || node->type_ == T_SELECT) { return ret; }
+  if (node->type_ == T_COLUMN_REF && node->num_child_ == 3
+      && node->children_[0] == nullptr && node->children_[1] == nullptr
+      && node->children_[2] != nullptr && !node->children_[2]->is_input_quoted_
+      && ObString(node->children_[2]->str_len_, node->children_[2]->str_value_).case_compare("status") == 0) {
+    ParseNode *name = nullptr, *ref = nullptr, *cases = nullptr, *result = nullptr, *pending = nullptr;
+    OZ(ObRawExprUtils::new_parse_node(name, *params_.expr_factory_, T_IDENT, 0));
+    OZ(ObRawExprUtils::new_parse_node(ref, *params_.expr_factory_, T_COLUMN_REF, 3));
+    OZ(ObRawExprUtils::new_parse_node(cases, *params_.expr_factory_, T_WHEN_LIST, 2));
+    OZ(ObRawExprUtils::new_parse_node(result, *params_.expr_factory_, T_CASE, 3));
+    OZ(ObRawExprUtils::new_parse_node(pending, *params_.expr_factory_, T_VARCHAR, 0));
+    if (OB_SUCC(ret)) {
+      name->str_value_ = state_name.ptr();
+      name->str_len_ = state_name.length();
+      name->is_input_quoted_ = 1;
+      ref->children_[0] = nullptr;
+      ref->children_[1] = nullptr;
+      ref->children_[2] = name;
+      pending->str_value_ = "PENDING";
+      pending->str_len_ = 7;
+      pending->is_hidden_const_ = 1;
+      for (int64_t i = 0; OB_SUCC(ret) && i < 2; ++i) {
+        ParseNode *when = nullptr, *number = nullptr, *text = nullptr;
+        OZ(ObRawExprUtils::new_parse_node(when, *params_.expr_factory_, T_WHEN, 2));
+        OZ(ObRawExprUtils::new_parse_node(number, *params_.expr_factory_, T_INT, 0));
+        OZ(ObRawExprUtils::new_parse_node(text, *params_.expr_factory_, T_VARCHAR, 0));
+        if (OB_SUCC(ret)) {
+          number->value_ = i == 0 ? 2 : 4;
+          number->is_hidden_const_ = 1;
+          text->str_value_ = i == 0 ? "READY" : "FAILED";
+          text->str_len_ = i == 0 ? 5 : 6;
+          text->is_hidden_const_ = 1;
+          when->children_[0] = number;
+          when->children_[1] = text;
+          cases->children_[i] = when;
+        }
+      }
+      result->children_[0] = ref;
+      result->children_[1] = cases;
+      result->children_[2] = pending;
+      node = result;
+    }
+  } else {
+    for (int64_t i = 0; OB_SUCC(ret) && i < node->num_child_; ++i) {
+      OZ(SMART_CALL(rewrite_ai_retry_status(node->children_[i], state_name)));
+    }
+  }
+  return ret;
+}
+
+int ObUpdateResolver::prepare_ai_retry(const ParseNode &tree)
+{
+  int ret = OB_SUCCESS;
+  ObUpdateStmt *stmt = get_update_stmt();
+  const ObTableSchema *table = nullptr;
+  const ObColumnSchemaV2 *column = nullptr;
+  const ObColumnSchemaV2 *state = nullptr;
+  TableItem *item = nullptr;
+  AiColumnDefinition definition;
+  if (tree.children_[WHEN] != nullptr || stmt == nullptr || stmt->get_table_size() != 1
+      || tree.children_[UPDATE_LIST] == nullptr || params_.query_ctx_ == nullptr) {
+    ret = OB_NOT_SUPPORTED;
+    LOG_USER_ERROR(OB_NOT_SUPPORTED, "combining AI COLUMN RETRY with another ALTER action");
+  } else {
+    item = stmt->get_table_item(0);
+    if (item == nullptr || !item->is_basic_table() || item->is_view_table_) {
+      ret = OB_NOT_SUPPORTED;
+      LOG_USER_ERROR(OB_NOT_SUPPORTED, "RETRY AI COLUMN on a view");
+    } else {
+      OZ(schema_checker_->get_table_schema(item->ref_id_, table));
+    }
+  }
+  if (OB_SUCC(ret)) {
+    const ParseNode *name = tree.children_[UPDATE_LIST]->children_[0]->children_[0]->children_[2];
+    if (table == nullptr || name == nullptr
+        || (column = table->get_column_schema(ObString(name->str_len_, name->str_value_))) == nullptr
+        || !column->is_ai_column()) {
+      ret = OB_NOT_SUPPORTED;
+      LOG_USER_ERROR(OB_NOT_SUPPORTED, "retrying a column that is not an AI column");
+    } else {
+      params_.query_ctx_->ai_retry_table_id_ = table->get_table_id();
+      params_.query_ctx_->ai_retry_column_id_ = column->get_column_id();
+      OZ(column->get_ai_column_definition(definition));
+      state = table->get_column_schema(definition.state_column_id_);
+      if (OB_SUCC(ret) && state == nullptr) { ret = OB_SCHEMA_ERROR; }
+    }
+  }
+  if (OB_SUCC(ret)) {
+    // Only this generated predicate may address the selected column's hidden
+    // state. Backtick-quoted `status` remains an ordinary business column.
+    ObSEArray<ObColumnRefRawExpr *, 1> refs;
+    OZ(add_column_to_stmt(*item, *state, refs));
+    OZ(rewrite_ai_retry_status(tree.children_[WHERE], state->get_column_name_str()));
   }
   return ret;
 }

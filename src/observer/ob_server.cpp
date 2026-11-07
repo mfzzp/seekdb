@@ -626,6 +626,7 @@ ObServer::ObServer()
     server_gtimer_(),
     sql_mem_timer_(),
     ctas_clean_up_timer_(),
+    ai_column_worker_(),
     duty_task_(),
     sql_mem_task_(),
     ctas_clean_up_task_(),
@@ -973,6 +974,7 @@ void ObServer::destroy()
     FLOG_INFO("table auto increment service destroyed");
 
     FLOG_INFO("begin to destroy server timer");
+    ai_column_worker_.destroy();
     server_gtimer_.destroy();
     FLOG_INFO("server timer destroyed");
 
@@ -1335,6 +1337,11 @@ int ObServer::start()
       LOG_ERROR("fail to start standby gRPC service", KR(ret));
     }
 
+  // Schedule only after bootstrap and schema readiness, never during inner-table loading.
+  if (OB_SUCC(ret) && OB_FAIL(ai_column_worker_.start(sql_proxy_))) {
+    LOG_ERROR("fail to start AI column worker", KR(ret));
+  }
+
   int64_t start_service_time = ObTimeUtility::current_time();
   if (OB_FAIL(ret)) {
     LOG_ERROR("failure occurs, stop observer startup", KR(ret));
@@ -1552,6 +1559,8 @@ int ObServer::stop()
   int ret = OB_SUCCESS;
   int fail_ret = OB_SUCCESS;
   FLOG_INFO("[OBSERVER_NOTICE] stop observer begin");
+  // Join network work while SQL, schema and storage services are still alive.
+  ai_column_worker_.stop();
   LOG_DBA_INFO_V2(OB_SERVER_STOP_BEGIN, "observer stop begin.");
 
   if (in_process_) {

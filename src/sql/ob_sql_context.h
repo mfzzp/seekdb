@@ -596,6 +596,9 @@ public:
   {
     question_marks_count_ = 0;
     calculable_items_.reset();
+    ai_read_columns_.reset();
+    ai_retry_table_id_ = common::OB_INVALID_ID;
+    ai_retry_column_id_ = common::OB_INVALID_ID;
     fetch_cur_time_ = true;
     is_contain_virtual_table_ = false;
     is_contain_inner_table_ = false;
@@ -673,6 +676,10 @@ public:
 public:
   int64_t question_marks_count_;
   CalculableItems calculable_items_;
+  // Alternating base table/column IDs referenced by user SQL, before rewrites.
+  common::ObSEArray<uint64_t, 8> ai_read_columns_;
+  uint64_t ai_retry_table_id_ = common::OB_INVALID_ID;
+  uint64_t ai_retry_column_id_ = common::OB_INVALID_ID;
   //array binding param exprs, mark the all array binding param expr in the batch stmt
   common::ObSEArray<ObRawExpr*, 4, common::ModulePageAllocator, true> ab_param_exprs_;
   common::ObSArray<share::schema::ObSchemaObjVersion> global_dependency_tables_;

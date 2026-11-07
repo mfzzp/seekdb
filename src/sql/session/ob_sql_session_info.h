@@ -73,6 +73,7 @@ class ObPLServerCursorInfo;
 
 } // namespace pl
 
+namespace transaction { struct ObTxReadSnapshot; }
 namespace query
 {
 class ObIChangeStreamService;
@@ -622,6 +623,8 @@ public:
   // sql from obclient, proxy, PL are all marked as user_session
   // NOTE: for sql from PL, is_inner() = true, is_user_session() = true
   inline bool is_user_session() const { return USER_SESSION == session_type_; }
+  const transaction::ObTxReadSnapshot *get_ai_strict_snapshot() const { return ai_strict_snapshot_; }
+  void set_ai_strict_snapshot(const transaction::ObTxReadSnapshot *snapshot) { ai_strict_snapshot_ = snapshot; }
   bool is_inner() const
   {
     return inner_flag_;
@@ -909,6 +912,8 @@ private:
   // in_transaction_ has been merged into trans_flags_.
 //  int64_t has_write_stmt_in_trans_;
   bool inner_flag_; // whether it is a virtual session for an internal request
+  // Scoped to a nested strict-read check; never serialized or retained by a plan.
+  const transaction::ObTxReadSnapshot *ai_strict_snapshot_ = nullptr;
   // After version 2.2, this variable is no longer used
   bool is_max_availability_mode_;
   typedef common::hash::ObHashMap<ObPsStmtId, ObPsSessionInfo *,

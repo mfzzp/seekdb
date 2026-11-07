@@ -27,6 +27,9 @@
 #include "sql/monitor/show_trace/ob_show_trace.h"
 #include "sql/engine/table/ob_table_scan_op.h"
 #include "share/ob_ddl_checksum.h"
+#include "query/session/ob_inner_sql_connection_access.h"
+#include "sql/session/ob_inner_sql_connection.h"
+#include "common/mysqlclient/ob_mysql_result.h"
 
 using namespace oceanbase::sql;
 using namespace oceanbase::common;
@@ -41,6 +44,92 @@ namespace sql
 {
 namespace
 {
+int append_ai_check_identifier(ObSqlString &sql, const ObString &name)
+{
+  int ret = sql.append("`");
+  for (int64_t i = 0; OB_SUCC(ret) && i < name.length(); ++i) {
+    OZ(sql.append(name.ptr() + i, 1));
+    if (OB_SUCC(ret) && name.ptr()[i] == '`') { OZ(sql.append("`")); }
+  }
+  OZ(sql.append("`"));
+  return ret;
+}
+
+int check_ai_strict_columns(ObExecContext &ctx, const ObPhysicalPlan &plan)
+{
+  int ret = OB_SUCCESS;
+  ObSQLSessionInfo *session = ctx.get_my_session();
+  bool strict = false;
+  const ObIArray<uint64_t> &columns = plan.get_ai_read_columns();
+  if (OB_ISNULL(session)) { return OB_ERR_UNEXPECTED; }
+  if (session->is_inner() || columns.empty()) { return ret; }
+  OZ(session->get_sys_variable(SYS_VAR_AI_COLUMN_STRICT_READ, strict));
+  if (OB_FAIL(ret) || !strict) { return ret; }
+  if (columns.count() % 2 != 0 || ctx.get_sql_ctx() == nullptr
+      || ctx.get_sql_ctx()->schema_guard_ == nullptr) { return OB_ERR_UNEXPECTED; }
+  ObSchemaGetterGuard &schema = *ctx.get_sql_ctx()->schema_guard_;
+  common::sqlclient::ObISQLConnectionGuard connection_guard;
+  ObIInnerSQLConnection *connection = as_inner_sql_connection(session->get_inner_conn());
+  if (connection == nullptr) {
+    OZ(query::ObInnerSQLConnectionAccess::create_connection_with_external_session(session, connection_guard));
+    connection = as_inner_sql_connection(connection_guard.get_ptr());
+    if (OB_SUCC(ret) && connection == nullptr) { ret = OB_ERR_UNEXPECTED; }
+  }
+  ObSQLSessionInfo::StmtSavedValue saved_session;
+  ObIInnerSQLConnection::SavedValue saved_connection;
+  bool nested = false;
+  const ObTxReadSnapshot *previous = session->get_ai_strict_snapshot();
+  if (OB_SUCC(ret)) {
+    OZ(connection->begin_nested_session(saved_session, saved_connection, true));
+    nested = OB_SUCC(ret);
+    if (nested) { session->set_ai_strict_snapshot(&ctx.get_das_ctx().get_snapshot()); }
+  }
+  for (int64_t i = 0; OB_SUCC(ret) && i < columns.count(); i += 2) {
+    const ObTableSchema *table = nullptr;
+    const ObDatabaseSchema *database = nullptr;
+    const ObColumnSchemaV2 *column = nullptr;
+    const ObColumnSchemaV2 *state = nullptr;
+    AiColumnDefinition definition;
+    OZ(schema.get_table_schema(columns.at(i), table));
+    if (OB_SUCC(ret) && (table == nullptr
+        || (column = table->get_column_schema(columns.at(i + 1))) == nullptr
+        || !column->is_ai_column())) { ret = OB_SCHEMA_EAGAIN; }
+    if (OB_SUCC(ret)) {
+      OZ(column->get_ai_column_definition(definition));
+      OZ(schema.get_database_schema(table->get_database_id(), database));
+      state = table->get_column_schema(definition.state_column_id_);
+      if (database == nullptr || state == nullptr) { ret = OB_SCHEMA_EAGAIN; }
+    }
+    ObSqlString query;
+    if (OB_SUCC(ret)) {
+      OZ(query.append("SELECT 1 FROM "));
+      OZ(append_ai_check_identifier(query, database->get_database_name_str()));
+      OZ(query.append("."));
+      OZ(append_ai_check_identifier(query, table->get_table_name_str()));
+      OZ(query.append(" WHERE COALESCE("));
+      OZ(append_ai_check_identifier(query, state->get_column_name_str()));
+      OZ(query.append(",0)<>2 LIMIT 1"));
+      // The result is destroyed before restoring the enclosing session.
+      alignas(16) ObISQLClient::ReadResult result;
+      OZ(connection->execute_read(query.ptr(), result));
+      if (OB_SUCC(ret) && result.get_result() == nullptr) { ret = OB_ERR_UNEXPECTED; }
+      if (OB_SUCC(ret)) {
+        const int read_ret = result.get_result()->next();
+        if (read_ret == OB_SUCCESS) {
+          ret = OB_AI_COLUMN_NOT_READY;
+          LOG_USER_ERROR(OB_AI_COLUMN_NOT_READY, columns.at(i), columns.at(i + 1));
+        } else if (read_ret != OB_ITER_END) { ret = read_ret; }
+      }
+    }
+  }
+  if (nested) {
+    session->set_ai_strict_snapshot(previous);
+    const int restore_ret = connection->end_nested_session(saved_session, saved_connection);
+    if (OB_SUCC(ret)) { ret = restore_ret; }
+  }
+  return ret;
+}
+
 int find_table_scan_table_id(const ObOpSpec *spec, uint64_t &table_id)
 {
   int ret = OB_SUCCESS;
@@ -462,6 +551,7 @@ OB_INLINE int ObResultSet::do_open_plan(ObExecContext &ctx)
 
   if (OB_FAIL(ret)) {
   } else if (OB_FAIL(start_stmt())) {
+  } else if (OB_FAIL(check_ai_strict_columns(ctx, *physical_plan_))) {
   } else {
     /* Set exec_result_ to the executor's runtime environment for returning data */
     /* execute plan,
