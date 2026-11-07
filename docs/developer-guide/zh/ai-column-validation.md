@@ -131,6 +131,7 @@ for t in ai_column_worker ai_column_retry_strict ai_column_vector_index ai_colum
 ## 仍需验证或完善的边界
 
 - 新增完整功能尚无 Linux 运行结论；之前 Linux 通过的 DDL 和任务事务检查只覆盖旧提交。
+- Windows 曾尝试重启被强制结束的 `ai-full-run-20261107-3` 数据目录，启动在日志块管理初始化阶段返回 -4006：日志显示 `ObServerLogBlockMgr::remove_block_at` 报未初始化，随后 `ObServer::init_io` 失败。尚未做稳定版对照，不能判断是否由本次改动引起。后续全新实例成功不能替代该恢复问题的验证。
 - 正式 Linux Mysqltest、真实进程重启恢复、并发更新压力、HTTP 超时／429／异常响应等专项仍待验证。本地已覆盖向量 ANN、迟到结果、Mock 故障和租约过期 fixture；这些不能替代 Linux 压力与崩溃恢复测试。
 - 当前按赋值列判断依赖触发；依赖赋值为原值时仍可能重算。内部会话写入（如触发器）的 DML Hook 处理也需进一步验证。
 - AI 列定义变更后的旧任务会丢弃；旧实例迁移、已有行的自动重新入队以及较长主键的任务谓词支持尚需完善。
