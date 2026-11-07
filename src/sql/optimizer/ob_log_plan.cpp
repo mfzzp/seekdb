@@ -11989,6 +11989,53 @@ int ObLogPlan::construct_startup_filter_for_limit(ObRawExpr *limit_expr, ObLogic
   return ret;
 }
 
+// A natural-language MATCH used only as a positive truth-value filter needs
+// document membership, not BM25. Keep ranking, numeric predicates, ES boosts,
+// Boolean mode and multi-table/lookup plans on the scored path.
+static int check_score_free_match_filter(const ObDMLStmt *stmt,
+                                        const ObMatchFunRawExpr *match,
+                                        const ObRawExpr *filter,
+                                        bool &score_free)
+{
+  int ret = OB_SUCCESS;
+  score_free = false;
+  if (OB_ISNULL(stmt) || OB_ISNULL(match) || OB_ISNULL(filter)) {
+    ret = OB_ERR_UNEXPECTED;
+  } else if (!stmt->is_select_stmt() || stmt->get_table_size() != 1
+      || !stmt->get_table_item(0)->is_basic_table()
+      || stmt->has_limit() || stmt->has_order_by() || stmt->get_subquery_expr_size() != 0
+      || match->get_expr_type() != T_FUN_MATCH_AGAINST
+      || match->get_mode_flag() != NATURAL_LANGUAGE_MODE
+      || !match->get_columns_boosts().empty()
+      || filter->get_expr_type() != T_OP_BOOL || filter->get_param_count() != 1
+      || filter->get_param_expr(0) != match) {
+    // The score can affect the result, or this is not a plain membership scan.
+  } else {
+    ObSEArray<ObRawExpr *, 16> exprs;
+    ObStmtExprGetter visitor;
+    visitor.set_relation_scope();
+    visitor.remove_scope(SCOPE_WHERE);
+    if (OB_FAIL(stmt->get_relation_exprs(exprs, visitor))) {
+    } else {
+      score_free = true;
+      for (int64_t i = 0; score_free && i < exprs.count(); ++i) {
+        score_free = !exprs.at(i)->has_flag(CNT_MATCH_EXPR);
+      }
+      const ObIArray<ObRawExpr *> &conditions = stmt->get_condition_exprs();
+      bool found_filter = false;
+      for (int64_t i = 0; score_free && i < conditions.count(); ++i) {
+        if (conditions.at(i) == filter) {
+          found_filter = true;
+        } else if (conditions.at(i)->has_flag(CNT_MATCH_EXPR)) {
+          score_free = false;
+        }
+      }
+      score_free = score_free && found_filter;
+    }
+  }
+  return ret;
+}
+
 int ObLogPlan::prepare_text_retrieval_scan(const ObIArray<ObRawExpr *> &scan_match_exprs,
                                            const ObIArray<ObRawExpr *> &scan_match_filters,
                                            const ObIArray<ObRawExpr *> &all_match_filters,
@@ -12041,12 +12088,23 @@ int ObLogPlan::prepare_text_retrieval_scan(const ObIArray<ObRawExpr *> &scan_mat
     ObTextRetrievalInfo &tr_info = table_scan->get_text_retrieval_info();
     tr_info.match_expr_ = match_against;
     tr_info.pushdown_match_filter_ = match_pred;
+    bool score_free = false;
+    if (all_match_filters.count() == 1 && !table_scan->get_index_back()
+        && !table_scan->is_vec_idx_scan_post_filter()
+        && !table_scan->is_vec_adaptive_scan()
+        && OB_FAIL(check_score_free_match_filter(get_stmt(), match_against, match_pred, score_free))) {
+    } else if (score_free) {
+      tr_info.need_calc_relevance_ = false;
+      // Every row emitted by the posting-list union satisfies this predicate.
+      tr_info.pushdown_match_filter_ = nullptr;
+    }
     // The mapping table is absent when the data-table rowkey is used as the document ID.
     table_scan->set_doc_id_index_table_id(tr_info.doc_id_idx_tid_);
     if (table_scan->is_vec_adaptive_scan() || table_scan->is_vec_idx_scan_post_filter()) {
       table_scan->set_rowkey_doc_table_id(tr_info.rowkey_idx_tid_);
     }
-    if (OB_FAIL(table_scan->set_is_skip_rowkey_doc(tr_info.doc_id_idx_tid_ == OB_INVALID_ID))) {
+    if (OB_FAIL(ret)) {
+    } else if (OB_FAIL(table_scan->set_is_skip_rowkey_doc(tr_info.doc_id_idx_tid_ == OB_INVALID_ID))) {
     } else if (OB_FAIL(table_scan->set_is_skip_rowkey_doc(tr_info.rowkey_idx_tid_ == OB_INVALID_ID))) {
     }
   }
