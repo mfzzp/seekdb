@@ -382,7 +382,29 @@ int ObFTRangeDict::find_first_char_range(const ObString &single_word, ObIFTDict 
 {
   int ret = OB_SUCCESS;
   bool found = false;
-  for (int i = 0; OB_SUCC(ret) && !found && i < range_dicts_.size(); ++i) {
+  if (ranges_ordered_) {
+    // Find the first range ending at or after the character. Check its start
+    // separately because gaps between dictionary ranges are valid.
+    int64_t lo = 0;
+    int64_t hi = range_dicts_.count();
+    while (lo < hi) {
+      const int64_t mid = lo + (hi - lo) / 2;
+      if (ObCharset::strcmp(CS_TYPE_UTF8MB4_BIN,
+                            range_dicts_[mid].end_.get_word(), single_word) < 0) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
+    }
+    if (lo < range_dicts_.count()
+        && ObCharset::strcmp(CS_TYPE_UTF8MB4_BIN,
+                             range_dicts_[lo].start_.get_word(), single_word) <= 0) {
+      dict = range_dicts_[lo].dict_;
+      found = true;
+    }
+  }
+  // Preserve first-match behavior for any unordered/overlapping cache ranges.
+  for (int i = 0; !ranges_ordered_ && !found && i < range_dicts_.count(); ++i) {
     if (ObCharset::strcmp(ObCollationType::CS_TYPE_UTF8MB4_BIN,
                           range_dicts_[i].start_.get_word(),
                           single_word)
@@ -418,7 +440,14 @@ int ObFTRangeDict::build_dict_from_cache(const ObFTCacheRangeContainer &range_co
       range.start_ = dat->start_word_;
       range.end_ = dat->end_word_;
       range.dict_ = dict;
+      if (ObCharset::strcmp(CS_TYPE_UTF8MB4_BIN, range.start_.get_word(), range.end_.get_word()) > 0
+          || (range_dicts_.count() > 0
+              && ObCharset::strcmp(CS_TYPE_UTF8MB4_BIN,
+                   range_dicts_[range_dicts_.count() - 1].end_.get_word(), range.start_.get_word()) >= 0)) {
+        ranges_ordered_ = false;
+      }
       if (OB_FAIL(range_dicts_.push_back(range))) {
+        OB_DELETEx(ObFTCacheDict, &range_alloc_, dict);
       }
     }
   }

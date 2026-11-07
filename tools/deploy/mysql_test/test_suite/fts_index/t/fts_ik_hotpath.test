@@ -1,0 +1,25 @@
+# IK character classification, ordered conflict chains and dictionary ranges.
+--disable_query_log
+SET NAMES utf8mb4;
+SET @smart = '[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]';
+SET @maxword = '[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]';
+SET @t = TOKENIZE('中华人民共和国人民大会堂', 'ik', @smart);
+SELECT JSON_EXTRACT(@t, '$.doc_len') = 2 AND JSON_CONTAINS(@t, '{"中华人民共和国":1}', '$.tokens') AND JSON_CONTAINS(@t, '{"人民大会堂":1}', '$.tokens') AS smart_conflicting_words;
+SET @t = TOKENIZE('中华人民共和国人民大会堂', 'ik', @maxword);
+SELECT JSON_EXTRACT(@t, '$.doc_len') = 15 AND JSON_CONTAINS(@t, '{"人民":2}', '$.tokens') AND JSON_CONTAINS(@t, '{"中华人民共和国":1}', '$.tokens') AS maxword_keeps_overlaps;
+SET @t = TOKENIZE('研究生命起源 南京市长江大桥', 'ik', @smart);
+SELECT JSON_EXTRACT(@t, '$.doc_len') = 5 AND JSON_CONTAINS(@t, '{"研究":1}', '$.tokens') AND NOT JSON_CONTAINS(@t, '{"研究生":1}', '$.tokens') AND JSON_CONTAINS(@t, '{"长江大桥":1}', '$.tokens') AS smart_chain_selection;
+SET @t = TOKENIZE('研究生命起源 南京市长江大桥', 'ik', @maxword);
+SELECT JSON_EXTRACT(@t, '$.doc_len') = 10 AND JSON_CONTAINS(@t, '{"研究生":1}', '$.tokens') AND JSON_CONTAINS(@t, '{"市长":1}', '$.tokens') AS maxword_chain_selection;
+SET @t = TOKENIZE('一百二十三个苹果和二十公斤大米', 'ik', @smart);
+SELECT JSON_EXTRACT(@t, '$.doc_len') = 7 AND JSON_CONTAINS(@t, '{"一百二十三":1}', '$.tokens') AND JSON_CONTAINS(@t, '{"公斤":1}', '$.tokens') AS number_and_quantifier;
+SET @t = TOKENIZE('ＡＢＣ１２３，ａｂｃ！中文\tカタカナ 한글 😀', 'ik', @smart);
+SELECT JSON_EXTRACT(@t, '$.doc_len') = 9 AND JSON_CONTAINS(@t, '{"ａｂｃ１２３":1}', '$.tokens') AND JSON_CONTAINS(@t, '{"カ":2}', '$.tokens') AND JSON_CONTAINS(@t, '{"한":1}', '$.tokens') AS fullwidth_and_other_cjk;
+SET @t = TOKENIZE('ＡＢＣ１２３，ａｂｃ！中文\tカタカナ 한글 😀', 'ik', @maxword);
+SELECT JSON_EXTRACT(@t, '$.doc_len') = 11 AND JSON_CONTAINS(@t, '{"ａｂｃ":2}', '$.tokens') AND JSON_CONTAINS(@t, '{"１２３":1}', '$.tokens') AS fullwidth_maxword;
+SET @t = TOKENIZE('龘龖龖龘魑魅魍魉', 'ik', @smart);
+SELECT JSON_EXTRACT(@t, '$.doc_len') = 5 AND JSON_CONTAINS(@t, '{"龘":2}', '$.tokens') AND JSON_CONTAINS(@t, '{"魑魅魍魉":1}', '$.tokens') AS dictionary_tail_and_gaps;
+SELECT JSON_LENGTH(TOKENIZE('!!! , \t\n😀', 'ik')) = 0 AS no_conflict_chains;
+SET @t = TOKENIZE(REPEAT('研究生命起源 南京市长江大桥 ', 10), 'ik', @smart);
+SELECT JSON_EXTRACT(@t, '$.doc_len') = 50 AND JSON_CONTAINS(@t, '{"研究":10}', '$.tokens') AND JSON_CONTAINS(@t, '{"南京市":10}', '$.tokens') AS many_ordered_chains;
+--enable_query_log
