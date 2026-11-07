@@ -1,0 +1,16 @@
+# Task catalog transaction coverage, independent of a background worker.
+--disable_query_log
+create database ai_task_transaction;
+call DBMS_AI_SERVICE.CREATE_AI_MODEL('task_transaction_model', '{"type":"completion","model_name":"mock-complete"}');
+call DBMS_AI_SERVICE.CREATE_AI_MODEL_ENDPOINT('task_transaction_endpoint', '{"ai_model_name":"task_transaction_model","url":"http://127.0.0.1:19121/v1/chat/completions","access_key":"test","provider":"openai","request_model_name":"mock-complete"}');
+create table ai_task_transaction.docs(id bigint primary key, title varchar(100), content varchar(200), tags json AI COLUMN (AI_COMPLETE('task_transaction_model', content)) WITH (sync_mode='async', max_retries=2));
+start transaction;
+insert into ai_task_transaction.docs(id,title,content) values(1,'a','b'),(2,'c','d');
+select count(*) as own_uncommitted_tasks from oceanbase.__all_ai_column_task where table_id=(select table_id from oceanbase.__all_table where table_name='docs' and database_id=(select database_id from oceanbase.__all_database where database_name='ai_task_transaction'));
+rollback;
+select count(*) as rolled_back_rows from ai_task_transaction.docs;
+select count(*) as rolled_back_tasks from oceanbase.__all_ai_column_task where table_id=(select table_id from oceanbase.__all_table where table_name='docs' and database_id=(select database_id from oceanbase.__all_database where database_name='ai_task_transaction'));
+drop database ai_task_transaction;
+call DBMS_AI_SERVICE.DROP_AI_MODEL_ENDPOINT('task_transaction_endpoint');
+call DBMS_AI_SERVICE.DROP_AI_MODEL('task_transaction_model');
+--enable_query_log

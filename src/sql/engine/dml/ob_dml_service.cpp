@@ -451,6 +451,11 @@ int ai_build_task_ctdef(common::ObIAllocator &alloc,
     ctdef->is_ignore_ = false;
     ctdef->is_batch_stmt_ = false;
     ctdef->is_total_quantity_log_ = true;
+    // Fixed arrays require storage before push_back; the factory only assigns
+    // their allocator. Reserve the schema column count as an upper bound.
+    OZ(ctdef->column_ids_.reserve(task_schema.get_column_count()));
+    OZ(ctdef->column_types_.reserve(task_schema.get_column_count()));
+    OZ(ctdef->column_accuracys_.reserve(task_schema.get_column_count()));
     for (int64_t i = 0; OB_SUCC(ret) && i < rowkey_info.get_size(); ++i) {
       const common::ObRowkeyColumn *rowkey_column = rowkey_info.get_column(i);
       const share::schema::ObColumnSchemaV2 *column = nullptr;
