@@ -375,6 +375,31 @@ int ObExprTokenize::parse_parser_properties(const ObExpr &expr,
 int ObExprTokenize::TokenizeParam::reform_parser_properties(const ObString &properties)
 {
   int ret = OB_SUCCESS;
+  // Cache only validated configuration bytes, never text or token results.
+  // Dictionary loading remains in parse_param for every invocation.
+  struct NormalizedPropertyCache {
+    char parser_[storage::OB_FT_PARSER_NAME_LENGTH];
+    char input_[1024];
+    char output_[2048];
+    int64_t parser_len_ = -1;
+    int64_t input_len_ = -1;
+    int64_t output_len_ = 0;
+  };
+  static thread_local NormalizedPropertyCache cache;
+  const bool cacheable = parser_name_.length() <= static_cast<int64_t>(sizeof(cache.parser_))
+      && properties.length() <= static_cast<int64_t>(sizeof(cache.input_));
+  if (cacheable && cache.parser_len_ == parser_name_.length()
+      && cache.input_len_ == properties.length()
+      && 0 == MEMCMP(cache.parser_, parser_name_.ptr(), parser_name_.length())
+      && (properties.empty() || 0 == MEMCMP(cache.input_, properties.ptr(), properties.length()))) {
+    return ob_write_string(allocator_, ObString(cache.output_len_, cache.output_), properties_);
+  }
+  // properties can alias properties_; save the input before publishing output.
+  char input[sizeof(cache.input_)];
+  const int64_t input_len = properties.length();
+  if (cacheable && input_len > 0) {
+    MEMCPY(input, properties.ptr(), input_len);
+  }
   storage::ObFTParserJsonProps parser_properties;
 
   if (OB_FAIL(parser_properties.init())) {
@@ -384,6 +409,15 @@ int ObExprTokenize::TokenizeParam::reform_parser_properties(const ObString &prop
                                                              ObCollationType::CS_TYPE_UTF8MB4_BIN,
                                                              true))) {
   } else if (OB_FAIL(parser_properties.to_format_json(allocator_, properties_))) {
+  } else if (cacheable && properties_.length() <= static_cast<int64_t>(sizeof(cache.output_))) {
+    cache.parser_len_ = parser_name_.length();
+    MEMCPY(cache.parser_, parser_name_.ptr(), cache.parser_len_);
+    cache.input_len_ = input_len;
+    if (input_len > 0) {
+      MEMCPY(cache.input_, input, input_len);
+    }
+    cache.output_len_ = properties_.length();
+    MEMCPY(cache.output_, properties_.ptr(), cache.output_len_);
   }
 
   return ret;

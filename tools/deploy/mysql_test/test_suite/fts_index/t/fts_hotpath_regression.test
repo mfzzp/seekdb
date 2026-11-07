@@ -1,0 +1,56 @@
+# Cover normalization ownership, collation-equivalent spellings, configuration
+# changes, overlapping posting lists, score predicates and transactional DML.
+--disable_query_log
+--disable_warnings
+DROP DATABASE IF EXISTS fts_hotpath_regression;
+--enable_warnings
+CREATE DATABASE fts_hotpath_regression;
+USE fts_hotpath_regression;
+SET NAMES utf8mb4;
+SET ob_query_timeout = 10000000000;
+
+SET @tokens = TOKENIZE('Database DATABASE database parser Parser the', 'space', '[{"output":"all"}]');
+SELECT JSON_CONTAINS(@tokens, '{"database":3}', '$.tokens') AND JSON_CONTAINS(@tokens, '{"parser":2}', '$.tokens') AND JSON_EXTRACT(@tokens, '$.doc_len') = 5 AS repeated_word_counts;
+SET @tokens = TOKENIZE('apple banana APPLE cherry pear', 'space', '[{"output":"all"}]');
+SELECT JSON_CONTAINS(@tokens, '{"apple":2}', '$.tokens') AND JSON_CONTAINS(@tokens, '{"banana":1}', '$.tokens') AND JSON_CONTAINS(@tokens, '{"cherry":1}', '$.tokens') AS scratch_key_lifetime;
+SET @tokens = TOKENIZE('café cafe', 'ngram', '[{"output":"all"}]');
+SELECT JSON_CONTAINS(@tokens, '{"fe":2}', '$.tokens') AND NOT JSON_CONTAINS(@tokens, '{"fé":2}', '$.tokens') AS last_equivalent_spelling;
+SET @tokens = TOKENIZE('cafe café', 'ngram', '[{"output":"all"}]');
+SELECT JSON_CONTAINS(@tokens, '{"fé":2}', '$.tokens') AS reverse_equivalent_spelling;
+SELECT JSON_LENGTH(TOKENIZE('cat horse elephant', 'space', '[{"additional_args":[{"min_token_size":5}]}]')) = 2 AS property_first_value;
+SELECT JSON_LENGTH(TOKENIZE('cat horse elephant', 'space', '[{"additional_args":[{"min_token_size":3}]}]')) = 3 AS property_changed_value;
+SELECT JSON_LENGTH(TOKENIZE('cat horse elephant', 'space', '[{"additional_args":[{"min_token_size":5}]}]')) = 2 AS property_restored_value;
+SELECT JSON_LENGTH(TOKENIZE('cat horse elephant', 'space', '[{"additional_args":[{"min_token_size":5}]}]')) = 2 AS property_repeated_value;
+--disable_result_log
+--error ER_WRONG_ARGUMENTS
+SELECT TOKENIZE('cat horse elephant', 'space', '[{"additional_args":[{"min_token_size":0}]}]');
+--enable_result_log
+SELECT JSON_LENGTH(TOKENIZE('cat horse elephant', 'space', '[{"additional_args":[{"min_token_size":5}]}]')) = 2 AS property_after_invalid_value;
+SELECT JSON_LENGTH(TOKENIZE('the THE is IS', 'beng')) = 0 AS beng_stopwords;
+SELECT JSON_LENGTH(TOKENIZE('the THE is IS', 'space')) = 0 AS space_stopwords;
+SELECT JSON_CONTAINS(TOKENIZE(CAST('ABC abc' AS BINARY), 'space', '[{"output":"all"}]'), '{"abc":2}', '$.tokens') AS binary_ascii_folding;
+SELECT TOKENIZE('数据库全文索引', 'ik') = TOKENIZE('数据库全文索引', 'ik') AS ik_repeat;
+
+CREATE TABLE digits(n INT PRIMARY KEY);
+INSERT INTO digits VALUES (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+CREATE TABLE docs(id INT PRIMARY KEY, body TEXT, FULLTEXT KEY fti(body) WITH PARSER space);
+INSERT INTO docs SELECT x, CASE MOD(x,3) WHEN 0 THEN 'database database parser' WHEN 1 THEN 'database audit' ELSE 'unrelated' END FROM (SELECT a.n + 10*b.n + 100*c.n + 1000*d.n AS x FROM digits a, digits b, digits c, digits d) seq WHERE x < 2048;
+SELECT COUNT(*) = 1366 AS overlapping_postings FROM docs WHERE MATCH(body) AGAINST('database parser');
+SELECT COUNT(*) = 1366 AS positive_score_predicate FROM docs WHERE MATCH(body) AGAINST('database parser') > 0;
+SELECT COUNT(*) = 683 AS boolean_intersection FROM docs WHERE MATCH(body) AGAINST('+database +parser' IN BOOLEAN MODE);
+SELECT COUNT(*) = 0 AS missing_token FROM docs WHERE MATCH(body) AGAINST('nonexistentword');
+SELECT COUNT(*) = 1366 AS repeated_query_terms FROM docs WHERE MATCH(body) AGAINST('database database parser');
+SELECT COUNT(*) = 20 AS limited_results FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('database parser') LIMIT 20) s;
+SELECT COUNT(*) = 20 AND MIN(score) > 0 AS ranked_results FROM (SELECT id, MATCH(body) AGAINST('database parser') AS score FROM docs WHERE MATCH(body) AGAINST('database parser') ORDER BY score DESC, id LIMIT 20) s;
+SELECT COUNT(*) = 1366 AS projected_scores FROM docs WHERE MATCH(body) AGAINST('database parser') = MATCH(body) AGAINST('database database parser') AND MATCH(body) AGAINST('database parser') > 0;
+BEGIN;
+UPDATE docs SET body = 'unrelated' WHERE id = 0;
+DELETE FROM docs WHERE id = 1;
+SELECT COUNT(*) = 1364 AS uncommitted_posting_changes FROM docs WHERE MATCH(body) AGAINST('database parser');
+ROLLBACK;
+SELECT COUNT(*) = 1366 AS posting_changes_rolled_back FROM docs WHERE MATCH(body) AGAINST('database parser');
+UPDATE docs SET body = 'unrelated' WHERE id = 0;
+DELETE FROM docs WHERE id = 1;
+SELECT COUNT(*) = 1364 AS committed_posting_changes FROM docs WHERE MATCH(body) AGAINST('database parser');
+DROP DATABASE fts_hotpath_regression;
+--enable_query_log

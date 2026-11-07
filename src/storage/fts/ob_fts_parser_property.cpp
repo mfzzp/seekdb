@@ -1016,6 +1016,23 @@ int ObFTParserJsonProps::show_parser_properties(const ObFTParserJsonProps &prope
 int ObFTParserProperty::parse_for_parser_helper(const ObFTParser &parser, const ObString &json_str)
 {
   int ret = OB_SUCCESS;
+  // Decoding properties is pure and repeated for every document / helper check.
+  // Keep one bounded, thread-local entry; never cache dictionaries or schema.
+  struct ParsedPropertyCache {
+    ObFTParser parser_;
+    ObFTParserProperty value_;
+    char json_[1024];
+    int64_t length_ = -1;
+  };
+  static thread_local ParsedPropertyCache cache;
+  const ObFTParserProperty defaults;
+  const bool cacheable = parser.is_valid() && is_equal(defaults)
+      && json_str.length() <= static_cast<int64_t>(sizeof(cache.json_));
+  if (cacheable && cache.length_ == json_str.length() && cache.parser_ == parser
+      && (json_str.empty() || 0 == MEMCMP(cache.json_, json_str.ptr(), json_str.length()))) {
+    *this = cache.value_;
+    return OB_SUCCESS;
+  }
   ObFTParserJsonProps props;
   if (OB_FAIL(props.init())) {
   } else if (OB_FAIL(props.parse_from_valid_str(json_str))) {
@@ -1062,6 +1079,14 @@ int ObFTParserProperty::parse_for_parser_helper(const ObFTParser &parser, const 
       } else if (OB_FAIL(props.config_get_min_ngram_token_size(min_ngram_token_size_))) {
       } else if (OB_FAIL(props.config_get_max_ngram_token_size(max_ngram_token_size_))) {
       }
+    }
+  }
+  if (OB_SUCC(ret) && cacheable) {
+    cache.parser_ = parser;
+    cache.value_ = *this;
+    cache.length_ = json_str.length();
+    if (!json_str.empty()) {
+      MEMCPY(cache.json_, json_str.ptr(), json_str.length());
     }
   }
   return ret;
