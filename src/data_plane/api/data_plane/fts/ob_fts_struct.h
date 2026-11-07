@@ -51,7 +51,16 @@ private:
   ObObjMeta meta_;
 };
 
-typedef common::hash::ObHashMap<ObFTWord, int64_t> ObFTWordMap;
+// Word counts belong to one synchronous parse invocation (TOKENIZE or index
+// row generation). Neither the buckets nor their node pool are shared between
+// workers. Keep the shared stopword dictionary's synchronization separate.
+using FTWordMapNode = common::hash::HashMapTypes<ObFTWord, int64_t>::AllocType;
+using FTWordMapAllocator = common::hash::SimpleAllocer<FTWordMapNode,
+    common::hash::NodeNumTraits<FTWordMapNode>::NODE_NUM,
+    common::hash::NoPthreadDefendMode>;
+typedef common::hash::ObHashMap<ObFTWord, int64_t,
+    common::hash::NoPthreadDefendMode, common::hash::hash_func<ObFTWord>,
+    common::hash::equal_to<ObFTWord>, FTWordMapAllocator> ObFTWordMap;
 
 class ObAddWordFlag final
 {
