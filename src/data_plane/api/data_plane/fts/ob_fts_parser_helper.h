@@ -202,6 +202,8 @@ public:
       const ObFTWordMap &words,
       common::ObIJsonBase *&json_root);
 
+  int make_token_array_binary(const ObFTWordMap &words, common::ObString &json_binary);
+
   void reset();
 
   TO_STRING_KV(KP_(allocator), K_(parser_name), KP_(parser_desc), K_(is_inited));

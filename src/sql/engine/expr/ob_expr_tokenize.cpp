@@ -58,13 +58,16 @@ int ObExprTokenize::eval_tokenize(const ObExpr &expr, ObEvalCtx &ctx, ObDatum &e
   common::ObArenaAllocator &temp_allocator = tmp_alloc_g.get_allocator();
 
   ObIJsonBase *json_result = nullptr;
+  ObString json_binary;
   TokenizeParam param;
 
   // check param num, which is checked in ObExprOperator::calc_result_typeN.
   if (OB_UNLIKELY(expr.arg_cnt_ < 1 || expr.arg_cnt_ > 3)) {
     ret = OB_INVALID_ARGUMENT;
   } else if (OB_FAIL(parse_param(expr, ctx, temp_allocator, param))) {
-  } else if (OB_FAIL(tokenize_fulltext(param, param.output_mode_, temp_allocator, json_result))) {
+  } else if (OB_FAIL(tokenize_fulltext(param, param.output_mode_, temp_allocator, json_result, json_binary))) {
+  } else if (TokenizeParam::OUTPUT_MODE::DEFAULT == param.output_mode_) {
+    ret = ObJsonExprHelper::pack_json_str_res(expr, ctx, expr_datum, json_binary);
   } else if (OB_FAIL(ObJsonExprHelper::pack_json_res(expr,
                                                      ctx,
                                                      temp_allocator,
@@ -78,7 +81,8 @@ int ObExprTokenize::eval_tokenize(const ObExpr &expr, ObEvalCtx &ctx, ObDatum &e
 int ObExprTokenize::tokenize_fulltext(const TokenizeParam &param,
                                       TokenizeParam::OUTPUT_MODE mode,
                                       ObIAllocator &allocator,
-                                      ObIJsonBase *&result)
+                                      ObIJsonBase *&result,
+                                      common::ObString &json_binary)
 {
   int ret = OB_SUCCESS;
   storage::ObFTParseHelper tokenize_helper;
@@ -103,7 +107,7 @@ int ObExprTokenize::tokenize_fulltext(const TokenizeParam &param,
   } else {
     switch (param.output_mode_) {
     case TokenizeParam::OUTPUT_MODE::DEFAULT: {
-      if (OB_FAIL(tokenize_helper.make_token_array_json(token_map, result))) {
+      if (OB_FAIL(tokenize_helper.make_token_array_binary(token_map, json_binary))) {
       } else {
         // pass
       }

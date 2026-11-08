@@ -17,6 +17,7 @@
 #define USING_LOG_PREFIX SQL_OPT
 #include "config_bridge.h"
 #include "ob_log_plan.h"
+#include "ob_fts_cardinality_util.h"
 #include "sql/optimizer/ob_pwj_comparer.h"
 #include "sql/optimizer/stat/ob_opt_stat_manager.h"
 #include "sql/optimizer/ob_log_table_scan.h"
@@ -11995,6 +11996,7 @@ int ObLogPlan::construct_startup_filter_for_limit(ObRawExpr *limit_expr, ObLogic
 static int check_score_free_match_filter(const ObDMLStmt *stmt,
                                         const ObMatchFunRawExpr *match,
                                         const ObRawExpr *filter,
+                                        const bool cardinality_only,
                                         bool &score_free)
 {
   int ret = OB_SUCCESS;
@@ -12003,7 +12005,7 @@ static int check_score_free_match_filter(const ObDMLStmt *stmt,
     ret = OB_ERR_UNEXPECTED;
   } else if (!stmt->is_select_stmt() || stmt->get_table_size() != 1
       || !stmt->get_table_item(0)->is_basic_table()
-      || stmt->has_limit() || stmt->has_order_by() || stmt->get_subquery_expr_size() != 0
+      || (stmt->has_limit() && !cardinality_only) || stmt->has_order_by() || stmt->get_subquery_expr_size() != 0
       || match->get_expr_type() != T_FUN_MATCH_AGAINST
       || match->get_mode_flag() != NATURAL_LANGUAGE_MODE
       || !match->get_columns_boosts().empty()
@@ -12089,10 +12091,15 @@ int ObLogPlan::prepare_text_retrieval_scan(const ObIArray<ObRawExpr *> &scan_mat
     tr_info.match_expr_ = match_against;
     tr_info.pushdown_match_filter_ = match_pred;
     bool score_free = false;
+    const ObDMLStmt *root_stmt = optimizer_context_.get_root_stmt();
+    if (nullptr != root_stmt && root_stmt->is_explain_stmt()) {
+      root_stmt = static_cast<const ObExplainStmt *>(root_stmt)->get_explain_query_stmt();
+    }
     if (all_match_filters.count() == 1 && !table_scan->get_index_back()
         && !table_scan->is_vec_idx_scan_post_filter()
         && !table_scan->is_vec_adaptive_scan()
-        && OB_FAIL(check_score_free_match_filter(get_stmt(), match_against, match_pred, score_free))) {
+        && OB_FAIL(check_score_free_match_filter(get_stmt(), match_against, match_pred,
+            is_fts_cardinality_only_view(root_stmt, get_stmt()), score_free))) {
     } else if (score_free) {
       tr_info.need_calc_relevance_ = false;
       // Every row emitted by the posting-list union satisfies this predicate.

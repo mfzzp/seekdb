@@ -21,6 +21,7 @@
 #include "storage/fts/ob_fts_parser_helper.h"
 
 #include "common/json_type/ob_json_tree.h"
+#include "common/json_type/ob_json_bin.h"
 #include "share/ob_force_print_log.h"
 #include "storage/fts/dict/ob_ft_dict_hub.h"
 #include "storage/fts/ob_beng_ft_parser.h"
@@ -501,6 +502,86 @@ int ObFTParseHelper::make_token_array_json(
     json_root = token_array;
   } else {
     OB_DELETEx(ObJsonArray, allocator_, token_array);
+  }
+  return ret;
+}
+
+int ObFTParseHelper::make_token_array_binary(
+    const ObFTWordMap &words,
+    common::ObString &json_binary)
+{
+  int ret = OB_SUCCESS;
+  // DEFAULT is a flat string array. Encode it with the existing JSON primitives
+  // instead of allocating a tree node per token and walking that tree again.
+  // Preserve hash iteration order and the tree serializer's size selection.
+  uint64_t payload_size = 0;
+  uint64_t last_size = 0;
+  const uint64_t count = words.size();
+  for (ObFTWordMap::const_iterator it = words.begin(); OB_SUCC(ret) && it != words.end(); ++it) {
+    const ObString word = it->first.get_word().get_string();
+    last_size = sizeof(uint8_t) + serialization::encoded_length_vi64(word.length()) + word.length();
+    if (payload_size > INT64_MAX - last_size) {
+      ret = OB_SIZE_OVERFLOW;
+    } else {
+      payload_size += last_size;
+    }
+  }
+
+  ObJsonBuffer buffer(allocator_);
+  ObJsonBinMeta meta;
+  const uint8_t count_type = ObJsonVar::get_var_type(count);
+  const uint64_t count_size = ObJsonVar::get_var_size(count_type);
+  const uint64_t estimated_size = OB_JSON_BIN_ARR_HEADER_LEN + count_size + 4 + 5 * count + payload_size;
+  const uint64_t offset_size = ObJsonVar::get_var_size(ObJsonVar::get_var_type(estimated_size - last_size));
+  const uint64_t size_with_uint32_length = OB_JSON_BIN_ARR_HEADER_LEN + count_size + 4
+      + (offset_size + 1) * count + payload_size;
+  uint64_t estimated_final_size = size_with_uint32_length - 4
+      + ObJsonVar::get_var_size(ObJsonVar::get_var_type(size_with_uint32_length));
+  if (OB_SUCC(ret) && estimated_final_size > INT32_MAX) {
+    ret = OB_SIZE_OVERFLOW;
+  }
+  // Match the generic serializer's possible retry at a length-width boundary.
+  uint64_t actual_size = 0;
+  for (int64_t attempt = 0; OB_SUCC(ret) && attempt <= OB_JSON_BIN_MAX_SERIALIZE_TIME; ++attempt) {
+    const uint8_t size_type = ObJsonVar::get_var_type(estimated_final_size);
+    const uint64_t width = ObJsonVar::get_var_size(size_type);
+    actual_size = OB_JSON_BIN_ARR_HEADER_LEN + count_size + width + (width + 1) * count + payload_size;
+    if (ObJsonVar::get_var_type(actual_size) <= size_type) {
+      meta.set_type(ObJsonBin::get_array_vertype(), false);
+      meta.set_element_count(count);
+      meta.set_element_count_var_type(count_type);
+      meta.set_obj_size(actual_size);
+      meta.set_obj_size_var_type(size_type);
+      meta.set_entry_var_type(size_type);
+      meta.set_is_continuous(true);
+      meta.calc_entry_array();
+      break;
+    } else if (attempt == OB_JSON_BIN_MAX_SERIALIZE_TIME) {
+      ret = OB_ERR_UNEXPECTED;
+    } else {
+      estimated_final_size = actual_size;
+    }
+  }
+  const uint64_t start = sizeof(ObJsonBinDocHeader);
+  if (OB_FAIL(ret)) {
+  } else if (actual_size > INT32_MAX - start) {
+    ret = OB_SIZE_OVERFLOW;
+  } else if (OB_FAIL(buffer.reserve(start + actual_size))) {
+  } else if (OB_FAIL(ObJsonBin::add_doc_header_v0(buffer))) {
+  } else if (OB_FAIL(meta.to_header(buffer))) {
+  } else {
+    int index = 0;
+    for (ObFTWordMap::const_iterator it = words.begin(); OB_SUCC(ret) && it != words.end(); ++it, ++index) {
+      if (OB_FAIL(ObJsonBinSerializer::set_value_entry(meta, buffer.ptr() + start,
+          index, buffer.length() - start, J_STRING_V0))) {
+      } else if (OB_FAIL(ObJsonBinSerializer::serialize_json_string(
+          J_STRING_V0, it->first.get_word().get_string(), buffer))) {
+      }
+    }
+  }
+  if (OB_FAIL(ret)) {
+  } else if (OB_FAIL(ObJsonBin::set_doc_header_v0(buffer, buffer.length(), false))) {
+  } else if (OB_FAIL(buffer.get_result_string(json_binary))) {
   }
   return ret;
 }

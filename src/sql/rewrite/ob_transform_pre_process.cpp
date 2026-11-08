@@ -17,6 +17,7 @@
 #define USING_LOG_PREFIX SQL_REWRITE
 #include "sql/rewrite/ob_transform_pre_process.h"
 #include "sql/optimizer/ob_optimizer_util.h"
+#include "sql/optimizer/ob_fts_cardinality_util.h"
 #include "sql/engine/expr/ob_expr_arg_case.h"
 #include "sql/resolver/dml/ob_select_resolver.h"
 #include "sql/rewrite/ob_expand_aggregate_utils.h"
@@ -178,7 +179,24 @@ int ObTransformPreProcess::transform_one_stmt(common::ObIArray<ObParentDMLStmt> 
       }
     }
     if (OB_SUCC(ret)) {
-      if (stmt->get_match_exprs().count() > 0 &&
+      const bool cardinality_only = !parent_stmts.empty()
+          && is_fts_cardinality_only_view(parent_stmts.at(parent_stmts.count() - 1).stmt_, stmt);
+      if (cardinality_only) {
+        // COUNT(*) observes no projected column of the view. A constant avoids
+        // otherwise unnecessary doc-ID/rowkey lookup and base-table access.
+        ObSelectStmt *view = static_cast<ObSelectStmt *>(stmt);
+        if (view->get_select_item_size() != 1 || !view->get_select_item(0).expr_->is_const_raw_expr()) {
+          ObConstRawExpr *one = nullptr;
+          SelectItem item;
+          if (OB_FAIL(ObRawExprUtils::build_const_int_expr(*ctx_->expr_factory_, ObIntType, 1, one))) {
+          } else if (FALSE_IT(item.expr_ = one)) {
+          } else if (FALSE_IT(view->get_select_items().reset())) {
+          } else if (OB_FAIL(view->add_select_item(item))) {
+          } else {
+            trans_happened = true;
+          }
+        }
+      } else if (stmt->get_match_exprs().count() > 0 &&
           OB_FAIL(preserve_order_for_fulltext_search(stmt, is_happened))) {
       } else {
         trans_happened |= is_happened;

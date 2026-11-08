@@ -1,0 +1,1426 @@
+{
+  "date": "2026-11-08",
+  "control_commit": "2ca918f879e6bf7eb8f2c01a778ffbedfc616f21",
+  "candidate": "Source files in this commit; Windows incremental LLVM 21 build, round 15",
+  "source_sha256": {
+    "src/data_plane/api/data_plane/fts/ob_fts_parser_helper.h": "f7cee1d39fbda1772d29deef653407bb0978af0a2b9ebec0c38871be67ec9846",
+    "src/sql/engine/expr/ob_expr_tokenize.cpp": "0c0fac3d5c80567491d68987f5485c9c58e685acb7288b5507715d2d38a76dc5",
+    "src/sql/engine/expr/ob_expr_tokenize.h": "e3ab9d389a0c6a86eb0da5fd55fd959568b8a6243f5f4edd48a3d521c41f0d28",
+    "src/sql/optimizer/ob_log_plan.cpp": "f5be5c302989b9ab1589241bcb929099e36b320c5817afc0bec70a20d6deeb48",
+    "src/sql/rewrite/ob_transform_pre_process.cpp": "f78e59381f66521a96fff64947e94fe17fa75baeb8eb316110478963d3f51754",
+    "src/storage/fts/ob_fts_parser_helper.cpp": "9793434e2af669336c558a39d60076ddc9e637c3e3640ddb2488dedff4c1677d",
+    "src/sql/optimizer/ob_fts_cardinality_util.h": "d0191000b2ae4b4d5dce5d27f1d1f6e028b2176762af5d61529f34a234a20291"
+  },
+  "environment": {
+    "os": "Windows",
+    "compiler": "LLVM 21",
+    "incremental_shared_development_build": true,
+    "linux_clean_build_executed": false,
+    "platform_evaluation_executed": false,
+    "cpu_count": 4,
+    "both_process_affinity": "logical CPUs 0-3",
+    "memory_budget": "4G",
+    "datafile": "2G",
+    "log_disk": "2G",
+    "log_level": "INFO",
+    "rows": 20000,
+    "warmup": 30,
+    "token_rounds": 3000,
+    "query_rounds": 200,
+    "pairs": 6,
+    "order": "alternating control/candidate",
+    "client": "persistent PyMySQL multi-statements, original benchmark SQL/text",
+    "uniform_preparation": [
+      "ANALYZE TABLE fts_large_bench.docs",
+      "ALTER SYSTEM FLUSH PLAN CACHE"
+    ],
+    "limitations": [
+      "Existing development build, not a clean Linux build",
+      "Control data in SSTables; candidate data in memtables",
+      "Background OS/database variability remains",
+      "Official benchmark and scoring files unchanged"
+    ]
+  },
+  "validation": {
+    "incremental_compile_link_exit_code": 0,
+    "standalone_header_compiled": true,
+    "fresh_bootstrap_and_select1": true,
+    "json_native_test": {
+      "arrays": 148,
+      "byte_exact": true,
+      "all_decoded_words_equal": true,
+      "compile_exit_code": 0,
+      "link_exit_code": 0,
+      "run_exit_code": 0
+    },
+    "count_limit_test": {
+      "command": "SEEKDB_TEST_PORT=28851 python unittest/sql/engine/test_fts_count_limit.py",
+      "tests": 5,
+      "exit_code": 0
+    },
+    "short_merge_test": {
+      "command": "SEEKDB_TEST_PORT=28851 python unittest/sql/engine/test_fts_short_merge.py",
+      "tests": 5,
+      "exit_code": 0
+    },
+    "concurrency_test": {
+      "command": "SEEKDB_TEST_PORT=28851 python unittest/rootserver/test_ddl_build_concurrency.py",
+      "tests": 2,
+      "exit_code": 0
+    },
+    "tokenize_comparison": {
+      "passed": true,
+      "statements": [
+        {
+          "sql": "drop database if exists fts;\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "create database fts;\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "use fts;\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "set ob_query_timeout = 10000000000;\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "create table memo (id BIGINT AUTO_INCREMENT,title VARCHAR(100), body TEXT, FULLTEXT INDEX fti(title, body));\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "INSERT INTO memo (title, body) VALUES ('', '');\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "INSERT INTO memo (title, body) VALUES ('电影评论', '昨晚看的一部电影非常感人，让我思考了很多。');\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "INSERT INTO memo (title, body) VALUES ('音乐欣赏', '最近迷上了一位古典音乐家的作品，他的钢琴曲非常优美。');\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "INSERT INTO memo (title, body) VALUES ('旅行日记', '这次旅行中发生了很多有趣的事情，记录下来留作纪念。');\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "INSERT INTO memo (title, body) VALUES ('Security Audit', 'Completed the annual security audit. No major vulnerabilities were found, but we will implement additional measures for data protection.');\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "INSERT INTO memo (title, body) VALUES ('Employee Training', 'Scheduled training sessions for all employees on the latest industry standards and compliance requirements.');\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "INSERT INTO memo (title, body) VALUES ('Client Meeting', 'Prepared for the client meeting next week. We will present our progress and discuss future plans.');\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "INSERT INTO memo (title, body) VALUES ('Sales Report', 'Sales have increased by 15% compared to last quarter. The sales team is working on strategies to maintain this growth.');\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "select tokenize('hello world');\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "select tokenize(\"hello world\");\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "select tokenize('hello world', 'space');\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "select tokenize('hello world', 'beng');\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "select tokenize('hello world', 'ngram');\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "select tokenize('hello world', 'space', '[{\"output\": \"all\"}]');\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "select tokenize('hello world', 'space', '[{\"output\": \"default\"}]');\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "select tokenize(\"\");\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "select tokenize('');\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "select tokenize('hello world', ' ngram');\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "select tokenize('hello world', 'ngram ');\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "select tokenize('hello world', 'space', '[{\"output\": \"all\"}]', 'extra');\n",
+          "kind": "error"
+        },
+        {
+          "sql": "select tokenize();\n",
+          "kind": "error"
+        },
+        {
+          "sql": "select tokenize('hello world', '');\n",
+          "kind": "error"
+        },
+        {
+          "sql": "select tokenize('hello world', ' ');\n",
+          "kind": "error"
+        },
+        {
+          "sql": "select tokenize('hello world', 'ng ram');\n",
+          "kind": "error"
+        },
+        {
+          "sql": "select tokenize('hello world', 'ngramm', '[{\"output\": \"default\"}]');\n",
+          "kind": "error"
+        },
+        {
+          "sql": "select tokenize('hello world', 'ngra', '[{\"output\": \"default\"}]');\n",
+          "kind": "error"
+        },
+        {
+          "sql": "select tokenize('hello world', 'ngram', '[{\"output\": \"defaults\"}]');\n",
+          "kind": "error"
+        },
+        {
+          "sql": "select tokenize('hello world', 'ngram', '[{\"undefined\": \"all\"}]');\n",
+          "kind": "error"
+        },
+        {
+          "sql": "select tokenize('hello world', 'ngram', '[{\"case\": \"upper\"}]');\n",
+          "kind": "error"
+        },
+        {
+          "sql": "select tokenize('hello world', 'ngram', '[{\"additional-args\": \"\"}]');\n",
+          "kind": "error"
+        },
+        {
+          "sql": "select tokenize('hello world', 'ngram', '[{\"stopwords\": \"abc,def\"}]');\n",
+          "kind": "error"
+        },
+        {
+          "sql": "select tokenize('hello world', 'ngram', '[{\"output\": \"default\"]');\n",
+          "kind": "error"
+        },
+        {
+          "sql": "select tokenize(title, \"ngram\", \"[{}]\") as ttoken, tokenize(body, 'space', '[{\"output\": \"all\"}]') as btoken from memo;\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "select * from memo where '电影' member of (tokenize(title, \"ngram\")) OR 'growth' member of (tokenize(body, \"space\"));\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "select tokenize('hello world abcdefghijklmnopqrstuvwxyz', 'ngram', '[{\"output\": \"all\"}, {\"additional_args\": [{\"ngram_token_size\": 0}]}]');\n",
+          "kind": "error"
+        },
+        {
+          "sql": "select tokenize('hello world abcdefghijklmnopqrstuvwxyz', 'ngram', '[{\"output\": \"all\"}, {\"additional_args\": [{\"ngram_token_size\": 1}]}]');\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "select tokenize('hello world abcdefghijklmnopqrstuvwxyz', 'ngram', '[{\"output\": \"all\"}, {\"additional_args\": [{\"ngram_token_size\": 2}]}]');\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "select tokenize('hello world abcdefghijklmnopqrstuvwxyz', 'ngram', '[{\"output\": \"all\"}, {\"additional_args\": [{\"ngram_token_size\": 10}]}]');\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "select tokenize('hello world abcdefghijklmnopqrstuvwxyz', 'ngram', '[{\"output\": \"all\"}, {\"additional_args\": [{\"ngram_token_size\": 11}]}]');\n",
+          "kind": "error"
+        },
+        {
+          "sql": "select tokenize('hello world abcdefghijklmnopqrstuvwxyz', 'space', '[{\"output\": \"all\"}, {\"additional_args\": [{\"min_token_size\": 5}]}]');\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "select tokenize('hello world abcdefghijklmnopqrstuvwxyz', 'space', '[{\"output\": \"all\"}, {\"additional_args\": [{\"min_token_size\": 6}]}]');\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "select tokenize('hello world abcdefghijklmnopqrstuvwxyz', 'space', '[{\"output\": \"all\"}, {\"additional_args\": [{\"min_token_size\": 5}, {\"max_token_size\": 9}]}]');\n",
+          "kind": "error"
+        },
+        {
+          "sql": "select tokenize('hello world abcdefghijklmnopqrstuvwxyz', 'space', '[{\"output\": \"all\"}, {\"additional_args\": [{\"min_token_size\": 5}, {\"max_token_size\": 10}]}]');\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "select tokenize('hello world abcdefghijklmnopqrstuvwxyz', 'space', '[{\"output\": \"all\"}, {\"additional_args\": [{\"min_token_size\": 11}, {\"max_token_size\": 10}]}]');\n",
+          "kind": "error"
+        },
+        {
+          "sql": "select tokenize('hello world abcdefghijklmnopqrstuvwxyz', 'space', '[{\"output\": \"all\"}, {\"additional_args\": [{\"min_token_size\": 0}]}]');\n",
+          "kind": "error"
+        },
+        {
+          "sql": "select tokenize('hello world abcdefghijklmnopqrstuvwxyz', 'space', '[{\"output\": \"all\"}, {\"additional_args\": [{\"min_token_size\": 17}]}]');\n",
+          "kind": "error"
+        },
+        {
+          "sql": "select tokenize('hello world abcdefghijklmnopqrstuvwxyz', 'space', '[{\"output\": \"all\"}, {\"additional_args\": [{\"not_existed_name\": 11}, {\"max_token_size\": 10}]}]');\n",
+          "kind": "error"
+        },
+        {
+          "sql": "select tokenize('hello world abcdefghijklmnopqrstuvwxyz', 'space', '[{\"output\": \"all\"}, {\"additional_args\": [{\"ngram_token_size\": 6}, {\"max_token_size\": 10}]}]');\n",
+          "kind": "error"
+        },
+        {
+          "sql": "select tokenize('hello world abcdefghijklmnopqrstuvwxyz', 'ik', '[{\"output\": \"all\"}, {\"additional_args\": [{\"ngram_token_size\": 6}, {\"max_token_size\": 10}]}]');\n",
+          "kind": "error"
+        },
+        {
+          "sql": "drop table if exists memo;\n",
+          "kind": "ok"
+        },
+        {
+          "sql": "drop database fts;\n",
+          "kind": "ok"
+        }
+      ],
+      "additional_cases": 56
+    },
+    "regressions_and_matrix": {
+      "regressions": {
+        "base": {
+          "fts_score_free_filter": {
+            "statements": 46,
+            "assertions": 24
+          },
+          "fts_normalized_word_reuse": {
+            "statements": 25,
+            "assertions": 12
+          },
+          "fts_word_map_regression": {
+            "statements": 32,
+            "assertions": 11
+          },
+          "fts_ik_hotpath": {
+            "statements": 22,
+            "assertions": 10
+          }
+        },
+        "candidate": {
+          "fts_score_free_filter": {
+            "statements": 46,
+            "assertions": 24
+          },
+          "fts_normalized_word_reuse": {
+            "statements": 25,
+            "assertions": 12
+          },
+          "fts_word_map_regression": {
+            "statements": 32,
+            "assertions": 11
+          },
+          "fts_ik_hotpath": {
+            "statements": 22,
+            "assertions": 10
+          }
+        }
+      },
+      "matrix_checks": 200,
+      "plans": {
+        "base_membership": "================================================================\n|ID|OPERATOR             |NAME           |EST.ROWS|EST.TIME(us)|\n----------------------------------------------------------------\n|0 |SCALAR GROUP BY      |               |1       |18710       |\n|1 |└─TEXT RETRIEVAL SCAN|docs_space(fti)|405     |18702       |\n================================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([T_FUN_COUNT(*)]), filter(nil), rowset=256\n      group(nil), agg_func([T_FUN_COUNT(*)])\n  1 - output(nil), filter(nil), rowset=256\n      access(nil), partitions(p0)\n      is_index_back=false, is_global_index=false, \n      calc_relevance=false, match_expr(MATCH(docs_space.body) AGAINST('alpha beta'))",
+        "base_threshold": "=======================================================\n|ID|OPERATOR         |NAME      |EST.ROWS|EST.TIME(us)|\n-------------------------------------------------------\n|0 |SCALAR GROUP BY  |          |1       |33040       |\n|1 |└─TABLE FULL SCAN|docs_space|102     |33038       |\n=======================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([T_FUN_COUNT(*)]), filter(nil), rowset=256\n      group(nil), agg_func([T_FUN_COUNT(*)])\n  1 - output(nil), filter([MATCH(docs_space.body) AGAINST('alpha beta') > cast(0.5, DOUBLE(-1, -1))]), rowset=256\n      access([docs_space.id]), partitions(p0)\n      is_index_back=false, is_global_index=false, filter_before_indexback[false], \n      range_key([docs_space.id]), range(MIN ; MAX)always true, has_functional_lookup=true",
+        "base_projected": "================================================================\n|ID|OPERATOR             |NAME           |EST.ROWS|EST.TIME(us)|\n----------------------------------------------------------------\n|0 |SORT                 |               |405     |18804       |\n|1 |└─TEXT RETRIEVAL SCAN|docs_space(fti)|405     |18702       |\n================================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([MATCH(docs_space.body) AGAINST('alpha beta')]), filter(nil), rowset=256\n      sort_keys([MATCH(docs_space.body) AGAINST('alpha beta'), DESC])\n  1 - output([MATCH(docs_space.body) AGAINST('alpha beta')]), filter(nil), rowset=256\n      access(nil), partitions(p0)\n      is_index_back=false, is_global_index=false, \n      calc_relevance=true, match_expr(MATCH(docs_space.body) AGAINST('alpha beta')), \n      pushdown_match_filter(MATCH(docs_space.body) AGAINST('alpha beta'))",
+        "base_limit": "==============================================================\n|ID|OPERATOR           |NAME           |EST.ROWS|EST.TIME(us)|\n--------------------------------------------------------------\n|0 |TEXT RETRIEVAL SCAN|docs_space(fti)|405     |11772       |\n==============================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([docs_space.id]), filter(nil), rowset=256\n      access([docs_space.id]), partitions(p0)\n      is_index_back=true, is_global_index=false, \n      calc_relevance=true, match_expr(MATCH(docs_space.body) AGAINST('alpha beta')), \n      pushdown_match_filter(MATCH(docs_space.body) AGAINST('alpha beta')), \n      sort_keys([MATCH(docs_space.body) AGAINST('alpha beta'), DESC]), limit(20), offset(nil), with_ties(false)",
+        "base_boolean": "================================================================\n|ID|OPERATOR             |NAME           |EST.ROWS|EST.TIME(us)|\n----------------------------------------------------------------\n|0 |SCALAR GROUP BY      |               |1       |18710       |\n|1 |└─TEXT RETRIEVAL SCAN|docs_space(fti)|405     |18702       |\n================================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([T_FUN_COUNT(*)]), filter(nil), rowset=256\n      group(nil), agg_func([T_FUN_COUNT(*)])\n  1 - output(nil), filter(nil), rowset=256\n      access(nil), partitions(p0)\n      is_index_back=false, is_global_index=false, \n      calc_relevance=true, match_expr(MATCH(docs_space.body) AGAINST('+alpha -beta' IN BOOLEAN MODE)), \n      pushdown_match_filter(MATCH(docs_space.body) AGAINST('+alpha -beta' IN BOOLEAN MODE))",
+        "base_back_lookup": "================================================================\n|ID|OPERATOR             |NAME           |EST.ROWS|EST.TIME(us)|\n----------------------------------------------------------------\n|0 |SORT                 |               |405     |11841       |\n|1 |└─TEXT RETRIEVAL SCAN|docs_space(fti)|405     |11739       |\n================================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([docs_space.body]), filter(nil), rowset=256\n      sort_keys([MATCH(docs_space.body) AGAINST('alpha beta'), DESC])\n  1 - output([docs_space.body], [MATCH(docs_space.body) AGAINST('alpha beta')]), filter(nil), rowset=256\n      access([docs_space.id], [docs_space.body]), partitions(p0)\n      is_index_back=true, is_global_index=false, \n      calc_relevance=true, match_expr(MATCH(docs_space.body) AGAINST('alpha beta')), \n      pushdown_match_filter(MATCH(docs_space.body) AGAINST('alpha beta'))",
+        "candidate_membership": "================================================================\n|ID|OPERATOR             |NAME           |EST.ROWS|EST.TIME(us)|\n----------------------------------------------------------------\n|0 |SCALAR GROUP BY      |               |1       |18710       |\n|1 |└─TEXT RETRIEVAL SCAN|docs_space(fti)|405     |18702       |\n================================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([T_FUN_COUNT(*)]), filter(nil), rowset=256\n      group(nil), agg_func([T_FUN_COUNT(*)])\n  1 - output(nil), filter(nil), rowset=256\n      access(nil), partitions(p0)\n      is_index_back=false, is_global_index=false, \n      calc_relevance=false, match_expr(MATCH(docs_space.body) AGAINST('alpha beta'))",
+        "candidate_threshold": "=======================================================\n|ID|OPERATOR         |NAME      |EST.ROWS|EST.TIME(us)|\n-------------------------------------------------------\n|0 |SCALAR GROUP BY  |          |1       |33040       |\n|1 |└─TABLE FULL SCAN|docs_space|102     |33038       |\n=======================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([T_FUN_COUNT(*)]), filter(nil), rowset=256\n      group(nil), agg_func([T_FUN_COUNT(*)])\n  1 - output(nil), filter([MATCH(docs_space.body) AGAINST('alpha beta') > cast(0.5, DOUBLE(-1, -1))]), rowset=256\n      access([docs_space.id]), partitions(p0)\n      is_index_back=false, is_global_index=false, filter_before_indexback[false], \n      range_key([docs_space.id]), range(MIN ; MAX)always true, has_functional_lookup=true",
+        "candidate_projected": "================================================================\n|ID|OPERATOR             |NAME           |EST.ROWS|EST.TIME(us)|\n----------------------------------------------------------------\n|0 |SORT                 |               |405     |18804       |\n|1 |└─TEXT RETRIEVAL SCAN|docs_space(fti)|405     |18702       |\n================================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([MATCH(docs_space.body) AGAINST('alpha beta')]), filter(nil), rowset=256\n      sort_keys([MATCH(docs_space.body) AGAINST('alpha beta'), DESC])\n  1 - output([MATCH(docs_space.body) AGAINST('alpha beta')]), filter(nil), rowset=256\n      access(nil), partitions(p0)\n      is_index_back=false, is_global_index=false, \n      calc_relevance=true, match_expr(MATCH(docs_space.body) AGAINST('alpha beta')), \n      pushdown_match_filter(MATCH(docs_space.body) AGAINST('alpha beta'))",
+        "candidate_limit": "==============================================================\n|ID|OPERATOR           |NAME           |EST.ROWS|EST.TIME(us)|\n--------------------------------------------------------------\n|0 |TEXT RETRIEVAL SCAN|docs_space(fti)|405     |11772       |\n==============================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([docs_space.id]), filter(nil), rowset=256\n      access([docs_space.id]), partitions(p0)\n      is_index_back=true, is_global_index=false, \n      calc_relevance=true, match_expr(MATCH(docs_space.body) AGAINST('alpha beta')), \n      pushdown_match_filter(MATCH(docs_space.body) AGAINST('alpha beta')), \n      sort_keys([MATCH(docs_space.body) AGAINST('alpha beta'), DESC]), limit(20), offset(nil), with_ties(false)",
+        "candidate_boolean": "================================================================\n|ID|OPERATOR             |NAME           |EST.ROWS|EST.TIME(us)|\n----------------------------------------------------------------\n|0 |SCALAR GROUP BY      |               |1       |18710       |\n|1 |└─TEXT RETRIEVAL SCAN|docs_space(fti)|405     |18702       |\n================================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([T_FUN_COUNT(*)]), filter(nil), rowset=256\n      group(nil), agg_func([T_FUN_COUNT(*)])\n  1 - output(nil), filter(nil), rowset=256\n      access(nil), partitions(p0)\n      is_index_back=false, is_global_index=false, \n      calc_relevance=true, match_expr(MATCH(docs_space.body) AGAINST('+alpha -beta' IN BOOLEAN MODE)), \n      pushdown_match_filter(MATCH(docs_space.body) AGAINST('+alpha -beta' IN BOOLEAN MODE))",
+        "candidate_back_lookup": "================================================================\n|ID|OPERATOR             |NAME           |EST.ROWS|EST.TIME(us)|\n----------------------------------------------------------------\n|0 |SORT                 |               |405     |11841       |\n|1 |└─TEXT RETRIEVAL SCAN|docs_space(fti)|405     |11739       |\n================================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([docs_space.body]), filter(nil), rowset=256\n      sort_keys([MATCH(docs_space.body) AGAINST('alpha beta'), DESC])\n  1 - output([docs_space.body], [MATCH(docs_space.body) AGAINST('alpha beta')]), filter(nil), rowset=256\n      access([docs_space.id], [docs_space.body]), partitions(p0)\n      is_index_back=true, is_global_index=false, \n      calc_relevance=true, match_expr(MATCH(docs_space.body) AGAINST('alpha beta')), \n      pushdown_match_filter(MATCH(docs_space.body) AGAINST('alpha beta'))"
+      },
+      "passed": true
+    },
+    "original_query_exact_hashes": {
+      "control": {
+        "cn": {
+          "hits": 8001,
+          "rows_sha256": "bad5ca4342c5c94f24575f1f9066327e51b2e10c10aecbc465a3e17e9dbb8ad9"
+        },
+        "beng": {
+          "hits": 11000,
+          "rows_sha256": "54c8bfabcc319c1d71a4e0578d68baf6279fb2367722d2464e6e7dd5f9694b77"
+        },
+        "mixed": {
+          "hits": 7332,
+          "rows_sha256": "f1974fa20affd40d11854e32dac79d72a8ea91586d334da7d007d6932e03fbed"
+        },
+        "limit": {
+          "hits": 20,
+          "rows_sha256": "910b8d32d5d4fb737c264112b34f76aa76a7bfc94c4dd006ff174c43759f1a7e"
+        }
+      },
+      "candidate": {
+        "cn": {
+          "hits": 8001,
+          "rows_sha256": "bad5ca4342c5c94f24575f1f9066327e51b2e10c10aecbc465a3e17e9dbb8ad9"
+        },
+        "beng": {
+          "hits": 11000,
+          "rows_sha256": "54c8bfabcc319c1d71a4e0578d68baf6279fb2367722d2464e6e7dd5f9694b77"
+        },
+        "mixed": {
+          "hits": 7332,
+          "rows_sha256": "f1974fa20affd40d11854e32dac79d72a8ea91586d334da7d007d6932e03fbed"
+        },
+        "limit": {
+          "hits": 20,
+          "rows_sha256": "910b8d32d5d4fb737c264112b34f76aa76a7bfc94c4dd006ff174c43759f1a7e"
+        }
+      }
+    }
+  },
+  "statistics_diagnostic": {
+    "28847": {
+      "before": {
+        "stats": [
+          [
+            500003,
+            20000,
+            0,
+            20000
+          ]
+        ],
+        "first": [
+          [
+            2,
+            0.9106265547557025
+          ],
+          [
+            3,
+            2.9413606649869326
+          ],
+          [
+            4,
+            0.8925334382296604
+          ],
+          [
+            7,
+            0.9106265547557025
+          ],
+          [
+            8,
+            1.7850668764593207
+          ]
+        ],
+        "hash": "54c8bfabcc319c1d71a4e0578d68baf6279fb2367722d2464e6e7dd5f9694b77"
+      },
+      "ANALYZE TABLE fts_large_bench.docs": [],
+      "ALTER SYSTEM FLUSH PLAN CACHE": [],
+      "after_analyze": {
+        "stats": [
+          [
+            500003,
+            20000,
+            0,
+            20000
+          ]
+        ],
+        "first": [
+          [
+            2,
+            0.9106265547557025
+          ],
+          [
+            3,
+            2.9413606649869326
+          ],
+          [
+            4,
+            0.8925334382296604
+          ],
+          [
+            7,
+            0.9106265547557025
+          ],
+          [
+            8,
+            1.7850668764593207
+          ]
+        ],
+        "hash": "54c8bfabcc319c1d71a4e0578d68baf6279fb2367722d2464e6e7dd5f9694b77"
+      }
+    },
+    "28851": {
+      "before": {
+        "stats": [],
+        "first": [
+          [
+            2,
+            0.910566395965871
+          ],
+          [
+            3,
+            2.9411625754741224
+          ],
+          [
+            4,
+            0.8924750378407709
+          ],
+          [
+            7,
+            0.910566395965871
+          ],
+          [
+            8,
+            1.7849500756815417
+          ]
+        ],
+        "hash": "b56fad868e9c1c764f7b38bf6f3365b63380e6739308a359ab413086c68999ed"
+      },
+      "ANALYZE TABLE fts_large_bench.docs": [],
+      "ALTER SYSTEM FLUSH PLAN CACHE": [],
+      "after_analyze": {
+        "stats": [
+          [
+            500003,
+            20000,
+            20000,
+            0
+          ]
+        ],
+        "first": [
+          [
+            2,
+            0.9106265547557025
+          ],
+          [
+            3,
+            2.9413606649869326
+          ],
+          [
+            4,
+            0.8925334382296604
+          ],
+          [
+            7,
+            0.9106265547557025
+          ],
+          [
+            8,
+            1.7850668764593207
+          ]
+        ],
+        "hash": "54c8bfabcc319c1d71a4e0578d68baf6279fb2367722d2464e6e7dd5f9694b77"
+      }
+    }
+  },
+  "final_paired_samples": [
+    {
+      "variant": "base",
+      "sample": 0,
+      "name": "select1",
+      "wall_ms": 0.031251633333643745,
+      "cpu_ms": 0.03125
+    },
+    {
+      "variant": "base",
+      "sample": 0,
+      "name": "ik",
+      "wall_ms": 0.16723063333362612,
+      "cpu_ms": 0.16666666666666666
+    },
+    {
+      "variant": "base",
+      "sample": 0,
+      "name": "beng",
+      "wall_ms": 0.10676156666643995,
+      "cpu_ms": 0.11979166666666667
+    },
+    {
+      "variant": "base",
+      "sample": 0,
+      "name": "query_cn",
+      "wall_ms": 2.8605714999957854,
+      "cpu_ms": 3.125
+    },
+    {
+      "variant": "base",
+      "sample": 0,
+      "name": "query_beng",
+      "wall_ms": 4.262976500003788,
+      "cpu_ms": 4.375
+    },
+    {
+      "variant": "base",
+      "sample": 0,
+      "name": "query_mixed",
+      "wall_ms": 2.5440249999974185,
+      "cpu_ms": 2.578125
+    },
+    {
+      "variant": "base",
+      "sample": 0,
+      "name": "query_limit",
+      "wall_ms": 6.955446500005564,
+      "cpu_ms": 7.03125
+    },
+    {
+      "variant": "new",
+      "sample": 0,
+      "name": "select1",
+      "wall_ms": 0.039702500000203145,
+      "cpu_ms": 0.041666666666666664
+    },
+    {
+      "variant": "new",
+      "sample": 0,
+      "name": "ik",
+      "wall_ms": 0.17445353333338667,
+      "cpu_ms": 0.17708333333333334
+    },
+    {
+      "variant": "new",
+      "sample": 0,
+      "name": "beng",
+      "wall_ms": 0.10482860000047367,
+      "cpu_ms": 0.10416666666666667
+    },
+    {
+      "variant": "new",
+      "sample": 0,
+      "name": "query_cn",
+      "wall_ms": 2.497530000000552,
+      "cpu_ms": 2.5
+    },
+    {
+      "variant": "new",
+      "sample": 0,
+      "name": "query_beng",
+      "wall_ms": 3.9728664999984176,
+      "cpu_ms": 4.21875
+    },
+    {
+      "variant": "new",
+      "sample": 0,
+      "name": "query_mixed",
+      "wall_ms": 2.5388085000031424,
+      "cpu_ms": 2.5
+    },
+    {
+      "variant": "new",
+      "sample": 0,
+      "name": "query_limit",
+      "wall_ms": 0.5691365000075166,
+      "cpu_ms": 0.546875
+    },
+    {
+      "variant": "new",
+      "sample": 1,
+      "name": "select1",
+      "wall_ms": 0.033598199999687495,
+      "cpu_ms": 0.020833333333333332
+    },
+    {
+      "variant": "new",
+      "sample": 1,
+      "name": "ik",
+      "wall_ms": 0.17245550000006915,
+      "cpu_ms": 0.18229166666666666
+    },
+    {
+      "variant": "new",
+      "sample": 1,
+      "name": "beng",
+      "wall_ms": 0.09657260000009653,
+      "cpu_ms": 0.11458333333333333
+    },
+    {
+      "variant": "new",
+      "sample": 1,
+      "name": "query_cn",
+      "wall_ms": 2.4802730000010342,
+      "cpu_ms": 2.65625
+    },
+    {
+      "variant": "new",
+      "sample": 1,
+      "name": "query_beng",
+      "wall_ms": 3.2167539999954897,
+      "cpu_ms": 3.203125
+    },
+    {
+      "variant": "new",
+      "sample": 1,
+      "name": "query_mixed",
+      "wall_ms": 2.670139499996367,
+      "cpu_ms": 2.5
+    },
+    {
+      "variant": "new",
+      "sample": 1,
+      "name": "query_limit",
+      "wall_ms": 0.43860649999260204,
+      "cpu_ms": 0.390625
+    },
+    {
+      "variant": "base",
+      "sample": 1,
+      "name": "select1",
+      "wall_ms": 0.03242826666610199,
+      "cpu_ms": 0.026041666666666668
+    },
+    {
+      "variant": "base",
+      "sample": 1,
+      "name": "ik",
+      "wall_ms": 0.19447450000006938,
+      "cpu_ms": 0.21354166666666666
+    },
+    {
+      "variant": "base",
+      "sample": 1,
+      "name": "beng",
+      "wall_ms": 0.1298255000001518,
+      "cpu_ms": 0.13020833333333334
+    },
+    {
+      "variant": "base",
+      "sample": 1,
+      "name": "query_cn",
+      "wall_ms": 2.29805199999646,
+      "cpu_ms": 2.265625
+    },
+    {
+      "variant": "base",
+      "sample": 1,
+      "name": "query_beng",
+      "wall_ms": 4.5725600000059785,
+      "cpu_ms": 4.53125
+    },
+    {
+      "variant": "base",
+      "sample": 1,
+      "name": "query_mixed",
+      "wall_ms": 2.698953999997684,
+      "cpu_ms": 2.734375
+    },
+    {
+      "variant": "base",
+      "sample": 1,
+      "name": "query_limit",
+      "wall_ms": 5.7312890000048355,
+      "cpu_ms": 5.78125
+    },
+    {
+      "variant": "base",
+      "sample": 2,
+      "name": "select1",
+      "wall_ms": 0.02603406666700418,
+      "cpu_ms": 0.020833333333333332
+    },
+    {
+      "variant": "base",
+      "sample": 2,
+      "name": "ik",
+      "wall_ms": 0.17568546666673987,
+      "cpu_ms": 0.16666666666666666
+    },
+    {
+      "variant": "base",
+      "sample": 2,
+      "name": "beng",
+      "wall_ms": 0.09568229999968025,
+      "cpu_ms": 0.09375
+    },
+    {
+      "variant": "base",
+      "sample": 2,
+      "name": "query_cn",
+      "wall_ms": 2.4063384999953996,
+      "cpu_ms": 2.34375
+    },
+    {
+      "variant": "base",
+      "sample": 2,
+      "name": "query_beng",
+      "wall_ms": 4.929040999995777,
+      "cpu_ms": 5.46875
+    },
+    {
+      "variant": "base",
+      "sample": 2,
+      "name": "query_mixed",
+      "wall_ms": 2.742977500001871,
+      "cpu_ms": 2.65625
+    },
+    {
+      "variant": "base",
+      "sample": 2,
+      "name": "query_limit",
+      "wall_ms": 6.1709350000000995,
+      "cpu_ms": 6.328125
+    },
+    {
+      "variant": "new",
+      "sample": 2,
+      "name": "select1",
+      "wall_ms": 0.03326500000002852,
+      "cpu_ms": 0.026041666666666668
+    },
+    {
+      "variant": "new",
+      "sample": 2,
+      "name": "ik",
+      "wall_ms": 0.16803550000016307,
+      "cpu_ms": 0.1875
+    },
+    {
+      "variant": "new",
+      "sample": 2,
+      "name": "beng",
+      "wall_ms": 0.1125874666662033,
+      "cpu_ms": 0.125
+    },
+    {
+      "variant": "new",
+      "sample": 2,
+      "name": "query_cn",
+      "wall_ms": 2.0920879999994213,
+      "cpu_ms": 2.109375
+    },
+    {
+      "variant": "new",
+      "sample": 2,
+      "name": "query_beng",
+      "wall_ms": 3.8596455000060814,
+      "cpu_ms": 4.140625
+    },
+    {
+      "variant": "new",
+      "sample": 2,
+      "name": "query_mixed",
+      "wall_ms": 2.8092395000021497,
+      "cpu_ms": 2.8125
+    },
+    {
+      "variant": "new",
+      "sample": 2,
+      "name": "query_limit",
+      "wall_ms": 0.48856399999749556,
+      "cpu_ms": 0.46875
+    },
+    {
+      "variant": "new",
+      "sample": 3,
+      "name": "select1",
+      "wall_ms": 0.03770399999969717,
+      "cpu_ms": 0.03125
+    },
+    {
+      "variant": "new",
+      "sample": 3,
+      "name": "ik",
+      "wall_ms": 0.1749795666667827,
+      "cpu_ms": 0.18229166666666666
+    },
+    {
+      "variant": "new",
+      "sample": 3,
+      "name": "beng",
+      "wall_ms": 0.1145244333329174,
+      "cpu_ms": 0.109375
+    },
+    {
+      "variant": "new",
+      "sample": 3,
+      "name": "query_cn",
+      "wall_ms": 2.03215900000032,
+      "cpu_ms": 2.03125
+    },
+    {
+      "variant": "new",
+      "sample": 3,
+      "name": "query_beng",
+      "wall_ms": 3.578842500000974,
+      "cpu_ms": 3.75
+    },
+    {
+      "variant": "new",
+      "sample": 3,
+      "name": "query_mixed",
+      "wall_ms": 2.8887515000042185,
+      "cpu_ms": 3.125
+    },
+    {
+      "variant": "new",
+      "sample": 3,
+      "name": "query_limit",
+      "wall_ms": 0.5019040000024688,
+      "cpu_ms": 0.46875
+    },
+    {
+      "variant": "base",
+      "sample": 3,
+      "name": "select1",
+      "wall_ms": 0.031153066666471812,
+      "cpu_ms": 0.020833333333333332
+    },
+    {
+      "variant": "base",
+      "sample": 3,
+      "name": "ik",
+      "wall_ms": 0.22201326666678747,
+      "cpu_ms": 0.22395833333333334
+    },
+    {
+      "variant": "base",
+      "sample": 3,
+      "name": "beng",
+      "wall_ms": 0.13120706666632032,
+      "cpu_ms": 0.15104166666666666
+    },
+    {
+      "variant": "base",
+      "sample": 3,
+      "name": "query_cn",
+      "wall_ms": 2.5122340000052645,
+      "cpu_ms": 2.578125
+    },
+    {
+      "variant": "base",
+      "sample": 3,
+      "name": "query_beng",
+      "wall_ms": 3.792913999996017,
+      "cpu_ms": 3.828125
+    },
+    {
+      "variant": "base",
+      "sample": 3,
+      "name": "query_mixed",
+      "wall_ms": 2.9049060000033933,
+      "cpu_ms": 2.890625
+    },
+    {
+      "variant": "base",
+      "sample": 3,
+      "name": "query_limit",
+      "wall_ms": 6.4402699999936885,
+      "cpu_ms": 6.484375
+    },
+    {
+      "variant": "base",
+      "sample": 4,
+      "name": "select1",
+      "wall_ms": 0.025338333333517465,
+      "cpu_ms": 0.020833333333333332
+    },
+    {
+      "variant": "base",
+      "sample": 4,
+      "name": "ik",
+      "wall_ms": 0.17078816666617058,
+      "cpu_ms": 0.16666666666666666
+    },
+    {
+      "variant": "base",
+      "sample": 4,
+      "name": "beng",
+      "wall_ms": 0.09887389999979253,
+      "cpu_ms": 0.09375
+    },
+    {
+      "variant": "base",
+      "sample": 4,
+      "name": "query_cn",
+      "wall_ms": 2.760267499998008,
+      "cpu_ms": 2.890625
+    },
+    {
+      "variant": "base",
+      "sample": 4,
+      "name": "query_beng",
+      "wall_ms": 4.588526000006823,
+      "cpu_ms": 4.453125
+    },
+    {
+      "variant": "base",
+      "sample": 4,
+      "name": "query_mixed",
+      "wall_ms": 2.787396499998067,
+      "cpu_ms": 2.8125
+    },
+    {
+      "variant": "base",
+      "sample": 4,
+      "name": "query_limit",
+      "wall_ms": 6.804633499996271,
+      "cpu_ms": 6.875
+    },
+    {
+      "variant": "new",
+      "sample": 4,
+      "name": "select1",
+      "wall_ms": 0.036115199999888624,
+      "cpu_ms": 0.036458333333333336
+    },
+    {
+      "variant": "new",
+      "sample": 4,
+      "name": "ik",
+      "wall_ms": 0.17280220000005406,
+      "cpu_ms": 0.17708333333333334
+    },
+    {
+      "variant": "new",
+      "sample": 4,
+      "name": "beng",
+      "wall_ms": 0.10736419999981688,
+      "cpu_ms": 0.11458333333333333
+    },
+    {
+      "variant": "new",
+      "sample": 4,
+      "name": "query_cn",
+      "wall_ms": 2.2203840000020136,
+      "cpu_ms": 2.1875
+    },
+    {
+      "variant": "new",
+      "sample": 4,
+      "name": "query_beng",
+      "wall_ms": 3.810735500001101,
+      "cpu_ms": 3.75
+    },
+    {
+      "variant": "new",
+      "sample": 4,
+      "name": "query_mixed",
+      "wall_ms": 2.7072839999982534,
+      "cpu_ms": 2.65625
+    },
+    {
+      "variant": "new",
+      "sample": 4,
+      "name": "query_limit",
+      "wall_ms": 0.5450720000044385,
+      "cpu_ms": 0.546875
+    },
+    {
+      "variant": "new",
+      "sample": 5,
+      "name": "select1",
+      "wall_ms": 0.029377733332997497,
+      "cpu_ms": 0.020833333333333332
+    },
+    {
+      "variant": "new",
+      "sample": 5,
+      "name": "ik",
+      "wall_ms": 0.1884038333331167,
+      "cpu_ms": 0.19270833333333334
+    },
+    {
+      "variant": "new",
+      "sample": 5,
+      "name": "beng",
+      "wall_ms": 0.10106996666642469,
+      "cpu_ms": 0.09895833333333333
+    },
+    {
+      "variant": "new",
+      "sample": 5,
+      "name": "query_cn",
+      "wall_ms": 2.248093999996854,
+      "cpu_ms": 2.421875
+    },
+    {
+      "variant": "new",
+      "sample": 5,
+      "name": "query_beng",
+      "wall_ms": 4.099565500000608,
+      "cpu_ms": 4.140625
+    },
+    {
+      "variant": "new",
+      "sample": 5,
+      "name": "query_mixed",
+      "wall_ms": 2.3555464999935793,
+      "cpu_ms": 2.34375
+    },
+    {
+      "variant": "new",
+      "sample": 5,
+      "name": "query_limit",
+      "wall_ms": 0.5879714999991847,
+      "cpu_ms": 0.546875
+    },
+    {
+      "variant": "base",
+      "sample": 5,
+      "name": "select1",
+      "wall_ms": 0.02796980000008868,
+      "cpu_ms": 0.020833333333333332
+    },
+    {
+      "variant": "base",
+      "sample": 5,
+      "name": "ik",
+      "wall_ms": 0.16868766666630108,
+      "cpu_ms": 0.17708333333333334
+    },
+    {
+      "variant": "base",
+      "sample": 5,
+      "name": "beng",
+      "wall_ms": 0.10381216666670905,
+      "cpu_ms": 0.10416666666666667
+    },
+    {
+      "variant": "base",
+      "sample": 5,
+      "name": "query_cn",
+      "wall_ms": 2.6688375000048836,
+      "cpu_ms": 2.734375
+    },
+    {
+      "variant": "base",
+      "sample": 5,
+      "name": "query_beng",
+      "wall_ms": 3.9805900000010297,
+      "cpu_ms": 4.0625
+    },
+    {
+      "variant": "base",
+      "sample": 5,
+      "name": "query_mixed",
+      "wall_ms": 3.173049999995783,
+      "cpu_ms": 3.28125
+    },
+    {
+      "variant": "base",
+      "sample": 5,
+      "name": "query_limit",
+      "wall_ms": 6.367071499998929,
+      "cpu_ms": 6.40625
+    }
+  ],
+  "final_paired_summary": {
+    "select1": {
+      "wall_ms": {
+        "base": 0.02902919444447131,
+        "new": 0.03496043888875041,
+        "reduction_pct": -20.431998055008794
+      },
+      "cpu_ms": {
+        "base": 0.0234375,
+        "new": 0.029513888888888888,
+        "reduction_pct": -25.92592592592593
+      }
+    },
+    "ik": {
+      "wall_ms": {
+        "base": 0.18314661666661575,
+        "new": 0.1751883555555954,
+        "reduction_pct": 4.345295182551412
+      },
+      "cpu_ms": {
+        "base": 0.1857638888888889,
+        "new": 0.1831597222222222,
+        "reduction_pct": 1.4018691588785104
+      }
+    },
+    "beng": {
+      "wall_ms": {
+        "base": 0.11102708333318231,
+        "new": 0.10615787777765541,
+        "reduction_pct": 4.385601611198641
+      },
+      "cpu_ms": {
+        "base": 0.1154513888888889,
+        "new": 0.1111111111111111,
+        "reduction_pct": 3.759398496240607
+      }
+    },
+    "query_cn": {
+      "wall_ms": {
+        "base": 2.5843834999993,
+        "new": 2.261754666666699,
+        "reduction_pct": 12.483783205266885
+      },
+      "cpu_ms": {
+        "base": 2.65625,
+        "new": 2.3177083333333335,
+        "reduction_pct": 12.745098039215685
+      }
+    },
+    "query_beng": {
+      "wall_ms": {
+        "base": 4.3544345833349025,
+        "new": 3.7564015833337785,
+        "reduction_pct": 13.733884125619644
+      },
+      "cpu_ms": {
+        "base": 4.453125,
+        "new": 3.8671875,
+        "reduction_pct": 13.157894736842103
+      }
+    },
+    "query_mixed": {
+      "wall_ms": {
+        "base": 2.808551499999036,
+        "new": 2.6616282499996182,
+        "reduction_pct": 5.231282032729978
+      },
+      "cpu_ms": {
+        "base": 2.8255208333333335,
+        "new": 2.65625,
+        "reduction_pct": 5.990783410138256
+      }
+    },
+    "query_limit": {
+      "wall_ms": {
+        "base": 6.4116075833332316,
+        "new": 0.5218757500006177,
+        "reduction_pct": 91.8604539779194
+      },
+      "cpu_ms": {
+        "base": 6.484375,
+        "new": 0.4947916666666667,
+        "reduction_pct": 92.36947791164658
+      }
+    }
+  },
+  "build_smoke_only_not_comparable": {
+    "control_unrestricted_affinity": [
+      {
+        "repeat": 0,
+        "started": "2026-11-08 16:36:47",
+        "ik_all": {
+          "sec": 7.38958090000051,
+          "start_epoch": 1794127007.5641432,
+          "end_epoch": 1794127014.9536512
+        },
+        "ik_content": {
+          "sec": 5.691015200000038,
+          "start_epoch": 1794127014.9536512,
+          "end_epoch": 1794127020.6446478
+        },
+        "beng": {
+          "sec": 3.4653392000000167,
+          "start_epoch": 1794127020.6446478,
+          "end_epoch": 1794127024.11021
+        }
+      }
+    ],
+    "candidate_four_cpu_affinity_setup_overlapped_validation": [
+      {
+        "repeat": 0,
+        "started": "2026-11-08 17:35:35",
+        "ik_all": {
+          "sec": 13.04576459999953,
+          "start_epoch": 1794130535.6544752,
+          "end_epoch": 1794130548.7003286
+        },
+        "ik_content": {
+          "sec": 9.47198759999992,
+          "start_epoch": 1794130548.7003286,
+          "end_epoch": 1794130558.173687
+        },
+        "beng": {
+          "sec": 5.294420000000173,
+          "start_epoch": 1794130558.173687,
+          "end_epoch": 1794130563.4667249
+        }
+      }
+    ]
+  },
+  "rejected_wrapper_version_not_shipped": {
+    "unrestricted_affinity_summary": {
+      "select1": {
+        "wall_ms": {
+          "base": 0.03223668333339447,
+          "new": 0.03293951666657651,
+          "reduction_pct": -2.180228424597175
+        },
+        "cpu_ms": {
+          "base": 0.028645833333333336,
+          "new": 0.03125,
+          "reduction_pct": -9.090909090909083
+        }
+      },
+      "ik": {
+        "wall_ms": {
+          "base": 0.2217067388887194,
+          "new": 0.2221053222221801,
+          "reduction_pct": -0.1797795301390348
+        },
+        "cpu_ms": {
+          "base": 0.22569444444444445,
+          "new": 0.22395833333333334,
+          "reduction_pct": 0.7692307692307665
+        }
+      },
+      "beng": {
+        "wall_ms": {
+          "base": 0.1156137611110858,
+          "new": 0.13273858333347258,
+          "reduction_pct": -14.812096810804931
+        },
+        "cpu_ms": {
+          "base": 0.12065972222222222,
+          "new": 0.13541666666666666,
+          "reduction_pct": -12.230215827338121
+        }
+      },
+      "query_cn": {
+        "wall_ms": {
+          "base": 3.418434000000161,
+          "new": 3.088445083330953,
+          "reduction_pct": 9.653218891141169
+        },
+        "cpu_ms": {
+          "base": 3.5286458333333335,
+          "new": 3.0598958333333335,
+          "reduction_pct": 13.284132841328411
+        }
+      },
+      "query_beng": {
+        "wall_ms": {
+          "base": 5.275088583333248,
+          "new": 5.601035333332523,
+          "reduction_pct": -6.178981544103568
+        },
+        "cpu_ms": {
+          "base": 5.794270833333333,
+          "new": 5.768229166666667,
+          "reduction_pct": 0.44943820224717657
+        }
+      },
+      "query_mixed": {
+        "wall_ms": {
+          "base": 4.412585333334391,
+          "new": 3.8491791666668482,
+          "reduction_pct": 12.768164785649649
+        },
+        "cpu_ms": {
+          "base": 4.518229166666667,
+          "new": 3.9453125,
+          "reduction_pct": 12.680115273775217
+        }
+      },
+      "query_limit": {
+        "wall_ms": {
+          "base": 8.64644516666734,
+          "new": 0.7580715833319118,
+          "reduction_pct": 91.23256357127745
+        },
+        "cpu_ms": {
+          "base": 8.971354166666666,
+          "new": 0.7291666666666666,
+          "reduction_pct": 91.8722786647315
+        }
+      }
+    },
+    "four_cpu_affinity_summary": {
+      "select1": {
+        "wall_ms": {
+          "base": 0.029520927777917275,
+          "new": 0.027044677777768002,
+          "reduction_pct": 8.388117130931082
+        },
+        "cpu_ms": {
+          "base": 0.024305555555555556,
+          "new": 0.021701388888888888,
+          "reduction_pct": 10.71428571428572
+        }
+      },
+      "ik": {
+        "wall_ms": {
+          "base": 0.18363149444465104,
+          "new": 0.20976390555551916,
+          "reduction_pct": -14.230898239922984
+        },
+        "cpu_ms": {
+          "base": 0.18229166666666666,
+          "new": 0.23958333333333334,
+          "reduction_pct": -31.428571428571452
+        }
+      },
+      "beng": {
+        "wall_ms": {
+          "base": 0.10109576111123413,
+          "new": 0.10683352777778055,
+          "reduction_pct": -5.675575912854791
+        },
+        "cpu_ms": {
+          "base": 0.1015625,
+          "new": 0.1111111111111111,
+          "reduction_pct": -9.40170940170939
+        }
+      },
+      "query_cn": {
+        "wall_ms": {
+          "base": 2.4224377499998204,
+          "new": 2.419638333334054,
+          "reduction_pct": 0.11556196503982319
+        },
+        "cpu_ms": {
+          "base": 2.4609375,
+          "new": 2.4609375,
+          "reduction_pct": 0.0
+        }
+      },
+      "query_beng": {
+        "wall_ms": {
+          "base": 4.0289095833350075,
+          "new": 4.027026166665261,
+          "reduction_pct": 0.04674755366902428
+        },
+        "cpu_ms": {
+          "base": 4.114583333333333,
+          "new": 4.088541666666667,
+          "reduction_pct": 0.6329113924050445
+        }
+      },
+      "query_mixed": {
+        "wall_ms": {
+          "base": 2.7628166666651546,
+          "new": 3.0422534166685486,
+          "reduction_pct": -10.114198070937764
+        },
+        "cpu_ms": {
+          "base": 2.7734375,
+          "new": 3.1380208333333335,
+          "reduction_pct": -13.145539906103298
+        }
+      },
+      "query_limit": {
+        "wall_ms": {
+          "base": 6.254644499999813,
+          "new": 0.7111490833328086,
+          "reduction_pct": 88.63006389359411
+        },
+        "cpu_ms": {
+          "base": 6.458333333333333,
+          "new": 0.7161458333333334,
+          "reduction_pct": 88.91129032258065
+        }
+      }
+    },
+    "reason": "JSON wrapper conversion regressed tokenization; final version packs serialized bytes directly"
+  }
+}
