@@ -17,6 +17,7 @@
 #define USING_LOG_PREFIX LIB
 
 #include "ob_vsag_adaptor.h"
+#include "cuvs_worker.h"
 #include <map>
 #include <set>
 #include <mutex>
@@ -31,6 +32,10 @@
 #include <cstdio>
 #include <cstring>
 #include <pthread.h>
+#ifdef __linux__
+#include <sys/syscall.h>
+#include <linux/memfd.h>
+#endif
 #include "vsag/vsag.h"
 #include "vsag/errors.h"
 #include "vsag/dataset.h"
@@ -87,6 +92,7 @@ struct ObCuvsEntry {
   std::vector<int64_t> buf_ids_;// accumulated external vids from add_index
   size_t built_n_ = 0;          // #vectors present when cuVS was last (re)built
   bool vsag_ready_ = false;     // CPU fallback is built only when it is needed
+  CuvsWorker search_worker_;    // joins before bridge_ and the input buffers are released
 };
 static std::mutex g_ob_cuvs_mu;
 static std::map<void *, ObCuvsEntry *> g_ob_cuvs_reg;
@@ -203,10 +209,13 @@ struct ObCuvsJob {
 static void *ob_cuvs_job(void *arg) {
   ObCuvsJob *j = static_cast<ObCuvsJob *>(arg);
   if (j->need_build) {
-    void *nb = seekdb_cuvs_build(j->ent->buf_vecs_.data(), static_cast<long>(j->n),
-                                 static_cast<long>(j->dim));
+    std::shared_ptr<void> nb = ob_cuvs_wrap(seekdb_cuvs_build(j->ent->buf_vecs_.data(),
+                                        static_cast<long>(j->n), static_cast<long>(j->dim)));
     if (nb != nullptr) {
-      j->ent->bridge_ = ob_cuvs_wrap(nb); j->ent->built_n_ = j->n; j->ent->ids_ = j->ent->buf_ids_;
+      std::vector<int64_t> ids(j->ent->buf_ids_);
+      j->ent->bridge_ = std::move(nb);
+      j->ent->ids_.swap(ids);
+      j->ent->built_n_ = j->n;
       j->built_ = true;
     }
   }
@@ -230,10 +239,13 @@ struct ObCuvsBatchJob {
 static void *ob_cuvs_batch_job(void *arg) {
   ObCuvsBatchJob *j = static_cast<ObCuvsBatchJob *>(arg);
   if (j->need_build) {
-    void *nb = seekdb_cuvs_build(j->ent->buf_vecs_.data(), static_cast<long>(j->n),
-                                 static_cast<long>(j->ent->dim_));
+    std::shared_ptr<void> nb = ob_cuvs_wrap(seekdb_cuvs_build(j->ent->buf_vecs_.data(),
+                                        static_cast<long>(j->n), static_cast<long>(j->ent->dim_)));
     if (nb != nullptr) {
-      j->ent->bridge_ = ob_cuvs_wrap(nb); j->ent->built_n_ = j->n; j->ent->ids_ = j->ent->buf_ids_;
+      std::vector<int64_t> ids(j->ent->buf_ids_);
+      j->ent->bridge_ = std::move(nb);
+      j->ent->ids_.swap(ids);
+      j->ent->built_n_ = j->n;
       j->built_ = true;
     }
   }
@@ -283,10 +295,7 @@ static bool ob_cuvs_try_search(void *key, vsag::Allocator *alloc,
   std::vector<unsigned> off(topk);
   std::vector<float> dst(topk);
   ObCuvsJob job{ent, query, topk, static_cast<int>(ent->dim_), n, need_build, &off, &dst, -1, false};
-  pthread_t tid; pthread_attr_t attr; pthread_attr_init(&attr);
-  pthread_attr_setstacksize(&attr, 32UL * 1024 * 1024);
-  if (pthread_create(&tid, &attr, ob_cuvs_job, &job) == 0) { pthread_join(tid, nullptr); }
-  pthread_attr_destroy(&attr);
+  if (!ent->search_worker_.run(ob_cuvs_job, &job)) { return false; }
   if (job.built_) { ob_vsag_trace("cuvs_build", key, static_cast<long>(ent->dim_), static_cast<long>(n)); }
   if (ent->bridge_ == nullptr || job.rc_ != 0) { return false; }
   // Post-filter: cuVS returned UNFILTERED top-k. Apply the query's row filter
@@ -322,9 +331,20 @@ static bool ob_cuvs_try_search(void *key, vsag::Allocator *alloc,
 
 static const char OB_CUVS_SNAPSHOT_MAGIC[8] = {'O', 'B', 'C', 'U', 'V', 'S', '0', '2'};
 struct ObCuvsSnapshotFile {
-  FILE *file_ = ::tmpfile();
+  FILE *file_ = nullptr;
   char path_[64] = {};
   ObCuvsSnapshotFile() {
+    // hipVS serializes through a filename. An anonymous memory-backed file keeps
+    // this transient copy off the filesystem while preserving the same snapshot
+    // bytes and the required durable write through the seekdb output stream.
+#if defined(__linux__) && defined(SYS_memfd_create)
+    const int fd = static_cast<int>(::syscall(SYS_memfd_create, "seekdb-cuvs-snapshot", MFD_CLOEXEC));
+    if (fd >= 0) {
+      file_ = ::fdopen(fd, "w+b");
+      if (file_ == nullptr) { ::close(fd); }
+    }
+#endif
+    if (file_ == nullptr) { file_ = ::tmpfile(); }
     if (file_ != nullptr) {
       ::snprintf(path_, sizeof(path_), "/proc/self/fd/%d", ::fileno(file_));
     }
@@ -429,7 +449,7 @@ static bool ob_cuvs_serialize(void *key, std::ostream &out, int &ret) {
     LOG_WARN("[OBVSAG][cuVS] failed to write snapshot stream", K(ret), KP(key), K(n));
     return true;
   }
-  std::vector<char> chunk(65536);
+  std::vector<char> chunk(1024 * 1024);
   uint64_t remaining = graph_bytes;
   while (remaining > 0) {
     const size_t bytes = std::min<uint64_t>(remaining, chunk.size());
@@ -475,7 +495,7 @@ static int ob_cuvs_deserialize(void *key, int expected_dim, std::istream &in) {
       LOG_WARN("[OBVSAG][cuVS] truncated snapshot payload", K(ret), KP(key), K(n64));
     } else {
       ObCuvsSnapshotFile graph;
-      std::vector<char> chunk(65536);
+      std::vector<char> chunk(1024 * 1024);
       uint64_t remaining = graph_bytes;
       while (graph.file_ != nullptr && remaining > 0) {
         const size_t bytes = std::min<uint64_t>(remaining, chunk.size());
@@ -2086,10 +2106,7 @@ long cuvs_knn_search_batch(void *key, const float *queries, long nq, long topk,
   std::vector<float> dst(static_cast<size_t>(nq) * topk);
   ObCuvsBatchJob job{ent, queries, nq, topk, n, need_build,
                      off.data(), dst.data(), 0, false};
-  pthread_t tid; pthread_attr_t attr; pthread_attr_init(&attr);
-  pthread_attr_setstacksize(&attr, 32UL * 1024 * 1024);
-  if (pthread_create(&tid, &attr, ob_cuvs_batch_job, &job) == 0) { pthread_join(tid, nullptr); }
-  pthread_attr_destroy(&attr);
+  if (!ent->search_worker_.run(ob_cuvs_batch_job, &job)) { return 0; }
   if (job.built_) { ob_vsag_trace("cuvs_batch_build", key, static_cast<long>(ent->dim_), static_cast<long>(n)); }
   if (job.served_ != nq) { return 0; }
   for (long q = 0; q < nq; ++q) {

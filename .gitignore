@@ -408,3 +408,4 @@ test/var
 CLAUDE.md
 .omo/
 seekdb_data/
+.validation/

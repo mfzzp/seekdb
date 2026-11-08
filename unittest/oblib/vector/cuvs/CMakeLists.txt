@@ -1,0 +1,31 @@
+cmake_minimum_required(VERSION 3.16)
+project(cuvs_host_checks LANGUAGES C CXX)
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
+enable_testing()
+get_filename_component(SEEKDB_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../.." ABSOLUTE)
+
+# These doubles test bridge ownership, stream ordering and error handling only.
+# They are never included or linked by the production bridge build.
+add_library(bridge_under_test OBJECT "${SEEKDB_ROOT}/tools/hipvs_bridge/seekdb_cuvs_bridge.c")
+target_include_directories(bridge_under_test PRIVATE stubs)
+add_executable(test_cuvs_bridge test_cuvs_bridge.cpp $<TARGET_OBJECTS:bridge_under_test>)
+target_include_directories(test_cuvs_bridge PRIVATE stubs "${SEEKDB_ROOT}/tools/hipvs_bridge")
+add_test(NAME cuvs_bridge_lifecycle COMMAND test_cuvs_bridge)
+
+add_executable(test_cuvs_worker test_cuvs_worker.cpp)
+target_include_directories(test_cuvs_worker PRIVATE "${SEEKDB_ROOT}/src/oblib")
+if(WIN32)
+  if(NOT PTHREADS_ROOT)
+    message(FATAL_ERROR "Windows tests require PTHREADS_ROOT (pthreads4w include/lib/bin)")
+  endif()
+  target_include_directories(test_cuvs_worker PRIVATE "${PTHREADS_ROOT}/include")
+  target_link_libraries(test_cuvs_worker PRIVATE "${PTHREADS_ROOT}/lib/pthreadVC3.lib")
+  add_custom_command(TARGET test_cuvs_worker POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${PTHREADS_ROOT}/bin/pthreadVC3.dll" "$<TARGET_FILE_DIR:test_cuvs_worker>")
+else()
+  find_package(Threads REQUIRED)
+  target_link_libraries(test_cuvs_worker PRIVATE Threads::Threads)
+endif()
+add_test(NAME cuvs_worker_lifecycle COMMAND test_cuvs_worker)
+set_tests_properties(cuvs_bridge_lifecycle cuvs_worker_lifecycle PROPERTIES TIMEOUT 60)

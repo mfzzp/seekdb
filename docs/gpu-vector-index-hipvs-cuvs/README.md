@@ -5,6 +5,9 @@ Status: **Phase 1 implemented and review-gated** on AMD `gfx1100` with ROCm
 validation assets. Historical feasibility experiments remain available in Git
 history rather than in the product-facing tree.
 
+The V5-based AMD contest candidate, its changes and validation limitations are
+documented in [optimization.md](optimization.md).
+
 ## Scope
 
 The backend adds optional hipVS/cuVS acceleration behind seekdb's existing
@@ -47,6 +50,8 @@ seekdb_cuvs_build
 seekdb_cuvs_search
 seekdb_cuvs_free
 seekdb_cuvs_cagra_knn
+seekdb_cuvs_serialize
+seekdb_cuvs_deserialize
 ```
 
 Build seekdb with the resulting library:
@@ -129,9 +134,8 @@ The no-GPU DDL contract remains covered by
 ## Current limitations
 
 - Phase 1 supports dense float32 L2 indexes only.
-- GPU indexes are process-local and rebuilt lazily; persistence and cache reuse
-  are follow-up work.
+- V5 persists the GPU graph, dataset and ID mapping in `OBCUVS02` snapshots;
+  no index state is reused across independent benchmark runs.
 - The explicit batch API rebuilds its CAGRA index per call.
 - GPU validation is manual because upstream CI has no compatible GPU runner.
-- Multi-GPU, long-duration, and snapshot-reload coverage are out of scope for
-  this phase.
+- Multi-GPU and long-duration validation remain out of scope for this phase.
