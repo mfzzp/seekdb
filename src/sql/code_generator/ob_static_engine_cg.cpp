@@ -3681,7 +3681,28 @@ int ObStaticEngineCG::generate_normal_tsc(ObLogTableScan &op, ObTableScanSpec &s
       } else if (ddl_table_schema->is_fts_index_aux() || ddl_table_schema->is_fts_doc_word_aux()) {
         spec.is_fts_ddl_ = true;
         spec.is_fts_index_aux_ = ddl_table_schema->is_fts_index_aux();
-        spec.max_batch_size_ = 0; // TODO: @jinzhu, remove me later after support post-building fts index vectorization.
+        // The expanded word rows are vectorized, but fetching source documents
+        // remains scalar. Other output shapes retain their existing row path.
+        const int64_t original_batch_size = spec.max_batch_size_;
+        ObSEArray<ObExpr *, 4> batch_outputs;
+        OZ(generate_rt_exprs(op.get_output_exprs(), batch_outputs));
+        int64_t word_pos = -1;
+        int64_t count_pos = -1;
+        int64_t length_pos = -1;
+        bool batch_words = OB_SUCC(ret) && spec.max_batch_size_ > 0 && batch_outputs.count() == 4;
+        for (int64_t i = 0; batch_words && i < batch_outputs.count(); ++i) {
+          const ObExpr *expr = batch_outputs.at(i);
+          batch_words = nullptr != expr && expr->is_batch_result();
+          if (nullptr != expr && expr->type_ == T_FUN_SYS_WORD_SEGMENT) { word_pos = i; }
+          if (nullptr != expr && expr->type_ == T_FUN_SYS_WORD_COUNT) { count_pos = i; }
+          if (nullptr != expr && expr->type_ == T_FUN_SYS_DOC_LENGTH) { length_pos = i; }
+        }
+        const int64_t doc_pos = spec.is_fts_index_aux_ ? word_pos + 1 : word_pos - 1;
+        batch_words = batch_words && word_pos >= 0 && count_pos >= 0 && length_pos >= 0
+            && doc_pos >= 0 && doc_pos < 4 && doc_pos != count_pos && doc_pos != length_pos;
+        spec.max_batch_size_ = batch_words ? MIN(spec.max_batch_size_, 256) : 0;
+        LOG_INFO("FTS expanded-row batch selection", K(batch_words), K(original_batch_size),
+            "output_count", batch_outputs.count(), K(word_pos), K(spec.max_batch_size_));
         if (OB_UNLIKELY(ddl_table_schema->get_parser_name_str().empty())) {
           ret = OB_ERR_UNEXPECTED;
         } else {

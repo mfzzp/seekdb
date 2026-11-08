@@ -108,8 +108,9 @@ int ObCodeGenerator::detect_batch_size(
     double scan_cardinality = 0;
     // TODO bin.lb: move to optimizer and more sophisticated rules
     int64_t lob_rowsets_max_rows = config::_lob_rowsets_max_rows();
+    bool has_lob_batch_hint = false;
     const ObOptParamHint *opt_params = &log_plan.get_stmt()->get_query_ctx()->get_global_hint().opt_params_;
-    if (OB_FAIL(opt_params->get_integer_opt_param(ObOptParamHint::LOB_ROWSETS_MAX_ROWS, lob_rowsets_max_rows))) {
+    if (OB_FAIL(opt_params->get_integer_opt_param(ObOptParamHint::LOB_ROWSETS_MAX_ROWS, lob_rowsets_max_rows, has_lob_batch_hint))) {
     } else {
       // TODO bin.lb; check all sub plans
       OZ(ObStaticEngineCG::check_vectorize_supported(vectorize,
@@ -147,10 +148,35 @@ int ObCodeGenerator::detect_batch_size(
           exec_ctx->get_physical_plan_ctx()->get_original_param_cnt(),
           0);
       int64_t rowsets_max_rows = config::_rowsets_max_rows();
+      // FTS post-building reads source LOBs one document at a time. Only its
+      // expanded word rows are batched, so the generic LOB cap need not limit
+      // their vector frames. Keep normal expression sizing and explicit hints.
+      auto &opt_ctx = log_plan.get_optimizer_context();
+      bool expanded_fts_rows = false;
+      if (!has_lob_batch_hint && lob_rowsets_max_rows > 0 && opt_ctx.is_insert_stmt_in_online_ddl()) {
+        const auto *stmt = opt_ctx.get_root_stmt();
+        auto *guard = opt_ctx.get_sql_schema_guard();
+        const share::schema::ObTableSchema *schema = nullptr;
+        if (nullptr == stmt || stmt->get_table_size() == 0 || nullptr == stmt->get_table_item(0) || nullptr == guard) {
+          ret = OB_ERR_UNEXPECTED;
+        } else if (OB_FAIL(guard->get_table_schema(stmt->get_table_item(0)->ddl_table_id_, schema))) {
+        } else if (nullptr == schema) {
+          ret = OB_ERR_UNEXPECTED;
+        } else if (schema->is_fts_index_aux() || schema->is_fts_doc_word_aux()) {
+          expanded_fts_rows = true;
+          const int64_t cap = MIN(int64_t(256), rowsets_max_rows > 0 ? rowsets_max_rows : int64_t(256));
+          lob_rowsets_max_rows = MAX(lob_rowsets_max_rows, cap);
+        }
+      }
+      // A small number of source documents can expand into many word rows.
+      // Do not apply the source-row small-scan heuristic to that output.
+      const double batch_cardinality = expanded_fts_rows
+          ? MAX(scan_cardinality, static_cast<double>(ObStaticEngineExprCG::SMALL_SCAN_CARDINALITY))
+          : scan_cardinality;
       OZ(expr_cg.detect_batch_size(flattened_exprs, batch_size,
                                    rowsets_max_rows,
                                    config::_rowsets_target_maxsize(),
-                                   scan_cardinality,
+                                   batch_cardinality,
                                    lob_rowsets_max_rows));
       // overwrite batch size if hint is specified
       OZ(opt_params->get_integer_opt_param(ObOptParamHint::ROWSETS_MAX_ROWS, batch_size));
