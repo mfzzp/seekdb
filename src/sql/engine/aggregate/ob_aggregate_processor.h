@@ -662,6 +662,7 @@ public:
       return ++i;
     }
     uint16_t get_batch_index(uint16_t i) const { return selector_array_[i]; }
+    int64_t valid_count() const { return count_; }
     int add_batch(const ObIArray<ObExpr *> *param_exprs, ExtraResult *ad_result,
                   GroupConcatExtraResult *extra_info, ObEvalCtx &eval_ctx) const;
     int add_batch(const ObIArray<ObExpr *> *param_exprs,
@@ -699,6 +700,9 @@ public:
       return i;
     }
     uint16_t get_batch_index(uint16_t i) const { return i; }
+    int64_t valid_count() const {
+      return end_pos_ - begin_pos_ - brs_->skip_->accumulate_bit_cnt(begin_pos_, end_pos_);
+    }
     int add_batch(const ObIArray<ObExpr *> *param_exprs, ExtraResult *ad_result,
                   GroupConcatExtraResult *extra_info, ObEvalCtx &eval_ctx) const;
     int add_batch(const ObIArray<ObExpr *> *param_exprs,

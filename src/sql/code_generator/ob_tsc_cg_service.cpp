@@ -1894,6 +1894,16 @@ int ObTscCgService::generate_text_ir_ctdef(const ObLogTableScan &op,
 
   if (OB_SUCC(ret)) {
     root_ctdef = ir_scan_ctdef;
+    // No consumer can observe document IDs when this covering scan produces
+    // only a cardinality. Internal posting-list IDs still drive deduplication.
+    bool count_only = !tr_info.need_calc_relevance_ && !tr_info.need_sort()
+        && !op.get_index_back() && op.get_filter_exprs().empty()
+        && !cg_ctx.is_func_lookup_ && !cg_ctx.is_es_match_
+        && !cg_ctx.is_merge_fts_index_ && !cg_ctx.is_vec_iter_func_lookup_;
+    for (int64_t i = 0; count_only && i < op.get_output_exprs().count(); ++i) {
+      count_only = op.get_output_exprs().at(i)->is_const_raw_expr();
+    }
+    ir_scan_ctdef->count_only_ = count_only;
     if (OB_FAIL(generate_text_ir_spec_exprs(tr_info, *ir_scan_ctdef))) {
     } else {
       const ObCostTableScanInfo *est_cost_info = op.get_est_cost_info();

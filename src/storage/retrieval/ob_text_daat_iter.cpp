@@ -35,8 +35,31 @@ int ObTextDaaTIter::init(const ObTextDaaTParam &param)
   } else {
     mode_flag_ = param.mode_flag_;
     function_lookup_mode_ = param.function_lookup_mode_;
+    count_only_ = param.count_only_ && !function_lookup_mode_
+        && mode_flag_ == sql::ObMatchAgainstMode::NATURAL_LANGUAGE_MODE
+        && !param.base_param_->need_project_relevance()
+        && !param.base_param_->need_filter() && !param.base_param_->need_pushdown_topk();
   }
   return ret;
+}
+
+int ObTextDaaTIter::cache_result(int64_t &count, const ObDatum &id_datum, const double relevance)
+{
+  if (!count_only_) {
+    return ObSRDaaTIterImpl::cache_result(count, id_datum, relevance);
+  }
+  const common::ObLimitParam &limit = *iter_param_->limit_param_;
+  ++input_row_cnt_;
+  if (!limit.is_valid() || input_row_cnt_ > limit.offset_) {
+    ++count;
+    ++output_row_cnt_;
+  }
+  return limit.is_valid() && output_row_cnt_ >= limit.limit_ ? OB_ITER_END : OB_SUCCESS;
+}
+
+int ObTextDaaTIter::project_results(const int64_t count)
+{
+  return count_only_ ? OB_SUCCESS : ObSRDaaTIterImpl::project_results(count);
 }
 
 void ObTextDaaTIter::reset()

@@ -3281,11 +3281,7 @@ int ObAggregateProcessor::process_aggr_batch_result(
   if (NULL != param_exprs && param_exprs->empty()) {
     if (T_FUN_COUNT == aggr_fun) {
       //count asterisk(*) case: null is counted
-      uint16_t row_count = 0;
-      for (auto it = selector.begin(); it < selector.end(); selector.next(it)) {
-        ++row_count;
-      }
-      aggr_cell.add_row_count(row_count);
+      aggr_cell.add_row_count(selector.valid_count());
     } else if (T_FUN_GROUP_ID == aggr_fun) {
       // do nothing
     } else {

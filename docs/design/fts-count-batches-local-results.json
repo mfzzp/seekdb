@@ -1,0 +1,892 @@
+{
+  "date": "2026-11-08",
+  "control_commit": "adc0704eb4f716659f721dc808ad18bc6a5f6463",
+  "candidate": "Source files in this commit; local LLVM 21 Windows incremental build, round 16",
+  "source_sha256": {
+    "src/observer/composition/retrieval/ob_das_legacy_tr_merge_iter.cpp": "e7ef9a528a5c1d4256a5d40e54b93a2c9bb8ef38ab71173d2dd92578ccf392a0",
+    "src/sql/code_generator/ob_tsc_cg_service.cpp": "4603cee1d423638a2a7b3793a0f63b18c057c8ed2fbab92e6b5a7e9de696b957",
+    "src/sql/das/ob_das_ir_define.h": "9e0e7ed2516c5260741e60f20b5281401b9eb541ebcc3167d37580db8fa5dbe6",
+    "src/sql/engine/aggregate/ob_aggregate_processor.cpp": "9faf7747d3679900d1d59108ccc979e716cbeb159227297bf0e10075adcf061e",
+    "src/sql/engine/aggregate/ob_aggregate_processor.h": "6995d5e57d5925a34c9c433822a8487feccf8d3bc88103da24d858c8dccbd9fc",
+    "src/storage/blocksstable/encoding/ob_string_diff_decoder.cpp": "c40d6a3bc0aa537d601742270d84f23955182a950da486f4a5d3451d5179bdee",
+    "src/storage/retrieval/ob_text_daat_iter.cpp": "6d997282f913846c1303a8d454c71fea204c22d6aeb671f897fc3c2cf9dbbabc",
+    "src/storage/retrieval/ob_text_daat_iter.h": "d21c0f24227c7dfbe2c821333fe167d2d5079b3aed13d3e2ffce07aa30261130"
+  },
+  "environment": {
+    "incremental_shared_development_build": true,
+    "clean_linux_build_executed": false,
+    "platform_evaluation_executed": false,
+    "process_affinity": "Both processes on logical CPUs 0-3",
+    "cpu_count": 4,
+    "memory_budget": "4G",
+    "datafile": "2G",
+    "log_disk": "2G",
+    "log_level": "INFO",
+    "rows": 20000,
+    "warmup": 30,
+    "token_rounds": 3000,
+    "query_rounds": 200,
+    "pairs": 6,
+    "order": "alternating control/candidate",
+    "client": "persistent PyMySQL multi-statements, unchanged original benchmark SQL/text",
+    "preparation_on_both": [
+      "ANALYZE TABLE fts_large_bench.docs",
+      "ALTER SYSTEM FLUSH PLAN CACHE"
+    ],
+    "limitations": [
+      "Windows incremental development build, not clean Linux",
+      "OS/database background variability remains",
+      "Combined-change timings, not per-change attribution",
+      "Single sequential build smoke pair, not repeated construction performance comparison"
+    ]
+  },
+  "validation": {
+    "compile_exit_code": 0,
+    "link_exit_code": 0,
+    "fresh_bootstrap_and_select1": true,
+    "decoder_native_test": {
+      "batches": 65576,
+      "scalar_equal": true,
+      "independent_bytes_equal": true,
+      "compile_exit_code": 0,
+      "link_exit_code": 0,
+      "run_exit_code": 0
+    },
+    "integration_tests": [
+      {
+        "command": "SEEKDB_TEST_PORT=28852 python unittest/sql/engine/test_fts_count_batches.py",
+        "tests": 3,
+        "exit_code": 0
+      },
+      {
+        "command": "SEEKDB_TEST_PORT=28852 python unittest/sql/engine/test_fts_count_limit.py",
+        "tests": 5,
+        "exit_code": 0
+      },
+      {
+        "command": "SEEKDB_TEST_PORT=28852 python unittest/sql/engine/test_fts_short_merge.py",
+        "tests": 5,
+        "exit_code": 0
+      },
+      {
+        "command": "SEEKDB_TEST_PORT=28852 python unittest/rootserver/test_ddl_build_concurrency.py",
+        "tests": 2,
+        "exit_code": 0
+      }
+    ],
+    "regressions_and_matrix": {
+      "regressions": {
+        "base": {
+          "fts_score_free_filter": {
+            "statements": 46,
+            "assertions": 24
+          },
+          "fts_normalized_word_reuse": {
+            "statements": 25,
+            "assertions": 12
+          },
+          "fts_word_map_regression": {
+            "statements": 32,
+            "assertions": 11
+          },
+          "fts_ik_hotpath": {
+            "statements": 22,
+            "assertions": 10
+          }
+        },
+        "candidate": {
+          "fts_score_free_filter": {
+            "statements": 46,
+            "assertions": 24
+          },
+          "fts_normalized_word_reuse": {
+            "statements": 25,
+            "assertions": 12
+          },
+          "fts_word_map_regression": {
+            "statements": 32,
+            "assertions": 11
+          },
+          "fts_ik_hotpath": {
+            "statements": 22,
+            "assertions": 10
+          }
+        }
+      },
+      "matrix_checks": 200,
+      "plans": {
+        "base_membership": "================================================================\n|ID|OPERATOR             |NAME           |EST.ROWS|EST.TIME(us)|\n----------------------------------------------------------------\n|0 |SCALAR GROUP BY      |               |1       |18710       |\n|1 |└─TEXT RETRIEVAL SCAN|docs_space(fti)|405     |18702       |\n================================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([T_FUN_COUNT(*)]), filter(nil), rowset=256\n      group(nil), agg_func([T_FUN_COUNT(*)])\n  1 - output(nil), filter(nil), rowset=256\n      access(nil), partitions(p0)\n      is_index_back=false, is_global_index=false, \n      calc_relevance=false, match_expr(MATCH(docs_space.body) AGAINST('alpha beta'))",
+        "base_threshold": "=======================================================\n|ID|OPERATOR         |NAME      |EST.ROWS|EST.TIME(us)|\n-------------------------------------------------------\n|0 |SCALAR GROUP BY  |          |1       |33040       |\n|1 |└─TABLE FULL SCAN|docs_space|102     |33038       |\n=======================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([T_FUN_COUNT(*)]), filter(nil), rowset=256\n      group(nil), agg_func([T_FUN_COUNT(*)])\n  1 - output(nil), filter([MATCH(docs_space.body) AGAINST('alpha beta') > cast(0.5, DOUBLE(-1, -1))]), rowset=256\n      access([docs_space.id]), partitions(p0)\n      is_index_back=false, is_global_index=false, filter_before_indexback[false], \n      range_key([docs_space.id]), range(MIN ; MAX)always true, has_functional_lookup=true",
+        "base_projected": "================================================================\n|ID|OPERATOR             |NAME           |EST.ROWS|EST.TIME(us)|\n----------------------------------------------------------------\n|0 |SORT                 |               |405     |18804       |\n|1 |└─TEXT RETRIEVAL SCAN|docs_space(fti)|405     |18702       |\n================================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([MATCH(docs_space.body) AGAINST('alpha beta')]), filter(nil), rowset=256\n      sort_keys([MATCH(docs_space.body) AGAINST('alpha beta'), DESC])\n  1 - output([MATCH(docs_space.body) AGAINST('alpha beta')]), filter(nil), rowset=256\n      access(nil), partitions(p0)\n      is_index_back=false, is_global_index=false, \n      calc_relevance=true, match_expr(MATCH(docs_space.body) AGAINST('alpha beta')), \n      pushdown_match_filter(MATCH(docs_space.body) AGAINST('alpha beta'))",
+        "base_limit": "==============================================================\n|ID|OPERATOR           |NAME           |EST.ROWS|EST.TIME(us)|\n--------------------------------------------------------------\n|0 |TEXT RETRIEVAL SCAN|docs_space(fti)|405     |11772       |\n==============================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([docs_space.id]), filter(nil), rowset=256\n      access([docs_space.id]), partitions(p0)\n      is_index_back=true, is_global_index=false, \n      calc_relevance=true, match_expr(MATCH(docs_space.body) AGAINST('alpha beta')), \n      pushdown_match_filter(MATCH(docs_space.body) AGAINST('alpha beta')), \n      sort_keys([MATCH(docs_space.body) AGAINST('alpha beta'), DESC]), limit(20), offset(nil), with_ties(false)",
+        "base_boolean": "================================================================\n|ID|OPERATOR             |NAME           |EST.ROWS|EST.TIME(us)|\n----------------------------------------------------------------\n|0 |SCALAR GROUP BY      |               |1       |18710       |\n|1 |└─TEXT RETRIEVAL SCAN|docs_space(fti)|405     |18702       |\n================================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([T_FUN_COUNT(*)]), filter(nil), rowset=256\n      group(nil), agg_func([T_FUN_COUNT(*)])\n  1 - output(nil), filter(nil), rowset=256\n      access(nil), partitions(p0)\n      is_index_back=false, is_global_index=false, \n      calc_relevance=true, match_expr(MATCH(docs_space.body) AGAINST('+alpha -beta' IN BOOLEAN MODE)), \n      pushdown_match_filter(MATCH(docs_space.body) AGAINST('+alpha -beta' IN BOOLEAN MODE))",
+        "base_back_lookup": "================================================================\n|ID|OPERATOR             |NAME           |EST.ROWS|EST.TIME(us)|\n----------------------------------------------------------------\n|0 |SORT                 |               |405     |11841       |\n|1 |└─TEXT RETRIEVAL SCAN|docs_space(fti)|405     |11739       |\n================================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([docs_space.body]), filter(nil), rowset=256\n      sort_keys([MATCH(docs_space.body) AGAINST('alpha beta'), DESC])\n  1 - output([docs_space.body], [MATCH(docs_space.body) AGAINST('alpha beta')]), filter(nil), rowset=256\n      access([docs_space.id], [docs_space.body]), partitions(p0)\n      is_index_back=true, is_global_index=false, \n      calc_relevance=true, match_expr(MATCH(docs_space.body) AGAINST('alpha beta')), \n      pushdown_match_filter(MATCH(docs_space.body) AGAINST('alpha beta'))",
+        "candidate_membership": "================================================================\n|ID|OPERATOR             |NAME           |EST.ROWS|EST.TIME(us)|\n----------------------------------------------------------------\n|0 |SCALAR GROUP BY      |               |1       |18710       |\n|1 |└─TEXT RETRIEVAL SCAN|docs_space(fti)|405     |18702       |\n================================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([T_FUN_COUNT(*)]), filter(nil), rowset=256\n      group(nil), agg_func([T_FUN_COUNT(*)])\n  1 - output(nil), filter(nil), rowset=256\n      access(nil), partitions(p0)\n      is_index_back=false, is_global_index=false, \n      calc_relevance=false, match_expr(MATCH(docs_space.body) AGAINST('alpha beta'))",
+        "candidate_threshold": "=======================================================\n|ID|OPERATOR         |NAME      |EST.ROWS|EST.TIME(us)|\n-------------------------------------------------------\n|0 |SCALAR GROUP BY  |          |1       |33040       |\n|1 |└─TABLE FULL SCAN|docs_space|102     |33038       |\n=======================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([T_FUN_COUNT(*)]), filter(nil), rowset=256\n      group(nil), agg_func([T_FUN_COUNT(*)])\n  1 - output(nil), filter([MATCH(docs_space.body) AGAINST('alpha beta') > cast(0.5, DOUBLE(-1, -1))]), rowset=256\n      access([docs_space.id]), partitions(p0)\n      is_index_back=false, is_global_index=false, filter_before_indexback[false], \n      range_key([docs_space.id]), range(MIN ; MAX)always true, has_functional_lookup=true",
+        "candidate_projected": "================================================================\n|ID|OPERATOR             |NAME           |EST.ROWS|EST.TIME(us)|\n----------------------------------------------------------------\n|0 |SORT                 |               |405     |18804       |\n|1 |└─TEXT RETRIEVAL SCAN|docs_space(fti)|405     |18702       |\n================================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([MATCH(docs_space.body) AGAINST('alpha beta')]), filter(nil), rowset=256\n      sort_keys([MATCH(docs_space.body) AGAINST('alpha beta'), DESC])\n  1 - output([MATCH(docs_space.body) AGAINST('alpha beta')]), filter(nil), rowset=256\n      access(nil), partitions(p0)\n      is_index_back=false, is_global_index=false, \n      calc_relevance=true, match_expr(MATCH(docs_space.body) AGAINST('alpha beta')), \n      pushdown_match_filter(MATCH(docs_space.body) AGAINST('alpha beta'))",
+        "candidate_limit": "==============================================================\n|ID|OPERATOR           |NAME           |EST.ROWS|EST.TIME(us)|\n--------------------------------------------------------------\n|0 |TEXT RETRIEVAL SCAN|docs_space(fti)|405     |11772       |\n==============================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([docs_space.id]), filter(nil), rowset=256\n      access([docs_space.id]), partitions(p0)\n      is_index_back=true, is_global_index=false, \n      calc_relevance=true, match_expr(MATCH(docs_space.body) AGAINST('alpha beta')), \n      pushdown_match_filter(MATCH(docs_space.body) AGAINST('alpha beta')), \n      sort_keys([MATCH(docs_space.body) AGAINST('alpha beta'), DESC]), limit(20), offset(nil), with_ties(false)",
+        "candidate_boolean": "================================================================\n|ID|OPERATOR             |NAME           |EST.ROWS|EST.TIME(us)|\n----------------------------------------------------------------\n|0 |SCALAR GROUP BY      |               |1       |18710       |\n|1 |└─TEXT RETRIEVAL SCAN|docs_space(fti)|405     |18702       |\n================================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([T_FUN_COUNT(*)]), filter(nil), rowset=256\n      group(nil), agg_func([T_FUN_COUNT(*)])\n  1 - output(nil), filter(nil), rowset=256\n      access(nil), partitions(p0)\n      is_index_back=false, is_global_index=false, \n      calc_relevance=true, match_expr(MATCH(docs_space.body) AGAINST('+alpha -beta' IN BOOLEAN MODE)), \n      pushdown_match_filter(MATCH(docs_space.body) AGAINST('+alpha -beta' IN BOOLEAN MODE))",
+        "candidate_back_lookup": "================================================================\n|ID|OPERATOR             |NAME           |EST.ROWS|EST.TIME(us)|\n----------------------------------------------------------------\n|0 |SORT                 |               |405     |11841       |\n|1 |└─TEXT RETRIEVAL SCAN|docs_space(fti)|405     |11739       |\n================================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([docs_space.body]), filter(nil), rowset=256\n      sort_keys([MATCH(docs_space.body) AGAINST('alpha beta'), DESC])\n  1 - output([docs_space.body], [MATCH(docs_space.body) AGAINST('alpha beta')]), filter(nil), rowset=256\n      access([docs_space.id], [docs_space.body]), partitions(p0)\n      is_index_back=true, is_global_index=false, \n      calc_relevance=true, match_expr(MATCH(docs_space.body) AGAINST('alpha beta')), \n      pushdown_match_filter(MATCH(docs_space.body) AGAINST('alpha beta'))"
+      },
+      "passed": true
+    },
+    "exact_original_queries": {
+      "control": {
+        "cn": {
+          "hits": 8001,
+          "rows_sha256": "bad5ca4342c5c94f24575f1f9066327e51b2e10c10aecbc465a3e17e9dbb8ad9"
+        },
+        "beng": {
+          "hits": 11000,
+          "rows_sha256": "54c8bfabcc319c1d71a4e0578d68baf6279fb2367722d2464e6e7dd5f9694b77"
+        },
+        "mixed": {
+          "hits": 7332,
+          "rows_sha256": "f1974fa20affd40d11854e32dac79d72a8ea91586d334da7d007d6932e03fbed"
+        },
+        "limit": {
+          "hits": 20,
+          "rows_sha256": "910b8d32d5d4fb737c264112b34f76aa76a7bfc94c4dd006ff174c43759f1a7e"
+        }
+      },
+      "candidate": {
+        "cn": {
+          "hits": 8001,
+          "rows_sha256": "bad5ca4342c5c94f24575f1f9066327e51b2e10c10aecbc465a3e17e9dbb8ad9"
+        },
+        "beng": {
+          "hits": 11000,
+          "rows_sha256": "54c8bfabcc319c1d71a4e0578d68baf6279fb2367722d2464e6e7dd5f9694b77"
+        },
+        "mixed": {
+          "hits": 7332,
+          "rows_sha256": "f1974fa20affd40d11854e32dac79d72a8ea91586d334da7d007d6932e03fbed"
+        },
+        "limit": {
+          "hits": 20,
+          "rows_sha256": "910b8d32d5d4fb737c264112b34f76aa76a7bfc94c4dd006ff174c43759f1a7e"
+        }
+      }
+    }
+  },
+  "paired_samples": [
+    {
+      "variant": "base",
+      "sample": 0,
+      "name": "select1",
+      "wall_ms": 0.025927933333150577,
+      "cpu_ms": 0.057291666666666664
+    },
+    {
+      "variant": "base",
+      "sample": 0,
+      "name": "ik",
+      "wall_ms": 0.11059403333395797,
+      "cpu_ms": 0.11979166666666667
+    },
+    {
+      "variant": "base",
+      "sample": 0,
+      "name": "beng",
+      "wall_ms": 0.05993673333311259,
+      "cpu_ms": 0.057291666666666664
+    },
+    {
+      "variant": "base",
+      "sample": 0,
+      "name": "query_cn",
+      "wall_ms": 1.5709550000065065,
+      "cpu_ms": 1.484375
+    },
+    {
+      "variant": "base",
+      "sample": 0,
+      "name": "query_beng",
+      "wall_ms": 2.4290844999995898,
+      "cpu_ms": 2.421875
+    },
+    {
+      "variant": "base",
+      "sample": 0,
+      "name": "query_mixed",
+      "wall_ms": 1.8451549999917916,
+      "cpu_ms": 2.109375
+    },
+    {
+      "variant": "base",
+      "sample": 0,
+      "name": "query_limit",
+      "wall_ms": 0.37338900001486763,
+      "cpu_ms": 0.390625
+    },
+    {
+      "variant": "new",
+      "sample": 0,
+      "name": "select1",
+      "wall_ms": 0.022681533333525294,
+      "cpu_ms": 0.020833333333333332
+    },
+    {
+      "variant": "new",
+      "sample": 0,
+      "name": "ik",
+      "wall_ms": 0.10884410000047258,
+      "cpu_ms": 0.109375
+    },
+    {
+      "variant": "new",
+      "sample": 0,
+      "name": "beng",
+      "wall_ms": 0.061666999999336745,
+      "cpu_ms": 0.07291666666666667
+    },
+    {
+      "variant": "new",
+      "sample": 0,
+      "name": "query_cn",
+      "wall_ms": 1.0473040000033507,
+      "cpu_ms": 1.015625
+    },
+    {
+      "variant": "new",
+      "sample": 0,
+      "name": "query_beng",
+      "wall_ms": 1.6879635000077542,
+      "cpu_ms": 1.71875
+    },
+    {
+      "variant": "new",
+      "sample": 0,
+      "name": "query_mixed",
+      "wall_ms": 1.3770470000054047,
+      "cpu_ms": 1.484375
+    },
+    {
+      "variant": "new",
+      "sample": 0,
+      "name": "query_limit",
+      "wall_ms": 0.3597824999997101,
+      "cpu_ms": 0.390625
+    },
+    {
+      "variant": "new",
+      "sample": 1,
+      "name": "select1",
+      "wall_ms": 0.0184169333333557,
+      "cpu_ms": 0.015625
+    },
+    {
+      "variant": "new",
+      "sample": 1,
+      "name": "ik",
+      "wall_ms": 0.10872636666681501,
+      "cpu_ms": 0.109375
+    },
+    {
+      "variant": "new",
+      "sample": 1,
+      "name": "beng",
+      "wall_ms": 0.05951039999975668,
+      "cpu_ms": 0.057291666666666664
+    },
+    {
+      "variant": "new",
+      "sample": 1,
+      "name": "query_cn",
+      "wall_ms": 1.0578574999999546,
+      "cpu_ms": 1.015625
+    },
+    {
+      "variant": "new",
+      "sample": 1,
+      "name": "query_beng",
+      "wall_ms": 1.674218500011193,
+      "cpu_ms": 1.640625
+    },
+    {
+      "variant": "new",
+      "sample": 1,
+      "name": "query_mixed",
+      "wall_ms": 1.350623500002257,
+      "cpu_ms": 1.328125
+    },
+    {
+      "variant": "new",
+      "sample": 1,
+      "name": "query_limit",
+      "wall_ms": 0.34135399999286165,
+      "cpu_ms": 0.3125
+    },
+    {
+      "variant": "base",
+      "sample": 1,
+      "name": "select1",
+      "wall_ms": 0.019821199999569217,
+      "cpu_ms": 0.015625
+    },
+    {
+      "variant": "base",
+      "sample": 1,
+      "name": "ik",
+      "wall_ms": 0.10780636666701564,
+      "cpu_ms": 0.109375
+    },
+    {
+      "variant": "base",
+      "sample": 1,
+      "name": "beng",
+      "wall_ms": 0.05906909999976051,
+      "cpu_ms": 0.057291666666666664
+    },
+    {
+      "variant": "base",
+      "sample": 1,
+      "name": "query_cn",
+      "wall_ms": 1.5711729999929958,
+      "cpu_ms": 1.640625
+    },
+    {
+      "variant": "base",
+      "sample": 1,
+      "name": "query_beng",
+      "wall_ms": 2.394841000004817,
+      "cpu_ms": 3.046875
+    },
+    {
+      "variant": "base",
+      "sample": 1,
+      "name": "query_mixed",
+      "wall_ms": 1.8415384999934759,
+      "cpu_ms": 1.796875
+    },
+    {
+      "variant": "base",
+      "sample": 1,
+      "name": "query_limit",
+      "wall_ms": 0.35277700000733603,
+      "cpu_ms": 0.390625
+    },
+    {
+      "variant": "base",
+      "sample": 2,
+      "name": "select1",
+      "wall_ms": 0.019179566666328658,
+      "cpu_ms": 0.020833333333333332
+    },
+    {
+      "variant": "base",
+      "sample": 2,
+      "name": "ik",
+      "wall_ms": 0.10785636666696519,
+      "cpu_ms": 0.11458333333333333
+    },
+    {
+      "variant": "base",
+      "sample": 2,
+      "name": "beng",
+      "wall_ms": 0.05912959999962671,
+      "cpu_ms": 0.057291666666666664
+    },
+    {
+      "variant": "base",
+      "sample": 2,
+      "name": "query_cn",
+      "wall_ms": 1.5853900000001886,
+      "cpu_ms": 1.5625
+    },
+    {
+      "variant": "base",
+      "sample": 2,
+      "name": "query_beng",
+      "wall_ms": 2.4165684999934456,
+      "cpu_ms": 2.421875
+    },
+    {
+      "variant": "base",
+      "sample": 2,
+      "name": "query_mixed",
+      "wall_ms": 1.8524575000083132,
+      "cpu_ms": 2.109375
+    },
+    {
+      "variant": "base",
+      "sample": 2,
+      "name": "query_limit",
+      "wall_ms": 0.36710150001454167,
+      "cpu_ms": 0.546875
+    },
+    {
+      "variant": "new",
+      "sample": 2,
+      "name": "select1",
+      "wall_ms": 0.017123699999501696,
+      "cpu_ms": 0.015625
+    },
+    {
+      "variant": "new",
+      "sample": 2,
+      "name": "ik",
+      "wall_ms": 0.10848103333288843,
+      "cpu_ms": 0.11979166666666667
+    },
+    {
+      "variant": "new",
+      "sample": 2,
+      "name": "beng",
+      "wall_ms": 0.05922376666664301,
+      "cpu_ms": 0.0625
+    },
+    {
+      "variant": "new",
+      "sample": 2,
+      "name": "query_cn",
+      "wall_ms": 1.023936000001413,
+      "cpu_ms": 1.015625
+    },
+    {
+      "variant": "new",
+      "sample": 2,
+      "name": "query_beng",
+      "wall_ms": 1.6661645000021963,
+      "cpu_ms": 1.640625
+    },
+    {
+      "variant": "new",
+      "sample": 2,
+      "name": "query_mixed",
+      "wall_ms": 1.36765799999921,
+      "cpu_ms": 1.328125
+    },
+    {
+      "variant": "new",
+      "sample": 2,
+      "name": "query_limit",
+      "wall_ms": 0.3475330000037502,
+      "cpu_ms": 0.3125
+    },
+    {
+      "variant": "new",
+      "sample": 3,
+      "name": "select1",
+      "wall_ms": 0.0179693666662691,
+      "cpu_ms": 0.015625
+    },
+    {
+      "variant": "new",
+      "sample": 3,
+      "name": "ik",
+      "wall_ms": 0.11492076666642485,
+      "cpu_ms": 0.109375
+    },
+    {
+      "variant": "new",
+      "sample": 3,
+      "name": "beng",
+      "wall_ms": 0.0637147999999191,
+      "cpu_ms": 0.06770833333333333
+    },
+    {
+      "variant": "new",
+      "sample": 3,
+      "name": "query_cn",
+      "wall_ms": 1.0702640000090469,
+      "cpu_ms": 1.09375
+    },
+    {
+      "variant": "new",
+      "sample": 3,
+      "name": "query_beng",
+      "wall_ms": 1.7297665000114648,
+      "cpu_ms": 1.796875
+    },
+    {
+      "variant": "new",
+      "sample": 3,
+      "name": "query_mixed",
+      "wall_ms": 1.3542595000035362,
+      "cpu_ms": 1.40625
+    },
+    {
+      "variant": "new",
+      "sample": 3,
+      "name": "query_limit",
+      "wall_ms": 0.35552900000766385,
+      "cpu_ms": 0.3125
+    },
+    {
+      "variant": "base",
+      "sample": 3,
+      "name": "select1",
+      "wall_ms": 0.019050099999731174,
+      "cpu_ms": 0.015625
+    },
+    {
+      "variant": "base",
+      "sample": 3,
+      "name": "ik",
+      "wall_ms": 0.10884429999957017,
+      "cpu_ms": 0.109375
+    },
+    {
+      "variant": "base",
+      "sample": 3,
+      "name": "beng",
+      "wall_ms": 0.05848270000084691,
+      "cpu_ms": 0.0625
+    },
+    {
+      "variant": "base",
+      "sample": 3,
+      "name": "query_cn",
+      "wall_ms": 1.5525870000055875,
+      "cpu_ms": 1.5625
+    },
+    {
+      "variant": "base",
+      "sample": 3,
+      "name": "query_beng",
+      "wall_ms": 2.407241000000795,
+      "cpu_ms": 2.421875
+    },
+    {
+      "variant": "base",
+      "sample": 3,
+      "name": "query_mixed",
+      "wall_ms": 1.8813399999999092,
+      "cpu_ms": 1.796875
+    },
+    {
+      "variant": "base",
+      "sample": 3,
+      "name": "query_limit",
+      "wall_ms": 0.34595499999340973,
+      "cpu_ms": 0.3125
+    },
+    {
+      "variant": "base",
+      "sample": 4,
+      "name": "select1",
+      "wall_ms": 0.016386433333536843,
+      "cpu_ms": 0.015625
+    },
+    {
+      "variant": "base",
+      "sample": 4,
+      "name": "ik",
+      "wall_ms": 0.10696726666719769,
+      "cpu_ms": 0.09895833333333333
+    },
+    {
+      "variant": "base",
+      "sample": 4,
+      "name": "beng",
+      "wall_ms": 0.06267253333377691,
+      "cpu_ms": 0.0625
+    },
+    {
+      "variant": "base",
+      "sample": 4,
+      "name": "query_cn",
+      "wall_ms": 1.5598160000081407,
+      "cpu_ms": 1.484375
+    },
+    {
+      "variant": "base",
+      "sample": 4,
+      "name": "query_beng",
+      "wall_ms": 2.4147760000050766,
+      "cpu_ms": 2.34375
+    },
+    {
+      "variant": "base",
+      "sample": 4,
+      "name": "query_mixed",
+      "wall_ms": 1.8391415000041889,
+      "cpu_ms": 1.875
+    },
+    {
+      "variant": "base",
+      "sample": 4,
+      "name": "query_limit",
+      "wall_ms": 0.3449470000123256,
+      "cpu_ms": 0.3125
+    },
+    {
+      "variant": "new",
+      "sample": 4,
+      "name": "select1",
+      "wall_ms": 0.02066483333328506,
+      "cpu_ms": 0.020833333333333332
+    },
+    {
+      "variant": "new",
+      "sample": 4,
+      "name": "ik",
+      "wall_ms": 0.1088168999995105,
+      "cpu_ms": 0.109375
+    },
+    {
+      "variant": "new",
+      "sample": 4,
+      "name": "beng",
+      "wall_ms": 0.05987746666626966,
+      "cpu_ms": 0.06770833333333333
+    },
+    {
+      "variant": "new",
+      "sample": 4,
+      "name": "query_cn",
+      "wall_ms": 1.0656285000004573,
+      "cpu_ms": 1.015625
+    },
+    {
+      "variant": "new",
+      "sample": 4,
+      "name": "query_beng",
+      "wall_ms": 1.6573054999935266,
+      "cpu_ms": 1.640625
+    },
+    {
+      "variant": "new",
+      "sample": 4,
+      "name": "query_mixed",
+      "wall_ms": 1.371514999991632,
+      "cpu_ms": 1.25
+    },
+    {
+      "variant": "new",
+      "sample": 4,
+      "name": "query_limit",
+      "wall_ms": 0.4188524999881338,
+      "cpu_ms": 0.390625
+    },
+    {
+      "variant": "new",
+      "sample": 5,
+      "name": "select1",
+      "wall_ms": 0.02293356666753728,
+      "cpu_ms": 0.020833333333333332
+    },
+    {
+      "variant": "new",
+      "sample": 5,
+      "name": "ik",
+      "wall_ms": 0.11107266666658688,
+      "cpu_ms": 0.109375
+    },
+    {
+      "variant": "new",
+      "sample": 5,
+      "name": "beng",
+      "wall_ms": 0.06120620000001509,
+      "cpu_ms": 0.0625
+    },
+    {
+      "variant": "new",
+      "sample": 5,
+      "name": "query_cn",
+      "wall_ms": 1.0637080000014976,
+      "cpu_ms": 1.25
+    },
+    {
+      "variant": "new",
+      "sample": 5,
+      "name": "query_beng",
+      "wall_ms": 1.8677445000139414,
+      "cpu_ms": 1.953125
+    },
+    {
+      "variant": "new",
+      "sample": 5,
+      "name": "query_mixed",
+      "wall_ms": 1.3581689999955415,
+      "cpu_ms": 1.484375
+    },
+    {
+      "variant": "new",
+      "sample": 5,
+      "name": "query_limit",
+      "wall_ms": 0.331818500017107,
+      "cpu_ms": 0.3125
+    },
+    {
+      "variant": "base",
+      "sample": 5,
+      "name": "select1",
+      "wall_ms": 0.021324233333871234,
+      "cpu_ms": 0.020833333333333332
+    },
+    {
+      "variant": "base",
+      "sample": 5,
+      "name": "ik",
+      "wall_ms": 0.10946983333390865,
+      "cpu_ms": 0.109375
+    },
+    {
+      "variant": "base",
+      "sample": 5,
+      "name": "beng",
+      "wall_ms": 0.05983696666711088,
+      "cpu_ms": 0.057291666666666664
+    },
+    {
+      "variant": "base",
+      "sample": 5,
+      "name": "query_cn",
+      "wall_ms": 1.5541320000011183,
+      "cpu_ms": 1.640625
+    },
+    {
+      "variant": "base",
+      "sample": 5,
+      "name": "query_beng",
+      "wall_ms": 2.4396449999949255,
+      "cpu_ms": 2.421875
+    },
+    {
+      "variant": "base",
+      "sample": 5,
+      "name": "query_mixed",
+      "wall_ms": 1.861065499997494,
+      "cpu_ms": 1.796875
+    },
+    {
+      "variant": "base",
+      "sample": 5,
+      "name": "query_limit",
+      "wall_ms": 0.3489889999946172,
+      "cpu_ms": 0.3125
+    }
+  ],
+  "paired_summary": {
+    "select1": {
+      "wall_ms": {
+        "base": 0.02028157777769795,
+        "new": 0.019964988888912356,
+        "reduction_pct": 1.5609677523891752
+      },
+      "cpu_ms": {
+        "base": 0.024305555555555556,
+        "new": 0.018229166666666664,
+        "reduction_pct": 25.00000000000001
+      }
+    },
+    "ik": {
+      "wall_ms": {
+        "base": 0.10858969444476922,
+        "new": 0.11014363888878304,
+        "reduction_pct": -1.4310238664537067
+      },
+      "cpu_ms": {
+        "base": 0.11024305555555555,
+        "new": 0.1111111111111111,
+        "reduction_pct": -0.7874015748031482
+      }
+    },
+    "beng": {
+      "wall_ms": {
+        "base": 0.05985460555570575,
+        "new": 0.06086660555532338,
+        "reduction_pct": -1.6907637937330966
+      },
+      "cpu_ms": {
+        "base": 0.059027777777777776,
+        "new": 0.06510416666666667,
+        "reduction_pct": -10.294117647058831
+      }
+    },
+    "query_cn": {
+      "wall_ms": {
+        "base": 1.565675500002423,
+        "new": 1.05478300000262,
+        "reduction_pct": 32.63080376482945
+      },
+      "cpu_ms": {
+        "base": 1.5625,
+        "new": 1.0677083333333333,
+        "reduction_pct": 31.666666666666675
+      }
+    },
+    "query_beng": {
+      "wall_ms": {
+        "base": 2.4170259999997747,
+        "new": 1.7138605000066793,
+        "reduction_pct": 29.092177742116178
+      },
+      "cpu_ms": {
+        "base": 2.5130208333333335,
+        "new": 1.7317708333333333,
+        "reduction_pct": 31.088082901554415
+      }
+    },
+    "query_mixed": {
+      "wall_ms": {
+        "base": 1.8534496666658622,
+        "new": 1.3632119999995969,
+        "reduction_pct": 26.4500124002906
+      },
+      "cpu_ms": {
+        "base": 1.9140625,
+        "new": 1.3802083333333333,
+        "reduction_pct": 27.891156462585045
+      }
+    },
+    "query_limit": {
+      "wall_ms": {
+        "base": 0.3555264166728496,
+        "new": 0.3591449166682044,
+        "reduction_pct": -1.0177865344629167
+      },
+      "cpu_ms": {
+        "base": 0.3776041666666667,
+        "new": 0.3385416666666667,
+        "reduction_pct": 10.344827586206895
+      }
+    }
+  },
+  "build_smoke": {
+    "control": [
+      {
+        "repeat": 0,
+        "started": "2026-11-08 21:03:28",
+        "ik_all": {
+          "sec": 8.122354899998754,
+          "start_epoch": 1794143008.594332,
+          "end_epoch": 1794143016.7166789
+        },
+        "ik_content": {
+          "sec": 6.312597899999673,
+          "start_epoch": 1794143016.7166789,
+          "end_epoch": 1794143023.029618
+        },
+        "beng": {
+          "sec": 3.6808968000004825,
+          "start_epoch": 1794143023.029618,
+          "end_epoch": 1794143026.7106316
+        }
+      }
+    ],
+    "candidate": [
+      {
+        "repeat": 0,
+        "started": "2026-11-08 21:03:48",
+        "ik_all": {
+          "sec": 8.451067999998486,
+          "start_epoch": 1794143028.1339948,
+          "end_epoch": 1794143036.5852814
+        },
+        "ik_content": {
+          "sec": 6.49940979999883,
+          "start_epoch": 1794143036.5852814,
+          "end_epoch": 1794143043.085483
+        },
+        "beng": {
+          "sec": 3.777482000001328,
+          "start_epoch": 1794143043.085483,
+          "end_epoch": 1794143046.8623645
+        }
+      }
+    ]
+  }
+}

@@ -159,6 +159,41 @@ int ObStringDiffDecoder::batch_decode(
 
     // Fill string data
     const uint16_t string_size = header_->string_size_;
+    if (OB_SUCC(ret) && 16 == string_size && ctx.is_fix_length() && !header_->is_hex_packing()) {
+      // Fixed-width binary IDs share a common template. Build it once per
+      // batch and patch only differing bytes; keep outputs packed at 16 bytes.
+      char common[16] = {};
+      uint8_t diff_positions[16];
+      int64_t diff_count = 0;
+      int64_t position = 0;
+      header_->copy_string(ObStringDiffHeader::LeftToRight(), std::logical_not<uint8_t>(),
+          header_->common_data(), common);
+      for (int64_t d = 0; d < header_->diff_desc_cnt_; ++d) {
+        for (int64_t n = 0; n < header_->diff_descs_[d].count_; ++n, ++position) {
+          if (header_->diff_descs_[d].diff_) {
+            diff_positions[diff_count++] = position;
+          }
+        }
+      }
+      char *packed = static_cast<char *>(ctx.allocator_->alloc(16 * row_cap));
+      if (OB_ISNULL(packed)) {
+        ret = OB_ALLOCATE_MEMORY_FAILED;
+      } else {
+        for (int64_t i = 0; i < row_cap; ++i) {
+          if (!ctx.has_extend_value() || !datums[i].is_null()) {
+            char *dest = packed + 16 * i;
+            const unsigned char *cell = col_data + data_offset + row_ids[i] * header_->length_;
+            MEMCPY(dest, common, sizeof(common));
+            for (int64_t j = 0; j < diff_count; ++j) {
+              dest[diff_positions[j]] = cell[j];
+            }
+            datums[i].pack_ = 16;
+            datums[i].ptr_ = dest;
+          }
+        }
+      }
+      return ret;
+    }
     const static uint16_t min_buf_size = 128;
     const int64_t buf_size = std::max(string_size, min_buf_size);
     char *buf = nullptr;
