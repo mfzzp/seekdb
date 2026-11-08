@@ -831,13 +831,34 @@ int ObFtsIndexBuildTask::wait_aux_table_complement()
     ret = OB_STATE_NOT_MATCH;
   } else {
     int64_t finished_task_cnt = 0;
-    for (task_iter iter = dependent_task_result_map_.begin();
-        OB_SUCC(ret) && iter != dependent_task_result_map_.end(); ++iter) {
-      const uint64_t task_key = iter->first;
+    ObSEArray<std::pair<uint64_t, DependTaskStatus>, 4> child_tasks;
+    {
+      // Completion callbacks update this map while the parent is running.
+      TCRLockGuard guard(lock_);
+      for (task_iter iter = dependent_task_result_map_.begin();
+          OB_SUCC(ret) && iter != dependent_task_result_map_.end(); ++iter) {
+        if (OB_FAIL(child_tasks.push_back(std::make_pair(iter->first, iter->second)))) {
+        }
+      }
+    }
+    // Release the parent lock before looking at the scheduler: callbacks acquire
+    // the scheduler lock before the parent lock.
+    for (int64_t i = 0; OB_SUCC(ret) && i < child_tasks.count(); ++i) {
+      const uint64_t task_key = child_tasks.at(i).first;
+      const DependTaskStatus &status = child_tasks.at(i).second;
       const int64_t target_object_id = -1;
-      const int64_t child_task_id = iter->second.task_id_;
-      if (iter->second.ret_code_ == INT64_MAX) {
-        // maybe ddl already finish when switching rs
+      const int64_t child_task_id = status.task_id_;
+      if (status.ret_code_ == INT64_MAX) {
+        bool child_is_scheduled = false;
+        if (is_fts_task() && OB_FAIL(ObSysDDLSchedulerUtil::check_task_exists(
+            ObDDLTaskID(child_task_id), child_is_scheduled))) {
+          break;
+        } else if (child_is_scheduled) {
+          // A live child reports its durable result before being removed from
+          // the scheduler. Avoid repeatedly reading the result table meanwhile.
+          continue;
+        }
+        // Recovery or a missed callback: consult the durable result as before.
         HEAP_VAR(ObDDLErrorMessageTableOperator::ObBuildDDLErrorMessage, error_message) {
           int64_t unused_user_msg_len = 0;
           ObAddr unused_addr;
@@ -854,6 +875,7 @@ int ObFtsIndexBuildTask::wait_aux_table_complement()
                   K(child_task_id), K(target_object_id));
             } else {
             }
+          } else if (OB_FAIL(on_child_task_finish(task_key, error_message.ret_code_))) {
           } else {
             finished_task_cnt++;
             if (error_message.ret_code_ != OB_SUCCESS) {
@@ -866,14 +888,14 @@ int ObFtsIndexBuildTask::wait_aux_table_complement()
         }
       } else {
         finished_task_cnt++;
-        if (iter->second.ret_code_ != OB_SUCCESS) {
-          ret = iter->second.ret_code_;
+        if (status.ret_code_ != OB_SUCCESS) {
+          ret = status.ret_code_;
           child_task_failed = true;
           state_finished = true;
         }
       }
     }
-    if (finished_task_cnt == dependent_task_result_map_.size() || OB_FAIL(ret)) {
+    if (finished_task_cnt == child_tasks.count() || OB_FAIL(ret)) {
       // 1. all child tasks finish.
       // 2. the parent task exits if any child task fails.
       state_finished = true;
@@ -913,14 +935,13 @@ int ObFtsIndexBuildTask::on_child_task_finish(
     ret = OB_INVALID_ARGUMENT;
   } else {
     TCWLockGuard guard(lock_);
-    int64_t org_ret = INT64_MAX;
     rootserver::ObDomainDependTaskStatus status;
     if (OB_FAIL(dependent_task_result_map_.get_refactored(child_task_key,
                                                           status))) {
       if (OB_HASH_NOT_EXIST == ret) {
         ret = OB_ENTRY_NOT_EXIST;
       }
-    } else if (org_ret != INT64_MAX && org_ret != ret_code) {
+    } else if (status.ret_code_ != INT64_MAX && status.ret_code_ != ret_code) {
       ret = OB_ERR_UNEXPECTED;
     } else if (FALSE_IT(status.ret_code_ = ret_code)) {
     } else if (OB_FAIL(dependent_task_result_map_.set_refactored(child_task_key,

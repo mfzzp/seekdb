@@ -1,0 +1,38 @@
+# Exercise FTS child completion across empty, populated and reused aux tables.
+--disable_query_log
+--disable_warnings
+DROP DATABASE IF EXISTS fts_build_completion;
+--enable_warnings
+CREATE DATABASE fts_build_completion;
+USE fts_build_completion;
+CREATE TABLE docs(id INT PRIMARY KEY, title VARCHAR(100), body TEXT);
+ALTER TABLE docs ADD FULLTEXT INDEX fti_body(body) WITH PARSER beng;
+SELECT COUNT(*) = 0 AS empty_build FROM docs WHERE MATCH(body) AGAINST('alpha');
+INSERT INTO docs VALUES (1,'alpha','alpha beta'),(2,'beta','beta gamma'),(3,'gamma','gamma alpha'),(4,'empty',NULL),(5,'empty','');
+SELECT COUNT(*) = 2 AND SUM(id) = 4 AS insert_after_empty_build FROM docs WHERE MATCH(body) AGAINST('alpha');
+ALTER TABLE docs ADD FULLTEXT INDEX fti_all(title,body) WITH PARSER ik;
+SELECT COUNT(*) = 3 AND SUM(id) = 6 AS populated_multi_column FROM docs WHERE MATCH(title,body) AGAINST('alpha beta');
+ALTER TABLE docs ADD FULLTEXT INDEX fti_title(title) WITH PARSER space;
+SELECT COUNT(*) = 1 AND MIN(id) = 2 AS reused_docid_mapping FROM docs WHERE MATCH(title) AGAINST('beta');
+ALTER TABLE docs DROP INDEX fti_body;
+ALTER TABLE docs ADD FULLTEXT INDEX fti_body(body) WITH PARSER beng;
+SELECT COUNT(*) = 2 AND SUM(id) = 4 AS rebuild_body FROM docs WHERE MATCH(body) AGAINST('alpha');
+SELECT COUNT(*) = 1 AND MIN(id) = 2 AS retained_title_index FROM docs WHERE MATCH(title) AGAINST('beta');
+BEGIN;
+INSERT INTO docs VALUES(6,'alpha','alpha');
+SELECT COUNT(*) = 3 AS own_transaction FROM docs WHERE MATCH(body) AGAINST('alpha');
+ROLLBACK;
+SELECT COUNT(*) = 2 AS rolled_back_insert FROM docs WHERE MATCH(body) AGAINST('alpha');
+UPDATE docs SET body='delta' WHERE id=1;
+DELETE FROM docs WHERE id=3;
+SELECT COUNT(*) = 0 AS update_delete FROM docs WHERE MATCH(body) AGAINST('alpha');
+SELECT COUNT(*) = 1 AND MIN(id) = 1 AS updated_posting FROM docs WHERE MATCH(body) AGAINST('delta');
+ALTER TABLE docs ADD INDEX ordinary_title(title);
+SELECT COUNT(*) = 1 AND MIN(id) = 2 AS ordinary_index FROM docs WHERE title='beta';
+DROP TABLE docs;
+CREATE TABLE docs(id INT PRIMARY KEY, body TEXT);
+INSERT INTO docs VALUES(7,'alpha');
+ALTER TABLE docs ADD FULLTEXT INDEX fti_body(body) WITH PARSER ik;
+SELECT COUNT(*) = 1 AND MIN(id) = 7 AS recreated_table FROM docs WHERE MATCH(body) AGAINST('alpha');
+DROP DATABASE fts_build_completion;
+--enable_query_log

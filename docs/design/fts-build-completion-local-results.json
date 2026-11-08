@@ -1,0 +1,425 @@
+{
+  "control_commit": "ccdc1059f95750dd711fde43ac7c237305c0fcfe",
+  "environment": "Windows, incremental common development build with FTS overlays; LLVM 21; two dedicated instances, INFO logs, 4 GB budget; persistent PyMySQL; unmodified 20000-row generator and three build statements; not official Linux benchmark",
+  "paired_builds": [
+    {
+      "repeat": 0,
+      "started": "2026-11-08 10:41:41",
+      "ik_all": {
+        "sec": 12.447334700002102,
+        "start_epoch": 1794105701.7074635,
+        "end_epoch": 1794105714.15459
+      },
+      "ik_content": {
+        "sec": 9.635057400002552,
+        "start_epoch": 1794105714.15459,
+        "end_epoch": 1794105723.7899244
+      },
+      "beng": {
+        "sec": 6.127464500001224,
+        "start_epoch": 1794105723.7899244,
+        "end_epoch": 1794105729.9175444
+      },
+      "variant": "fts-r6-control",
+      "pair": 0
+    },
+    {
+      "repeat": 0,
+      "started": "2026-11-08 10:42:11",
+      "ik_all": {
+        "sec": 12.236213800002588,
+        "start_epoch": 1794105731.616174,
+        "end_epoch": 1794105743.8519187
+      },
+      "ik_content": {
+        "sec": 9.854775899999368,
+        "start_epoch": 1794105743.8519187,
+        "end_epoch": 1794105753.7071242
+      },
+      "beng": {
+        "sec": 5.903235300000233,
+        "start_epoch": 1794105753.7071242,
+        "end_epoch": 1794105759.6104102
+      },
+      "variant": "fts-r6-new",
+      "pair": 0
+    },
+    {
+      "repeat": 0,
+      "started": "2026-11-08 10:42:40",
+      "ik_all": {
+        "sec": 13.283393400000932,
+        "start_epoch": 1794105760.9864166,
+        "end_epoch": 1794105774.2700787
+      },
+      "ik_content": {
+        "sec": 9.942116799997166,
+        "start_epoch": 1794105774.2700787,
+        "end_epoch": 1794105784.2115495
+      },
+      "beng": {
+        "sec": 5.825828099994396,
+        "start_epoch": 1794105784.2115495,
+        "end_epoch": 1794105790.0373533
+      },
+      "variant": "fts-r6-new",
+      "pair": 1
+    },
+    {
+      "repeat": 0,
+      "started": "2026-11-08 10:43:11",
+      "ik_all": {
+        "sec": 12.533802500001912,
+        "start_epoch": 1794105791.6282403,
+        "end_epoch": 1794105804.1620576
+      },
+      "ik_content": {
+        "sec": 10.144318500002555,
+        "start_epoch": 1794105804.1620576,
+        "end_epoch": 1794105814.306516
+      },
+      "beng": {
+        "sec": 5.79119940000237,
+        "start_epoch": 1794105814.306516,
+        "end_epoch": 1794105820.097285
+      },
+      "variant": "fts-r6-control",
+      "pair": 1
+    },
+    {
+      "repeat": 0,
+      "started": "2026-11-08 10:43:41",
+      "ik_all": {
+        "sec": 12.05892469999526,
+        "start_epoch": 1794105821.5778918,
+        "end_epoch": 1794105833.636731
+      },
+      "ik_content": {
+        "sec": 11.45372010000574,
+        "start_epoch": 1794105833.6376786,
+        "end_epoch": 1794105845.091403
+      },
+      "beng": {
+        "sec": 5.748489799996605,
+        "start_epoch": 1794105845.091403,
+        "end_epoch": 1794105850.8390794
+      },
+      "variant": "fts-r6-control",
+      "pair": 2
+    },
+    {
+      "repeat": 0,
+      "started": "2026-11-08 10:44:12",
+      "ik_all": {
+        "sec": 12.442727400004514,
+        "start_epoch": 1794105852.4241626,
+        "end_epoch": 1794105864.8672612
+      },
+      "ik_content": {
+        "sec": 10.549469400000817,
+        "start_epoch": 1794105864.8672612,
+        "end_epoch": 1794105875.4164658
+      },
+      "beng": {
+        "sec": 5.6966580000007525,
+        "start_epoch": 1794105875.4164658,
+        "end_epoch": 1794105881.1138334
+      },
+      "variant": "fts-r6-new",
+      "pair": 2
+    }
+  ],
+  "preliminary_paired_builds": [
+    {
+      "repeat": 0,
+      "started": "2026-11-08 10:29:03",
+      "ik_all": {
+        "sec": 12.986162599998352,
+        "start_epoch": 1794104943.813775,
+        "end_epoch": 1794104956.8002298
+      },
+      "ik_content": {
+        "sec": 9.323780099999567,
+        "start_epoch": 1794104956.8002298,
+        "end_epoch": 1794104966.124538
+      },
+      "beng": {
+        "sec": 6.5935651999971014,
+        "start_epoch": 1794104966.124538,
+        "end_epoch": 1794104972.7181683
+      },
+      "variant": "fts-r6-control",
+      "pair": 0
+    },
+    {
+      "repeat": 0,
+      "started": "2026-11-08 10:29:34",
+      "ik_all": {
+        "sec": 12.03062990000035,
+        "start_epoch": 1794104974.1240458,
+        "end_epoch": 1794104986.1552072
+      },
+      "ik_content": {
+        "sec": 9.329819999999017,
+        "start_epoch": 1794104986.1552072,
+        "end_epoch": 1794104995.4848442
+      },
+      "beng": {
+        "sec": 5.790190199993958,
+        "start_epoch": 1794104995.4848442,
+        "end_epoch": 1794105001.2748845
+      },
+      "variant": "fts-r6-new",
+      "pair": 0
+    },
+    {
+      "repeat": 0,
+      "started": "2026-11-08 10:30:02",
+      "ik_all": {
+        "sec": 12.679325199998857,
+        "start_epoch": 1794105002.8158562,
+        "end_epoch": 1794105015.494512
+      },
+      "ik_content": {
+        "sec": 9.736807299996144,
+        "start_epoch": 1794105015.4954658,
+        "end_epoch": 1794105025.232254
+      },
+      "beng": {
+        "sec": 5.4875993999958155,
+        "start_epoch": 1794105025.232254,
+        "end_epoch": 1794105030.7191982
+      },
+      "variant": "fts-r6-new",
+      "pair": 1
+    },
+    {
+      "repeat": 0,
+      "started": "2026-11-08 10:30:32",
+      "ik_all": {
+        "sec": 12.02477910000016,
+        "start_epoch": 1794105032.3484447,
+        "end_epoch": 1794105044.3741875
+      },
+      "ik_content": {
+        "sec": 9.432831899997836,
+        "start_epoch": 1794105044.3741875,
+        "end_epoch": 1794105053.8063164
+      },
+      "beng": {
+        "sec": 5.584198700002162,
+        "start_epoch": 1794105053.8063164,
+        "end_epoch": 1794105059.3913307
+      },
+      "variant": "fts-r6-control",
+      "pair": 1
+    },
+    {
+      "repeat": 0,
+      "started": "2026-11-08 10:31:00",
+      "ik_all": {
+        "sec": 11.972303499998816,
+        "start_epoch": 1794105060.7517788,
+        "end_epoch": 1794105072.7242172
+      },
+      "ik_content": {
+        "sec": 9.425339000001259,
+        "start_epoch": 1794105072.7242172,
+        "end_epoch": 1794105082.1503878
+      },
+      "beng": {
+        "sec": 5.889287699996203,
+        "start_epoch": 1794105082.1503878,
+        "end_epoch": 1794105088.038954
+      },
+      "variant": "fts-r6-control",
+      "pair": 2
+    },
+    {
+      "repeat": 0,
+      "started": "2026-11-08 10:31:29",
+      "ik_all": {
+        "sec": 12.227369400003226,
+        "start_epoch": 1794105089.6656249,
+        "end_epoch": 1794105101.8934693
+      },
+      "ik_content": {
+        "sec": 9.33893099999841,
+        "start_epoch": 1794105101.8934693,
+        "end_epoch": 1794105111.232262
+      },
+      "beng": {
+        "sec": 5.590201999999408,
+        "start_epoch": 1794105111.232262,
+        "end_epoch": 1794105116.8231013
+      },
+      "variant": "fts-r6-new",
+      "pair": 2
+    }
+  ],
+  "preliminary_caveat": "A short unit-test compilation overlapped the initial run; repeated without compilation.",
+  "checks": {
+    "control": {
+      "regressions": {
+        "fts_build_completion": {
+          "statements": 33,
+          "assertions": 12
+        },
+        "fts_score_free_filter": {
+          "statements": 46,
+          "assertions": 24
+        }
+      },
+      "concurrent_builds": [
+        "space",
+        "beng",
+        "ik",
+        "ngram"
+      ],
+      "benchmark_rows": {
+        "cn": {
+          "count": 4000,
+          "sha256": "5ba25752f8ed9c8b671473458c994a8fc69a135883eb4f4563bc9a1d28fe104d"
+        },
+        "beng": {
+          "count": 6000,
+          "sha256": "4ef77ec0c42e62972b0c3c7a2acae7d3a69403998f39d9b831c575fa498705e1"
+        },
+        "mixed": {
+          "count": 4666,
+          "sha256": "a28b52bdae8da1a94667efdf70a7a104f84d06f427104a548044970620040e0b"
+        }
+      }
+    },
+    "candidate": {
+      "regressions": {
+        "fts_build_completion": {
+          "statements": 33,
+          "assertions": 12
+        },
+        "fts_score_free_filter": {
+          "statements": 46,
+          "assertions": 24
+        }
+      },
+      "concurrent_builds": [
+        "space",
+        "beng",
+        "ik",
+        "ngram"
+      ],
+      "benchmark_rows": {
+        "cn": {
+          "count": 4000,
+          "sha256": "5ba25752f8ed9c8b671473458c994a8fc69a135883eb4f4563bc9a1d28fe104d"
+        },
+        "beng": {
+          "count": 6000,
+          "sha256": "4ef77ec0c42e62972b0c3c7a2acae7d3a69403998f39d9b831c575fa498705e1"
+        },
+        "mixed": {
+          "count": 4666,
+          "sha256": "a28b52bdae8da1a94667efdf70a7a104f84d06f427104a548044970620040e0b"
+        }
+      }
+    }
+  },
+  "exact_benchmark_queries": {
+    "control": {
+      "cn": {
+        "hits": 8001,
+        "rows_sha256": "bad5ca4342c5c94f24575f1f9066327e51b2e10c10aecbc465a3e17e9dbb8ad9"
+      },
+      "beng": {
+        "hits": 11000,
+        "rows_sha256": "54c8bfabcc319c1d71a4e0578d68baf6279fb2367722d2464e6e7dd5f9694b77"
+      },
+      "mixed": {
+        "hits": 7332,
+        "rows_sha256": "f1974fa20affd40d11854e32dac79d72a8ea91586d334da7d007d6932e03fbed"
+      },
+      "limit": {
+        "hits": 20,
+        "rows_sha256": "910b8d32d5d4fb737c264112b34f76aa76a7bfc94c4dd006ff174c43759f1a7e"
+      }
+    },
+    "candidate": {
+      "cn": {
+        "hits": 8001,
+        "rows_sha256": "bad5ca4342c5c94f24575f1f9066327e51b2e10c10aecbc465a3e17e9dbb8ad9"
+      },
+      "beng": {
+        "hits": 11000,
+        "rows_sha256": "54c8bfabcc319c1d71a4e0578d68baf6279fb2367722d2464e6e7dd5f9694b77"
+      },
+      "mixed": {
+        "hits": 7332,
+        "rows_sha256": "f1974fa20affd40d11854e32dac79d72a8ea91586d334da7d007d6932e03fbed"
+      },
+      "limit": {
+        "hits": 20,
+        "rows_sha256": "910b8d32d5d4fb737c264112b34f76aa76a7bfc94c4dd006ff174c43759f1a7e"
+      }
+    }
+  },
+  "fault_checks": {
+    "missed_callback": {
+      "statements": 33,
+      "assertions": 12
+    },
+    "persisted_failure": {
+      "error": [
+        4016,
+        "Internal error"
+      ],
+      "elapsed_sec": 0.6151327999978093,
+      "base_rows_and_ordinary_index_intact": true
+    }
+  },
+  "means": {
+    "ik_all": {
+      "control_mean_sec": 12.346687299999758,
+      "candidate_mean_sec": 12.654111533336012,
+      "time_reduction_pct": -2.4899329339640897
+    },
+    "ik_content": {
+      "control_mean_sec": 10.411032000003615,
+      "candidate_mean_sec": 10.11545403333245,
+      "time_reduction_pct": 2.839084220191268
+    },
+    "beng": {
+      "control_mean_sec": 5.8890512333334,
+      "candidate_mean_sec": 5.80857379999846,
+      "time_reduction_pct": 1.366560251325688
+    }
+  },
+  "source_hashes": {
+    "src/rootserver/ddl_task/ob_ddl_scheduler.cpp": "0a12dd5d47f72ed48608e15707b656ef40e95b61e4daaead9c121d05091e857a",
+    "src/rootserver/ddl_task/ob_ddl_scheduler.h": "09619f7a9ff77d24decb3214276cf0f01b91b465d1b66adc44c5edb47aad712a",
+    "src/rootserver/ddl_task/ob_fts_index_build_task.cpp": "1f0f4762963e283f661ad57b61c6adca2ed32f0c42811c35266acf8d6f8f37ac",
+    "src/rootserver/ddl_task/ob_sys_ddl_util.h": "514b4ae583895e4dc5742274fc6b9cf52d4d632051aeca730cb1225c953e2a77"
+  },
+  "log_counts": {
+    "fts-r6-control/run": {
+      "pending_durable_lookup": 20382,
+      "dropped_callback": 0,
+      "injected_failure": 0
+    },
+    "fts-r6-new/run": {
+      "pending_durable_lookup": 0,
+      "dropped_callback": 0,
+      "injected_failure": 0
+    },
+    "fts-r6-fault/missed_callback": {
+      "pending_durable_lookup": 0,
+      "dropped_callback": 16,
+      "injected_failure": 0
+    },
+    "fts-r6-fault/persisted_failure": {
+      "pending_durable_lookup": 23,
+      "dropped_callback": 4,
+      "injected_failure": 2
+    }
+  },
+  "log_count_scope": "Whole per-instance local test lifetime, including preliminary timings and correctness checks; counts are not a platform metric."
+}

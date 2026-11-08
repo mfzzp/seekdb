@@ -69,6 +69,7 @@ public:
   int push_task(ObDDLTask *task);
   int get_next_task(ObDDLTask *&task);
   int remove_task(ObDDLTask *task);
+  int check_task_exists(const ObDDLTaskID &task_id, bool &exists);
   int add_task_to_last(ObDDLTask *task);
   template<typename F>
   int modify_task(const ObDDLTaskKey &task_key, F &&op);
@@ -286,6 +287,8 @@ public:
   int schedule_ddl_task(
       const ObDDLTaskRecord &task_record);
   int recover_task();
+  int check_task_exists(const ObDDLTaskID &task_id, bool &exists)
+  { return task_queue_.check_task_exists(task_id, exists); }
   int remove_inactive_ddl_task();
 
   int destroy_task();

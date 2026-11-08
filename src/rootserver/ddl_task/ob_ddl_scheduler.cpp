@@ -177,6 +177,29 @@ int ObDDLTaskQueue::add_task_to_last(ObDDLTask *task)
   return ret;
 }
 
+int ObDDLTaskQueue::check_task_exists(const ObDDLTaskID &task_id, bool &exists)
+{
+  int ret = OB_SUCCESS;
+  common::ObSpinLockGuard guard(lock_);
+  ObDDLTask *task = nullptr;
+  exists = false;
+  if (OB_UNLIKELY(!is_inited_)) {
+    ret = OB_NOT_INIT;
+  } else if (OB_UNLIKELY(!task_id.is_valid())) {
+    ret = OB_INVALID_ARGUMENT;
+  } else if (OB_FAIL(task_id_map_.get_refactored(task_id, task))) {
+    if (OB_HASH_NOT_EXIST == ret) {
+      ret = OB_SUCCESS;
+    }
+  } else if (OB_ISNULL(task)) {
+    ret = OB_ERR_UNEXPECTED;
+  } else {
+    // The ID map also contains tasks currently executing outside the queue.
+    exists = true;
+  }
+  return ret;
+}
+
 template<typename F>
 int ObDDLTaskQueue::modify_task(const ObDDLTaskKey &task_key, F &&op)
 {

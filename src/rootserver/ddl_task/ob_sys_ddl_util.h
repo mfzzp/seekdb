@@ -57,6 +57,7 @@ public:
   SYS_DDL_SCHEDULER_FUNC(destroy_task);
   SYS_DDL_SCHEDULER_FUNC(finish_redef_table);
   SYS_DDL_SCHEDULER_FUNC(get_task_record);
+  SYS_DDL_SCHEDULER_FUNC(check_task_exists);
   SYS_DDL_SCHEDULER_FUNC(notify_update_autoinc_end);
   SYS_DDL_SCHEDULER_FUNC(modify_redef_task);
   SYS_DDL_SCHEDULER_FUNC(on_column_checksum_calc_reply);
