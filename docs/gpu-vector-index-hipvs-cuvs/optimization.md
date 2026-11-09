@@ -5,6 +5,65 @@ This candidate is based on contest V5 commit
 commit `f96a663d0a4441d6f5344bd3ef552b71ae7b370b` supplied by the contest.
 It needs GPU validation before any speedup, Recall or contest score can be claimed.
 
+## Second candidate: batch offline DDL input
+
+The user reported 6/20 for the first candidate (`b206db389e476b53a709db9fd5feb28ceb9fe537`),
+without a build/query breakdown. Under the supplied scoring rules that implies
+the gates passed in that run; it does not identify which stage earned performance
+points. The changes below have not yet been evaluated on the GPU platform.
+
+`ObHNSWIndexAppendBufferOperator` previously read rows in batches but acquired an
+adaptor guard and called `add_snap_index` once per vector. The new path packs
+up to 256 vectors per append, with at most 1 MiB of vector scratch plus 2 KiB of
+IDs. It holds the adaptor guard for one input row file. LOB decoding still occurs
+for each non-null row, followed by an owned byte copy before LOB scratch is reused.
+The last partial batch is flushed at EOF; read or append failures propagate.
+No input rows, vector dimensions or FP32 bits are removed or changed.
+
+Batching is selected from parsed index metadata only for dense `lib=cuvs` L2
+HNSW/HGRAPH indexes without extra payload columns. VSAG, sparse, quantized and
+extra-payload paths retain row-wise appends. NULL/empty vectors retain the
+existing skip behavior. Vector byte lengths are checked against the schema.
+This borrows the batching approach used in the FTS optimization, without
+importing FTS parser, ranking or posting-list changes.
+
+The resource-aware local DDL worker policy from FTS commit
+`1b0ef73d7b04e38db86525097c8c2e07f29e8dad` is also ported: a mini-mode instance
+with at least 4 GiB configured memory and two effective CPUs uses two local DDL
+workers. Smaller instances keep one; non-mini instances retain sixteen. This
+allows independent auxiliary index tasks to overlap. Offline GPU snapshot builds
+remain serialized by the existing adaptor registry lock; the policy does not
+run those CAGRA builds at once.
+The selected worker count is logged during initialization. There is no benefit
+from this policy if the platform instance already uses non-mini mode.
+
+The bridge, graph construction parameters, search parameters, persistence format
+and fixed hipVS library are unchanged from the first candidate. The second
+candidate does not claim that pre-GPU overhead dominates total build time.
+
+New host test `cuvs_row_batch` checks bounded memory, unaligned byte-preserving
+copies, malformed lengths, multiple dimensions, signed 64-bit IDs, scratch reuse,
+full batches and partial tails. Windows checks compile the local DDL executor
+translation unit and the changed append methods extracted verbatim from the
+pipeline, using developer compatibility headers and V5 vector declarations.
+The complete pipeline translation unit cannot be checked with those older
+Windows storage headers. This is not a full Linux build or a SQL integration run.
+
+Two SQL regressions are delivered for a dedicated GPU-enabled instance. They
+require PyMySQL and create/drop randomly named temporary databases:
+
+```sh
+SEEKDB_TEST_PORT=2881 python3 unittest/rootserver/test_cuvs_ddl_batch.py
+SEEKDB_TEST_PORT=2881 python3 unittest/rootserver/test_ddl_build_concurrency.py
+```
+
+The first checks offline GPU/VSAG DDL, non-contiguous signed IDs, NULL vectors,
+more than one batch, a partial tail and an empty table. The second checks concurrent
+index DDL, transactional writes and failed unique-index isolation. They are
+pending execution on this candidate. SQL assertions alone do not establish GPU
+path usage or full Recall; the official profiler, Recall and resource gates still
+apply. Preserve the 6-point first candidate for paired comparison.
+
 ## Observed overhead and changes
 
 Source inspection of V5 found that each SQL probe creates and joins a pthread

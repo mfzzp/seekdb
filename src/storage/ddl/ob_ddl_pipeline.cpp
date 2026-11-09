@@ -26,6 +26,7 @@
 #include "storage/tx_storage/ob_ls_service.h"
 #include "query/engine/expr/ob_expr_lob_utils.h"
 #include "query/engine/expr/ob_array_expr_utils.h"
+#include "lib/vector/cuvs_row_batch.h"
 
 using namespace oceanbase::storage;
 using namespace oceanbase::common;
@@ -889,6 +890,16 @@ int ObHNSWIndexAppendBufferOperator::init(
     vector_key_col_idx_ = vector_index_ctx->vector_key_col_idx_;
     vector_data_col_idx_ = vector_index_ctx->vector_data_col_idx_;
     if (OB_FAIL(extra_column_idx_types_.assign(vector_index_ctx->extra_column_idx_types_))) {
+    } else if (extra_column_idx_types_.empty() && obvsag::CuvsRowBatch::capacity(vec_dim_) > 0) {
+      ObVectorIndexParam param;
+      if (OB_FAIL(ObVectorIndexUtil::parser_params_from_string(
+          vec_idx_param_, ObVectorIndexType::VIT_HNSW_INDEX, param))) {
+      } else {
+        use_cuvs_batch_ = param.lib_ == ObVectorIndexAlgorithmLib::VIAL_CUVS &&
+            param.dist_algorithm_ == ObVectorIndexDistAlgorithm::VIDA_L2 &&
+            (param.type_ == ObVectorIndexAlgorithmType::VIAT_HNSW ||
+             param.type_ == ObVectorIndexAlgorithmType::VIAT_HGRAPH);
+      }
     }
   }
   return ret;
@@ -967,6 +978,9 @@ int ObHNSWIndexAppendBufferOperator::append_row_file(ObDDLRowFile *row_file, ObD
     ret = OB_INVALID_ARGUMENT;
     LOG_WARN("invalid arguments", K(ret), KP(row_file), KP(tablet_context));
   }
+  if (OB_SUCC(ret) && use_cuvs_batch_ && tablet_context->vector_index_ctx_ != nullptr) {
+    return append_cuvs_row_file(row_file, tablet_context);
+  }
   while (OB_SUCC(ret)) {
     if (OB_FAIL(row_file->get_next_batch(datum_rows))) {
       if (OB_ITER_END == ret) {
@@ -980,6 +994,67 @@ int ObHNSWIndexAppendBufferOperator::append_row_file(ObDDLRowFile *row_file, ObD
       const int64_t total_row_count = datum_rows->row_count_;
       for (int64_t i = 0; OB_SUCC(ret) && i < total_row_count; ++i) {
         if (OB_FAIL(append_row(i, vectors, tablet_context))) {
+        }
+      }
+    }
+  }
+  return ret;
+}
+
+int ObHNSWIndexAppendBufferOperator::append_cuvs_row_file(
+    ObDDLRowFile *row_file, ObDDLTabletContext *tablet_context)
+{
+  int ret = OB_SUCCESS;
+  auto &ctx = *tablet_context->vector_index_ctx_;
+  const int64_t dim = ctx.vec_dim_;
+  const int capacity = obvsag::CuvsRowBatch::capacity(dim);
+  ObArenaAllocator batch_allocator("CuvsDDLBatch", OB_MALLOC_NORMAL_BLOCK_SIZE);
+  float *batch_vectors = static_cast<float *>(batch_allocator.alloc(capacity * dim * sizeof(float)));
+  int64_t *batch_ids = static_cast<int64_t *>(batch_allocator.alloc(capacity * sizeof(int64_t)));
+  obvsag::CuvsRowBatch batch(batch_vectors, batch_ids, dim);
+  ObIVectorIndexRuntime *service = ::oceanbase::share::server_service<ObIVectorIndexRuntime>();
+  ObPluginVectorIndexAdapterGuard guard;
+  if (OB_ISNULL(batch_vectors) || OB_ISNULL(batch_ids)) {
+    ret = OB_ALLOCATE_MEMORY_FAILED;
+  } else if (OB_ISNULL(service)) {
+    ret = OB_ERR_UNEXPECTED;
+  } else if (OB_FAIL(service->acquire_adapter_guard(tablet_id_,
+      ObIndexType::INDEX_TYPE_VEC_INDEX_SNAPSHOT_DATA_LOCAL, guard,
+      &ctx.vec_idx_param_, ctx.vec_dim_))) {
+  } else if (OB_ISNULL(guard.get_adatper())) {
+    ret = OB_ERR_UNEXPECTED;
+  }
+  auto flush = [&]() -> int {
+    int flush_ret = OB_SUCCESS;
+    if (batch.count() > 0) {
+      flush_ret = guard.get_adatper()->add_snap_index(batch_vectors, batch_ids, nullptr, 0, batch.count());
+      if (flush_ret == OB_SUCCESS) { batch.reset(); }
+    }
+    return flush_ret;
+  };
+  while (OB_SUCC(ret)) {
+    ObBatchDatumRows *rows = nullptr;
+    if (OB_FAIL(row_file->get_next_batch(rows))) {
+      if (ret == OB_ITER_END) { ret = flush(); }
+      break;
+    } else if (OB_ISNULL(rows) || vector_col_idx_ < 0 || vector_vid_col_idx_ < 0 ||
+               rows->vectors_.count() <= vector_col_idx_ || rows->vectors_.count() <= vector_vid_col_idx_ ||
+               OB_ISNULL(rows->vectors_.at(vector_col_idx_)) || OB_ISNULL(rows->vectors_.at(vector_vid_col_idx_))) {
+      ret = OB_ERR_UNEXPECTED;
+    } else {
+      for (int64_t i = 0; OB_SUCC(ret) && i < rows->row_count_; ++i) {
+        row_allocator_.reuse();
+        if (!rows->vectors_.at(vector_col_idx_)->is_null(i)) {
+          const int64_t vid = rows->vectors_.at(vector_vid_col_idx_)->get_int(i);
+          ObString vec = rows->vectors_.at(vector_col_idx_)->get_string(i);
+          if (OB_FAIL(read_full_lob_string(row_allocator_, ObLongTextType, CS_TYPE_BINARY, true, vec))) {
+          } else if (vec.empty()) {
+            // Preserve the row-wise path's handling of absent vectors.
+          } else if (!batch.append(vec.ptr(), vec.length(), vid)) {
+            ret = OB_ERR_UNEXPECTED;
+            LOG_WARN("invalid dense vector payload during GPU DDL", K(ret), K(dim), K(vec.length()));
+          } else if (batch.full() && OB_FAIL(flush())) {
+          }
         }
       }
     }

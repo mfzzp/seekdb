@@ -15,6 +15,7 @@
  */
 
 #include "ob_ddl_task_executor.h"
+#include "lib/cpu/ob_cpu_topology.h"
 #include "lib/ob_running_mode.h"
 #include "lib/thread/ob_thread_name.h"
 #include "lib/stat/ob_diagnostic_info_guard.h"
@@ -255,12 +256,13 @@ ObDDLLocalBuilder::~ObDDLLocalBuilder()
 int ObDDLLocalBuilder::init()
 {
   int ret = OB_SUCCESS;
+  const int64_t thread_cnt = get_thread_cnt_();
   FLOG_INFO("[DDL_LOCAL_BUILDER] begin init ddl local builder",
             K(is_thread_started_), K(is_stopped_));
   if (OB_UNLIKELY(is_thread_started_)) {
     ret = OB_STATE_NOT_MATCH;
     LOG_WARN("ddl local builder thread is already started", KR(ret), K(is_thread_started_));
-  } else if (OB_FAIL(task_queue_.init(get_thread_cnt_(), 4 << 10, "DdlBuild"))) {
+  } else if (OB_FAIL(task_queue_.init(thread_cnt, 4 << 10, "DdlBuild"))) {
   } else if (OB_FAIL(task_queue_.start())) {
   } else {
     is_thread_started_ = true;
@@ -270,7 +272,7 @@ int ObDDLLocalBuilder::init()
     task_queue_.destroy();
   }
   FLOG_INFO("[DDL_LOCAL_BUILDER] finish init ddl local builder",
-            KR(ret), K(is_thread_started_), K(is_stopped_));
+            KR(ret), K(is_thread_started_), K(is_stopped_), K(thread_cnt));
   return ret;
 }
 
@@ -354,7 +356,15 @@ int ObDDLLocalBuilder::push_task(ObAsyncTask &task)
 
 int64_t ObDDLLocalBuilder::get_thread_cnt_() const
 {
-  return lib::is_mini_mode() ? 1 : 16;
+  int64_t thread_cnt = 16;
+  if (lib::is_mini_mode()) {
+    // Independent auxiliary indexes can build concurrently without using the
+    // full-size pool on small instances. Preserve the constrained default.
+    const int64_t two_worker_memory_budget = 4LL << 30;
+    const int64_t memory_budget = lib::ObRunningModeConfig::instance().memory_budget_;
+    thread_cnt = memory_budget >= two_worker_memory_budget && get_cpu_count() >= 2 ? 2 : 1;
+  }
+  return thread_cnt;
 }
 
 }  // end namespace share

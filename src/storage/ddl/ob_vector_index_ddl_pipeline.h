@@ -272,7 +272,7 @@ class ObHNSWIndexAppendBufferOperator : public ObVectorIndexBaseOperator
 {
 public:
   explicit ObHNSWIndexAppendBufferOperator(ObPipeline *pipeline)
-    : ObVectorIndexBaseOperator(pipeline)
+    : ObVectorIndexBaseOperator(pipeline), use_cuvs_batch_(false)
   {}
   virtual int init(
       const ObTabletID &tablet_id);
@@ -299,7 +299,9 @@ private:
       const common::ObIArray<common::ObIVector *> &vectors,
       ObDDLTabletContext *tablet_context);
   int append_row_file(ObDDLRowFile *row_file, ObDDLTabletContext *tablet_context);
+  int append_cuvs_row_file(ObDDLRowFile *row_file, ObDDLTabletContext *tablet_context);
 private:
+  bool use_cuvs_batch_;
   int64_t vec_dim_;
   common::ObString vec_idx_param_;
   int32_t vector_vid_col_idx_;
