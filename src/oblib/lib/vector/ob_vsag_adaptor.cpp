@@ -23,6 +23,8 @@
 #include "cuvs_snapshot_codec.h"
 #include <map>
 #include <set>
+#include <chrono>
+#include <cstdlib>
 #include <mutex>
 #include <vector>
 #include <memory>
@@ -82,6 +84,24 @@ namespace common {
 namespace obvsag {
 
 using namespace vsag;
+
+// [PHASE] Environment-gated stage timing for the AMD SQL build benchmark.
+// Disabled unless OB_CUVS_PHASE_TIMING is set, so normal builds pay one cached
+// boolean check per instrumented scope and emit nothing.
+struct ObCuvsPhaseTimer {
+  const char *name_;
+  std::chrono::steady_clock::time_point start_;
+  explicit ObCuvsPhaseTimer(const char *name)
+      : name_(name), start_(std::chrono::steady_clock::now()) {}
+  ~ObCuvsPhaseTimer() {
+    static const bool enabled = std::getenv("OB_CUVS_PHASE_TIMING") != nullptr;
+    if (!enabled) { return; }
+    const double ms = std::chrono::duration<double, std::milli>(
+                          std::chrono::steady_clock::now() - start_).count();
+    LOG_INFO("[OBVSAG][cuVS][phase]", K(name_), K(ms));
+  }
+};
+
 
 // ==== [hipVS/cuVS] optional GPU CAGRA backend, enabled per lib=cuvs index ====
 // When enabled, build_index also builds a cuVS CAGRA index (keyed by the index
@@ -214,6 +234,7 @@ struct ObCuvsJob {
 static void *ob_cuvs_job(void *arg) {
   ObCuvsJob *j = static_cast<ObCuvsJob *>(arg);
   if (j->need_build) {
+    ObCuvsPhaseTimer phase_build("gpu_build");
     std::shared_ptr<void> nb = ob_cuvs_wrap(seekdb_cuvs_build(j->ent->buf_vecs_.data(),
                                         static_cast<long>(j->n), static_cast<long>(j->dim)));
     if (nb != nullptr) {
@@ -244,6 +265,7 @@ struct ObCuvsBatchJob {
 static void *ob_cuvs_batch_job(void *arg) {
   ObCuvsBatchJob *j = static_cast<ObCuvsBatchJob *>(arg);
   if (j->need_build) {
+    ObCuvsPhaseTimer phase_build("gpu_build");
     std::shared_ptr<void> nb = ob_cuvs_wrap(seekdb_cuvs_build(j->ent->buf_vecs_.data(),
                                         static_cast<long>(j->n), static_cast<long>(j->ent->dim_)));
     if (nb != nullptr) {
@@ -372,6 +394,7 @@ static void *ob_cuvs_snapshot_job(void *arg) {
     }
     job->rc_ = job->handle_ == nullptr ? -1 : 0;
   } else {
+    ObCuvsPhaseTimer phase_serialize("snapshot_serialize");
     job->rc_ = seekdb_cuvs_serialize(job->handle_, job->path_);
   }
   return nullptr;
@@ -497,6 +520,7 @@ static int ob_cuvs_deserialize(void *key, int expected_dim, std::istream &in, in
       }
       ObCuvsSnapshotJob job{graph.path_, nullptr, static_cast<long>(n), dim32, true, -1};
       if (version >= 3) { job.restore_vectors_ = ent->buf_vecs_.data(); }
+      ObCuvsPhaseTimer phase_load("snapshot_load");
       if (!payload_ok || ::fflush(graph.file_) != 0 ||
           !ob_cuvs_snapshot_big_stack(job)) {
         ret = OB_ERR_VSAG_RETURN_ERROR;
