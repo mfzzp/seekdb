@@ -1,0 +1,141 @@
+{
+  "date": "2026-11-09",
+  "parent_commit": "2f2fc3d0742d63571216313c2b8eec88c7fed3d5",
+  "parent_platform_result": {
+    "source": "User-provided platform report; not a local measurement",
+    "score_out_of_20": 8.456,
+    "build_speedup": 1.213,
+    "query_speedup": 1.799,
+    "gates": "pass"
+  },
+  "scope": "Host codec validation only. No new AMD runtime, ROCm/full seekdb build, SQL restart, GPU Recall, peak VRAM or end-to-end performance measurement.",
+  "source_sha256_lf": {
+    "src/oblib/lib/vector/ob_vsag_adaptor.cpp": "b1c39b1feace9f5d1d24361e70725c1c9b4a7a50d5bb2756dc3542d52c2b216d",
+    "src/oblib/lib/vector/cuvs_snapshot_format.h": "2894cc7a66db7bd80ea66f4a4bcea7a2fc267799262096f4fa3af85c7e8f6552",
+    "src/oblib/lib/vector/cuvs_snapshot_codec.h": "f2877f85d871ac025e786df0747467a1419e59f6df97e16c6a3b3f7061a868e7",
+    "unittest/oblib/vector/cuvs/CMakeLists.txt": "99fd681839cf04c401dadb8ef57f028434281f07286171616f497d6a04d09bea",
+    "unittest/oblib/vector/cuvs/test_cuvs_snapshot_format.cpp": "9a37a12e6ba20044bc5b02846b54ec33e7fc0341ad15ed3f2e0b0c9cc03a98be",
+    "unittest/oblib/vector/cuvs/test_cuvs_snapshot_codec.cpp": "35872b88fd75e4d56b85e476014716621e060dab2569f689278dc64ebaf3fdff",
+    "src/oblib/lib/compress/zstd_1_3_8/ob_zstd_wrapper.cpp": "d7deaddc227ec2af91461f62291f7020829e70596f0d34d67e9773c64d80bfb6",
+    "src/oblib/lib/compress/zstd_1_3_8/ob_zstd_wrapper.h": "7f584b611e10155a6303531324b7ad76208f56f830c91b355d34a1a74b54b167",
+    "src/oblib/lib/hash_func/murmur_hash.h": "b7071c83aeeef930d89b15965c5d3db426a0226360539e6d5e6ef8adf26d1504"
+  },
+  "linux_compiled_source_hashes_verified": {
+    "src/oblib/lib/vector/cuvs_snapshot_codec.h": "f2877f85d871ac025e786df0747467a1419e59f6df97e16c6a3b3f7061a868e7",
+    "src/oblib/lib/vector/cuvs_snapshot_format.h": "2894cc7a66db7bd80ea66f4a4bcea7a2fc267799262096f4fa3af85c7e8f6552",
+    "unittest/oblib/vector/cuvs/test_cuvs_snapshot_codec.cpp": "35872b88fd75e4d56b85e476014716621e060dab2569f689278dc64ebaf3fdff",
+    "unittest/oblib/vector/cuvs/test_cuvs_snapshot_format.cpp": "9a37a12e6ba20044bc5b02846b54ec33e7fc0341ad15ed3f2e0b0c9cc03a98be",
+    "unittest/oblib/vector/cuvs/CMakeLists.txt": "99fd681839cf04c401dadb8ef57f028434281f07286171616f497d6a04d09bea"
+  },
+  "frozen_hipvs_commit": "f96a663d0a4441d6f5344bd3ef552b71ae7b370b",
+  "unchanged": [
+    "hipVS source and bridge",
+    "NN-descent build parameters",
+    "CAGRA search parameters",
+    "FP32 vectors and graph contents",
+    "CPU VSAG snapshot format",
+    "Official benchmark inputs, SQL, scoring and baseline"
+  ],
+  "windows": {
+    "compiler": "Clang 21 with pthreads4w",
+    "host_tests_passed": 6,
+    "host_tests_total": 6,
+    "build_command": "cmake --build D:/oceanbase-competition/seekdb/.tmp_fts/parser-temp/amd-host-cmake --parallel 2",
+    "build_exit_code": 0,
+    "test_command": "ctest --test-dir D:/oceanbase-competition/seekdb/.tmp_fts/parser-temp/amd-host-cmake --output-on-failure",
+    "test_exit_code": 0,
+    "last_test_log_sha256_lf": "f5e9605a30244ed1025fbbcf700cd918e14fb520e4438187b23106bcb707c64c",
+    "adaptor_syntax_exit_code": 0,
+    "adaptor_syntax_scope": "OB_BUILD_CUVS enabled, developer compatibility headers; not a full Windows or Linux seekdb build. Existing compatibility-header warnings remain.",
+    "adaptor_syntax_log_sha256_lf": "6b66a6648dc81e5fb30b0d97d919aed984e47e332abb9f754634c0479b7cec4e"
+  },
+  "linux": {
+    "os": "Ubuntu 24.04",
+    "compiler": "GCC 13.3.0",
+    "amd_gpu": false,
+    "host_tests_passed": 6,
+    "host_tests_total": 6,
+    "sanitizers": [
+      "address",
+      "undefined"
+    ],
+    "compile_flags": "-Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer",
+    "warning_scope": "Strict checks for test/codec; the unchanged bundled Zstd target uses -w. Existing unused local in the shared hash header is suppressed only around that include.",
+    "commands": [
+      {
+        "command": "cmake -S unittest/oblib/vector/cuvs -B asan -DCMAKE_BUILD_TYPE=Debug \"-DCMAKE_C_FLAGS=-Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer\" \"-DCMAKE_CXX_FLAGS=-Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer\"",
+        "exit_code": 0
+      },
+      {
+        "command": "cmake --build asan --parallel 2",
+        "exit_code": 0
+      },
+      {
+        "command": "ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 ctest --test-dir asan --output-on-failure -V",
+        "exit_code": 0,
+        "output_tail": "test 2\n    Start 2: cuvs_worker_lifecycle\n\n2: Test command: /tmp/seekdb-amd-codec-v3imc60q/asan/test_cuvs_worker\n2: Working Directory: /tmp/seekdb-amd-codec-v3imc60q/asan\n2: Test timeout computed to be: 60\n2: PASS worker: 1800 varying/concurrent jobs, exception recovery, 50 lifecycles; host-only dispatch cold_us=182.969 reused_us=18.092\n2/6 Test #2: cuvs_worker_lifecycle ............   Passed    0.25 sec\ntest 3\n    Start 3: cuvs_row_batch\n\n3: Test command: /tmp/seekdb-amd-codec-v3imc60q/asan/test_cuvs_row_batch\n3: Working Directory: /tmp/seekdb-amd-codec-v3imc60q/asan\n3: Test timeout computed to be: 60\n3: PASS dense batches: byte-exact unaligned input, bounded memory, 64-bit IDs, shapes, full/partial reuse and invalid inputs\n3/6 Test #3: cuvs_row_batch ...................   Passed    0.09 sec\ntest 4\n    Start 4: cuvs_snapshot_io\n\n4: Test command: /tmp/seekdb-amd-codec-v3imc60q/asan/test_cuvs_snapshot_io\n4: Working Directory: /tmp/seekdb-amd-codec-v3imc60q/asan\n4: Test timeout computed to be: 60\n4: PASS snapshot bytes, chunk/page boundaries, memfd/tmpfile, failed mmap fallback, short input/output and exception cleanup\n4/6 Test #4: cuvs_snapshot_io .................   Passed    1.79 sec\ntest 5\n    Start 5: cuvs_snapshot_format\n\n5: Test command: /tmp/seekdb-amd-codec-v3imc60q/asan/test_cuvs_snapshot_format\n5: Working Directory: /tmp/seekdb-amd-codec-v3imc60q/asan\n5: Test timeout computed to be: 60\n5: PASS snapshot format: V2 compatibility, V3 exact layout, IDs/FP32/opaque graph bytes, next-object boundary, corrupt headers and every truncation/short-write offset\n5/6 Test #5: cuvs_snapshot_format .............   Passed    0.01 sec\ntest 6\n    Start 6: cuvs_snapshot_codec\n\n6: Test command: /tmp/seekdb-amd-codec-v3imc60q/asan/test_cuvs_snapshot_codec\n6: Working Directory: /tmp/seekdb-amd-codec-v3imc60q/asan\n6: Test timeout computed to be: 60\n6: PASS real bundled Zstd: byte equality, mixed raw/compressed blocks, boundaries, bounded headers, checksum, reorder, truncation, failed I/O and exception cleanup\n6/6 Test #6: cuvs_snapshot_codec ..............   Passed    0.61 sec\n\n100% tests passed, 0 tests failed out of 6\n\nTotal Test time (real) =   2.77 sec\n"
+      }
+    ],
+    "localized_zstd_link": {
+      "exit_code": 0,
+      "method": "Build bundled Zstd with production visibility definitions and -fvisibility=hidden; ld -r; objcopy --localize-hidden; assert public ObZstdWrapper symbols remain and raw ZSTD_compressCCtx is not global; link codec test against localized object and run.",
+      "script": "from pathlib import Path\nimport shlex\nimport subprocess\n\nroot = Path(__file__).resolve().parent\nbuild = root / 'release'\nobjects = sorted((build / 'CMakeFiles/cuvs_test_zstd.dir').rglob('*.o'))\nassert objects\n\ndef run(args):\n    args = list(map(str, args))\n    print('$ ' + shlex.join(args), flush=True)\n    subprocess.run(args, check=True)\n\nrun(['ld', '-r', *objects, '-o', build / 'zstd.tmp.o'])\nrun(['objcopy', '--localize-hidden', build / 'zstd.tmp.o', build / 'zstd.local.o'])\nsymbols = subprocess.check_output(['nm', '-g', '-C', '--defined-only', str(build / 'zstd.local.o')], text=True)\nassert 'ObZstdWrapper::compress(' in symbols\nassert 'ObZstdWrapper::decompress(' in symbols\nassert ' T ZSTD_compressCCtx' not in symbols\nrun(['g++', '-std=c++17', '-O2', '-Wall', '-Wextra', '-Werror', '-I' + str(root / 'src/oblib'),\n     root / 'unittest/oblib/vector/cuvs/test_cuvs_snapshot_codec.cpp', build / 'zstd.local.o',\n     '-pthread', '-o', build / 'codec_localized'])\nrun([build / 'codec_localized'])\nprint('PASS: codec links and runs after production-style hidden symbol localization', flush=True)\n",
+      "output_tail": "$ objcopy --localize-hidden /tmp/seekdb-amd-codec-v3imc60q/release/zstd.tmp.o /tmp/seekdb-amd-codec-v3imc60q/release/zstd.local.o\n$ g++ -std=c++17 -O2 -Wall -Wextra -Werror -I/tmp/seekdb-amd-codec-v3imc60q/src/oblib /tmp/seekdb-amd-codec-v3imc60q/unittest/oblib/vector/cuvs/test_cuvs_snapshot_codec.cpp /tmp/seekdb-amd-codec-v3imc60q/release/zstd.local.o -pthread -o /tmp/seekdb-amd-codec-v3imc60q/release/codec_localized\n$ /tmp/seekdb-amd-codec-v3imc60q/release/codec_localized\nPASS real bundled Zstd: byte equality, mixed raw/compressed blocks, boundaries, bounded headers, checksum, reorder, truncation, failed I/O and exception cleanup\nPASS: codec links and runs after production-style hidden symbol localization\n"
+    }
+  },
+  "synthetic_byte_probe": {
+    "scope": "Synthetic 32 MiB fixtures; not actual hipVS snapshots or SQL. End-to-end timing includes temporary-file and string-stream operations; no uncompressed timing baseline, hence no speedup claim.",
+    "command": "./release/test_cuvs_snapshot_codec --bench",
+    "exit_code": 0,
+    "configuration": "GCC 13.3 Release, 3 samples, byte equality checked after every decode",
+    "results": [
+      {
+        "kind": "graph_ids",
+        "raw_bytes": 33554432,
+        "stored_bytes": 24114599,
+        "encode_ms": 79.989,
+        "decode_ms": 43.718,
+        "samples": 3
+      },
+      {
+        "kind": "fp32_uniform",
+        "raw_bytes": 33554432,
+        "stored_bytes": 30502116,
+        "encode_ms": 69.846,
+        "decode_ms": 50.142,
+        "samples": 3
+      },
+      {
+        "kind": "fp32_integer",
+        "raw_bytes": 33554432,
+        "stored_bytes": 12506714,
+        "encode_ms": 135.441,
+        "decode_ms": 50.544,
+        "samples": 3
+      },
+      {
+        "kind": "random_bytes",
+        "raw_bytes": 33554432,
+        "stored_bytes": 33554944,
+        "encode_ms": 65.544,
+        "decode_ms": 16.338,
+        "samples": 3
+      }
+    ]
+  },
+  "compatibility": {
+    "read": [
+      "OBCUVS02",
+      "OBCUVS03",
+      "OBCUVS04"
+    ],
+    "write": "OBCUVS04",
+    "downgrade": "Older binaries cannot read V4. Use a fresh independent instance or rebuild indexes."
+  },
+  "pending": [
+    "Official ROCm bridge and full seekdb build",
+    "SQL persistence and restart of V2/V3/V4 snapshots",
+    "Real-GPU Recall and baseline-relative gates",
+    "Paired build/query performance and peak host/GPU memory"
+  ]
+}

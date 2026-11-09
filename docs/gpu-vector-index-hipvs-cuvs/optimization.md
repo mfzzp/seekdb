@@ -6,7 +6,76 @@ commit `f96a663d0a4441d6f5344bd3ef552b71ae7b370b` supplied by the contest.
 Each new candidate needs its own GPU validation. Host measurements below do not
 establish SQL performance or Recall.
 
-## Fifth candidate (current): restore NN-descent and store the dataset once
+## Sixth candidate (current): lossless snapshot blocks
+
+The user reported **8.456/20**, `build=1.213x, query=1.799x, gates=pass`
+for `2f2fc3d0742d63571216313c2b8eec88c7fed3d5`. This is the best observed
+candidate so far. It is the parent of this change; it remains available for
+paired comparison. The platform did not supply phase timings, numerical Recall
+or peak memory, so the exact remaining bottleneck is not established.
+
+This candidate retains that version's NN-descent recipe, graph degrees, complete
+FP32 inputs, query parameters, bridge and frozen hipVS library. It targets the
+bytes crossing the seekdb persistence stream after hipVS serialization. The
+complete opaque hipVS file contains both adjacency IDs and the FP32 dataset;
+the previous change removed duplicate vectors but still wrote this file in full.
+Fewer bytes can reduce stream callbacks and durable writes. Whether this saving
+exceeds compression CPU time must be measured on the AMD host.
+
+`OBCUVS04` retains the V3 header and IDs, then encodes the complete opaque file
+in blocks of at most 1 MiB. It uses seekdb's existing Zstd 1.3.8 public wrapper
+at its existing level 1, with no new dependency or shared compressor changes.
+A block that does not shrink is stored raw. Each block has a 16-byte header
+(raw length, stored length and checksum seeded by block ordinal). The decoder
+checks lengths before decompression, requires exact decoded length and checksum,
+and reconstructs every original byte before the existing bridge loads the file.
+Truncation, corrupt data, compression and I/O failures fail the operation.
+There is no quantization, omitted graph processing or cross-run cache.
+
+Codec buffers are about 2 MiB plus the bundled compressor's workspace per active
+serialization, independent of dataset size. The existing complete staging file
+is still needed; this change does not reduce its memory or hipVS build memory.
+The codec makes no device allocations. Actual peak host memory and VRAM still
+require platform measurement. Incompressible blocks incur 16 bytes of framing
+per MiB and compression CPU time; random-looking vectors may benefit little.
+
+The new binary reads V2, V3 and V4, and writes V4. Older binaries cannot read V4;
+use independent fresh instances or rebuild indexes before downgrading. CPU VSAG
+persistence and the pinned hipVS file format are unchanged.
+
+Windows host tests passed **6/6**; the adaptor passed its compatibility-header
+syntax check. GCC 13.3 on the existing NVIDIA-only Linux server also passed
+**6/6** with ASan/UBSan. Codec tests use the actual bundled compressor and cover
+byte equality, old/new envelopes, mixed raw/compressed blocks, corrupt sizes,
+checksum/reordering, truncation, failed I/O and exception cleanup. These host
+tests do not establish full seekdb linking, SQL restart, Recall or GPU speed.
+The codec also linked and passed its tests with the real bundled Zstd objects
+after Linux `ld -r` and `objcopy --localize-hidden`, matching production symbol
+packaging. Only the public wrapper is referenced; no hidden Zstd entry point is
+required. This targeted check is not a complete seekdb link test.
+
+A Linux Release probe used four **synthetic 32 MiB byte fixtures**, three runs
+each. It checks full byte equality; it is not a hipVS/SQL or contest benchmark.
+The timings include temporary-file and string-stream work on the available
+server and do not predict the platform score.
+
+| Synthetic fixture | Raw bytes | Stored bytes (including framing) | Reduction | Encode ms | Decode ms |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Bounded 32-bit IDs | 33,554,432 | 24,114,599 | 28.13% | 79.989 | 43.718 |
+| FP32 uniform values | 33,554,432 | 30,502,116 | 9.10% | 69.846 | 50.142 |
+| FP32 integer values | 33,554,432 | 12,506,714 | 62.73% | 135.441 | 50.544 |
+| Random bytes | 33,554,432 | 33,554,944 | -0.0015% | 65.544 | 16.338 |
+
+Run this optional probe after the host build with
+`./build_cuvs_host/test_cuvs_snapshot_codec --bench`.
+Source hashes, check commands and results are in
+[`validation/host_codec_20261109.json`](validation/host_codec_20261109.json).
+Snapshot logs now include `graph_stored_bytes`, `compressed_blocks` and
+`raw_blocks` alongside `graph_bytes` and the existing phase timers. Compare
+`graph_write_us` and the entire measured construction time against the parent;
+a smaller file alone is not a successful performance result.
+
+## Fifth candidate (historical, gates passed): restore NN-descent and store the dataset once
 
 The fourth candidate, `fa64d4537830b163f7ff53240d338c5d06e8b362`, scored
 **0/20** on the platform. The supplied failures were `relative_vram_limit` and
@@ -16,8 +85,11 @@ iterative builder is therefore removed from the current candidate, including
 its build-time switch. Construction again uses the previously gate-passing
 NN-descent recipe: graph degree 128, intermediate degree 256, 100 maximum
 iterations. The fixed CAGRA search, its parameters, input FP32 rows, SQL workload
-and scoring files are unchanged. The best observed result remains **6.943/20**
-at `79f8929b4caa733598962d110779c1c45d56780a`.
+and scoring files are unchanged. Before this candidate was evaluated, the best
+observed result was **6.943/20** at
+`79f8929b4caa733598962d110779c1c45d56780a`. Its later platform result was
+**8.456/20**, with all reported gates passing, as recorded above. The following
+host-check details describe the evidence available before that platform run.
 
 Source inspection found duplicate persistence of every FP32 vector. `OBCUVS02`
 stored IDs and a raw vector array before the hipVS snapshot, but the bridge
@@ -99,7 +171,7 @@ Two platform observations supplied by the user are now available:
 These are separate paired platform runs. They do not prove that the mapped
 transfer caused the difference, but provide no evidence to promote it. This
 candidate restores buffered snapshot transfer and keeps the phase timers.
-The highest observed score remains the first row of the table.
+At that stage, the highest observed score was the first row of the table.
 
 The construction hypothesis is now structural rather than another copy
 microbenchmark. In pinned hipVS, NN-descent's `GNND::build` alternates host graph
@@ -389,10 +461,10 @@ benchmark on clean, independent instances for V5 and the candidate.
 
 ## Evaluation status
 
-Windows and Linux host checks now cover host control flow and Linux mapped-file
-transfer. The current server cannot validate ROCm linking, GPU execution,
+Windows and Linux host checks now cover host control flow, Linux snapshot
+transfer and the lossless block codec. The current server cannot validate ROCm linking, GPU execution,
 full candidate seekdb startup, SQL persistence or Recall. The table below applies
-to the fifth candidate; prior platform observations are recorded above.
+to the sixth candidate; prior platform observations are recorded above.
 
 | Required comparison | Status before platform testing |
 | --- | --- |

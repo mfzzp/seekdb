@@ -17,7 +17,7 @@ template <typename T> static void append(std::string &out, const T &value)
 // Encode the historical V2 scalar layout independently of the production writer.
 static std::string legacy_header(int version, uint64_t graph_bytes, int32_t dim, int32_t reserved, int64_t rows)
 {
-  std::string out = version == 2 ? "OBCUVS02" : "OBCUVS03";
+  std::string out = version == 2 ? "OBCUVS02" : (version == 3 ? "OBCUVS03" : "OBCUVS04");
   append(out, graph_bytes); append(out, dim); append(out, reserved); append(out, rows);
   CHECK(out.size() == 32);
   return out;
@@ -104,7 +104,8 @@ int main()
     CHECK(!header.write_rows(out, nullptr, vectors.data()));
     if (version == 2) CHECK(!header.write_rows(out, ids.data(), nullptr));
   }
-  for (const char *magic : {"OBCUVS01", "OBCUVS04", "NOT-CUVS"}) CHECK(CuvsSnapshotHeader::version_of(magic) == 0);
+  for (const char *magic : {"OBCUVS01", "OBCUVS05", "NOT-CUVS"}) CHECK(CuvsSnapshotHeader::version_of(magic) == 0);
+  CHECK(CuvsSnapshotHeader::version_of("OBCUVS04") == 4);
   for (const CuvsSnapshotHeader invalid : {
       CuvsSnapshotHeader{1, 20, 3, 0, 5}, CuvsSnapshotHeader{3, 0, 3, 0, 5},
       CuvsSnapshotHeader{3, UINT64_MAX, 3, 0, 5}, CuvsSnapshotHeader{3, 20, -1, 0, 5},

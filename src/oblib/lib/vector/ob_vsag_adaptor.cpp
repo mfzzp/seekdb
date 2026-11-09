@@ -20,6 +20,7 @@
 #include "cuvs_worker.h"
 #include "cuvs_snapshot_io.h"
 #include "cuvs_snapshot_format.h"
+#include "cuvs_snapshot_codec.h"
 #include <map>
 #include <set>
 #include <mutex>
@@ -427,7 +428,7 @@ static bool ob_cuvs_serialize(void *key, std::ostream &out, int &ret) {
   const int64_t payload_start_us = ObTimeUtility::current_time();
   const int32_t dim32 = ent->dim_;
   const int64_t n64 = static_cast<int64_t>(n);
-  const CuvsSnapshotHeader header{3, graph_bytes, dim32, 0, n64};
+  const CuvsSnapshotHeader header{4, graph_bytes, dim32, 0, n64};
   // The opaque hipVS payload contains the complete FP32 dataset. Persist it
   // once, then recover the host rebuild/fallback buffer through the bridge.
   if (!header.write(out) || !header.write_rows(out, ent->buf_ids_.data())) {
@@ -437,9 +438,8 @@ static bool ob_cuvs_serialize(void *key, std::ostream &out, int &ret) {
   }
   const int64_t graph_write_start_us = ObTimeUtility::current_time();
   const int64_t payload_write_us = graph_write_start_us - payload_start_us;
-  bool graph_mapped = false;
-  // Keep the previously gate-passing buffered transfer and phase diagnostics.
-  if (!cuvs_copy_snapshot(graph.file_, graph_bytes, out, graph_mapped, false)) {
+  CuvsSnapshotCodec::Stats codec_stats;
+  if (!CuvsSnapshotCodec::encode(graph.file_, graph_bytes, out, codec_stats)) {
     ret = OB_ERR_UNEXPECTED;
     LOG_WARN("[OBVSAG][cuVS] failed to write graph snapshot stream", K(ret), KP(key), K(n));
     return true;
@@ -448,10 +448,13 @@ static bool ob_cuvs_serialize(void *key, std::ostream &out, int &ret) {
   const int64_t graph_write_us = end_us - graph_write_start_us;
   const int64_t snapshot_total_us = end_us - start_us;
   const uint64_t omitted_vector_bytes = ent->buf_vecs_.size() * sizeof(float);
+  const uint64_t graph_stored_bytes = codec_stats.stored_bytes;
+  const uint64_t compressed_blocks = codec_stats.compressed_blocks;
+  const uint64_t raw_blocks = codec_stats.raw_blocks;
   LOG_INFO("[OBVSAG][cuVS] serialized GPU CAGRA snapshot", KP(key), K(n), K(dim32),
            K(built), K(build_us), K(graph_bytes), K(gpu_build_us), K(graph_serialize_us),
-           K(payload_write_us), K(graph_write_us), K(snapshot_total_us), K(graph_mapped),
-           K(header.version), K(omitted_vector_bytes));
+           K(payload_write_us), K(graph_write_us), K(snapshot_total_us),
+           K(header.version), K(omitted_vector_bytes), K(graph_stored_bytes), K(compressed_blocks), K(raw_blocks));
   return true;
 }
 
@@ -467,30 +470,35 @@ static int ob_cuvs_deserialize(void *key, int expected_dim, std::istream &in, in
     const int32_t dim32 = header.dim;
     const int64_t n64 = header.rows;
     const size_t n = static_cast<size_t>(n64);
-    ObCuvsEntry *ent = new ObCuvsEntry();
+    std::unique_ptr<ObCuvsEntry> ent(new ObCuvsEntry());
     ent->dim_ = dim32;
     ent->buf_ids_.resize(n);
     ent->buf_vecs_.resize(n * static_cast<size_t>(dim32));
     if (!header.read_rows(in, ent->buf_ids_.data(), ent->buf_vecs_.data())) {
-      delete ent;
       ret = OB_ERR_UNEXPECTED;
       LOG_WARN("[OBVSAG][cuVS] truncated snapshot payload", K(ret), KP(key), K(n64));
     } else {
       ObCuvsSnapshotFile graph;
-      std::vector<char> chunk(1024 * 1024);
-      uint64_t remaining = graph_bytes;
-      while (graph.file_ != nullptr && remaining > 0) {
-        const size_t bytes = std::min<uint64_t>(remaining, chunk.size());
-        if (!cuvs_snapshot_read(in, chunk.data(), bytes) || ::fwrite(chunk.data(), 1, bytes, graph.file_) != bytes) {
-          break;
+      bool payload_ok = graph.file_ != nullptr;
+      CuvsSnapshotCodec::Stats codec_stats;
+      if (payload_ok && version == 4) {
+        payload_ok = CuvsSnapshotCodec::decode(in, graph_bytes, graph.file_, codec_stats);
+      } else if (payload_ok) {
+        std::vector<char> chunk(1024 * 1024);
+        uint64_t remaining = graph_bytes;
+        while (remaining > 0) {
+          const size_t bytes = std::min<uint64_t>(remaining, chunk.size());
+          if (!cuvs_snapshot_read(in, chunk.data(), bytes) || ::fwrite(chunk.data(), 1, bytes, graph.file_) != bytes) {
+            break;
+          }
+          remaining -= bytes;
         }
-        remaining -= bytes;
+        payload_ok = remaining == 0;
       }
       ObCuvsSnapshotJob job{graph.path_, nullptr, static_cast<long>(n), dim32, true, -1};
-      if (version == 3) { job.restore_vectors_ = ent->buf_vecs_.data(); }
-      if (graph.file_ == nullptr || remaining != 0 || ::fflush(graph.file_) != 0 ||
+      if (version >= 3) { job.restore_vectors_ = ent->buf_vecs_.data(); }
+      if (!payload_ok || ::fflush(graph.file_) != 0 ||
           !ob_cuvs_snapshot_big_stack(job)) {
-        delete ent;
         ret = OB_ERR_VSAG_RETURN_ERROR;
         LOG_WARN("[OBVSAG][cuVS] failed to load CAGRA graph from snapshot", K(ret), KP(key), K(n64));
         return ret;
@@ -502,7 +510,7 @@ static int ob_cuvs_deserialize(void *key, int expected_dim, std::istream &in, in
         std::lock_guard<std::mutex> guard(g_ob_cuvs_mu);
         ObCuvsEntry *&slot = g_ob_cuvs_reg[key];
         delete slot;
-        slot = ent;
+        slot = ent.release();
       }
       {
         std::lock_guard<std::mutex> guard(g_ob_cuvs_marked_mu);
