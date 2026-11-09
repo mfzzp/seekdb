@@ -118,13 +118,24 @@ int ObGenDicLoader::get_dic_loader(const ObString &parser_name,
   int ret = OB_SUCCESS;
   ObGenDicLoaderKey dic_loader_key;
   ObDicLoader *dic_loader = nullptr;
-  if (!is_inited_) {
-    ret = OB_NOT_INIT;
-  } else if (parser_name.empty()
-             || charset == CHARSET_INVALID) {
-    ret = OB_INVALID_ARGUMENT;
-  } else if (OB_FAIL(dic_loader_key.init(parser_name, charset))) {
-  } else {
+  {
+    // Cache hits only read the map. Pin the loader before releasing the lock.
+    TCRLockGuard guard(lock_);
+    if (!is_inited_) {
+      ret = OB_NOT_INIT;
+    } else if (parser_name.empty() || charset == CHARSET_INVALID) {
+      ret = OB_INVALID_ARGUMENT;
+    } else if (OB_FAIL(dic_loader_key.init(parser_name, charset))) {
+    } else if (OB_FAIL(dic_loader_map_.get_refactored(dic_loader_key, dic_loader))) {
+      if (OB_HASH_NOT_EXIST != ret) {
+        ret = OB_ERR_UNEXPECTED;
+      }
+    } else if (OB_FAIL(loader_handle.set_loader(dic_loader))) {
+    }
+  }
+  if (OB_HASH_NOT_EXIST == ret) {
+    // Another reader may have installed this key while we acquired the writer
+    // lock. Recheck before allocating so the map owns exactly one loader.
     TCWLockGuard guard(lock_);
     if (OB_FAIL(dic_loader_map_.get_refactored(dic_loader_key, dic_loader))) {
       if (OB_HASH_NOT_EXIST == ret) {

@@ -103,37 +103,53 @@ int ObTextDaaTIter::pre_process()
 
 int ObTextDaaTIter::do_one_merge_round(int64_t &count)
 {
+  const int64_t dim_count = dim_iters_->count();
   // For a few membership-only posting lists, a linear selection avoids the
   // heap push/pop/rebuild operations and score reads for every posting. Keep
   // the collector so minimum_should_match and duplicate query terms retain
   // their existing semantics. Ranked, Boolean and larger queries are unchanged.
   if (mode_flag_ != sql::NATURAL_LANGUAGE_MODE || function_lookup_mode_
       || iter_param_->need_project_relevance() || iter_param_->need_filter()
-      || iter_param_->need_pushdown_topk() || dim_iters_->count() > 4) {
+      || iter_param_->need_pushdown_topk() || dim_count > 4) {
     return ObSRDaaTIterImpl::do_one_merge_round(count);
   }
 
   int ret = OB_SUCCESS;
+  // These arrays are allocated together at init and never resized by a merge
+  // round. Fetch their storage once; keep the comparator and collector unchanged.
+  ObISRDaaTDimIter *const *dim_iters = dim_iters_->get_data();
+  const ObDatum **domain_ids = iter_domain_ids_.get_data();
+  int64_t *next_iter_idxes = next_round_iter_idxes_.get_data();
+  if (0 == dim_count) {
+    return OB_ITER_END;
+  } else if (OB_UNLIKELY(iter_domain_ids_.count() != dim_count
+      || next_round_iter_idxes_.count() != dim_count
+      || next_round_cnt_ < 0 || next_round_cnt_ > dim_count)
+      || OB_ISNULL(dim_iters) || OB_ISNULL(domain_ids) || OB_ISNULL(next_iter_idxes)) {
+    return OB_ERR_UNEXPECTED;
+  }
   for (int64_t i = 0; OB_SUCC(ret) && i < next_round_cnt_; ++i) {
-    const int64_t idx = next_round_iter_idxes_[i];
-    ObISRDaaTDimIter *iter = dim_iters_->at(idx);
-    if (OB_ISNULL(iter)) {
+    const int64_t idx = next_iter_idxes[i];
+    ObISRDaaTDimIter *iter = nullptr;
+    if (OB_UNLIKELY(idx < 0 || idx >= dim_count)) {
+      ret = OB_ERR_UNEXPECTED;
+    } else if (OB_ISNULL(iter = dim_iters[idx])) {
       ret = OB_ERR_UNEXPECTED;
     } else if (OB_FAIL(iter->get_next_row())) {
       if (OB_ITER_END == ret) {
-        iter_domain_ids_[idx] = nullptr;
+        domain_ids[idx] = nullptr;
         ret = OB_SUCCESS;
       }
-    } else if (OB_FAIL(iter->get_curr_id(iter_domain_ids_[idx]))) {
-    } else if (OB_ISNULL(iter_domain_ids_[idx])) {
+    } else if (OB_FAIL(iter->get_curr_id(domain_ids[idx]))) {
+    } else if (OB_ISNULL(domain_ids[idx])) {
       ret = OB_ERR_UNEXPECTED;
     }
   }
 
   ObSRMergeItem minimum;
   next_round_cnt_ = 0;
-  for (int64_t i = 0; OB_SUCC(ret) && i < dim_iters_->count(); ++i) {
-    if (nullptr != iter_domain_ids_[i]) {
+  for (int64_t i = 0; OB_SUCC(ret) && i < dim_count; ++i) {
+    if (nullptr != domain_ids[i]) {
       ObSRMergeItem item;
       item.iter_idx_ = i;
       int64_t cmp = -1;
@@ -144,7 +160,7 @@ int ObTextDaaTIter::do_one_merge_round(int64_t &count)
           next_round_cnt_ = 0;
         }
         if (cmp <= 0) {
-          next_round_iter_idxes_[next_round_cnt_++] = i;
+          next_iter_idxes[next_round_cnt_++] = i;
         }
       }
     }
@@ -157,12 +173,12 @@ int ObTextDaaTIter::do_one_merge_round(int64_t &count)
     ret = OB_ITER_END;
   } else {
     for (int64_t i = 0; OB_SUCC(ret) && i < next_round_cnt_; ++i) {
-      if (OB_FAIL(relevance_collector_->collect_one_dim(next_round_iter_idxes_[i], 1.0))) {
+      if (OB_FAIL(relevance_collector_->collect_one_dim(next_iter_idxes[i], 1.0))) {
       }
     }
     if (OB_SUCC(ret) && OB_FAIL(relevance_collector_->get_result(relevance, accepted))) {
     } else if (OB_SUCC(ret) && accepted
-        && OB_FAIL(cache_result(count, *iter_domain_ids_[minimum.iter_idx_], relevance))) {
+        && OB_FAIL(cache_result(count, *domain_ids[minimum.iter_idx_], relevance))) {
     }
   }
   return ret;
