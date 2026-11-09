@@ -1,16 +1,91 @@
-# AMD CAGRA candidate: reuse query resources
+# AMD CAGRA candidates: query resources, DDL batching and snapshot transfer
 
 This candidate is based on contest V5 commit
 `634888d9b037153fa143d2c913ba4b25503e1d62`. It uses the unmodified hipVS
 commit `f96a663d0a4441d6f5344bd3ef552b71ae7b370b` supplied by the contest.
-It needs GPU validation before any speedup, Recall or contest score can be claimed.
+Each new candidate needs its own GPU validation. Host measurements below do not
+establish SQL performance or Recall.
+
+## Third candidate: mapped snapshot transfer and phase timings
+
+The user's platform result for `79f8929b4caa733598962d110779c1c45d56780a`
+was **6.943/20**, with `build=1.077x, query=1.749x, gates=pass`.
+The query component has reached its two-point ceiling under the supplied scoring
+formula. Construction is the remaining performance target. This result belongs
+to the second candidate, not to the changes in this section.
+
+Source inspection found that graph serialization stages bytes in a private
+file, then copies them through a 1 MiB buffer before the existing seekdb stream
+copies them again. On Linux, `cuvs_copy_snapshot` now maps the completed file
+read-only and writes all its bytes through the same durable output stream.
+The format remains `OBCUVS02`; IDs, FP32 vectors and the complete graph remain
+present. The mapping aliases existing file pages instead of allocating another
+graph-sized payload. It is released before returning, including on exceptions.
+Failure to map retains the buffered path. Output errors stop the operation;
+they never retry a partially written stream or report success.
+
+The existing snapshot completion log now separates these wall-clock durations:
+
+| Field | Scope |
+| --- | --- |
+| `gpu_build_us` | Adaptor build call, including its host work, thread setup and GPU synchronization; not a kernel-only timer |
+| `graph_serialize_us` | hipVS graph serialization and staging-file setup |
+| `payload_write_us` | Header, IDs and FP32 vectors written to the seekdb stream |
+| `graph_write_us` | Graph staging transfer to that stream |
+| `snapshot_total_us` | Entire adaptor serialization call through these writes |
+| `graph_mapped` | Whether mapped transfer actually ran |
+
+`build_us` retains its earlier combined build-plus-serialization meaning.
+These timings exclude prior row scanning/LOB decoding and later stream finishing
+and DDL publication. Use the official end-to-end timing for scoring, and compare
+it to these phases to locate the remaining cost. The hipVS binary, graph and
+search parameters are unchanged.
+
+On 2026-11-09, a shared Ubuntu 24.04 server with two Xeon Gold 6430 CPUs ran
+GCC 13.3.0 checks. Its GPUs are NVIDIA; ROCm/hipVS are not installed. All four
+standalone host tests passed with AddressSanitizer and UndefinedBehaviorSanitizer
+and `-Wall -Wextra -Werror`. All four also passed on Windows, where the modified
+adaptor passed the existing compatibility-header syntax check. The new snapshot
+test checks full byte equality, page/chunk boundaries, memory-backed and regular
+temporary files, an injected mapping failure, truncated input, partial output
+and exception cleanup. Bridge test doubles still do not exercise a GPU.
+
+A separate optimized host microbenchmark uses the **production copy helper** in
+buffered and mapped modes, with a synthetic bounded stream that copies every
+byte. It does not perform durable I/O or run seekdb/hipVS. One warmup pair precedes
+seven alternating-order pairs, pinned to logical CPU 0 on the shared server:
+
+| Staged bytes | Buffered mean | Mapped mean | Transfer time reduction |
+| --- | ---: | ---: | ---: |
+| 64 MiB + 37 | 17.533 ms | 12.755 ms | 27.25% |
+| 256 MiB + 37 | 69.044 ms | 59.549 ms | 13.75% |
+| 512 MiB + 37 | 92.725 ms | 83.852 ms | 9.57% |
+
+The saving is roughly 5–9 ms in this experiment; it is a small integration
+improvement, not evidence of a large build-speed increase. Shared-host load and
+different hardware affect these numbers. Commands, exit codes, full host-test
+output, raw samples and source hashes are in
+[`validation/host_snapshot_20261109.json`](validation/host_snapshot_20261109.json).
+To reproduce the host experiment from the repository root on Linux:
+
+```sh
+cmake -S unittest/oblib/vector/cuvs -B build_cuvs_host_release -DCMAKE_BUILD_TYPE=Release
+cmake --build build_cuvs_host_release --parallel 2
+ctest --test-dir build_cuvs_host_release --output-on-failure
+taskset -c 0 build_cuvs_host_release/test_cuvs_snapshot_io --benchmark
+```
+
+Choose an allowed CPU if CPU 0 is unavailable. The third candidate still needs
+the official Linux bridge/seekdb build, SQL persistence checks, paired build
+timing, Recall and resource gates on AMD. None of those are claimed by this
+host-only experiment.
 
 ## Second candidate: batch offline DDL input
 
 The user reported 6/20 for the first candidate (`b206db389e476b53a709db9fd5feb28ceb9fe537`),
 without a build/query breakdown. Under the supplied scoring rules that implies
 the gates passed in that run; it does not identify which stage earned performance
-points. The changes below have not yet been evaluated on the GPU platform.
+points. The later second-candidate result is recorded above.
 
 `ObHNSWIndexAppendBufferOperator` previously read rows in batches but acquired an
 adaptor guard and called `add_snap_index` once per vector. The new path packs
@@ -95,8 +170,8 @@ therefore need separate memory measurements.
 The anonymous snapshot file is transient: the complete `OBCUVS02` payload,
 including IDs, vectors and serialized CAGRA index, still passes through seekdb's
 durable output stream. Deserialization reads that persisted payload. There is
-no cross-run index cache. Linux snapshot staging and its memory cost still need
-measurement on the contest host.
+no cross-run index cache. The third-candidate host tests exercise Linux staging;
+full snapshot memory cost still needs measurement on the contest host.
 
 ## Semantics and parameter parity
 
@@ -165,9 +240,10 @@ benchmark on clean, independent instances for V5 and the candidate.
 
 ## Evaluation status
 
-Development on Windows without an AMD GPU can check host control flow and
-compile interfaces. It cannot validate the Linux memory-backed file branch,
-ROCm linking, GPU execution, full seekdb startup, SQL persistence or Recall.
+Windows and Linux host checks now cover host control flow and Linux mapped-file
+transfer. The current server cannot validate ROCm linking, GPU execution,
+full candidate seekdb startup, SQL persistence or Recall. The table below applies
+to the third candidate; the second candidate has the platform result recorded above.
 
 | Required comparison | Status before platform testing |
 | --- | --- |

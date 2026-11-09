@@ -1,0 +1,117 @@
+{
+  "parent_commit": "79f8929b4caa733598962d110779c1c45d56780a",
+  "source_sha256_lf": {
+    "src/oblib/lib/vector/cuvs_snapshot_io.h": "8591ab0b943b74b378cbba81e8ac0f49c03984796e434ff7f9a854d535b55428",
+    "src/oblib/lib/vector/ob_vsag_adaptor.cpp": "8a1abccf0b59645be793724b108141fbef41b596ce36675209d132554aa53e13",
+    "unittest/oblib/vector/cuvs/test_cuvs_snapshot_io.cpp": "5ae194fb21c2b211ef7cc7af47a75c4c6459c073e5dea8e6dd3e33ef7003fada",
+    "unittest/oblib/vector/cuvs/CMakeLists.txt": "aee85b7b788a18a410fe1266aebb42a3fbedfe949b5e06a75ab915d9f05cc770"
+  },
+  "host": {
+    "os": "Ubuntu 24.04",
+    "cpu": "2 x Intel Xeon Gold 6430 (128 logical CPUs)",
+    "compiler": "GCC 13.3.0",
+    "amd_gpu": false,
+    "rocm_and_hipvs_installed": false,
+    "shared_server": true
+  },
+  "scope": "Host control flow and snapshot staging only; not a full seekdb build, GPU/SQL run, durable IO measurement or Recall test.",
+  "checks": [
+    {
+      "command": [
+        "cmake",
+        "-S",
+        "unittest/oblib/vector/cuvs",
+        "-B",
+        "build",
+        "-DCMAKE_BUILD_TYPE=Debug",
+        "-DCMAKE_C_FLAGS=-Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer",
+        "-DCMAKE_CXX_FLAGS=-Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer"
+      ],
+      "exit_code": 0,
+      "output": "-- The C compiler identification is GNU 13.3.0\n-- The CXX compiler identification is GNU 13.3.0\n-- Detecting C compiler ABI info\n-- Detecting C compiler ABI info - done\n-- Check for working C compiler: /usr/bin/cc - skipped\n-- Detecting C compile features\n-- Detecting C compile features - done\n-- Detecting CXX compiler ABI info\n-- Detecting CXX compiler ABI info - done\n-- Check for working CXX compiler: /usr/bin/c++ - skipped\n-- Detecting CXX compile features\n-- Detecting CXX compile features - done\n-- Performing Test CMAKE_HAVE_LIBC_PTHREAD\n-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success\n-- Found Threads: TRUE  \n-- Configuring done (0.6s)\n-- Generating done (0.0s)\n-- Build files have been written to: /tmp/seekdb-amd-snapshot-eersx5i4/build\n"
+    },
+    {
+      "command": [
+        "cmake",
+        "--build",
+        "build",
+        "--parallel",
+        "2"
+      ],
+      "exit_code": 0,
+      "output": "[ 11%] Building C object CMakeFiles/bridge_under_test.dir/tmp/seekdb-amd-snapshot-eersx5i4/tools/hipvs_bridge/seekdb_cuvs_bridge.c.o\n[ 22%] Building CXX object CMakeFiles/test_cuvs_worker.dir/test_cuvs_worker.cpp.o\n[ 22%] Built target bridge_under_test\n[ 33%] Building CXX object CMakeFiles/test_cuvs_row_batch.dir/test_cuvs_row_batch.cpp.o\n[ 44%] Linking CXX executable test_cuvs_row_batch\n[ 44%] Built target test_cuvs_row_batch\n[ 55%] Linking CXX executable test_cuvs_worker\n[ 66%] Building CXX object CMakeFiles/test_cuvs_snapshot_io.dir/test_cuvs_snapshot_io.cpp.o\n[ 66%] Built target test_cuvs_worker\n[ 77%] Building CXX object CMakeFiles/test_cuvs_bridge.dir/test_cuvs_bridge.cpp.o\n[ 88%] Linking CXX executable test_cuvs_snapshot_io\n[ 88%] Built target test_cuvs_snapshot_io\n[100%] Linking CXX executable test_cuvs_bridge\n[100%] Built target test_cuvs_bridge\n"
+    },
+    {
+      "command": [
+        "ctest",
+        "--test-dir",
+        "build",
+        "--output-on-failure",
+        "-V"
+      ],
+      "exit_code": 0,
+      "output": "Internal ctest changing into directory: /tmp/seekdb-amd-snapshot-eersx5i4/build\nUpdateCTestConfiguration  from :/tmp/seekdb-amd-snapshot-eersx5i4/build/DartConfiguration.tcl\nUpdateCTestConfiguration  from :/tmp/seekdb-amd-snapshot-eersx5i4/build/DartConfiguration.tcl\nTest project /tmp/seekdb-amd-snapshot-eersx5i4/build\nConstructing a list of tests\nDone constructing a list of tests\nUpdating test list for fixtures\nAdded 0 tests to meet fixture requirements\nChecking test dependency graph...\nChecking test dependency graph end\ntest 1\n    Start 1: cuvs_bridge_lifecycle\n\n1: Test command: /tmp/seekdb-amd-snapshot-eersx5i4/build/test_cuvs_bridge\n1: Working Directory: /tmp/seekdb-amd-snapshot-eersx5i4/build\n1: Test timeout computed to be: 60\n1: [seekdb_cuvs] build failed: host-test injected failure\n1: [seekdb_cuvs] build failed: host-test injected failure\n1: [seekdb_cuvs] search rc=10: host-test injected failure\n1: [seekdb_cuvs] search rc=11: host-test injected failure\n1: [seekdb_cuvs] search rc=12: host-test injected failure\n1: [seekdb_cuvs] search rc=13: host-test injected failure\n1: [seekdb_cuvs] search rc=16: host-test injected failure\n1: [seekdb_cuvs] search rc=17: host-test injected failure\n1: [seekdb_cuvs] search rc=15: host-test injected failure\n1: [seekdb_cuvs] search rc=18: host-test injected failure\n1: [seekdb_cuvs] serialize failed: host-test injected failure\n1: [seekdb_cuvs] snapshot shape mismatch: 1000 x 32, expected 999 x 32\n1: [seekdb_cuvs] deserialize failed: host-test injected failure\n1: [seekdb_cuvs] snapshot shape mismatch: 1000 x 32, expected 1000 x 31\n1: [seekdb_cuvs] deserialize failed: host-test injected failure\n1: [seekdb_cuvs] deserialize failed: host-test injected failure\n1: PASS bridge: parameter parity, real call per probe, warm buffer reuse, shape changes, async completion, injected errors and release; no GPU used\n1/4 Test #1: cuvs_bridge_lifecycle ............   Passed    0.01 sec\ntest 2\n    Start 2: cuvs_worker_lifecycle\n\n2: Test command: /tmp/seekdb-amd-snapshot-eersx5i4/build/test_cuvs_worker\n2: Working Directory: /tmp/seekdb-amd-snapshot-eersx5i4/build\n2: Test timeout computed to be: 60\n2: PASS worker: 1800 varying/concurrent jobs, exception recovery, 50 lifecycles; host-only dispatch cold_us=165.162 reused_us=8.005\n2/4 Test #2: cuvs_worker_lifecycle ............   Passed    0.21 sec\ntest 3\n    Start 3: cuvs_row_batch\n\n3: Test command: /tmp/seekdb-amd-snapshot-eersx5i4/build/test_cuvs_row_batch\n3: Working Directory: /tmp/seekdb-amd-snapshot-eersx5i4/build\n3: Test timeout computed to be: 60\n3: PASS dense batches: byte-exact unaligned input, bounded memory, 64-bit IDs, shapes, full/partial reuse and invalid inputs\n3/4 Test #3: cuvs_row_batch ...................   Passed    0.09 sec\ntest 4\n    Start 4: cuvs_snapshot_io\n\n4: Test command: /tmp/seekdb-amd-snapshot-eersx5i4/build/test_cuvs_snapshot_io\n4: Working Directory: /tmp/seekdb-amd-snapshot-eersx5i4/build\n4: Test timeout computed to be: 60\n4: PASS snapshot bytes, chunk/page boundaries, memfd/tmpfile, failed mmap fallback, short input/output and exception cleanup\n4/4 Test #4: cuvs_snapshot_io .................   Passed    1.78 sec\n\n100% tests passed, 0 tests failed out of 4\n\nTotal Test time (real) =   2.10 sec\n"
+    }
+  ],
+  "benchmark": {
+    "cpu": 0,
+    "date": "2026-11-09T06:02:25.755888+00:00",
+    "loadavg": [
+      20.77978515625,
+      10.81201171875,
+      9.119140625
+    ],
+    "runs": [
+      {
+        "command": [
+          "g++",
+          "-std=c++17",
+          "-O3",
+          "-DNDEBUG",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-Isrc/oblib",
+          "unittest/oblib/vector/cuvs/test_cuvs_snapshot_io.cpp",
+          "-Wl,--wrap=mmap",
+          "-Wl,--wrap=munmap",
+          "-o",
+          "snapshot_bench"
+        ],
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "command": [
+          "./snapshot_bench",
+          "--benchmark"
+        ],
+        "exit_code": 0,
+        "output": "MiB,sample,mode,milliseconds\n64,0,buffered,18.1601\n64,0,mapped,13.9491\n64,1,mapped,12.5959\n64,1,buffered,17.3837\n64,2,buffered,16.6424\n64,2,mapped,11.8834\n64,3,mapped,11.3627\n64,3,buffered,17.2337\n64,4,buffered,17.5331\n64,4,mapped,13.3634\n64,5,mapped,12.1770\n64,5,buffered,17.7133\n64,6,buffered,18.0653\n64,6,mapped,13.9518\n256,0,buffered,70.8256\n256,0,mapped,63.0632\n256,1,mapped,60.7831\n256,1,buffered,70.9613\n256,2,buffered,70.0371\n256,2,mapped,60.2404\n256,3,mapped,58.0014\n256,3,buffered,67.9121\n256,4,buffered,69.2763\n256,4,mapped,59.1755\n256,5,mapped,57.5605\n256,5,buffered,67.3690\n256,6,buffered,66.9296\n256,6,mapped,58.0186\n512,0,buffered,93.3596\n512,0,mapped,86.4890\n512,1,mapped,84.5404\n512,1,buffered,92.5059\n512,2,buffered,94.1150\n512,2,mapped,84.1529\n512,3,mapped,82.7324\n512,3,buffered,92.3162\n512,4,buffered,92.3702\n512,4,mapped,83.1818\n512,5,mapped,82.4546\n512,5,buffered,92.3158\n512,6,buffered,92.0943\n512,6,mapped,83.4114\n"
+      }
+    ]
+  },
+  "summary": [
+    {
+      "payload_bytes": 67108901,
+      "samples_per_mode": 7,
+      "buffered_ms": 17.533085714285715,
+      "mapped_ms": 12.754757142857143,
+      "reduction_pct": 27.253209442393
+    },
+    {
+      "payload_bytes": 268435493,
+      "samples_per_mode": 7,
+      "buffered_ms": 69.04442857142857,
+      "mapped_ms": 59.54895714285714,
+      "reduction_pct": 13.752697538437985
+    },
+    {
+      "payload_bytes": 536870949,
+      "samples_per_mode": 7,
+      "buffered_ms": 92.72528571428572,
+      "mapped_ms": 83.85178571428571,
+      "reduction_pct": 9.56966584858192
+    }
+  ]
+}

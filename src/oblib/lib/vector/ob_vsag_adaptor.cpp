@@ -18,6 +18,7 @@
 
 #include "ob_vsag_adaptor.h"
 #include "cuvs_worker.h"
+#include "cuvs_snapshot_io.h"
 #include <map>
 #include <set>
 #include <mutex>
@@ -425,6 +426,8 @@ static bool ob_cuvs_serialize(void *key, std::ostream &out, int &ret) {
     ent->bridge_ = nb; ent->built_n_ = n; ent->ids_ = ent->buf_ids_;
     built = true;
   }
+  const int64_t graph_start_us = ObTimeUtility::current_time();
+  const int64_t gpu_build_us = graph_start_us - start_us;
   ObCuvsSnapshotFile graph;
   ObCuvsSnapshotJob job{graph.path_, ent->bridge_.get(), static_cast<long>(n), ent->dim_, false, -1};
   if (graph.file_ == nullptr || !ob_cuvs_snapshot_big_stack(job) ||
@@ -435,6 +438,8 @@ static bool ob_cuvs_serialize(void *key, std::ostream &out, int &ret) {
   const uint64_t graph_bytes = static_cast<uint64_t>(::ftello(graph.file_));
   ::rewind(graph.file_);
   const int64_t build_us = ObTimeUtility::current_time() - start_us;
+  const int64_t graph_serialize_us = build_us - gpu_build_us;
+  const int64_t payload_start_us = ObTimeUtility::current_time();
   const int32_t dim32 = ent->dim_;
   const int32_t reserved = 0;
   const int64_t n64 = static_cast<int64_t>(n);
@@ -449,18 +454,20 @@ static bool ob_cuvs_serialize(void *key, std::ostream &out, int &ret) {
     LOG_WARN("[OBVSAG][cuVS] failed to write snapshot stream", K(ret), KP(key), K(n));
     return true;
   }
-  std::vector<char> chunk(1024 * 1024);
-  uint64_t remaining = graph_bytes;
-  while (remaining > 0) {
-    const size_t bytes = std::min<uint64_t>(remaining, chunk.size());
-    if (::fread(chunk.data(), 1, bytes, graph.file_) != bytes || !ob_cuvs_write(out, chunk.data(), bytes)) {
-      ret = OB_ERR_UNEXPECTED;
-      return true;
-    }
-    remaining -= bytes;
+  const int64_t graph_write_start_us = ObTimeUtility::current_time();
+  const int64_t payload_write_us = graph_write_start_us - payload_start_us;
+  bool graph_mapped = false;
+  if (!cuvs_copy_snapshot(graph.file_, graph_bytes, out, graph_mapped)) {
+    ret = OB_ERR_UNEXPECTED;
+    LOG_WARN("[OBVSAG][cuVS] failed to write graph snapshot stream", K(ret), KP(key), K(n));
+    return true;
   }
+  const int64_t end_us = ObTimeUtility::current_time();
+  const int64_t graph_write_us = end_us - graph_write_start_us;
+  const int64_t snapshot_total_us = end_us - start_us;
   LOG_INFO("[OBVSAG][cuVS] serialized GPU CAGRA snapshot", KP(key), K(n), K(dim32),
-           K(built), K(build_us), K(graph_bytes));
+           K(built), K(build_us), K(graph_bytes), K(gpu_build_us), K(graph_serialize_us),
+           K(payload_write_us), K(graph_write_us), K(snapshot_total_us), K(graph_mapped));
   return true;
 }
 
