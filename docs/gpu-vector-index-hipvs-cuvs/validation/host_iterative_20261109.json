@@ -1,0 +1,157 @@
+{
+  "date": "2026-11-09",
+  "parent_commit": "16c6b28574bffcf4a5f2d5192296372a27140e58",
+  "highest_observed_score_commit": "79f8929b4caa733598962d110779c1c45d56780a",
+  "source_sha256_lf": {
+    "src/oblib/lib/vector/ob_vsag_adaptor.cpp": "cf20c45f5fa2cfe67702e7aeb443676affc5a9fb46eb258e78889facd278131e",
+    "tools/hipvs_bridge/build.sh": "72ba4fb2a114c70b838799820411cc9e78af674795ed536ffec82f75058506a5",
+    "tools/hipvs_bridge/seekdb_cuvs_bridge.c": "eab7bb3ae827b97d30dfcc50d025f726d8d85c38b808dbc20378da83e09e76bc",
+    "tools/hipvs_bridge/test_build_quality.cpp": "90b17ef1ec773f246c67dda2ea3ded64f9f34fbc0aecd49d05f0ba0933dbf00e",
+    "unittest/oblib/vector/cuvs/CMakeLists.txt": "ba06898d46b4ea6c7a3b674abfd2854e5bc70218bc46d19117b299c20952fa1f",
+    "unittest/oblib/vector/cuvs/test_cuvs_bridge.cpp": "50192e3257c6f9569c24159061440fc838f4c4137779b4b1075538305845bc00",
+    "unittest/oblib/vector/cuvs/stubs/cuvs/neighbors/cagra.h": "7fd0b894bee7f5053a5e0aaa4a6f174b33524d687a3f2cbfa57bda76fd76ae28"
+  },
+  "frozen_hipvs_commit": "f96a663d0a4441d6f5344bd3ef552b71ae7b370b",
+  "api_headers": {
+    "commit": "f96a663d0a4441d6f5344bd3ef552b71ae7b370b",
+    "headers": {
+      "cuvs/neighbors/cagra.h": "4fbca2261378ce270dae35ec5aa5675b317fb4374f0e426c3965f75ba9f4d29f",
+      "cuvs/core/c_api.h": "fd90189f0421d1613e3384d98ae1cb72acc1971c5ea7e7291803b5dcb06ca36e",
+      "cuvs/neighbors/ivf_pq.h": "7fdcac73615dd00a1e64c6fe2dab8b8d859e55ebc68b8fbb0de26cd6cc72b483",
+      "cuvs/distance/distance.h": "f5f24a86aed1f82887d68e9b84c449d4dfb7aa8859b0487ce9a1d9bde4046690",
+      "cuvs/neighbors/common.h": "12cd53863f21c2f8475e8b937ea3f7a07f6f4ddd1fcdb49bd0fa40d7d93bc166"
+    }
+  },
+  "scope": "Host-only validation. C/C++ API syntax uses pinned hipVS headers and CUDA/DLPack test declarations. No AMD runtime, GPU build, full seekdb build, SQL, GPU Recall, GPU memory, or performance measurement.",
+  "windows": {
+    "host_tests_passed": 5,
+    "host_tests_total": 5,
+    "adaptor_syntax_exit_code": 0,
+    "compiler": "Clang 21, developer compatibility headers"
+  },
+  "linux": {
+    "os": "Ubuntu 24.04",
+    "compiler": "GCC 13.3.0",
+    "host_tests_passed": 5,
+    "host_tests_total": 5,
+    "sanitizers": [
+      "address",
+      "undefined"
+    ],
+    "warnings_as_errors": true,
+    "amd_gpu": false,
+    "shell_transport_note": "First Bash syntax check used a CRLF Windows working-copy archive. Re-transferred the LF script matching canonical Git blobs; Bash syntax then passed. Both results are retained.",
+    "commands": [
+      {
+        "command": [
+          "cmake",
+          "-S",
+          "unittest/oblib/vector/cuvs",
+          "-B",
+          "build",
+          "-DCMAKE_BUILD_TYPE=Debug",
+          "-DCMAKE_C_FLAGS=-Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer",
+          "-DCMAKE_CXX_FLAGS=-Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer"
+        ],
+        "exit_code": 0,
+        "output": "-- The C compiler identification is GNU 13.3.0\n-- The CXX compiler identification is GNU 13.3.0\n-- Detecting C compiler ABI info\n-- Detecting C compiler ABI info - done\n-- Check for working C compiler: /usr/bin/cc - skipped\n-- Detecting C compile features\n-- Detecting C compile features - done\n-- Detecting CXX compiler ABI info\n-- Detecting CXX compiler ABI info - done\n-- Check for working CXX compiler: /usr/bin/c++ - skipped\n-- Detecting CXX compile features\n-- Detecting CXX compile features - done\n-- Performing Test CMAKE_HAVE_LIBC_PTHREAD\n-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success\n-- Found Threads: TRUE  \n-- Configuring done (0.6s)\n-- Generating done (0.0s)\n-- Build files have been written to: /tmp/seekdb-amd-iterative-qn0uazbf/build\n"
+      },
+      {
+        "command": [
+          "cmake",
+          "--build",
+          "build",
+          "--parallel",
+          "2"
+        ],
+        "exit_code": 0,
+        "output": "[  8%] Building C object CMakeFiles/bridge_under_test.dir/tmp/seekdb-amd-iterative-qn0uazbf/tools/hipvs_bridge/seekdb_cuvs_bridge.c.o\n[ 16%] Building C object CMakeFiles/bridge_nnd_control.dir/tmp/seekdb-amd-iterative-qn0uazbf/tools/hipvs_bridge/seekdb_cuvs_bridge.c.o\n[ 16%] Built target bridge_under_test\n[ 16%] Built target bridge_nnd_control\n[ 25%] Building CXX object CMakeFiles/test_cuvs_worker.dir/test_cuvs_worker.cpp.o\n[ 33%] Building CXX object CMakeFiles/test_cuvs_row_batch.dir/test_cuvs_row_batch.cpp.o\n[ 41%] Linking CXX executable test_cuvs_row_batch\n[ 41%] Built target test_cuvs_row_batch\n[ 50%] Building CXX object CMakeFiles/test_cuvs_snapshot_io.dir/test_cuvs_snapshot_io.cpp.o\n[ 58%] Linking CXX executable test_cuvs_worker\n[ 58%] Built target test_cuvs_worker\n[ 66%] Building CXX object CMakeFiles/test_cuvs_bridge.dir/test_cuvs_bridge.cpp.o\n[ 75%] Linking CXX executable test_cuvs_snapshot_io\n[ 75%] Built target test_cuvs_snapshot_io\n[ 83%] Building CXX object CMakeFiles/test_cuvs_bridge_nnd.dir/test_cuvs_bridge.cpp.o\n[ 91%] Linking CXX executable test_cuvs_bridge\n[ 91%] Built target test_cuvs_bridge\n[100%] Linking CXX executable test_cuvs_bridge_nnd\n[100%] Built target test_cuvs_bridge_nnd\n"
+      },
+      {
+        "command": [
+          "ctest",
+          "--test-dir",
+          "build",
+          "--output-on-failure",
+          "-V"
+        ],
+        "exit_code": 0,
+        "output": "Internal ctest changing into directory: /tmp/seekdb-amd-iterative-qn0uazbf/build\nUpdateCTestConfiguration  from :/tmp/seekdb-amd-iterative-qn0uazbf/build/DartConfiguration.tcl\nUpdateCTestConfiguration  from :/tmp/seekdb-amd-iterative-qn0uazbf/build/DartConfiguration.tcl\nTest project /tmp/seekdb-amd-iterative-qn0uazbf/build\nConstructing a list of tests\nDone constructing a list of tests\nUpdating test list for fixtures\nAdded 0 tests to meet fixture requirements\nChecking test dependency graph...\nChecking test dependency graph end\ntest 1\n    Start 1: cuvs_bridge_lifecycle\n\n1: Test command: /tmp/seekdb-amd-iterative-qn0uazbf/build/test_cuvs_bridge\n1: Working Directory: /tmp/seekdb-amd-iterative-qn0uazbf/build\n1: Test timeout computed to be: 60\n1: [seekdb_cuvs] build complete algo=nn_descent n=1 dim=1 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=1 dim=33 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=1 dim=128 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=1 dim=256 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=255 dim=1 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=255 dim=33 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=255 dim=128 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=255 dim=256 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=256 dim=1 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=256 dim=33 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=256 dim=128 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=256 dim=256 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=511 dim=1 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=511 dim=33 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=511 dim=128 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=511 dim=256 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=512 dim=1 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=512 dim=33 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=512 dim=128 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=512 dim=256 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=iterative_cagra_search n=513 dim=1 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=iterative_cagra_search n=513 dim=33 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=iterative_cagra_search n=513 dim=128 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=iterative_cagra_search n=513 dim=256 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=iterative_cagra_search n=8193 dim=1 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=iterative_cagra_search n=8193 dim=33 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=iterative_cagra_search n=8193 dim=128 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=iterative_cagra_search n=8193 dim=256 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build failed (algo=3, n=1000, dim=32): host-test injected failure\n1: [seekdb_cuvs] build failed (algo=3, n=1000, dim=32): host-test injected failure\n1: [seekdb_cuvs] built index shape mismatch: 0 x 0, expected 1000 x 32\n1: [seekdb_cuvs] built index shape mismatch: 1000 x 0, expected 1000 x 32\n1: [seekdb_cuvs] built index shape mismatch: 999 x 32, expected 1000 x 32\n1: [seekdb_cuvs] built index shape mismatch: 1000 x 31, expected 1000 x 32\n1: [seekdb_cuvs] build complete algo=iterative_cagra_search n=1000 dim=32 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] search rc=10: host-test injected failure\n1: [seekdb_cuvs] build complete algo=iterative_cagra_search n=1000 dim=32 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] search rc=11: host-test injected failure\n1: [seekdb_cuvs] build complete algo=iterative_cagra_search n=1000 dim=32 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] search rc=12: host-test injected failure\n1: [seekdb_cuvs] build complete algo=iterative_cagra_search n=1000 dim=32 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] search rc=13: host-test injected failure\n1: [seekdb_cuvs] search rc=16: host-test injected failure\n1: [seekdb_cuvs] search rc=17: host-test injected failure\n1: [seekdb_cuvs] search rc=15: host-test injected failure\n1: [seekdb_cuvs] search rc=18: host-test injected failure\n1: [seekdb_cuvs] serialize failed: host-test injected failure\n1: [seekdb_cuvs] snapshot shape mismatch: 1000 x 32, expected 999 x 32\n1: [seekdb_cuvs] deserialize failed: host-test injected failure\n1: [seekdb_cuvs] snapshot shape mismatch: 1000 x 32, expected 1000 x 31\n1: [seekdb_cuvs] deserialize failed: host-test injected failure\n1: [seekdb_cuvs] deserialize failed: host-test injected failure\n1: PASS bridge: algorithm selection and small-index guard, parameter parity, call per probe, warm buffer reuse, shapes, async completion, injected errors and release; no GPU used\n1/5 Test #1: cuvs_bridge_lifecycle ............   Passed    0.01 sec\ntest 2\n    Start 2: cuvs_bridge_nnd_control\n\n2: Test command: /tmp/seekdb-amd-iterative-qn0uazbf/build/test_cuvs_bridge_nnd\n2: Working Directory: /tmp/seekdb-amd-iterative-qn0uazbf/build\n2: Test timeout computed to be: 60\n2: [seekdb_cuvs] build complete algo=nn_descent n=1 dim=1 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] build complete algo=nn_descent n=1 dim=33 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] build complete algo=nn_descent n=1 dim=128 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] build complete algo=nn_descent n=1 dim=256 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] build complete algo=nn_descent n=255 dim=1 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] build complete algo=nn_descent n=255 dim=33 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] build complete algo=nn_descent n=255 dim=128 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] build complete algo=nn_descent n=255 dim=256 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] build complete algo=nn_descent n=256 dim=1 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] build complete algo=nn_descent n=256 dim=33 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] build complete algo=nn_descent n=256 dim=128 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] build complete algo=nn_descent n=256 dim=256 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] build complete algo=nn_descent n=511 dim=1 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] build complete algo=nn_descent n=511 dim=33 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] build complete algo=nn_descent n=511 dim=128 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] build complete algo=nn_descent n=511 dim=256 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] build complete algo=nn_descent n=512 dim=1 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] build complete algo=nn_descent n=512 dim=33 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] build complete algo=nn_descent n=512 dim=128 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] build complete algo=nn_descent n=512 dim=256 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] build complete algo=nn_descent n=513 dim=1 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] build complete algo=nn_descent n=513 dim=33 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] build complete algo=nn_descent n=513 dim=128 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] build complete algo=nn_descent n=513 dim=256 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] build complete algo=nn_descent n=8193 dim=1 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] build complete algo=nn_descent n=8193 dim=33 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] build complete algo=nn_descent n=8193 dim=128 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] build complete algo=nn_descent n=8193 dim=256 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] build failed (algo=2, n=1000, dim=32): host-test injected failure\n2: [seekdb_cuvs] build failed (algo=2, n=1000, dim=32): host-test injected failure\n2: [seekdb_cuvs] built index shape mismatch: 0 x 0, expected 1000 x 32\n2: [seekdb_cuvs] built index shape mismatch: 1000 x 0, expected 1000 x 32\n2: [seekdb_cuvs] built index shape mismatch: 999 x 32, expected 1000 x 32\n2: [seekdb_cuvs] built index shape mismatch: 1000 x 31, expected 1000 x 32\n2: [seekdb_cuvs] build complete algo=nn_descent n=1000 dim=32 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] search rc=10: host-test injected failure\n2: [seekdb_cuvs] build complete algo=nn_descent n=1000 dim=32 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] search rc=11: host-test injected failure\n2: [seekdb_cuvs] build complete algo=nn_descent n=1000 dim=32 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] search rc=12: host-test injected failure\n2: [seekdb_cuvs] build complete algo=nn_descent n=1000 dim=32 graph_degree=128 intermediate_degree=256\n2: [seekdb_cuvs] search rc=13: host-test injected failure\n2: [seekdb_cuvs] search rc=16: host-test injected failure\n2: [seekdb_cuvs] search rc=17: host-test injected failure\n2: [seekdb_cuvs] search rc=15: host-test injected failure\n2: [seekdb_cuvs] search rc=18: host-test injected failure\n2: [seekdb_cuvs] serialize failed: host-test injected failure\n2: [seekdb_cuvs] snapshot shape mismatch: 1000 x 32, expected 999 x 32\n2: [seekdb_cuvs] deserialize failed: host-test injected failure\n2: [seekdb_cuvs] snapshot shape mismatch: 1000 x 32, expected 1000 x 31\n2: [seekdb_cuvs] deserialize failed: host-test injected failure\n2: [seekdb_cuvs] deserialize failed: host-test injected failure\n2: PASS bridge: algorithm selection and small-index guard, parameter parity, call per probe, warm buffer reuse, shapes, async completion, injected errors and release; no GPU used\n2/5 Test #2: cuvs_bridge_nnd_control ..........   Passed    0.01 sec\ntest 3\n    Start 3: cuvs_worker_lifecycle\n\n3: Test command: /tmp/seekdb-amd-iterative-qn0uazbf/build/test_cuvs_worker\n3: Working Directory: /tmp/seekdb-amd-iterative-qn0uazbf/build\n3: Test timeout computed to be: 60\n3: PASS worker: 1800 varying/concurrent jobs, exception recovery, 50 lifecycles; host-only dispatch cold_us=173.558 reused_us=8.968\n3/5 Test #3: cuvs_worker_lifecycle ............   Passed    0.23 sec\ntest 4\n    Start 4: cuvs_row_batch\n\n4: Test command: /tmp/seekdb-amd-iterative-qn0uazbf/build/test_cuvs_row_batch\n4: Working Directory: /tmp/seekdb-amd-iterative-qn0uazbf/build\n4: Test timeout computed to be: 60\n4: PASS dense batches: byte-exact unaligned input, bounded memory, 64-bit IDs, shapes, full/partial reuse and invalid inputs\n4/5 Test #4: cuvs_row_batch ...................   Passed    0.09 sec\ntest 5\n    Start 5: cuvs_snapshot_io\n\n5: Test command: /tmp/seekdb-amd-iterative-qn0uazbf/build/test_cuvs_snapshot_io\n5: Working Directory: /tmp/seekdb-amd-iterative-qn0uazbf/build\n5: Test timeout computed to be: 60\n5: PASS snapshot bytes, chunk/page boundaries, memfd/tmpfile, failed mmap fallback, short input/output and exception cleanup\n5/5 Test #5: cuvs_snapshot_io .................   Passed    1.82 sec\n\n100% tests passed, 0 tests failed out of 5\n\nTotal Test time (real) =   2.17 sec\n"
+      },
+      {
+        "command": [
+          "gcc",
+          "-std=c11",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsyntax-only",
+          "-I.validation/pinned-headers",
+          "-Iunittest/oblib/vector/cuvs/stubs",
+          "tools/hipvs_bridge/seekdb_cuvs_bridge.c"
+        ],
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "command": [
+          "g++",
+          "-x",
+          "c++",
+          "-std=c++17",
+          "-Wno-missing-field-initializers",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsyntax-only",
+          "-I.validation/pinned-headers",
+          "-Iunittest/oblib/vector/cuvs/stubs",
+          "tools/hipvs_bridge/seekdb_cuvs_bridge.c"
+        ],
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "command": [
+          "g++",
+          "-std=c++17",
+          "-O2",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-c",
+          "tools/hipvs_bridge/test_build_quality.cpp",
+          "-o",
+          "quality.o"
+        ],
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "command": [
+          "bash",
+          "-n",
+          "tools/hipvs_bridge/build.sh"
+        ],
+        "exit_code": 2,
+        "output": "tools/hipvs_bridge/build.sh: line 27: syntax error near unexpected token `$'in\\r''\ntools/hipvs_bridge/build.sh: line 27: `case \"${SEEKDB_CUVS_BUILD_ALGORITHM:-iterative}\" in\n'\n"
+      },
+      {
+        "command": [
+          "bash",
+          "-n",
+          "tools/hipvs_bridge/build.sh"
+        ],
+        "exit_code": 0,
+        "output": "",
+        "note": "Retransferred canonical LF shell script instead of Windows CRLF working copy."
+      }
+    ]
+  },
+  "pending": [
+    "Official ROCm bridge and complete seekdb build",
+    "GPU quality fixture and separate-process reload",
+    "SQL persistence and CPU VSAG regression",
+    "Official paired Recall, memory and end-to-end build/query measurements"
+  ]
+}

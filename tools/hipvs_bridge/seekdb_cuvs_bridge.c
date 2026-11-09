@@ -79,16 +79,41 @@ void* seekdb_cuvs_build(const float* base, long n, long dim)
   dset.dl_tensor.dtype.code = kDLFloat; dset.dl_tensor.dtype.bits = 32; dset.dl_tensor.dtype.lanes = 1;
   dset.dl_tensor.shape = ds; dset.dl_tensor.strides = 0; dset.dl_tensor.byte_offset = 0;
 
-  h->ip->build_algo = NN_DESCENT;
   h->ip->graph_degree = 128;
   h->ip->intermediate_graph_degree = 256;
   h->ip->nn_descent_niter = 100;
+  /* The pinned hipVS provides a GPU CAGRA-search-based builder. It grows a
+   * connected seed graph, then refines every row of the complete dataset.
+   * Keep the same graph degrees and FP32 input. For small datasets the seed has
+   * ceil(n/2) nodes; larger seeds are halved further within the library's degree
+   * bound. Guard tiny datasets because the builder does not clamp its top-k. */
+#ifdef SEEKDB_CUVS_NND_CONTROL
+  h->ip->build_algo = NN_DESCENT;
+#else
+  h->ip->build_algo = (uint64_t)n > 2 * h->ip->intermediate_graph_degree
+                       ? ITERATIVE_CAGRA_SEARCH : NN_DESCENT;
+#endif
   if (cuvsCagraBuild(h->res, h->ip, &dset, h->idx) != CUVS_SUCCESS ||
       cuvsStreamSync(h->res) != CUVS_SUCCESS) {
-    fprintf(stderr, "[seekdb_cuvs] build failed: %s\n", cuvsGetLastErrorText());
+    fprintf(stderr, "[seekdb_cuvs] build failed (algo=%d, n=%ld, dim=%ld): %s\n",
+            (int)h->ip->build_algo, n, dim, cuvsGetLastErrorText());
     seekdb_cuvs_free(h);
     return NULL;
   }
+  {
+    int64_t actual_n = 0, actual_dim = 0;
+    if (cuvsCagraIndexGetSize(h->idx, &actual_n) != CUVS_SUCCESS ||
+        cuvsCagraIndexGetDims(h->idx, &actual_dim) != CUVS_SUCCESS ||
+        actual_n != n || actual_dim != dim) {
+      fprintf(stderr, "[seekdb_cuvs] built index shape mismatch: %ld x %ld, expected %ld x %ld\n",
+              (long)actual_n, (long)actual_dim, n, dim);
+      seekdb_cuvs_free(h);
+      return NULL;
+    }
+  }
+  fprintf(stderr, "[seekdb_cuvs] build complete algo=%s n=%ld dim=%ld graph_degree=%zu intermediate_degree=%zu\n",
+          h->ip->build_algo == NN_DESCENT ? "nn_descent" : "iterative_cagra_search",
+          n, dim, h->ip->graph_degree, h->ip->intermediate_graph_degree);
   h->n = n; h->dim = dim;
   return h;
 }

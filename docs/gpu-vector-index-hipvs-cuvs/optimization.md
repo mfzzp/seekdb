@@ -1,10 +1,90 @@
-# AMD CAGRA candidates: query resources, DDL batching and snapshot transfer
+# AMD CAGRA candidates: integration costs and iterative construction
 
 This candidate is based on contest V5 commit
 `634888d9b037153fa143d2c913ba4b25503e1d62`. It uses the unmodified hipVS
 commit `f96a663d0a4441d6f5344bd3ef552b71ae7b370b` supplied by the contest.
 Each new candidate needs its own GPU validation. Host measurements below do not
 establish SQL performance or Recall.
+
+## Fourth candidate: evaluate the fixed library's iterative builder
+
+Two platform observations supplied by the user are now available:
+
+| Commit | Build speedup | Query speedup | Gates | Score / 20 |
+| --- | ---: | ---: | --- | ---: |
+| `79f8929b4caa733598962d110779c1c45d56780a` | 1.077x | 1.749x | pass | 6.943 |
+| `16c6b28574bffcf4a5f2d5192296372a27140e58` | 1.021x | 1.725x | pass | 6.268 |
+
+These are separate paired platform runs. They do not prove that the mapped
+transfer caused the difference, but provide no evidence to promote it. This
+candidate restores buffered snapshot transfer and keeps the phase timers.
+The highest observed score remains the first row of the table.
+
+The construction hypothesis is now structural rather than another copy
+microbenchmark. In pinned hipVS, NN-descent's `GNND::build` alternates host graph
+maintenance with GPU local joins, using a host update thread and transfers on
+each iteration. The library also exposes `ITERATIVE_CAGRA_SEARCH` through its
+[unchanged C API implementation](https://github.com/AMD-Ecosystem/hipVS/blob/f96a663d0a4441d6f5344bd3ef552b71ae7b370b/cpp/src/neighbors/cagra_c.cpp).
+Its [iterative builder](https://github.com/AMD-Ecosystem/hipVS/blob/f96a663d0a4441d6f5344bd3ef552b71ae7b370b/cpp/src/neighbors/detail/cagra/cagra_build.cuh)
+expands a connected seed graph using batched CAGRA search, reaches the entire
+dataset, and refines the complete graph. This can change the balance of CPU work,
+GPU work and transfers. It still performs host graph optimization; no claim is
+made that the entire construction stays on the GPU or that it is faster here.
+
+`seekdb_cuvs_build` selects that supported builder when the number of vectors
+exceeds twice the intermediate graph degree. Smaller indexes retain NN-descent.
+This guard follows its small-input `ceil(n/2)` seed graph and build Top-k bound,
+not a dataset identity: requesting 256 neighbors from an initial graph with
+fewer nodes is unsafe. Both paths use all FP32 rows, graph degree 128 and
+intermediate degree 256. The NN-descent control retains its 100-iteration limit;
+the iterative builder uses its own fixed-library schedule. Search parameters
+and the fixed CAGRA search implementation are unchanged. After either build,
+the bridge validates the returned row count and dimension before publishing it.
+
+Changing the algorithm changes the graph. **Recall, peak VRAM and end-to-end
+build time are unverified** and may regress. The lower-scoring mapped path is
+disabled, but that alone does not establish a speedup. Use this as an experimental
+candidate, not as a proven replacement for the 6.943-point commit.
+
+Windows host checks passed 5/5, plus the compatibility-header adaptor syntax
+check. On the existing NVIDIA-only server, GCC 13.3 host checks passed 5/5 under
+ASan/UBSan with warnings treated as errors. The production bridge also passed C
+and C++ syntax checks against the pinned hipVS C headers (CUDA/DLPack declarations
+were test substitutes; no ROCm link was performed). `test_build_quality.cpp`
+compiled to an object and the canonical LF build script passed Bash syntax
+checking. These are recorded in
+[`validation/host_iterative_20261109.json`](validation/host_iterative_20261109.json).
+The optional NN-descent control is tested with the same host lifecycle suite.
+
+`test_build_quality.cpp` is a new **real-GPU** diagnostic entry point. It uses
+256/512/513-row boundary cases with dimension 33, an 8,193-row uniform fixture
+with dimension 128, and an 8,193-row clustered fixture with dimension 256. For
+64 nearby/independent probes, it computes exact CPU Top-100 ground truth from
+all original rows, then checks GPU Top-10/100 IDs, distances, output guards,
+Recall and reload behavior. Its 0.95 fixture threshold does not replace official
+dataset-specific or baseline-relative Recall gates. GPU execution of this test
+is pending; its source compilation is not a quality result.
+
+For an AMD host, compare the candidate and an explicit NN-descent control using
+the same fixed library. Choose new output directories for a new experiment:
+
+```sh
+HIPVS_ROOT=/opt/hipvs ROCM_ROOT=/opt/rocm tools/hipvs_bridge/build.sh /tmp/amd-build-study/iterative/libseekdb_cuvs_bridge.so
+SEEKDB_CUVS_BUILD_ALGORITHM=nn_descent HIPVS_ROOT=/opt/hipvs ROCM_ROOT=/opt/rocm tools/hipvs_bridge/build.sh /tmp/amd-build-study/control/libseekdb_cuvs_bridge.so
+c++ -std=c++17 -O2 tools/hipvs_bridge/test_build_quality.cpp -Itools/hipvs_bridge -L/tmp/amd-build-study/iterative -lseekdb_cuvs_bridge -Wl,-rpath,/tmp/amd-build-study/iterative -Wl,-rpath-link,/opt/hipvs/lib -Wl,-rpath-link,/opt/rocm/lib -o /tmp/amd-build-study/test_build_quality
+LD_LIBRARY_PATH=/tmp/amd-build-study/iterative:/opt/hipvs/lib:/opt/rocm/lib /tmp/amd-build-study/test_build_quality /tmp/amd-build-study/iterative/fixture
+LD_LIBRARY_PATH=/tmp/amd-build-study/control:/opt/hipvs/lib:/opt/rocm/lib /tmp/amd-build-study/test_build_quality /tmp/amd-build-study/control/fixture
+```
+
+The default official build invocation selects the iterative candidate. The
+control variable is only an explicit build-time comparison knob; no dataset or
+evaluation-environment detection occurs. The two libraries expose the same ABI.
+Each fixture destroys its built index before reloading, and deletes its own
+successful test snapshot. A failed fixture retains its snapshot for diagnosis;
+use a fresh prefix for the next run. Separate-process persistence remains covered
+by `test_persistence.cpp`. Neither diagnostic's raw bridge timings are SQL build
+scores: full seekdb compilation, fresh independent instances and the unchanged
+official paired workload are still required.
 
 ## Third candidate: mapped snapshot transfer and phase timings
 
@@ -173,7 +253,7 @@ durable output stream. Deserialization reads that persisted payload. There is
 no cross-run index cache. The third-candidate host tests exercise Linux staging;
 full snapshot memory cost still needs measurement on the contest host.
 
-## Semantics and parameter parity
+## First/second candidate semantics and parameter parity
 
 - GPU construction remains NN_DESCENT with 100 iterations, graph degree 128 and
   intermediate graph degree 256.
@@ -243,7 +323,7 @@ benchmark on clean, independent instances for V5 and the candidate.
 Windows and Linux host checks now cover host control flow and Linux mapped-file
 transfer. The current server cannot validate ROCm linking, GPU execution,
 full candidate seekdb startup, SQL persistence or Recall. The table below applies
-to the third candidate; the second candidate has the platform result recorded above.
+to the fourth candidate; the second and third candidates have platform results recorded above.
 
 | Required comparison | Status before platform testing |
 | --- | --- |

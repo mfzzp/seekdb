@@ -13,6 +13,17 @@ add_executable(test_cuvs_bridge test_cuvs_bridge.cpp $<TARGET_OBJECTS:bridge_und
 target_include_directories(test_cuvs_bridge PRIVATE stubs "${SEEKDB_ROOT}/tools/hipvs_bridge")
 add_test(NAME cuvs_bridge_lifecycle COMMAND test_cuvs_bridge)
 
+# Compile the same source as an explicit NN-descent control for future paired
+# GPU experiments. Both variants must retain identical ownership/error checks.
+add_library(bridge_nnd_control OBJECT "${SEEKDB_ROOT}/tools/hipvs_bridge/seekdb_cuvs_bridge.c")
+target_include_directories(bridge_nnd_control PRIVATE stubs)
+target_compile_definitions(bridge_nnd_control PRIVATE SEEKDB_CUVS_NND_CONTROL=1)
+add_executable(test_cuvs_bridge_nnd test_cuvs_bridge.cpp $<TARGET_OBJECTS:bridge_nnd_control>)
+target_include_directories(test_cuvs_bridge_nnd PRIVATE stubs "${SEEKDB_ROOT}/tools/hipvs_bridge")
+target_compile_definitions(test_cuvs_bridge_nnd PRIVATE SEEKDB_CUVS_NND_CONTROL=1)
+add_test(NAME cuvs_bridge_nnd_control COMMAND test_cuvs_bridge_nnd)
+set_tests_properties(cuvs_bridge_nnd_control PROPERTIES TIMEOUT 60)
+
 add_executable(test_cuvs_worker test_cuvs_worker.cpp)
 target_include_directories(test_cuvs_worker PRIVATE "${SEEKDB_ROOT}/src/oblib")
 if(WIN32)

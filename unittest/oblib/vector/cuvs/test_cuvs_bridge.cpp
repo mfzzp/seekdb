@@ -19,6 +19,7 @@ struct TestIndex { int64_t n = 0, dim = 0; };
 static int resources_live, streams_live, indexes_live, build_params_live, search_params_live;
 static int allocation_calls, search_calls, search_param_creates;
 static int serialization_completions;
+static int expected_build_algorithm = NN_DESCENT;
 static int alloc_fail_countdown, copy_fail_countdown;
 static std::map<void *, size_t> allocations;
 static std::string failure;
@@ -65,10 +66,12 @@ cuvsError_t cuvsCagraIndexCreate(cuvsCagraIndex_t *p) { if (fail("index")) retur
 cuvsError_t cuvsCagraIndexDestroy(cuvsCagraIndex_t p) { delete p; --indexes_live; return CUVS_SUCCESS; }
 cuvsError_t cuvsCagraBuild(cuvsResources_t r, cuvsCagraIndexParams_t p, DLManagedTensor *d, cuvsCagraIndex_t i)
 {
-  CHECK(p->build_algo == NN_DESCENT && p->graph_degree == 128 && p->intermediate_graph_degree == 256 && p->nn_descent_niter == 100);
+  CHECK(p->build_algo == expected_build_algorithm && p->graph_degree == 128 && p->intermediate_graph_degree == 256 && p->nn_descent_niter == 100);
   CHECK(d->dl_tensor.device.device_type == kDLCPU && d->dl_tensor.dtype.bits == 32);
   if (fail("build")) return CUVS_ERROR;
   i->n = d->dl_tensor.shape[0]; i->dim = d->dl_tensor.shape[1];
+  if (fail("incomplete-graph")) { --i->n; }
+  if (fail("wrong-dimension")) { --i->dim; }
   resource(r)->stream->pending.push_back([] {});
   return CUVS_SUCCESS;
 }
@@ -99,8 +102,8 @@ cuvsError_t cuvsCagraSerialize(cuvsResources_t r, const char *, cuvsCagraIndex_t
   return fail("serialize") ? CUVS_ERROR : CUVS_SUCCESS;
 }
 cuvsError_t cuvsCagraDeserialize(cuvsResources_t, const char *, cuvsCagraIndex_t i) { if (fail("deserialize")) return CUVS_ERROR; i->n = 1000; i->dim = 32; return CUVS_SUCCESS; }
-cuvsError_t cuvsCagraIndexGetSize(cuvsCagraIndex_t i, int64_t *n) { *n = i->n; return CUVS_SUCCESS; }
-cuvsError_t cuvsCagraIndexGetDims(cuvsCagraIndex_t i, int64_t *d) { *d = i->dim; return CUVS_SUCCESS; }
+cuvsError_t cuvsCagraIndexGetSize(cuvsCagraIndex_t i, int64_t *n) { if (fail("get-size")) return CUVS_ERROR; *n = i->n; return CUVS_SUCCESS; }
+cuvsError_t cuvsCagraIndexGetDims(cuvsCagraIndex_t i, int64_t *d) { if (fail("get-dims")) return CUVS_ERROR; *d = i->dim; return CUVS_SUCCESS; }
 }
 
 static void probe(void *handle, long nq, long k, float value, bool distances = true)
@@ -121,7 +124,26 @@ int main()
   CHECK(!seekdb_cuvs_build(&base, -1, 32));
   CHECK(!seekdb_cuvs_build(&base, 1000, 0));
   if (sizeof(long) == 8) CHECK(!seekdb_cuvs_build(&base, LONG_MAX, LONG_MAX));
-  for (const char *stage : {"resources", "stream", "stream-set", "build-params", "index", "search-params", "build", "sync"}) {
+  // Small input must keep NN-descent: the fixed iterative builder starts with
+  // ceil(n/2) nodes and asks it for up to 256 neighbors before expanding.
+  for (const long n : {1L, 255L, 256L, 511L, 512L, 513L, 8193L}) {
+#ifdef SEEKDB_CUVS_NND_CONTROL
+    expected_build_algorithm = NN_DESCENT;
+#else
+    expected_build_algorithm = n <= 512 ? NN_DESCENT : ITERATIVE_CAGRA_SEARCH;
+#endif
+    for (const long dim : {1L, 33L, 128L, 256L}) {
+      void *h = seekdb_cuvs_build(&base, n, dim); CHECK(h);
+      seekdb_cuvs_free(h); no_leaks();
+    }
+  }
+#ifdef SEEKDB_CUVS_NND_CONTROL
+  expected_build_algorithm = NN_DESCENT;
+#else
+  expected_build_algorithm = ITERATIVE_CAGRA_SEARCH;
+#endif
+  for (const char *stage : {"resources", "stream", "stream-set", "build-params", "index", "search-params", "build", "sync",
+                            "get-size", "get-dims", "incomplete-graph", "wrong-dimension"}) {
     failure = stage; CHECK(!seekdb_cuvs_build(&base, 1000, 32)); no_leaks();
   }
   for (int n = 1; n <= 3; ++n) {
@@ -159,5 +181,5 @@ int main()
   CHECK(!seekdb_cuvs_deserialize("unused", 1000, 31)); no_leaks();
   failure = "deserialize"; CHECK(!seekdb_cuvs_deserialize("unused", 1000, 32)); no_leaks();
   h = seekdb_cuvs_deserialize("unused", 1000, 32); CHECK(h); probe(h, 1, 100, 91); seekdb_cuvs_free(h); no_leaks();
-  std::puts("PASS bridge: parameter parity, real call per probe, warm buffer reuse, shape changes, async completion, injected errors and release; no GPU used");
+  std::puts("PASS bridge: algorithm selection and small-index guard, parameter parity, call per probe, warm buffer reuse, shapes, async completion, injected errors and release; no GPU used");
 }

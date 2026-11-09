@@ -457,7 +457,9 @@ static bool ob_cuvs_serialize(void *key, std::ostream &out, int &ret) {
   const int64_t graph_write_start_us = ObTimeUtility::current_time();
   const int64_t payload_write_us = graph_write_start_us - payload_start_us;
   bool graph_mapped = false;
-  if (!cuvs_copy_snapshot(graph.file_, graph_bytes, out, graph_mapped)) {
+  // Keep the higher-scoring candidate's buffered path while evaluating the
+  // construction algorithm independently. Retain the per-phase diagnostics.
+  if (!cuvs_copy_snapshot(graph.file_, graph_bytes, out, graph_mapped, false)) {
     ret = OB_ERR_UNEXPECTED;
     LOG_WARN("[OBVSAG][cuVS] failed to write graph snapshot stream", K(ret), KP(key), K(n));
     return true;

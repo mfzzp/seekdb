@@ -20,11 +20,22 @@ OUTPUT=${1:-$SCRIPT_DIR/libseekdb_cuvs_bridge.so}
 
 mkdir -p "$(dirname "$OUTPUT")"
 
+BUILD_FLAGS=()
+# Optional, explicit control build for paired experiments. The contest's
+# unchanged invocation selects the iterative candidate. Never detect datasets
+# or assessment environments; both builds use all input rows and the same search.
+case "${SEEKDB_CUVS_BUILD_ALGORITHM:-iterative}" in
+  iterative) ;;
+  nn_descent) BUILD_FLAGS+=(-DSEEKDB_CUVS_NND_CONTROL=1) ;;
+  *) echo "SEEKDB_CUVS_BUILD_ALGORITHM must be iterative or nn_descent" >&2; exit 2 ;;
+esac
+
 "$HIPCC" \
   -shared \
   -fPIC \
   -O2 \
   -D__HIP_PLATFORM_AMD__ \
+  "${BUILD_FLAGS[@]}" \
   -I"$HIPVS_ROOT/include" \
   -I"$ROCM_ROOT/include" \
   "$SCRIPT_DIR/seekdb_cuvs_bridge.c" \
