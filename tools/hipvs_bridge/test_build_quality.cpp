@@ -121,12 +121,16 @@ static void fixture(long n, long dim, bool clustered, const std::string &path)
 
 int main(int argc, char **argv)
 {
-  if (argc != 2) { std::fprintf(stderr, "usage: %s /path/to/new-snapshot-prefix\n", argv[0]); return 2; }
+  if (argc != 2 && argc != 3) { std::fprintf(stderr, "usage: %s /path/to/new-snapshot-prefix [large_fixture_rows]\n", argv[0]); return 2; }
   try {
+    size_t consumed = 0;
+    const long large_rows = argc == 3 ? std::stol(argv[2], &consumed) : 8193;
+    require(large_rows >= 513 && large_rows <= 1000000 &&
+            (argc != 3 || consumed == std::strlen(argv[2])), "invalid fixture row count");
     const std::string prefix(argv[1]);
     for (long n : {256L, 512L, 513L}) { fixture(n, 33, false, prefix + "-" + std::to_string(n) + ".bin"); }
-    fixture(8193, 128, false, prefix + "-uniform.bin");
-    fixture(8193, 256, true, prefix + "-clustered.bin");
+    fixture(large_rows, 128, false, prefix + "-uniform.bin");
+    fixture(large_rows, 256, true, prefix + "-clustered.bin");
   } catch (const std::exception &error) {
     std::fprintf(stderr, "FAIL: %s\n", error.what());
     return 1;

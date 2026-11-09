@@ -1,12 +1,138 @@
-# AMD CAGRA candidates: integration costs and compact persistence
+# AMD CAGRA candidates: CPU budgets and persistence costs
 
 This candidate is based on contest V5 commit
 `634888d9b037153fa143d2c913ba4b25503e1d62`. It uses the unmodified hipVS
 commit `f96a663d0a4441d6f5344bd3ef552b71ae7b370b` supplied by the contest.
-Each new candidate needs its own GPU validation. Host measurements below do not
-establish SQL performance or Recall.
+Each new candidate needs its own GPU validation. The latest measurements below
+execute the real GPU bridge; they do not establish end-to-end SQL performance or
+the official Recall/resource gates. Older sections record evidence available at
+the time of each historical candidate.
 
-## Sixth candidate (current): lossless snapshot blocks
+## Seventh candidate (current): respect CPU quotas and restore direct snapshot writes
+
+The sixth candidate, `2caab0c9a1577b17ca2f7805c8b0d1f4f6c2aede`, received
+**7.204/20**, `build=1.099x, query=1.790x, gates=pass`. The best earlier result
+remains **8.456/20** for `2f2fc3d0742d63571216313c2b8eec88c7fed3d5`.
+The aggregate platform numbers alone cannot distinguish machine variation from
+the cost of a change. This revision uses the first real AMD component experiments
+to select changes; it has not been submitted to the official evaluator.
+
+### Container CPU oversubscription
+
+The diagnostic Radeon Cloud instance exposes 128 CPUs in its affinity mask, but
+its cgroup v2 `cpu.max` is `1600000 100000`: only 16 CPU-equivalents of runtime.
+ROCm's LLVM OpenMP defaults to 128 threads. The frozen NN-descent and CAGRA graph
+construction code contains CPU OpenMP loops, including work on native
+`std::thread` threads. A runtime probe confirmed that `omp_set_num_threads(16)`
+only changes the caller's limit; new native threads still report 128. LLVM's
+`kmp_set_defaults("OMP_NUM_THREADS=16")` also changes the new threads' default.
+
+The bridge now initializes this runtime policy once. It reads positive quotas
+from cgroup v1/v2 at common Linux mount points and visible parents, rounds
+fractional CPU quotas up, and caps the current OpenMP limit without increasing
+it. Missing, unlimited, malformed or unsupported quota layouts retain the
+runtime default. This is based on the actual quota, not a fixed core count.
+Explicit `OMP_NUM_THREADS`, `OMP_THREAD_LIMIT`, `KMP_ALL_THREADS` or
+`KMP_HW_SUBSET` settings take precedence. `build.sh` links ROCm's LLVM OpenMP,
+which is already used by hipVS. No pinned dependency source is modified.
+
+This sets the **process-wide LLVM OpenMP default** for newly created native
+threads, including threads outside the bridge that share that runtime; it is
+not a per-index setting. Existing explicit administrator policy is preserved,
+and multi-index/mixed-workload throughput still requires SQL-level testing.
+
+The same baseline bridge built all 65,536 synthetic FP32 vectors, dimension 128,
+in six fresh processes, with thread limits ordered 128/16/16/128/128/16. Each run
+also saved, freed and reloaded the index, verified byte-exact vectors, unique
+valid Top-100 IDs, L2 distances and the self neighbor. Three additional fresh
+processes tested the new automatic quota policy with no thread override.
+The baseline has the parent algorithm plus the error-logging correction below;
+that correction does not change successful build/search execution.
+
+| Configuration | Build samples, ms | Mean, ms |
+| --- | --- | ---: |
+| Parent bridge, 128 OpenMP threads | 19000.474, 21041.209, 22161.972 | 20734.552 |
+| Same bridge, explicit 16 threads | 5585.234, 5610.628, 5817.339 | 5671.067 |
+| New bridge, automatic quota | 5614.364, 5661.864, 5537.902 | 5604.710 |
+
+The measured **bridge build call** is 3.699x faster than the 128-thread samples.
+This excludes SQL row scanning, publication and official first-query readiness;
+it is neither the competition build speedup nor a score prediction. Environments
+that already size OpenMP correctly may see little benefit from this change.
+
+### Snapshot transfer and larger Top-k
+
+On an actual 67,110,577-byte hipVS snapshot, alternating five measured runs per
+format after warmup gave these results. Every restored file was byte-identical.
+
+| Format | Stored bytes | Mean save ms | Mean restore ms |
+| --- | ---: | ---: | ---: |
+| V3 direct copy | 67,110,577 | 47.878 | 34.110 |
+| V4 compressed blocks | 51,405,159 | 113.126 | 82.513 |
+
+These are buffered filesystem/tmpfile transfers, without fsync or seekdb's
+persistence stream. Compression's CPU cost outweighed its byte saving here.
+The writer therefore returns to V3, while retaining V2/V3/V4 readers and codec
+regressions for existing indexes. It still persists every opaque hipVS byte and
+the ID mapping; no FP32 data or graph work is dropped.
+
+Actual GPU persistence testing also exposed an existing Top-200 failure:
+`itopk_size cannot be larger than 512` in the pinned `search_single_cta.cuh`.
+The bridge now selects `MULTI_CTA` above that candidate limit, preserving
+`itopk_size=max(default,512,4*topk)`, and restores the default strategy on smaller
+requests. Top-10/100 search parameters and the NN-descent recipe are unchanged.
+Search errors are logged before synchronization clears the library's error text;
+cleanup still waits for outstanding work and propagates failure.
+
+### Executed checks and limits
+
+The frozen hipVS C library and the candidate bridge compiled and ran on gfx1100,
+Ubuntu 24.04.4, ROCm **7.2.1**, with a 16-CPU quota and 55 GiB RAM. All 1,677
+source files in the frozen hipVS archive were checked unchanged. This differs
+from the official ROCm **7.2.4**, 24-CPU/96-GB environment; dependency archives
+and source hashes are recorded in the evidence. Do not deploy this diagnostic
+binary in place of the evaluator's prescribed dependencies.
+
+- Windows host regressions: **7/7 passed**; adaptor compatibility-header syntax
+  check passed. This is not a complete Windows/Linux seekdb build.
+- Linux host regressions: **7/7 passed**, ASan/UBSan, leak detection,
+  `-Wall -Wextra -Werror` (bundled compressor warnings remain suppressed).
+- Actual GPU, separate write/read processes: Top-10/100/200/10, one/three query
+  inputs, guards, IDs, distances, shape rejection and FP32 byte equality passed.
+- Actual GPU Recall, the same 64-probe exact CPU-reference driver before/after:
+  256/512/513-row boundary fixtures and 65,536-row uniform/clustered fixtures
+  passed before and after reload. Uniform Recall@100 was 0.998594 -> 0.998750;
+  clustered Recall@100 was 0.998437 -> 0.998125. The largest observed decline is
+  about 0.000312. These synthetic samples do not establish hidden-dataset gates.
+- Explicit `OMP_NUM_THREADS=2` was preserved and its GPU smoke test passed.
+- Full seekdb compilation/bootstrap, SQL DDL/restart, SIFT/hidden250k, paired
+  peak VRAM and official build/query performance remain **pending**.
+
+Commands, outputs, source hashes and individual measurements are in
+[`validation/gpu_quota_20261109.json`](validation/gpu_quota_20261109.json).
+The exact diagnostic sources are `tools/hipvs_bridge/benchmark_build_phases.cpp`
+and `tools/hipvs_bridge/benchmark_snapshot_transfer.cpp`. From the repository
+root, with a locally built bridge and the frozen dependencies, these single-line
+commands reproduce the component checks (use a new output directory):
+
+```sh
+mkdir -p /tmp/amd-quota && HIPVS_ROOT=/opt/hipvs ROCM_ROOT=/opt/rocm bash tools/hipvs_bridge/build.sh /tmp/amd-quota/libseekdb_cuvs_bridge.so
+g++ -O3 -std=c++17 tools/hipvs_bridge/benchmark_build_phases.cpp -Itools/hipvs_bridge -L/tmp/amd-quota -lseekdb_cuvs_bridge -Wl,-rpath,/tmp/amd-quota -Wl,-rpath-link,/opt/hipvs/lib -Wl,-rpath-link,/opt/rocm/lib -Wl,-rpath-link,/opt/rocm/lib/llvm/lib -o /tmp/amd-quota/benchmark_build_phases
+LD_LIBRARY_PATH=/opt/hipvs/lib:/opt/rocm/lib:/opt/rocm/lib/llvm/lib /tmp/amd-quota/benchmark_build_phases 65536 128 /tmp/amd-quota/fixture.bin
+g++ -O3 -std=c++17 tools/hipvs_bridge/test_build_quality.cpp -Itools/hipvs_bridge -L/tmp/amd-quota -lseekdb_cuvs_bridge -Wl,-rpath,/tmp/amd-quota -Wl,-rpath-link,/opt/hipvs/lib -Wl,-rpath-link,/opt/rocm/lib -Wl,-rpath-link,/opt/rocm/lib/llvm/lib -o /tmp/amd-quota/test_build_quality
+LD_LIBRARY_PATH=/opt/hipvs/lib:/opt/rocm/lib:/opt/rocm/lib/llvm/lib /tmp/amd-quota/test_build_quality /tmp/amd-quota/recall 65536
+cmake -S unittest/oblib/vector/cuvs -B /tmp/amd-quota/host -DCMAKE_BUILD_TYPE=Release && cmake --build /tmp/amd-quota/host --parallel 4
+g++ -O3 -std=c++17 tools/hipvs_bridge/benchmark_snapshot_transfer.cpp -Isrc/oblib /tmp/amd-quota/host/libcuvs_test_zstd.a -o /tmp/amd-quota/benchmark_snapshot_transfer
+/tmp/amd-quota/benchmark_snapshot_transfer /tmp/amd-quota/fixture.bin /tmp/amd-quota/transfer
+```
+
+For a paired OpenMP experiment, run the same bridge binary with explicit thread
+counts matching that machine's visible CPUs and quota; alternate order and use
+fresh snapshot paths. Neither diagnostic replaces the unchanged official SQL
+benchmark. The evidence archive and the locally built runtime were backed up
+off the temporary GPU instance and their SHA256 hashes checked.
+
+## Sixth candidate (historical, gates passed): lossless snapshot blocks
 
 The user reported **8.456/20**, `build=1.213x, query=1.799x, gates=pass`
 for `2f2fc3d0742d63571216313c2b8eec88c7fed3d5`. This is the best observed
@@ -461,16 +587,16 @@ benchmark on clean, independent instances for V5 and the candidate.
 
 ## Evaluation status
 
-Windows and Linux host checks now cover host control flow, Linux snapshot
-transfer and the lossless block codec. The current server cannot validate ROCm linking, GPU execution,
-full candidate seekdb startup, SQL persistence or Recall. The table below applies
-to the sixth candidate; prior platform observations are recorded above.
+Windows and Linux host checks cover control flow, CPU quota parsing, snapshot
+transfer and the retained lossless decoder. The seventh candidate additionally
+passed actual ROCm linking, GPU bridge execution and synthetic Recall checks as
+recorded above. It has not run the complete seekdb/official workload.
 
 | Required comparison | Status before platform testing |
 | --- | --- |
-| Official Linux bridge and seekdb build | Pending |
+| Official Linux bridge and seekdb build | Full seekdb/official environment pending; bridge compiled on ROCm 7.2.1 |
 | Fresh bootstrap and SQL GPU execution | Pending |
-| Restart, complete persisted index and valid unique Top-k IDs | Pending |
+| Restart, complete persisted index and valid unique Top-k IDs | GPU bridge cross-process check passed; full SQL restart pending |
 | SIFT and hidden-dataset Recall@10/@100 gates and baseline-relative decline | Pending |
 | Construction including first-query readiness and persistence | Pending |
 | 4,096 individual SQL query throughput, Top-10 and Top-100 | Pending |
@@ -478,7 +604,7 @@ to the sixth candidate; prior platform observations are recorded above.
 
 Measure the same inputs, SQL, resource limits and compilation flags in each
 paired run. Record both dataset results, Recall, build time, query throughput,
-peak memory and GPU-path evidence. This candidate targets repeated integration
-overhead; it does not yet tune the graph algorithm. Build-time gains may be
-limited if GPU graph construction dominates. No performance score is predicted
-from the host-only tests.
+peak memory and GPU-path evidence. This candidate addresses measured CPU thread
+contention and persistence overhead without changing graph construction
+parameters. No official performance score is predicted from these component
+tests, and sampled device-wide VRAM is not a substitute for the paired gate.

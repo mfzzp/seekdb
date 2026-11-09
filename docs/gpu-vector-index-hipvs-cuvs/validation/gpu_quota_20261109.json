@@ -1,0 +1,1205 @@
+{
+  "date": "2026-11-09",
+  "status": "real GPU component validation; full seekdb/official gates pending",
+  "parent_commit": "2caab0c9a1577b17ca2f7805c8b0d1f4f6c2aede",
+  "hipvs_commit": "f96a663d0a4441d6f5344bd3ef552b71ae7b370b",
+  "environment": {
+    "os": "Ubuntu 24.04.4",
+    "gpu": "AMD Radeon Graphics gfx1100",
+    "vram_bytes": 51522830336,
+    "cpu_model": "AMD EPYC 9334",
+    "affinity_cpus": 128,
+    "cpu_max": "1600000 100000",
+    "memory_max_bytes": 59055800320,
+    "rocm": "7.2.1",
+    "official_rocm": "7.2.4",
+    "official_cpu_and_ram": "24 CPUs, 96 GB; different from this diagnostic instance",
+    "compiler": "HIP/clang 22, GCC 13",
+    "hipvs_build": "Release, gfx1100, C API, CK backend, dynamic-only; frozen hipVS source unchanged (1677 archive files verified); dependency archives separately hashed"
+  },
+  "dependencies_sha256": {
+    "rocmds-cmake.tar.gz": "c57e1569c22ba244671034649395127139020be454c448c945e03324f9f8c523",
+    "hipraft.tar.gz": "d6d07ec6940d9fd529044fe3021937b593843e446cd70c64ccb6c55c1c43844b",
+    "hipmm.tar.gz": "6d5d0d85ea7d7a8277631e1b4311aa1742062752e98acbc1822ff5d0aa213b70",
+    "hipco.tar.gz": "209005e1cdfb1e793a7a792ec4731e0d0b2fe87f88532669d6666cc18e082cd3",
+    "dlpack.tar.gz": "cf965c26a5430ba4cc53d61963f288edddcd77443aa4c85ce722aaf1e2f29513",
+    "cmake.tar.gz": "630615d8e98ac33eba7fbe472626dff5c899c85af3c024585ae109166a6909d0",
+    "CPM.cmake": "c8cdc32c03816538ce22781ed72964dc864b2a34a310d3b7104812a5ca2d835d",
+    "libhipcxx.tar.gz": "f5f387cb227d936635417e894340bd987b79e5f6ba5e6227a09408f123038e8e",
+    "logger.tar.gz": "062eff0c4810fed216536f427208538fb61898b5d9b2e639e2750f7d742ba341",
+    "spdlog.tar.gz": "7d512b37019b61646cd6fd1e48f52a3cf3e098f36b33ba9c059fe51301ff40b3"
+  },
+  "source_sha256_lf_normalized": {
+    "src/oblib/lib/vector/cuvs_snapshot_format.h": "106b2e12c60237bea4e450b0d6289d0659d00e74570e4e46c38dc97165ad440a",
+    "src/oblib/lib/vector/ob_vsag_adaptor.cpp": "1bd2b275f57b9beed690faf376991f5cdfee438eb23b0a32a4214301b60a98ad",
+    "tools/hipvs_bridge/benchmark_build_phases.cpp": "a4d26928ef7374d3c351370d48817e4715bb3f2f94f936af71f28e7cdeae9681",
+    "tools/hipvs_bridge/benchmark_snapshot_transfer.cpp": "b4038e1e8392f387188321838c0ba2cce36066a95c23c687a6128a820f2317dc",
+    "tools/hipvs_bridge/build.sh": "bb5f177929508603e312d7eeb1b308eca8976fca1a5b48050b4ba67079fb0b6b",
+    "tools/hipvs_bridge/cuvs_cpu_budget.h": "06b5d1ff9fe0c6a806efae19cb1e3bab8db6110c949a7dce700475b8c77d8694",
+    "tools/hipvs_bridge/seekdb_cuvs_bridge.c": "35c7889ca966c016f667f52d4b0360bde9547d045f24c1b31377d8c9be3fb092",
+    "tools/hipvs_bridge/seekdb_cuvs_bridge.h": "338754b87a8b8f5fffbeb52c4c3d98c898b337732581e96ceeb008281e1f3bb2",
+    "tools/hipvs_bridge/test_build_quality.cpp": "a716cee6d92c6064dc0d27da5d7c2c7acb360a22e5a146e69e45b76bdc8d8414",
+    "tools/hipvs_bridge/test_persistence.cpp": "c87b93abc1ab3ef3ec3348d90413e8cb08ce330619aa64e58decd75aa230135e"
+  },
+  "host_package_source_sha256_lf_normalized": {
+    "unittest/oblib/vector/cuvs/CMakeLists.txt": "1f565bb66101c75817e4db622d75da135186ebc71d31b3f9e968bc8af1d75ca6",
+    "unittest/oblib/vector/cuvs/test_cuvs_bridge.cpp": "8538a5c672c12202545435556c60149bafed0f690a3e19536858ab62e398560c",
+    "unittest/oblib/vector/cuvs/test_cuvs_cpu_budget.cpp": "0037b906a01c5f50ddf4e14cfd15fd2df3d2b813c7dd61d0a9639fcb301b4b97",
+    "unittest/oblib/vector/cuvs/test_cuvs_row_batch.cpp": "be379612258995aa55a981a54ab4bca69eea4230943812cac63d66eac72acd03",
+    "unittest/oblib/vector/cuvs/test_cuvs_snapshot_codec.cpp": "35872b88fd75e4d56b85e476014716621e060dab2569f689278dc64ebaf3fdff",
+    "unittest/oblib/vector/cuvs/test_cuvs_snapshot_format.cpp": "9a37a12e6ba20044bc5b02846b54ec33e7fc0341ad15ed3f2e0b0c9cc03a98be",
+    "unittest/oblib/vector/cuvs/test_cuvs_snapshot_io.cpp": "5ae194fb21c2b211ef7cc7af47a75c4c6459c073e5dea8e6dd3e33ef7003fada",
+    "unittest/oblib/vector/cuvs/test_cuvs_worker.cpp": "c13953f47e73cfc4ee46ac3ffda22c774c9571eb7d6f65e1dcda78e8d5e48440",
+    "unittest/oblib/vector/cuvs/stubs/cuda_runtime.h": "d266e04069bc7c3cac3b6b62552d4a2e0b60cc7caca49db5cda8cb24baf7a10e",
+    "unittest/oblib/vector/cuvs/stubs/dlpack/dlpack.h": "f4cb5e2b841ee58e492b2123f48b8750b86734db5c38e815ae7aa7238d469873",
+    "unittest/oblib/vector/cuvs/stubs/cuvs/core/c_api.h": "7b9b41bc0735440a74b2065e00c19934fc8fc7faaf570c592a34a84af94684cf",
+    "unittest/oblib/vector/cuvs/stubs/cuvs/neighbors/cagra.h": "c276b7200e471647b6a3aeef7216b6d8984662a864d4b262f2a5f0d5a9745c89",
+    "src/oblib/lib/compress/zstd_1_3_8/CMakeLists.txt": "f771c5ede095ea8148433068e6d5246c8c843dc8bd3de3503146051c34efa2a0",
+    "src/oblib/lib/compress/zstd_1_3_8/ob_empty.c": "df45f60570f283f74723f528782b15d03ee9d46bee0699852fe5b8842074fa09",
+    "src/oblib/lib/compress/zstd_1_3_8/ob_zstd_compressor_1_3_8.cpp": "0f24ca2abd0b6ef3a40abc2febd90f158e62e80390350a5704a3d0a8ce4f6522",
+    "src/oblib/lib/compress/zstd_1_3_8/ob_zstd_compressor_1_3_8.h": "cf0843e6ddc47bcb32f84e35de8586d4fe18ce21f72bdb7c8b880c002f50cfaa",
+    "src/oblib/lib/compress/zstd_1_3_8/ob_zstd_wrapper.cpp": "d7deaddc227ec2af91461f62291f7020829e70596f0d34d67e9773c64d80bfb6",
+    "src/oblib/lib/compress/zstd_1_3_8/ob_zstd_wrapper.h": "7f584b611e10155a6303531324b7ad76208f56f830c91b355d34a1a74b54b167",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/bitstream.h": "5fc04eddd59a70fc627fca7fbdcf5eb25a0efd71fcf98f6aad17d0a10a9c1341",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/compiler.h": "00c2aa4da5ccdc85e2fe94db3e7b1f1022454733aa1105218a6213483ac1a695",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/cpu.h": "c0d117ffc8ebdb0683403d0beb68bd9dae786025fa68d576af1ba15e2a45c060",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/debug.c": "3a585aec8951b83a572590f75506f249e9c7ed5063928719b11d097bb09462c2",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/debug.h": "16508efa5774839e49d0f4e9f5f7f5fdeb747d7a1f4b1592b38e6668357800cd",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/entropy_common.c": "f426f0cb53dd750810efd4a73065a11bee04f41ac19eab3e4185d7fdbfa29ae6",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/error_private.c": "24e81f31b0ddf361610874515dff90d92d796cd3739e44be6a6f38c217f1cd47",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/error_private.h": "435424ae6cd318f20b73ee17e6fd4b03540b9c338d204485fda40e3efcf78c4b",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/fse.h": "efecd0c551574190d2d8ea3f8e7180ed0c78c8d48ef387e7a80db54bfc16896b",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/fse_compress.c": "b9a3807157ef6b9baffe8a61afd59673a9cdd591f6c357481b503755355bc64d",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/fse_decompress.c": "6be2abbb8ba97f49301bd3b2b79ed710428a33ade8c39d7ccca85c950afdb410",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/hist.c": "62abed5895582b11e8905df7e9325cab9960e14cac47eb01c9f0a5b19d78c7eb",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/hist.h": "6978df9774bf1ad8f25b6e34e047a10dd6acf56480e3285d352be0fa09f05a8c",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/huf.h": "4888f2c1059d01f329291e2c6f06b719a70276ba4169a09f6b750696e941b237",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/huf_compress.c": "b8a3ac562a86db454ec0c1d5b16bca1831b38fdc2db05c6e7ca56af55f5af32e",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/huf_decompress.c": "e481cfb33640a1ce97b8cbf3b9df807ebd493cc5a3bb4b5887e2a392462e517a",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/LICENSE": "2c1a7fa704df8f3a606f6fc010b8b5aaebf403f3aeec339a12048f1ba7331a0b",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/mem.h": "de3e12bd2b39e82030728c93edf4d7c3f75c569df3c6f89f1a592816cda8904b",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/pool.c": "33896972e5da34bc29267b593255e019536bd24b330598674b1fda4f47e58aa9",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/pool.h": "ffa4e69225f955664ad33cbdf7b08a706661a0a5f7d3f32f22da2cfa58ed4172",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/threading.c": "7fba81e04d5914470684c42cf630ee8c71f2b2c6d4a3a1d394baa7a4b9409347",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/threading.h": "9822983f6f64580afd64c9e113998902f587f7e27e02039100b4be5ad69c7055",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/xxhash.c": "0fcc6c9db86d368f7984e4fa49771f9f3d483ccc9f4b58796c40498747ffd182",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/xxhash.h": "6107aa2aa3fae5a32e347251220391bb751af0f1a38e4d8cded0860a9187dee3",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/zstd.h": "b119ea1dfdac796b5c3cdc87d48acf8da11f228b86ea4152592bbf815b2e99f7",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/zstdmt_compress.c": "c0287719c13b184f679dc380adadc6742533c8efd6746569f77130edc9bbaf7b",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/zstdmt_compress.h": "cb1ffc43caf3d80d27d6a8d19de55f14f4ad5039ab374b7de436238874252ef7",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/zstd_common.c": "2d69dfbee723a54569b7f93ba58424245ac3dde1651f0228d69910b398237b07",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/zstd_compress.c": "277c5ec6d54ff579e1ad969c73b9d5663abd1fd27bc9599899a158396206033b",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/zstd_compress_internal.h": "99ae18d460636fd92fa8642cc44f9813bfdd001bac942d12b4ea78129179121b",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/zstd_ddict.c": "01135bc7b70e1b71534d4ea6e2d80773c02c1c59627fa81f5e5b76537d92bb9f",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/zstd_ddict.h": "92eb6d1982f85f22b1c3d0af9644a6ba12c8eb55e8732da88e102878d2f04fa3",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/zstd_decompress.c": "6305fd3a8f08b1bc0e84caa770a467b74c8ad209ad5b726816623172595a4840",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/zstd_decompress_block.c": "32532329d182bc1287f900271f217e2a22340f44022ee2edcd756836d93a57db",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/zstd_decompress_block.h": "12d44dc6db13e9533cf647c64eff47a84223b2477910291a48a293dd2f97d3dc",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/zstd_decompress_internal.h": "b868a0c04e07a7e673fc5f2ca910ae21ed890c1743ff70bbec6a3d930674ffab",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/zstd_double_fast.c": "d3c16988424f1964eb8b757e90850bcc44be9a0d69bbd34af8ee0454417d1ae1",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/zstd_double_fast.h": "a55f3f0d9e6fdffbfdad9351d0e4ddac34611cbe0d1775b91841aa799dd3f01c",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/zstd_errors.h": "69cb24d5fa4d9564a06cb238001d94c5f9c2c1ba9e1128ea280c389b4877b918",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/zstd_fast.c": "c779059533844a3e01e94acb9126eaa985f3823eed831d42e8883efdec11e03e",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/zstd_fast.h": "5b3244b41e8bb90174052a834823e6f43fd61b10a6a1b31444db96a3610213d4",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/zstd_internal.h": "26b9a91b954996e0e1af8ab2ba5df1610d2ba1313bb7ee586498027a1ce3ab56",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/zstd_lazy.c": "dc62a283bfb09e89ffcde0621c24a2970e98cb76124841e4957acc36f89429f7",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/zstd_lazy.h": "6582209ffaf6e210f41239fb3c0ce465a896599ba73004906c28ad43a0afac4e",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/zstd_ldm.c": "9b8e27c902883282d4b716030c934f28a90032463ee213f5cecf7eac314aa7ef",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/zstd_ldm.h": "89b1819441adb1accf4b61d6df7f1a7bc094515f7728610259320bb343055e4f",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/zstd_opt.c": "c1bca7b6f61e384a57615bcddb51df2df2081fc33c48633b9604934b068108cb",
+    "src/oblib/lib/compress/zstd_1_3_8/zstd_src/zstd_opt.h": "268f211e36786c5d63df409fc32e09ad2ac9f619aa374a841331d1c02fced790",
+    "src/oblib/lib/hash_func/murmur_hash.h": "b7071c83aeeef930d89b15965c5d3db426a0226360539e6d5e6ef8adf26d1504",
+    "src/oblib/lib/vector/cuvs_worker.h": "f018ae4f2a26ecf11702654b5758ff16c7a50cca8c7767d29423b753e70c398f",
+    "src/oblib/lib/vector/cuvs_row_batch.h": "17d0b31d5674a3c8c59ced19d32e0e40f46ddc32b3a6918e01ef64a74583b4a9",
+    "src/oblib/lib/vector/cuvs_snapshot_io.h": "8591ab0b943b74b378cbba81e8ac0f49c03984796e434ff7f9a854d535b55428",
+    "src/oblib/lib/vector/cuvs_snapshot_format.h": "106b2e12c60237bea4e450b0d6289d0659d00e74570e4e46c38dc97165ad440a",
+    "src/oblib/lib/vector/cuvs_snapshot_codec.h": "f2877f85d871ac025e786df0747467a1419e59f6df97e16c6a3b3f7061a868e7",
+    "tools/hipvs_bridge/seekdb_cuvs_bridge.c": "35c7889ca966c016f667f52d4b0360bde9547d045f24c1b31377d8c9be3fb092",
+    "tools/hipvs_bridge/seekdb_cuvs_bridge.h": "338754b87a8b8f5fffbeb52c4c3d98c898b337732581e96ceeb008281e1f3bb2",
+    "tools/hipvs_bridge/cuvs_cpu_budget.h": "06b5d1ff9fe0c6a806efae19cb1e3bab8db6110c949a7dce700475b8c77d8694"
+  },
+  "tested_bridge_sha256": "b04087a8f73c6022aa7f370d90cf6cdb3b1203c68f7d3f3f9751d5257b55b3ca",
+  "baseline_bridge": {
+    "source_sha256": "285ee58148c62f74c1ca12ff7ee8765bd405b2acb866cdd4a57e1730b233b3ea",
+    "binary_sha256": "5047611d8fc3955197897858a8fbc0351de7929ccff1318d2879ec58b82bcced",
+    "difference_from_parent": "error logging moved before synchronization only; build/search algorithm and candidate counts unchanged"
+  },
+  "backup_sha256": {
+    "validation-20261109.tar.gz": "7f1fd11bfb4483093c418a1cb13a2062eeee039325680e8f646ad9a34308dce1",
+    "hipvs-runtime-20261109.tar.gz": "39620c7a23c98482eb8ae09111342c4501f4e26be2029f92007bc80bd0da22b6"
+  },
+  "thread_ab": {
+    "method": "same parent bridge, six fresh processes in 128/16/16/128/128/16 order; synthetic 65536 x 128 full FP32; verified snapshots/IDs/distances",
+    "runs": [
+      {
+        "run": 0,
+        "threads": 128,
+        "command": [
+          "/workspace/seekdb-amd-study/validation/gpu_phase_probe",
+          "65536",
+          "128",
+          "/workspace/seekdb-amd-study/validation/thread-pair-0-128.bin"
+        ],
+        "exit_code": 0,
+        "timed_out": false,
+        "wall_seconds": 19.48192622512579,
+        "sampled_device_vram_peak_bytes": 11666362368,
+        "vram_sampling_seconds": 0.05,
+        "cgroup_cpu_stat_before": "usage_usec 4774231732\nuser_usec 4527366416\nsystem_usec 246865316\ncore_sched.force_idle_usec 0\nnr_periods 6715\nnr_throttled 74\nthrottled_usec 95603393\nnr_bursts 0\nburst_usec 0\n",
+        "cgroup_cpu_stat_after": "usage_usec 5064838612\nuser_usec 4677941545\nsystem_usec 386897067\ncore_sched.force_idle_usec 0\nnr_periods 6910\nnr_throttled 254\nthrottled_usec 1590677184\nnr_bursts 0\nburst_usec 0\n",
+        "output": "[seekdb_cuvs] build complete algo=nn_descent n=65536 dim=128 graph_degree=128 intermediate_degree=256\nfixture=synthetic_uniform n=65536 dim=128 build_ms=19000.474 serialize_ms=93.980 reload_ms=52.753 export_ms=2.573 first_query_ms=17.281 snapshot_bytes=67110577 verified=1\n",
+        "metrics": {
+          "fixture": "synthetic_uniform",
+          "n": 65536,
+          "dim": 128,
+          "build_ms": 19000.474,
+          "serialize_ms": 93.98,
+          "reload_ms": 52.753,
+          "export_ms": 2.573,
+          "first_query_ms": 17.281,
+          "snapshot_bytes": 67110577,
+          "verified": 1
+        }
+      },
+      {
+        "run": 1,
+        "threads": 16,
+        "command": [
+          "/workspace/seekdb-amd-study/validation/gpu_phase_probe",
+          "65536",
+          "128",
+          "/workspace/seekdb-amd-study/validation/thread-pair-1-16.bin"
+        ],
+        "exit_code": 0,
+        "timed_out": false,
+        "wall_seconds": 6.068663902580738,
+        "sampled_device_vram_peak_bytes": 11666362368,
+        "vram_sampling_seconds": 0.05,
+        "cgroup_cpu_stat_before": "usage_usec 5064838612\nuser_usec 4677941545\nsystem_usec 386897067\ncore_sched.force_idle_usec 0\nnr_periods 6910\nnr_throttled 254\nthrottled_usec 1590677184\nnr_bursts 0\nburst_usec 0\n",
+        "cgroup_cpu_stat_after": "usage_usec 5141473690\nuser_usec 4747978831\nsystem_usec 393494858\ncore_sched.force_idle_usec 0\nnr_periods 6970\nnr_throttled 298\nthrottled_usec 1649672156\nnr_bursts 0\nburst_usec 0\n",
+        "output": "[seekdb_cuvs] build complete algo=nn_descent n=65536 dim=128 graph_degree=128 intermediate_degree=256\nfixture=synthetic_uniform n=65536 dim=128 build_ms=5585.234 serialize_ms=103.669 reload_ms=51.512 export_ms=5.163 first_query_ms=17.316 snapshot_bytes=67110577 verified=1\n",
+        "metrics": {
+          "fixture": "synthetic_uniform",
+          "n": 65536,
+          "dim": 128,
+          "build_ms": 5585.234,
+          "serialize_ms": 103.669,
+          "reload_ms": 51.512,
+          "export_ms": 5.163,
+          "first_query_ms": 17.316,
+          "snapshot_bytes": 67110577,
+          "verified": 1
+        }
+      },
+      {
+        "run": 2,
+        "threads": 16,
+        "command": [
+          "/workspace/seekdb-amd-study/validation/gpu_phase_probe",
+          "65536",
+          "128",
+          "/workspace/seekdb-amd-study/validation/thread-pair-2-16.bin"
+        ],
+        "exit_code": 0,
+        "timed_out": false,
+        "wall_seconds": 6.011110041290522,
+        "sampled_device_vram_peak_bytes": 11666362368,
+        "vram_sampling_seconds": 0.05,
+        "cgroup_cpu_stat_before": "usage_usec 5141473690\nuser_usec 4747978831\nsystem_usec 393494858\ncore_sched.force_idle_usec 0\nnr_periods 6970\nnr_throttled 298\nthrottled_usec 1649672156\nnr_bursts 0\nburst_usec 0\n",
+        "cgroup_cpu_stat_after": "usage_usec 5218522091\nuser_usec 4818310487\nsystem_usec 400211604\ncore_sched.force_idle_usec 0\nnr_periods 7030\nnr_throttled 343\nthrottled_usec 1709848905\nnr_bursts 0\nburst_usec 0\n",
+        "output": "[seekdb_cuvs] build complete algo=nn_descent n=65536 dim=128 graph_degree=128 intermediate_degree=256\nfixture=synthetic_uniform n=65536 dim=128 build_ms=5610.628 serialize_ms=91.446 reload_ms=51.820 export_ms=2.542 first_query_ms=15.816 snapshot_bytes=67110577 verified=1\n",
+        "metrics": {
+          "fixture": "synthetic_uniform",
+          "n": 65536,
+          "dim": 128,
+          "build_ms": 5610.628,
+          "serialize_ms": 91.446,
+          "reload_ms": 51.82,
+          "export_ms": 2.542,
+          "first_query_ms": 15.816,
+          "snapshot_bytes": 67110577,
+          "verified": 1
+        }
+      },
+      {
+        "run": 3,
+        "threads": 128,
+        "command": [
+          "/workspace/seekdb-amd-study/validation/gpu_phase_probe",
+          "65536",
+          "128",
+          "/workspace/seekdb-amd-study/validation/thread-pair-3-128.bin"
+        ],
+        "exit_code": 0,
+        "timed_out": false,
+        "wall_seconds": 21.46863099001348,
+        "sampled_device_vram_peak_bytes": 11666362368,
+        "vram_sampling_seconds": 0.05,
+        "cgroup_cpu_stat_before": "usage_usec 5218522359\nuser_usec 4818310487\nsystem_usec 400211872\ncore_sched.force_idle_usec 0\nnr_periods 7030\nnr_throttled 343\nthrottled_usec 1709848905\nnr_bursts 0\nburst_usec 0\n",
+        "cgroup_cpu_stat_after": "usage_usec 5541339574\nuser_usec 4976255188\nsystem_usec 565084385\ncore_sched.force_idle_usec 0\nnr_periods 7245\nnr_throttled 543\nthrottled_usec 3602135417\nnr_bursts 0\nburst_usec 0\n",
+        "output": "[seekdb_cuvs] build complete algo=nn_descent n=65536 dim=128 graph_degree=128 intermediate_degree=256\nfixture=synthetic_uniform n=65536 dim=128 build_ms=21041.209 serialize_ms=89.298 reload_ms=52.162 export_ms=2.506 first_query_ms=16.039 snapshot_bytes=67110577 verified=1\n",
+        "metrics": {
+          "fixture": "synthetic_uniform",
+          "n": 65536,
+          "dim": 128,
+          "build_ms": 21041.209,
+          "serialize_ms": 89.298,
+          "reload_ms": 52.162,
+          "export_ms": 2.506,
+          "first_query_ms": 16.039,
+          "snapshot_bytes": 67110577,
+          "verified": 1
+        }
+      },
+      {
+        "run": 4,
+        "threads": 128,
+        "command": [
+          "/workspace/seekdb-amd-study/validation/gpu_phase_probe",
+          "65536",
+          "128",
+          "/workspace/seekdb-amd-study/validation/thread-pair-4-128.bin"
+        ],
+        "exit_code": 0,
+        "timed_out": false,
+        "wall_seconds": 22.599875669926405,
+        "sampled_device_vram_peak_bytes": 16560881664,
+        "vram_sampling_seconds": 0.05,
+        "cgroup_cpu_stat_before": "usage_usec 5541339574\nuser_usec 4976255188\nsystem_usec 565084385\ncore_sched.force_idle_usec 0\nnr_periods 7245\nnr_throttled 543\nthrottled_usec 3602135417\nnr_bursts 0\nburst_usec 0\n",
+        "cgroup_cpu_stat_after": "usage_usec 5882162367\nuser_usec 5146408296\nsystem_usec 735754070\ncore_sched.force_idle_usec 0\nnr_periods 7471\nnr_throttled 755\nthrottled_usec 5515647190\nnr_bursts 0\nburst_usec 0\n",
+        "output": "[seekdb_cuvs] build complete algo=nn_descent n=65536 dim=128 graph_degree=128 intermediate_degree=256\nfixture=synthetic_uniform n=65536 dim=128 build_ms=22161.972 serialize_ms=89.817 reload_ms=51.828 export_ms=2.507 first_query_ms=17.199 snapshot_bytes=67110577 verified=1\n",
+        "metrics": {
+          "fixture": "synthetic_uniform",
+          "n": 65536,
+          "dim": 128,
+          "build_ms": 22161.972,
+          "serialize_ms": 89.817,
+          "reload_ms": 51.828,
+          "export_ms": 2.507,
+          "first_query_ms": 17.199,
+          "snapshot_bytes": 67110577,
+          "verified": 1
+        }
+      },
+      {
+        "run": 5,
+        "threads": 16,
+        "command": [
+          "/workspace/seekdb-amd-study/validation/gpu_phase_probe",
+          "65536",
+          "128",
+          "/workspace/seekdb-amd-study/validation/thread-pair-5-16.bin"
+        ],
+        "exit_code": 0,
+        "timed_out": false,
+        "wall_seconds": 6.2092957906425,
+        "sampled_device_vram_peak_bytes": 16560881664,
+        "vram_sampling_seconds": 0.05,
+        "cgroup_cpu_stat_before": "usage_usec 5882163048\nuser_usec 5146408978\nsystem_usec 735754070\ncore_sched.force_idle_usec 0\nnr_periods 7471\nnr_throttled 755\nthrottled_usec 5515647190\nnr_bursts 0\nburst_usec 0\n",
+        "cgroup_cpu_stat_after": "usage_usec 5962584113\nuser_usec 5219560164\nsystem_usec 743023948\ncore_sched.force_idle_usec 0\nnr_periods 7533\nnr_throttled 799\nthrottled_usec 5573718549\nnr_bursts 0\nburst_usec 0\n",
+        "output": "[seekdb_cuvs] build complete algo=nn_descent n=65536 dim=128 graph_degree=128 intermediate_degree=256\nfixture=synthetic_uniform n=65536 dim=128 build_ms=5817.339 serialize_ms=92.467 reload_ms=57.728 export_ms=4.065 first_query_ms=16.024 snapshot_bytes=67110577 verified=1\n",
+        "metrics": {
+          "fixture": "synthetic_uniform",
+          "n": 65536,
+          "dim": 128,
+          "build_ms": 5817.339,
+          "serialize_ms": 92.467,
+          "reload_ms": 57.728,
+          "export_ms": 4.065,
+          "first_query_ms": 16.024,
+          "snapshot_bytes": 67110577,
+          "verified": 1
+        }
+      }
+    ],
+    "mean_build_ms": {
+      "128": 20734.551666666666,
+      "16": 5671.067,
+      "candidate_auto": 5604.71
+    },
+    "auto_vs_parent_build_speedup": 3.6994869791062635,
+    "limitations": "bridge build call only; excludes SQL scanning, publication and official first-query readiness; VRAM observations are sampled device-wide, not official peaks/gates"
+  },
+  "candidate_auto_phases": [
+    {
+      "fixture": "synthetic_uniform",
+      "n": 65536,
+      "dim": 128,
+      "build_ms": 5614.364,
+      "serialize_ms": 97.148,
+      "reload_ms": 51.84,
+      "export_ms": 2.566,
+      "first_query_ms": 16.216,
+      "snapshot_bytes": 67110577,
+      "verified": 1
+    },
+    {
+      "fixture": "synthetic_uniform",
+      "n": 65536,
+      "dim": 128,
+      "build_ms": 5661.864,
+      "serialize_ms": 93.46,
+      "reload_ms": 52.402,
+      "export_ms": 4.133,
+      "first_query_ms": 16.816,
+      "snapshot_bytes": 67110577,
+      "verified": 1
+    },
+    {
+      "fixture": "synthetic_uniform",
+      "n": 65536,
+      "dim": 128,
+      "build_ms": 5537.902,
+      "serialize_ms": 90.967,
+      "reload_ms": 52.86,
+      "export_ms": 4.443,
+      "first_query_ms": 15.283,
+      "snapshot_bytes": 67110577,
+      "verified": 1
+    }
+  ],
+  "recall": {
+    "method": "same driver/input with 64 deterministic probes, exact double-precision CPU reference; uniform and clustered synthetic data; fresh build/reload",
+    "runs": {
+      "baseline": [
+        {
+          "n": 256,
+          "dim": 33,
+          "clustered": 0,
+          "phase": "built",
+          "topk": 10,
+          "recall": 1.0,
+          "build_ms": 968.208,
+          "serialize_ms": 97.505,
+          "search_and_check_ms": 191.557
+        },
+        {
+          "n": 256,
+          "dim": 33,
+          "clustered": 0,
+          "phase": "built",
+          "topk": 100,
+          "recall": 1.0,
+          "build_ms": 968.208,
+          "serialize_ms": 97.505,
+          "search_and_check_ms": 87.353
+        },
+        {
+          "n": 256,
+          "dim": 33,
+          "clustered": 0,
+          "phase": "reloaded",
+          "topk": 10,
+          "recall": 1.0,
+          "build_ms": 968.208,
+          "serialize_ms": 97.505,
+          "search_and_check_ms": 86.81
+        },
+        {
+          "n": 256,
+          "dim": 33,
+          "clustered": 0,
+          "phase": "reloaded",
+          "topk": 100,
+          "recall": 1.0,
+          "build_ms": 968.208,
+          "serialize_ms": 97.505,
+          "search_and_check_ms": 87.302
+        },
+        {
+          "n": 512,
+          "dim": 33,
+          "clustered": 0,
+          "phase": "built",
+          "topk": 10,
+          "recall": 1.0,
+          "build_ms": 3640.352,
+          "serialize_ms": 0.589,
+          "search_and_check_ms": 300.391
+        },
+        {
+          "n": 512,
+          "dim": 33,
+          "clustered": 0,
+          "phase": "built",
+          "topk": 100,
+          "recall": 1.0,
+          "build_ms": 3640.352,
+          "serialize_ms": 0.589,
+          "search_and_check_ms": 127.98
+        },
+        {
+          "n": 512,
+          "dim": 33,
+          "clustered": 0,
+          "phase": "reloaded",
+          "topk": 10,
+          "recall": 1.0,
+          "build_ms": 3640.352,
+          "serialize_ms": 0.589,
+          "search_and_check_ms": 127.278
+        },
+        {
+          "n": 512,
+          "dim": 33,
+          "clustered": 0,
+          "phase": "reloaded",
+          "topk": 100,
+          "recall": 1.0,
+          "build_ms": 3640.352,
+          "serialize_ms": 0.589,
+          "search_and_check_ms": 127.837
+        },
+        {
+          "n": 513,
+          "dim": 33,
+          "clustered": 0,
+          "phase": "built",
+          "topk": 10,
+          "recall": 1.0,
+          "build_ms": 7913.434,
+          "serialize_ms": 0.493,
+          "search_and_check_ms": 306.711
+        },
+        {
+          "n": 513,
+          "dim": 33,
+          "clustered": 0,
+          "phase": "built",
+          "topk": 100,
+          "recall": 1.0,
+          "build_ms": 7913.434,
+          "serialize_ms": 0.493,
+          "search_and_check_ms": 135.66
+        },
+        {
+          "n": 513,
+          "dim": 33,
+          "clustered": 0,
+          "phase": "reloaded",
+          "topk": 10,
+          "recall": 1.0,
+          "build_ms": 7913.434,
+          "serialize_ms": 0.493,
+          "search_and_check_ms": 134.963
+        },
+        {
+          "n": 513,
+          "dim": 33,
+          "clustered": 0,
+          "phase": "reloaded",
+          "topk": 100,
+          "recall": 1.0,
+          "build_ms": 7913.434,
+          "serialize_ms": 0.493,
+          "search_and_check_ms": 135.616
+        },
+        {
+          "n": 65536,
+          "dim": 128,
+          "clustered": 0,
+          "phase": "built",
+          "topk": 10,
+          "recall": 0.998437,
+          "build_ms": 22466.875,
+          "serialize_ms": 82.588,
+          "search_and_check_ms": 173.505
+        },
+        {
+          "n": 65536,
+          "dim": 128,
+          "clustered": 0,
+          "phase": "built",
+          "topk": 100,
+          "recall": 0.998594,
+          "build_ms": 22466.875,
+          "serialize_ms": 82.588,
+          "search_and_check_ms": 175.09
+        },
+        {
+          "n": 65536,
+          "dim": 128,
+          "clustered": 0,
+          "phase": "reloaded",
+          "topk": 10,
+          "recall": 0.998437,
+          "build_ms": 22466.875,
+          "serialize_ms": 82.588,
+          "search_and_check_ms": 173.207
+        },
+        {
+          "n": 65536,
+          "dim": 128,
+          "clustered": 0,
+          "phase": "reloaded",
+          "topk": 100,
+          "recall": 0.998594,
+          "build_ms": 22466.875,
+          "serialize_ms": 82.588,
+          "search_and_check_ms": 175.04
+        },
+        {
+          "n": 65536,
+          "dim": 256,
+          "clustered": 1,
+          "phase": "built",
+          "topk": 10,
+          "recall": 1.0,
+          "build_ms": 22348.501,
+          "serialize_ms": 122.814,
+          "search_and_check_ms": 194.701
+        },
+        {
+          "n": 65536,
+          "dim": 256,
+          "clustered": 1,
+          "phase": "built",
+          "topk": 100,
+          "recall": 0.998437,
+          "build_ms": 22348.501,
+          "serialize_ms": 122.814,
+          "search_and_check_ms": 195.408
+        },
+        {
+          "n": 65536,
+          "dim": 256,
+          "clustered": 1,
+          "phase": "reloaded",
+          "topk": 10,
+          "recall": 1.0,
+          "build_ms": 22348.501,
+          "serialize_ms": 122.814,
+          "search_and_check_ms": 192.844
+        },
+        {
+          "n": 65536,
+          "dim": 256,
+          "clustered": 1,
+          "phase": "reloaded",
+          "topk": 100,
+          "recall": 0.998437,
+          "build_ms": 22348.501,
+          "serialize_ms": 122.814,
+          "search_and_check_ms": 195.383
+        }
+      ],
+      "candidate": [
+        {
+          "n": 256,
+          "dim": 33,
+          "clustered": 0,
+          "phase": "built",
+          "topk": 10,
+          "recall": 1.0,
+          "build_ms": 275.015,
+          "serialize_ms": 10.686,
+          "search_and_check_ms": 157.275
+        },
+        {
+          "n": 256,
+          "dim": 33,
+          "clustered": 0,
+          "phase": "built",
+          "topk": 100,
+          "recall": 1.0,
+          "build_ms": 275.015,
+          "serialize_ms": 10.686,
+          "search_and_check_ms": 131.492
+        },
+        {
+          "n": 256,
+          "dim": 33,
+          "clustered": 0,
+          "phase": "reloaded",
+          "topk": 10,
+          "recall": 1.0,
+          "build_ms": 275.015,
+          "serialize_ms": 10.686,
+          "search_and_check_ms": 86.87
+        },
+        {
+          "n": 256,
+          "dim": 33,
+          "clustered": 0,
+          "phase": "reloaded",
+          "topk": 100,
+          "recall": 1.0,
+          "build_ms": 275.015,
+          "serialize_ms": 10.686,
+          "search_and_check_ms": 87.328
+        },
+        {
+          "n": 512,
+          "dim": 33,
+          "clustered": 0,
+          "phase": "built",
+          "topk": 10,
+          "recall": 1.0,
+          "build_ms": 63.507,
+          "serialize_ms": 0.562,
+          "search_and_check_ms": 212.597
+        },
+        {
+          "n": 512,
+          "dim": 33,
+          "clustered": 0,
+          "phase": "built",
+          "topk": 100,
+          "recall": 1.0,
+          "build_ms": 63.507,
+          "serialize_ms": 0.562,
+          "search_and_check_ms": 127.919
+        },
+        {
+          "n": 512,
+          "dim": 33,
+          "clustered": 0,
+          "phase": "reloaded",
+          "topk": 10,
+          "recall": 1.0,
+          "build_ms": 63.507,
+          "serialize_ms": 0.562,
+          "search_and_check_ms": 132.455
+        },
+        {
+          "n": 512,
+          "dim": 33,
+          "clustered": 0,
+          "phase": "reloaded",
+          "topk": 100,
+          "recall": 1.0,
+          "build_ms": 63.507,
+          "serialize_ms": 0.562,
+          "search_and_check_ms": 128.066
+        },
+        {
+          "n": 513,
+          "dim": 33,
+          "clustered": 0,
+          "phase": "built",
+          "topk": 10,
+          "recall": 1.0,
+          "build_ms": 84.5,
+          "serialize_ms": 0.568,
+          "search_and_check_ms": 224.518
+        },
+        {
+          "n": 513,
+          "dim": 33,
+          "clustered": 0,
+          "phase": "built",
+          "topk": 100,
+          "recall": 1.0,
+          "build_ms": 84.5,
+          "serialize_ms": 0.568,
+          "search_and_check_ms": 135.812
+        },
+        {
+          "n": 513,
+          "dim": 33,
+          "clustered": 0,
+          "phase": "reloaded",
+          "topk": 10,
+          "recall": 1.0,
+          "build_ms": 84.5,
+          "serialize_ms": 0.568,
+          "search_and_check_ms": 135.314
+        },
+        {
+          "n": 513,
+          "dim": 33,
+          "clustered": 0,
+          "phase": "reloaded",
+          "topk": 100,
+          "recall": 1.0,
+          "build_ms": 84.5,
+          "serialize_ms": 0.568,
+          "search_and_check_ms": 135.821
+        },
+        {
+          "n": 65536,
+          "dim": 128,
+          "clustered": 0,
+          "phase": "built",
+          "topk": 10,
+          "recall": 0.998437,
+          "build_ms": 5697.156,
+          "serialize_ms": 88.974,
+          "search_and_check_ms": 173.388
+        },
+        {
+          "n": 65536,
+          "dim": 128,
+          "clustered": 0,
+          "phase": "built",
+          "topk": 100,
+          "recall": 0.99875,
+          "build_ms": 5697.156,
+          "serialize_ms": 88.974,
+          "search_and_check_ms": 175.058
+        },
+        {
+          "n": 65536,
+          "dim": 128,
+          "clustered": 0,
+          "phase": "reloaded",
+          "topk": 10,
+          "recall": 0.998437,
+          "build_ms": 5697.156,
+          "serialize_ms": 88.974,
+          "search_and_check_ms": 173.49
+        },
+        {
+          "n": 65536,
+          "dim": 128,
+          "clustered": 0,
+          "phase": "reloaded",
+          "topk": 100,
+          "recall": 0.99875,
+          "build_ms": 5697.156,
+          "serialize_ms": 88.974,
+          "search_and_check_ms": 175.313
+        },
+        {
+          "n": 65536,
+          "dim": 256,
+          "clustered": 1,
+          "phase": "built",
+          "topk": 10,
+          "recall": 1.0,
+          "build_ms": 6172.311,
+          "serialize_ms": 129.419,
+          "search_and_check_ms": 194.278
+        },
+        {
+          "n": 65536,
+          "dim": 256,
+          "clustered": 1,
+          "phase": "built",
+          "topk": 100,
+          "recall": 0.998125,
+          "build_ms": 6172.311,
+          "serialize_ms": 129.419,
+          "search_and_check_ms": 195.714
+        },
+        {
+          "n": 65536,
+          "dim": 256,
+          "clustered": 1,
+          "phase": "reloaded",
+          "topk": 10,
+          "recall": 1.0,
+          "build_ms": 6172.311,
+          "serialize_ms": 129.419,
+          "search_and_check_ms": 192.686
+        },
+        {
+          "n": 65536,
+          "dim": 256,
+          "clustered": 1,
+          "phase": "reloaded",
+          "topk": 100,
+          "recall": 0.998125,
+          "build_ms": 6172.311,
+          "serialize_ms": 129.419,
+          "search_and_check_ms": 195.409
+        }
+      ]
+    },
+    "paired_deltas": [
+      {
+        "n": 256,
+        "dim": 33,
+        "clustered": 0,
+        "phase": "built",
+        "topk": 10,
+        "baseline_recall": 1.0,
+        "candidate_recall": 1.0,
+        "delta": 0.0
+      },
+      {
+        "n": 256,
+        "dim": 33,
+        "clustered": 0,
+        "phase": "built",
+        "topk": 100,
+        "baseline_recall": 1.0,
+        "candidate_recall": 1.0,
+        "delta": 0.0
+      },
+      {
+        "n": 256,
+        "dim": 33,
+        "clustered": 0,
+        "phase": "reloaded",
+        "topk": 10,
+        "baseline_recall": 1.0,
+        "candidate_recall": 1.0,
+        "delta": 0.0
+      },
+      {
+        "n": 256,
+        "dim": 33,
+        "clustered": 0,
+        "phase": "reloaded",
+        "topk": 100,
+        "baseline_recall": 1.0,
+        "candidate_recall": 1.0,
+        "delta": 0.0
+      },
+      {
+        "n": 512,
+        "dim": 33,
+        "clustered": 0,
+        "phase": "built",
+        "topk": 10,
+        "baseline_recall": 1.0,
+        "candidate_recall": 1.0,
+        "delta": 0.0
+      },
+      {
+        "n": 512,
+        "dim": 33,
+        "clustered": 0,
+        "phase": "built",
+        "topk": 100,
+        "baseline_recall": 1.0,
+        "candidate_recall": 1.0,
+        "delta": 0.0
+      },
+      {
+        "n": 512,
+        "dim": 33,
+        "clustered": 0,
+        "phase": "reloaded",
+        "topk": 10,
+        "baseline_recall": 1.0,
+        "candidate_recall": 1.0,
+        "delta": 0.0
+      },
+      {
+        "n": 512,
+        "dim": 33,
+        "clustered": 0,
+        "phase": "reloaded",
+        "topk": 100,
+        "baseline_recall": 1.0,
+        "candidate_recall": 1.0,
+        "delta": 0.0
+      },
+      {
+        "n": 513,
+        "dim": 33,
+        "clustered": 0,
+        "phase": "built",
+        "topk": 10,
+        "baseline_recall": 1.0,
+        "candidate_recall": 1.0,
+        "delta": 0.0
+      },
+      {
+        "n": 513,
+        "dim": 33,
+        "clustered": 0,
+        "phase": "built",
+        "topk": 100,
+        "baseline_recall": 1.0,
+        "candidate_recall": 1.0,
+        "delta": 0.0
+      },
+      {
+        "n": 513,
+        "dim": 33,
+        "clustered": 0,
+        "phase": "reloaded",
+        "topk": 10,
+        "baseline_recall": 1.0,
+        "candidate_recall": 1.0,
+        "delta": 0.0
+      },
+      {
+        "n": 513,
+        "dim": 33,
+        "clustered": 0,
+        "phase": "reloaded",
+        "topk": 100,
+        "baseline_recall": 1.0,
+        "candidate_recall": 1.0,
+        "delta": 0.0
+      },
+      {
+        "n": 65536,
+        "dim": 128,
+        "clustered": 0,
+        "phase": "built",
+        "topk": 10,
+        "baseline_recall": 0.998437,
+        "candidate_recall": 0.998437,
+        "delta": 0.0
+      },
+      {
+        "n": 65536,
+        "dim": 128,
+        "clustered": 0,
+        "phase": "built",
+        "topk": 100,
+        "baseline_recall": 0.998594,
+        "candidate_recall": 0.99875,
+        "delta": 0.000156000000000045
+      },
+      {
+        "n": 65536,
+        "dim": 128,
+        "clustered": 0,
+        "phase": "reloaded",
+        "topk": 10,
+        "baseline_recall": 0.998437,
+        "candidate_recall": 0.998437,
+        "delta": 0.0
+      },
+      {
+        "n": 65536,
+        "dim": 128,
+        "clustered": 0,
+        "phase": "reloaded",
+        "topk": 100,
+        "baseline_recall": 0.998594,
+        "candidate_recall": 0.99875,
+        "delta": 0.000156000000000045
+      },
+      {
+        "n": 65536,
+        "dim": 256,
+        "clustered": 1,
+        "phase": "built",
+        "topk": 10,
+        "baseline_recall": 1.0,
+        "candidate_recall": 1.0,
+        "delta": 0.0
+      },
+      {
+        "n": 65536,
+        "dim": 256,
+        "clustered": 1,
+        "phase": "built",
+        "topk": 100,
+        "baseline_recall": 0.998437,
+        "candidate_recall": 0.998125,
+        "delta": -0.00031199999999997896
+      },
+      {
+        "n": 65536,
+        "dim": 256,
+        "clustered": 1,
+        "phase": "reloaded",
+        "topk": 10,
+        "baseline_recall": 1.0,
+        "candidate_recall": 1.0,
+        "delta": 0.0
+      },
+      {
+        "n": 65536,
+        "dim": 256,
+        "clustered": 1,
+        "phase": "reloaded",
+        "topk": 100,
+        "baseline_recall": 0.998437,
+        "candidate_recall": 0.998125,
+        "delta": -0.00031199999999997896
+      }
+    ],
+    "minimum_delta": -0.00031199999999997896,
+    "limitations": "not SIFT or hidden250k; only one build per fixture/version, hence does not establish official Recall or variance"
+  },
+  "snapshot_transfer": {
+    "method": "actual 67110577-byte hipVS snapshot, alternating formats with warmup and five samples per format; buffered filesystem output and tmpfile restore; byte equality each run",
+    "runs": [
+      {
+        "sample": 0,
+        "format": "v4",
+        "raw_bytes": 67110577,
+        "stored_bytes": 51405159,
+        "save_ms": 113.359,
+        "restore_ms": 83.258,
+        "verified": 1
+      },
+      {
+        "sample": 0,
+        "format": "v3",
+        "raw_bytes": 67110577,
+        "stored_bytes": 67110577,
+        "save_ms": 47.899,
+        "restore_ms": 34.333,
+        "verified": 1
+      },
+      {
+        "sample": 1,
+        "format": "v3",
+        "raw_bytes": 67110577,
+        "stored_bytes": 67110577,
+        "save_ms": 47.039,
+        "restore_ms": 33.359,
+        "verified": 1
+      },
+      {
+        "sample": 1,
+        "format": "v4",
+        "raw_bytes": 67110577,
+        "stored_bytes": 51405159,
+        "save_ms": 112.881,
+        "restore_ms": 81.7,
+        "verified": 1
+      },
+      {
+        "sample": 2,
+        "format": "v4",
+        "raw_bytes": 67110577,
+        "stored_bytes": 51405159,
+        "save_ms": 113.109,
+        "restore_ms": 81.669,
+        "verified": 1
+      },
+      {
+        "sample": 2,
+        "format": "v3",
+        "raw_bytes": 67110577,
+        "stored_bytes": 67110577,
+        "save_ms": 48.584,
+        "restore_ms": 35.663,
+        "verified": 1
+      },
+      {
+        "sample": 3,
+        "format": "v3",
+        "raw_bytes": 67110577,
+        "stored_bytes": 67110577,
+        "save_ms": 47.454,
+        "restore_ms": 33.413,
+        "verified": 1
+      },
+      {
+        "sample": 3,
+        "format": "v4",
+        "raw_bytes": 67110577,
+        "stored_bytes": 51405159,
+        "save_ms": 112.569,
+        "restore_ms": 81.705,
+        "verified": 1
+      },
+      {
+        "sample": 4,
+        "format": "v4",
+        "raw_bytes": 67110577,
+        "stored_bytes": 51405159,
+        "save_ms": 113.712,
+        "restore_ms": 84.233,
+        "verified": 1
+      },
+      {
+        "sample": 4,
+        "format": "v3",
+        "raw_bytes": 67110577,
+        "stored_bytes": 67110577,
+        "save_ms": 48.414,
+        "restore_ms": 33.781,
+        "verified": 1
+      }
+    ],
+    "mean": {
+      "v3": {
+        "save_ms": 47.878,
+        "restore_ms": 34.1098,
+        "stored_bytes": 67110577
+      },
+      "v4": {
+        "save_ms": 113.126,
+        "restore_ms": 82.513,
+        "stored_bytes": 51405159
+      }
+    },
+    "limitations": "no fsync, no seekdb output stream/SQL timing; same payload and dataset for both formats"
+  },
+  "checks": {
+    "windows_host": "7/7 passed",
+    "windows_adaptor": "compatibility-header syntax check passed, not a full build",
+    "linux_host": "7/7 passed with ASan/UBSan and -Wall -Wextra -Werror",
+    "gpu_bridge_compile": "passed",
+    "gpu_cross_process_persistence": "passed; Top-10/100/200/10 and nq=1/3",
+    "explicit_omp_num_threads": "OMP_NUM_THREADS=2 honored; no automatic quota override logged, GPU test passed",
+    "full_seekdb_build_bootstrap_sql": "not run",
+    "official_recall_vram_performance_gates": "not run"
+  },
+  "command_records": [
+    {
+      "command": "python3 -c 'import tarfile,pathlib,hashlib; d=pathlib.Path(\"/workspace/seekdb-amd-study/deps\"); t=tarfile.open(d/\"hipvs-f96a663.tar.gz\"); files=[m for m in t.getmembers() if m.isfile()]; modified=[m.name for m in files if hashlib.sha256(t.extractfile(m).read()).digest()!=hashlib.sha256((d/m.name).read_bytes()).digest()]; print({\"hipvs_files_checked\":len(files),\"changed\":modified}); assert not modified' && tail -3 /workspace/seekdb-amd-study/validation/build-hipvs-j12.log && cat /sys/fs/cgroup/memory.current",
+      "exit_code": 0,
+      "output": "{'hipvs_files_checked': 1677, 'changed': []}\n[88/194] Building HIP object CMakeFiles/cuvs_objs.dir/src/neighbors/ivf_flat/ivf_flat_build_extend_half_int64_t.cu.o\n[89/194] Building HIP object CMakeFiles/cuvs_objs.dir/src/neighbors/ivf_flat/ivf_flat_build_extend_int8_t_int64_t.cu.o\n[90/194] Building HIP object CMakeFiles/cuvs_objs.dir/src/neighbors/ivf_flat/ivf_flat_build_extend_uint8_t_int64_t.cu.o\n4708970496\n",
+      "utc_record": "20261109-110811-086848Z.json"
+    },
+    {
+      "command": "HIPVS_ROOT=/workspace/seekdb-amd-study/hipvs ROCM_ROOT=/opt/rocm bash /workspace/seekdb-amd-study/bridge/build.sh /workspace/seekdb-amd-study/bridge/libseekdb_cuvs_bridge.so && export LD_LIBRARY_PATH=/workspace/seekdb-amd-study/hipvs/lib:/opt/rocm/lib:/opt/rocm/lib/llvm/lib && export OMP_NUM_THREADS=16 && ulimit -s 32768 && timeout 35s /workspace/seekdb-amd-study/bridge/test_persistence read /workspace/seekdb-amd-study/validation/persistence.bin > /workspace/seekdb-amd-study/validation/gpu-persistence-diagnostic.log 2>&1; result=$?; tail -25 /workspace/seekdb-amd-study/validation/gpu-persistence-diagnostic.log; exit \"$result\"",
+      "exit_code": 8,
+      "output": "built /workspace/seekdb-amd-study/bridge/libseekdb_cuvs_bridge.so\n[seekdb_cuvs] snapshot shape mismatch: 10000 x 32, expected 9999 x 32\n[seekdb_cuvs] deserialize failed: (null)\n[seekdb_cuvs] snapshot shape mismatch: 10000 x 32, expected 10000 x 33\n[seekdb_cuvs] deserialize failed: (null)\n[seekdb_cuvs] search rc=15 nq=1 topk=200: RAFT failure at file=/workspace/seekdb-amd-study/deps/hipVS-f96a663d0a4441d6f5344bd3ef552b71ae7b370b/cpp/src/neighbors/detail/cagra/search_single_cta.cuh line=139: itopk_size cannot be larger than 512\nObtained 14 stack frames\n#1 in /workspace/seekdb-amd-study/hipvs/lib/libcuvs_c.so: raft::logic_error::logic_error(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) +0x102 [0x73e181d234e2]\n#2 in /workspace/seekdb-amd-study/hipvs/lib/libcuvs.so: cuvs::neighbors::cagra::detail::single_cta_search::search<float, unsigned int, float, cuvs::neighbors::filtering::none_sample_filter, unsigned int>::set_params(raft::resources const&) +0x3a5 [0x73e180036035]\n#3 in /workspace/seekdb-amd-study/hipvs/lib/libcuvs.so: cuvs::neighbors::cagra::detail::factory<float, unsigned int, float, cuvs::neighbors::filtering::none_sample_filter, unsigned int>::dispatch_kernel(raft::resources const&, cuvs::neighbors::cagra::detail::search_plan_impl_base&, cuvs::neighbors::cagra::detail::dataset_descriptor_host<float, unsigned int, float> const&) +0xce [0x73e18003574e]\n#4 in /workspace/seekdb-amd-study/hipvs/lib/libcuvs.so: void cuvs::neighbors::cagra::detail::search_main_core<float, unsigned int, float, cuvs::neighbors::filtering::none_sample_filter, unsigned int>(raft::resources const&, cuvs::neighbors::cagra::search_params, cuvs::neighbors::cagra::detail::dataset_descriptor_host<float, unsigned int, float> const&, std::experimental::mdspan<unsigned int const, std::experimental::extents<long, 18446744073709551615ul, 18446744073709551615ul>, std::experimental::layout_right, raft::host_device_accessor<std::experimental::default_accessor<unsigned int const>, (raft::memory_type)2> >, std::experimental::mdspan<float const, std::experimental::extents<long, 18446744073709551615ul, 18446744073709551615ul>, std::experimental::layout_right, raft::host_device_accessor<std::experimental::default_accessor<float const>, (raft::memory_type)2> >, std::experimental::mdspan<unsigned int, std::experimental::extents<long, 18446744073709551615ul, 18446744073709551615ul>, std::experimental::layout_right, raft::host_device_accessor<std::experimental::default_accessor<unsigned int>, (raft::memory_type)2> >, std::experimental::mdspan<float, std::experimental::extents<long, 18446744073709551615ul, 18446744073709551615ul>, std::experimental::layout_right, raft::host_device_accessor<std::experimental::default_accessor<float>, (raft::memory_type)2> >, cuvs::neighbors::filtering::none_sample_filter) +0x183 [0x73e180033a83]\n#5 in /workspace/seekdb-amd-study/hipvs/lib/libcuvs.so: void cuvs::neighbors::cagra::detail::search_main<float, unsigned int, cuvs::neighbors::filtering::none_sample_filter, unsigned int, float>(raft::resources const&, cuvs::neighbors::cagra::search_params, cuvs::neighbors::cagra::index<float, unsigned int> const&, std::experimental::mdspan<float const, std::experimental::extents<long, 18446744073709551615ul, 18446744073709551615ul>, std::experimental::layout_right, raft::host_device_accessor<std::experimental::default_accessor<float const>, (raft::memory_type)2> >, std::experimental::mdspan<unsigned int, std::experimental::extents<long, 18446744073709551615ul, 18446744073709551615ul>, std::experimental::layout_right, raft::host_device_accessor<std::experimental::default_accessor<unsigned int>, (raft::memory_type)2> >, std::experimental::mdspan<float, std::experimental::extents<long, 18446744073709551615ul, 18446744073709551615ul>, std::experimental::layout_right, raft::host_device_accessor<std::experimental::default_accessor<float>, (raft::memory_type)2> >, cuvs::neighbors::filtering::none_sample_filter) +0x140 [0x73e180032dd0]\n#6 in /workspace/seekdb-amd-study/hipvs/lib/libcuvs.so: void cuvs::neighbors::cagra::search_with_filtering<float, unsigned int, cuvs::neighbors::filtering::none_sample_filter, unsigned int>(raft::resources const&, cuvs::neighbors::cagra::search_params const&, cuvs::neighbors::cagra::index<float, unsigned int> const&, std::experimental::mdspan<float const, std::experimental::extents<long, 18446744073709551615ul, 18446744073709551615ul>, std::experimental::layout_right, raft::host_device_accessor<std::experimental::default_accessor<float const>, (raft::memory_type)2> >, std::experimental::mdspan<unsigned int, std::experimental::extents<long, 18446744073709551615ul, 18446744073709551615ul>, std::experimental::layout_right, raft::host_device_accessor<std::experimental::default_accessor<unsigned int>, (raft::memory_type)2> >, std::experimental::mdspan<float, std::experimental::extents<long, 18446744073709551615ul, 18446744073709551615ul>, std::experimental::layout_right, raft::host_device_accessor<std::experimental::default_accessor<float>, (raft::memory_type)2> >, cuvs::neighbors::filtering::none_sample_filter) +0x13a [0x73e180031d0a]\n#7 in /workspace/seekdb-amd-study/hipvs/lib/libcuvs.so: void cuvs::neighbors::cagra::search<float, unsigned int, unsigned int>(raft::resources const&, cuvs::neighbors::cagra::search_params const&, cuvs::neighbors::cagra::index<float, unsigned int> const&, std::experimental::mdspan<float const, std::experimental::extents<long, 18446744073709551615ul, 18446744073709551615ul>, std::experimental::layout_right, raft::host_device_accessor<std::experimental::default_accessor<float const>, (raft::memory_type)2> >, std::experimental::mdspan<unsigned int, std::experimental::extents<long, 18446744073709551615ul, 18446744073709551615ul>, std::experimental::layout_right, raft::host_device_accessor<std::experimental::default_accessor<unsigned int>, (raft::memory_type)2> >, std::experimental::mdspan<float, std::experimental::extents<long, 18446744073709551615ul, 18446744073709551615ul>, std::experimental::layout_right, raft::host_device_accessor<std::experimental::default_accessor<float>, (raft::memory_type)2> >, cuvs::neighbors::filtering::base_filter const&) +0x12a [0x73e18003179a]\n#8 in /workspace/seekdb-amd-study/hipvs/lib/libcuvs_c.so(+0x869b2) [0x73e181d569b2]\n#9 in /workspace/seekdb-amd-study/hipvs/lib/libcuvs_c.so: cuvsCagraSearch +0x34 [0x73e181d55ab4]\n#10 in /workspace/seekdb-amd-study/bridge/libseekdb_cuvs_bridge.so: seekdb_cuvs_search +0x2a5 [0x73e182350c95]\n#11 in /workspace/seekdb-amd-study/bridge/test_persistence(+0x16e1) [0x6239733386e1]\n#12 in /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x73e181dbf1ca]\n#13 in /lib/x86_64-linux-gnu/libc.so.6: __libc_start_main +0x8b [0x73e181dbf28b]\n#14 in /workspace/seekdb-amd-study/bridge/test_persistence(+0x1a45) [0x623973338a45]\n\n",
+      "utc_record": "20261109-111507-544401Z.json"
+    },
+    {
+      "command": "/workspace/seekdb-amd-study/validation/bench_snapshot_pair /workspace/seekdb-amd-study/validation/uniform-65536.bin /workspace/seekdb-amd-study/validation/paired-snapshot > /workspace/seekdb-amd-study/validation/snapshot-pair.log 2>&1; result=$?; cat /workspace/seekdb-amd-study/validation/snapshot-pair.log; exit \"$result\"",
+      "exit_code": 0,
+      "output": "sample=0 format=v4 raw_bytes=67110577 stored_bytes=51405159 save_ms=113.359 restore_ms=83.258 verified=1\nsample=0 format=v3 raw_bytes=67110577 stored_bytes=67110577 save_ms=47.899 restore_ms=34.333 verified=1\nsample=1 format=v3 raw_bytes=67110577 stored_bytes=67110577 save_ms=47.039 restore_ms=33.359 verified=1\nsample=1 format=v4 raw_bytes=67110577 stored_bytes=51405159 save_ms=112.881 restore_ms=81.700 verified=1\nsample=2 format=v4 raw_bytes=67110577 stored_bytes=51405159 save_ms=113.109 restore_ms=81.669 verified=1\nsample=2 format=v3 raw_bytes=67110577 stored_bytes=67110577 save_ms=48.584 restore_ms=35.663 verified=1\nsample=3 format=v3 raw_bytes=67110577 stored_bytes=67110577 save_ms=47.454 restore_ms=33.413 verified=1\nsample=3 format=v4 raw_bytes=67110577 stored_bytes=51405159 save_ms=112.569 restore_ms=81.705 verified=1\nsample=4 format=v4 raw_bytes=67110577 stored_bytes=51405159 save_ms=113.712 restore_ms=84.233 verified=1\nsample=4 format=v3 raw_bytes=67110577 stored_bytes=67110577 save_ms=48.414 restore_ms=33.781 verified=1\n",
+      "utc_record": "20261109-111619-027518Z.json"
+    },
+    {
+      "command": "python3 -c 'import json; from pathlib import Path; rows=json.loads(Path(\"/workspace/seekdb-amd-study/validation/thread-pair.json\").read_text()); [print(r[\"run\"],r[\"threads\"],r[\"exit_code\"],r[\"output\"].splitlines()[-1]) for r in rows]; print(\"completed\",len(rows))'; ps -p 11697 -o stat=; /opt/rocm/bin/hipcc -O2 -fopenmp /workspace/seekdb-amd-study/validation/omp_probe.cpp -o /workspace/seekdb-amd-study/validation/omp_probe && LD_LIBRARY_PATH=/opt/rocm/lib/llvm/lib /workspace/seekdb-amd-study/validation/omp_probe",
+      "exit_code": 0,
+      "output": "0 128 0 fixture=synthetic_uniform n=65536 dim=128 build_ms=19000.474 serialize_ms=93.980 reload_ms=52.753 export_ms=2.573 first_query_ms=17.281 snapshot_bytes=67110577 verified=1\n1 16 0 fixture=synthetic_uniform n=65536 dim=128 build_ms=5585.234 serialize_ms=103.669 reload_ms=51.512 export_ms=5.163 first_query_ms=17.316 snapshot_bytes=67110577 verified=1\n2 16 0 fixture=synthetic_uniform n=65536 dim=128 build_ms=5610.628 serialize_ms=91.446 reload_ms=51.820 export_ms=2.542 first_query_ms=15.816 snapshot_bytes=67110577 verified=1\n3 128 0 fixture=synthetic_uniform n=65536 dim=128 build_ms=21041.209 serialize_ms=89.298 reload_ms=52.162 export_ms=2.506 first_query_ms=16.039 snapshot_bytes=67110577 verified=1\n4 128 0 fixture=synthetic_uniform n=65536 dim=128 build_ms=22161.972 serialize_ms=89.817 reload_ms=51.828 export_ms=2.507 first_query_ms=17.199 snapshot_bytes=67110577 verified=1\n5 16 0 fixture=synthetic_uniform n=65536 dim=128 build_ms=5817.339 serialize_ms=92.467 reload_ms=57.728 export_ms=4.065 first_query_ms=16.024 snapshot_bytes=67110577 verified=1\ncompleted 6\nZ\ninitial caller=128 child=128\nomp_set_num_threads caller=16 child=128\nkmp_set_defaults caller=16 child=16\n",
+      "utc_record": "20261109-112000-070135Z.json"
+    },
+    {
+      "command": "mkdir -p /workspace/seekdb-amd-study/candidate/host-src && tar -xzf /workspace/seekdb-amd-study/validation/candidate-tests.tar.gz -C /workspace/seekdb-amd-study/candidate && tar -xzf /workspace/seekdb-amd-study/candidate/host.tar.gz -C /workspace/seekdb-amd-study/candidate/host-src && HIPVS_ROOT=/workspace/seekdb-amd-study/hipvs ROCM_ROOT=/opt/rocm bash /workspace/seekdb-amd-study/candidate/bridge/build.sh /workspace/seekdb-amd-study/candidate/bridge/libseekdb_cuvs_bridge.so && export LD_LIBRARY_PATH=/workspace/seekdb-amd-study/hipvs/lib:/opt/rocm/lib:/opt/rocm/lib/llvm/lib && for test_name in test_persistence test_build_quality; do g++ -O3 -std=c++17 /workspace/seekdb-amd-study/candidate/bridge/$test_name.cpp -I/workspace/seekdb-amd-study/candidate/bridge -L/workspace/seekdb-amd-study/candidate/bridge -lseekdb_cuvs_bridge -Wl,-rpath,/workspace/seekdb-amd-study/candidate/bridge -Wl,-rpath-link,/workspace/seekdb-amd-study/hipvs/lib -Wl,-rpath-link,/opt/rocm/lib -Wl,-rpath-link,/opt/rocm/lib/llvm/lib -o /workspace/seekdb-amd-study/candidate/bridge/$test_name || exit; done && g++ -O3 -std=c++17 /workspace/seekdb-amd-study/validation/gpu_phase_probe.cpp -I/workspace/seekdb-amd-study/candidate/bridge -L/workspace/seekdb-amd-study/candidate/bridge -lseekdb_cuvs_bridge -Wl,-rpath,/workspace/seekdb-amd-study/candidate/bridge -Wl,-rpath-link,/workspace/seekdb-amd-study/hipvs/lib -Wl,-rpath-link,/opt/rocm/lib -Wl,-rpath-link,/opt/rocm/lib/llvm/lib -o /workspace/seekdb-amd-study/candidate/bridge/gpu_phase_probe",
+      "exit_code": 0,
+      "output": "built /workspace/seekdb-amd-study/candidate/bridge/libseekdb_cuvs_bridge.so\n",
+      "utc_record": "20261109-112554-632953Z.json"
+    },
+    {
+      "command": "export LD_LIBRARY_PATH=/workspace/seekdb-amd-study/hipvs/lib:/opt/rocm/lib:/opt/rocm/lib/llvm/lib; ulimit -s 32768; /workspace/seekdb-amd-study/candidate/bridge/test_persistence write /workspace/seekdb-amd-study/validation/candidate-persistence.bin > /workspace/seekdb-amd-study/validation/candidate-persistence-write.log 2>&1 && /workspace/seekdb-amd-study/candidate/bridge/test_persistence read /workspace/seekdb-amd-study/validation/candidate-persistence.bin > /workspace/seekdb-amd-study/validation/candidate-persistence-read.log 2>&1; result=$?; cat /workspace/seekdb-amd-study/validation/candidate-persistence-write.log /workspace/seekdb-amd-study/validation/candidate-persistence-read.log; exit \"$result\"",
+      "exit_code": 0,
+      "output": "[seekdb_cuvs] container CPU quota: OpenMP threads 128 -> 16\n[seekdb_cuvs] build complete algo=nn_descent n=10000 dim=32 graph_degree=128 intermediate_degree=256\nwrite: n=10000 top1=0 distance=0\n[seekdb_cuvs] container CPU quota: OpenMP threads 128 -> 16\n[seekdb_cuvs] snapshot shape mismatch: 10000 x 32, expected 9999 x 32\n[seekdb_cuvs] deserialize failed: (null)\n[seekdb_cuvs] snapshot shape mismatch: 10000 x 32, expected 10000 x 33\n[seekdb_cuvs] deserialize failed: (null)\nread: n=10000 top1=0 distance=0\n",
+      "utc_record": "20261109-112651-914450Z.json"
+    },
+    {
+      "command": "cmake -S /workspace/seekdb-amd-study/candidate/host-src/unittest/oblib/vector/cuvs -B /workspace/seekdb-amd-study/candidate/asan -G Ninja -DCMAKE_BUILD_TYPE=Debug '-DCMAKE_C_FLAGS=-Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer' '-DCMAKE_CXX_FLAGS=-Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer' > /workspace/seekdb-amd-study/validation/candidate-host-configure.log 2>&1 && cmake --build /workspace/seekdb-amd-study/candidate/asan --parallel 4 > /workspace/seekdb-amd-study/validation/candidate-host-build.log 2>&1 && ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir /workspace/seekdb-amd-study/candidate/asan --output-on-failure > /workspace/seekdb-amd-study/validation/candidate-host-tests.log 2>&1; result=$?; tail -30 /workspace/seekdb-amd-study/validation/candidate-host-build.log /workspace/seekdb-amd-study/validation/candidate-host-tests.log; exit \"$result\"",
+      "exit_code": 0,
+      "output": "tail: option used in invalid context -- 3\n",
+      "utc_record": "20261109-112851-292105Z.json"
+    },
+    {
+      "command": "export LD_LIBRARY_PATH=/workspace/seekdb-amd-study/hipvs/lib:/opt/rocm/lib:/opt/rocm/lib/llvm/lib; g++ -O3 -std=c++17 /workspace/seekdb-amd-study/candidate/bridge/test_build_quality.cpp -I/workspace/seekdb-amd-study/bridge -L/workspace/seekdb-amd-study/bridge -lseekdb_cuvs_bridge -Wl,-rpath,/workspace/seekdb-amd-study/bridge -Wl,-rpath-link,/workspace/seekdb-amd-study/hipvs/lib -Wl,-rpath-link,/opt/rocm/lib -Wl,-rpath-link,/opt/rocm/lib/llvm/lib -o /workspace/seekdb-amd-study/bridge/test_build_quality_large && { nohup bash -c 'export OMP_NUM_THREADS=128; ulimit -s 32768; timeout 180s /workspace/seekdb-amd-study/bridge/test_build_quality_large /workspace/seekdb-amd-study/validation/baseline-quality 65536 > /workspace/seekdb-amd-study/validation/baseline-quality.log 2>&1; printf \"%s\\n\" \"$?\" > /workspace/seekdb-amd-study/validation/baseline-quality.exit' </dev/null >/workspace/seekdb-amd-study/validation/baseline-check-launch.log 2>&1 & printf 'baseline Recall supervisor pid=%s\\n' \"$!\"; }",
+      "exit_code": 0,
+      "output": "baseline Recall supervisor pid=16023\n",
+      "utc_record": "20261109-113229-128689Z.json"
+    },
+    {
+      "command": "export LD_LIBRARY_PATH=/workspace/seekdb-amd-study/hipvs/lib:/opt/rocm/lib:/opt/rocm/lib/llvm/lib; OMP_NUM_THREADS=2 /workspace/seekdb-amd-study/candidate/bridge/gpu_phase_probe 512 33 /workspace/seekdb-amd-study/validation/explicit-omp.bin > /workspace/seekdb-amd-study/validation/explicit-omp.log 2>&1; result=$?; printf '%s\\n' \"$result\" > /workspace/seekdb-amd-study/validation/explicit-omp.exit; cat /workspace/seekdb-amd-study/validation/explicit-omp.log; exit \"$result\"",
+      "exit_code": 0,
+      "output": "[seekdb_cuvs] build complete algo=nn_descent n=512 dim=33 graph_degree=128 intermediate_degree=256\nfixture=synthetic_uniform n=512 dim=33 build_ms=301.513 serialize_ms=10.848 reload_ms=1.263 export_ms=0.031 first_query_ms=18.694 snapshot_bytes=331441 verified=1\n",
+      "utc_record": "20261109-113631-935912Z.json"
+    },
+    {
+      "command": "sha256sum /workspace/seekdb-amd-study/validation-20261109.tar.gz /workspace/seekdb-amd-study/hipvs-runtime-20261109.tar.gz /workspace/seekdb-amd-study/candidate/bridge/libseekdb_cuvs_bridge.so; cat /workspace/seekdb-amd-study/validation/build-hipvs-j12.exit /workspace/seekdb-amd-study/validation/runtime-backup.exit; readelf -d /workspace/seekdb-amd-study/candidate/bridge/libseekdb_cuvs_bridge.so | grep -E 'NEEDED|RUNPATH'",
+      "exit_code": 0,
+      "output": "7f1fd11bfb4483093c418a1cb13a2062eeee039325680e8f646ad9a34308dce1  /workspace/seekdb-amd-study/validation-20261109.tar.gz\n39620c7a23c98482eb8ae09111342c4501f4e26be2029f92007bc80bd0da22b6  /workspace/seekdb-amd-study/hipvs-runtime-20261109.tar.gz\nb04087a8f73c6022aa7f370d90cf6cdb3b1203c68f7d3f3f9751d5257b55b3ca  /workspace/seekdb-amd-study/candidate/bridge/libseekdb_cuvs_bridge.so\n0\n0\n 0x000000000000001d (RUNPATH)            Library runpath: [/workspace/seekdb-amd-study/hipvs/lib:/opt/rocm/lib:/opt/rocm-7.2.1/lib:/opt/rocm-7.2.1/lib/llvm/lib/clang/22/lib/x86_64-unknown-linux-gnu:/opt/rocm-7.2.1/lib/llvm/lib:/opt/rocm-7.2.1/lib]\n 0x0000000000000001 (NEEDED)             Shared library: [libcuvs_c.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libamdhip64.so.7]\n 0x0000000000000001 (NEEDED)             Shared library: [libstdc++.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libm.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libomp.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]\n",
+      "utc_record": "20261109-113856-649050Z.json"
+    }
+  ],
+  "logs": {
+    "candidate-host-tests.log": "Internal ctest changing into directory: /workspace/seekdb-amd-study/candidate/asan\nTest project /workspace/seekdb-amd-study/candidate/asan\n    Start 1: cuvs_bridge_lifecycle\n1/7 Test #1: cuvs_bridge_lifecycle ............   Passed    0.01 sec\n    Start 2: cuvs_worker_lifecycle\n2/7 Test #2: cuvs_worker_lifecycle ............   Passed    0.21 sec\n    Start 3: cuvs_row_batch\n3/7 Test #3: cuvs_row_batch ...................   Passed    0.08 sec\n    Start 4: cuvs_snapshot_io\n4/7 Test #4: cuvs_snapshot_io .................   Passed    1.74 sec\n    Start 5: cuvs_snapshot_format\n5/7 Test #5: cuvs_snapshot_format .............   Passed    0.01 sec\n    Start 6: cuvs_snapshot_codec\n6/7 Test #6: cuvs_snapshot_codec ..............   Passed    0.66 sec\n    Start 7: cuvs_cpu_budget\n7/7 Test #7: cuvs_cpu_budget ..................   Passed    0.01 sec\n\n100% tests passed, 0 tests failed out of 7\n\nTotal Test time (real) =   2.73 sec\n",
+    "candidate-persistence-write.log": "[seekdb_cuvs] container CPU quota: OpenMP threads 128 -> 16\n[seekdb_cuvs] build complete algo=nn_descent n=10000 dim=32 graph_degree=128 intermediate_degree=256\nwrite: n=10000 top1=0 distance=0\n",
+    "candidate-persistence-read.log": "[seekdb_cuvs] container CPU quota: OpenMP threads 128 -> 16\n[seekdb_cuvs] snapshot shape mismatch: 10000 x 32, expected 9999 x 32\n[seekdb_cuvs] deserialize failed: (null)\n[seekdb_cuvs] snapshot shape mismatch: 10000 x 32, expected 10000 x 33\n[seekdb_cuvs] deserialize failed: (null)\nread: n=10000 top1=0 distance=0\n",
+    "candidate-quality.log": "[seekdb_cuvs] container CPU quota: OpenMP threads 128 -> 16\n[ 15155][11:30:35:848390][warning] Intermediate graph degree cannot be larger than dataset size, reducing it to 256\n[ 15155][11:30:35:848489][warning] Graph degree (256) for nn-descent needs to match cagra intermediate graph degree (255), aligning nn-descent graph_degree.\n[ 15155][11:30:35:848506][warning] Intermediate graph degree cannot be larger than number of rows in dataset, reducing it to 255\n[seekdb_cuvs] build complete algo=nn_descent n=256 dim=33 graph_degree=128 intermediate_degree=256\nn=256 dim=33 clustered=0 phase=built topk=10 recall=1.000000 build_ms=275.015 serialize_ms=10.686 search_and_check_ms=157.275\nn=256 dim=33 clustered=0 phase=built topk=100 recall=1.000000 build_ms=275.015 serialize_ms=10.686 search_and_check_ms=131.492\nn=256 dim=33 clustered=0 phase=reloaded topk=10 recall=1.000000 build_ms=275.015 serialize_ms=10.686 search_and_check_ms=86.870\nn=256 dim=33 clustered=0 phase=reloaded topk=100 recall=1.000000 build_ms=275.015 serialize_ms=10.686 search_and_check_ms=87.328\n[seekdb_cuvs] build complete algo=nn_descent n=512 dim=33 graph_degree=128 intermediate_degree=256\nn=512 dim=33 clustered=0 phase=built topk=10 recall=1.000000 build_ms=63.507 serialize_ms=0.562 search_and_check_ms=212.597\nn=512 dim=33 clustered=0 phase=built topk=100 recall=1.000000 build_ms=63.507 serialize_ms=0.562 search_and_check_ms=127.919\nn=512 dim=33 clustered=0 phase=reloaded topk=10 recall=1.000000 build_ms=63.507 serialize_ms=0.562 search_and_check_ms=132.455\nn=512 dim=33 clustered=0 phase=reloaded topk=100 recall=1.000000 build_ms=63.507 serialize_ms=0.562 search_and_check_ms=128.066\n[seekdb_cuvs] build complete algo=nn_descent n=513 dim=33 graph_degree=128 intermediate_degree=256\nn=513 dim=33 clustered=0 phase=built topk=10 recall=1.000000 build_ms=84.500 serialize_ms=0.568 search_and_check_ms=224.518\nn=513 dim=33 clustered=0 phase=built topk=100 recall=1.000000 build_ms=84.500 serialize_ms=0.568 search_and_check_ms=135.812\nn=513 dim=33 clustered=0 phase=reloaded topk=10 recall=1.000000 build_ms=84.500 serialize_ms=0.568 search_and_check_ms=135.314\nn=513 dim=33 clustered=0 phase=reloaded topk=100 recall=1.000000 build_ms=84.500 serialize_ms=0.568 search_and_check_ms=135.821\n[seekdb_cuvs] build complete algo=nn_descent n=65536 dim=128 graph_degree=128 intermediate_degree=256\nn=65536 dim=128 clustered=0 phase=built topk=10 recall=0.998437 build_ms=5697.156 serialize_ms=88.974 search_and_check_ms=173.388\nn=65536 dim=128 clustered=0 phase=built topk=100 recall=0.998750 build_ms=5697.156 serialize_ms=88.974 search_and_check_ms=175.058\nn=65536 dim=128 clustered=0 phase=reloaded topk=10 recall=0.998437 build_ms=5697.156 serialize_ms=88.974 search_and_check_ms=173.490\nn=65536 dim=128 clustered=0 phase=reloaded topk=100 recall=0.998750 build_ms=5697.156 serialize_ms=88.974 search_and_check_ms=175.313\n[seekdb_cuvs] build complete algo=nn_descent n=65536 dim=256 graph_degree=128 intermediate_degree=256\nn=65536 dim=256 clustered=1 phase=built topk=10 recall=1.000000 build_ms=6172.311 serialize_ms=129.419 search_and_check_ms=194.278\nn=65536 dim=256 clustered=1 phase=built topk=100 recall=0.998125 build_ms=6172.311 serialize_ms=129.419 search_and_check_ms=195.714\nn=65536 dim=256 clustered=1 phase=reloaded topk=10 recall=1.000000 build_ms=6172.311 serialize_ms=129.419 search_and_check_ms=192.686\nn=65536 dim=256 clustered=1 phase=reloaded topk=100 recall=0.998125 build_ms=6172.311 serialize_ms=129.419 search_and_check_ms=195.409\nPASS synthetic GPU build/reload quality; official paired Recall/performance still required\n",
+    "baseline-quality.log": "[ 16025][11:32:29:257234][warning] Intermediate graph degree cannot be larger than dataset size, reducing it to 256\n[ 16025][11:32:29:257352][warning] Graph degree (256) for nn-descent needs to match cagra intermediate graph degree (255), aligning nn-descent graph_degree.\n[ 16025][11:32:29:257370][warning] Intermediate graph degree cannot be larger than number of rows in dataset, reducing it to 255\n[seekdb_cuvs] build complete algo=nn_descent n=256 dim=33 graph_degree=128 intermediate_degree=256\nn=256 dim=33 clustered=0 phase=built topk=10 recall=1.000000 build_ms=968.208 serialize_ms=97.505 search_and_check_ms=191.557\nn=256 dim=33 clustered=0 phase=built topk=100 recall=1.000000 build_ms=968.208 serialize_ms=97.505 search_and_check_ms=87.353\nn=256 dim=33 clustered=0 phase=reloaded topk=10 recall=1.000000 build_ms=968.208 serialize_ms=97.505 search_and_check_ms=86.810\nn=256 dim=33 clustered=0 phase=reloaded topk=100 recall=1.000000 build_ms=968.208 serialize_ms=97.505 search_and_check_ms=87.302\n[seekdb_cuvs] build complete algo=nn_descent n=512 dim=33 graph_degree=128 intermediate_degree=256\nn=512 dim=33 clustered=0 phase=built topk=10 recall=1.000000 build_ms=3640.352 serialize_ms=0.589 search_and_check_ms=300.391\nn=512 dim=33 clustered=0 phase=built topk=100 recall=1.000000 build_ms=3640.352 serialize_ms=0.589 search_and_check_ms=127.980\nn=512 dim=33 clustered=0 phase=reloaded topk=10 recall=1.000000 build_ms=3640.352 serialize_ms=0.589 search_and_check_ms=127.278\nn=512 dim=33 clustered=0 phase=reloaded topk=100 recall=1.000000 build_ms=3640.352 serialize_ms=0.589 search_and_check_ms=127.837\n[seekdb_cuvs] build complete algo=nn_descent n=513 dim=33 graph_degree=128 intermediate_degree=256\nn=513 dim=33 clustered=0 phase=built topk=10 recall=1.000000 build_ms=7913.434 serialize_ms=0.493 search_and_check_ms=306.711\nn=513 dim=33 clustered=0 phase=built topk=100 recall=1.000000 build_ms=7913.434 serialize_ms=0.493 search_and_check_ms=135.660\nn=513 dim=33 clustered=0 phase=reloaded topk=10 recall=1.000000 build_ms=7913.434 serialize_ms=0.493 search_and_check_ms=134.963\nn=513 dim=33 clustered=0 phase=reloaded topk=100 recall=1.000000 build_ms=7913.434 serialize_ms=0.493 search_and_check_ms=135.616\n[seekdb_cuvs] build complete algo=nn_descent n=65536 dim=128 graph_degree=128 intermediate_degree=256\nn=65536 dim=128 clustered=0 phase=built topk=10 recall=0.998437 build_ms=22466.875 serialize_ms=82.588 search_and_check_ms=173.505\nn=65536 dim=128 clustered=0 phase=built topk=100 recall=0.998594 build_ms=22466.875 serialize_ms=82.588 search_and_check_ms=175.090\nn=65536 dim=128 clustered=0 phase=reloaded topk=10 recall=0.998437 build_ms=22466.875 serialize_ms=82.588 search_and_check_ms=173.207\nn=65536 dim=128 clustered=0 phase=reloaded topk=100 recall=0.998594 build_ms=22466.875 serialize_ms=82.588 search_and_check_ms=175.040\n[seekdb_cuvs] build complete algo=nn_descent n=65536 dim=256 graph_degree=128 intermediate_degree=256\nn=65536 dim=256 clustered=1 phase=built topk=10 recall=1.000000 build_ms=22348.501 serialize_ms=122.814 search_and_check_ms=194.701\nn=65536 dim=256 clustered=1 phase=built topk=100 recall=0.998437 build_ms=22348.501 serialize_ms=122.814 search_and_check_ms=195.408\nn=65536 dim=256 clustered=1 phase=reloaded topk=10 recall=1.000000 build_ms=22348.501 serialize_ms=122.814 search_and_check_ms=192.844\nn=65536 dim=256 clustered=1 phase=reloaded topk=100 recall=0.998437 build_ms=22348.501 serialize_ms=122.814 search_and_check_ms=195.383\nPASS synthetic GPU build/reload quality; official paired Recall/performance still required\n",
+    "explicit-omp.log": "[seekdb_cuvs] build complete algo=nn_descent n=512 dim=33 graph_degree=128 intermediate_degree=256\nfixture=synthetic_uniform n=512 dim=33 build_ms=301.513 serialize_ms=10.848 reload_ms=1.263 export_ms=0.031 first_query_ms=18.694 snapshot_bytes=331441 verified=1\n",
+    "gpu-persistence-diagnostic.log": "[seekdb_cuvs] snapshot shape mismatch: 10000 x 32, expected 9999 x 32\n[seekdb_cuvs] deserialize failed: (null)\n[seekdb_cuvs] snapshot shape mismatch: 10000 x 32, expected 10000 x 33\n[seekdb_cuvs] deserialize failed: (null)\n[seekdb_cuvs] search rc=15 nq=1 topk=200: RAFT failure at file=/workspace/seekdb-amd-study/deps/hipVS-f96a663d0a4441d6f5344bd3ef552b71ae7b370b/cpp/src/neighbors/detail/cagra/search_single_cta.cuh line=139: itopk_size cannot be larger than 512\nObtained 14 stack frames\n#1 in /workspace/seekdb-amd-study/hipvs/lib/libcuvs_c.so: raft::logic_error::logic_error(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) +0x102 [0x73e181d234e2]\n#2 in /workspace/seekdb-amd-study/hipvs/lib/libcuvs.so: cuvs::neighbors::cagra::detail::single_cta_search::search<float, unsigned int, float, cuvs::neighbors::filtering::none_sample_filter, unsigned int>::set_params(raft::resources const&) +0x3a5 [0x73e180036035]\n#3 in /workspace/seekdb-amd-study/hipvs/lib/libcuvs.so: cuvs::neighbors::cagra::detail::factory<float, unsigned int, float, cuvs::neighbors::filtering::none_sample_filter, unsigned int>::dispatch_kernel(raft::resources const&, cuvs::neighbors::cagra::detail::search_plan_impl_base&, cuvs::neighbors::cagra::detail::dataset_descriptor_host<float, unsigned int, float> const&) +0xce [0x73e18003574e]\n#4 in /workspace/seekdb-amd-study/hipvs/lib/libcuvs.so: void cuvs::neighbors::cagra::detail::search_main_core<float, unsigned int, float, cuvs::neighbors::filtering::none_sample_filter, unsigned int>(raft::resources const&, cuvs::neighbors::cagra::search_params, cuvs::neighbors::cagra::detail::dataset_descriptor_host<float, unsigned int, float> const&, std::experimental::mdspan<unsigned int const, std::experimental::extents<long, 18446744073709551615ul, 18446744073709551615ul>, std::experimental::layout_right, raft::host_device_accessor<std::experimental::default_accessor<unsigned int const>, (raft::memory_type)2> >, std::experimental::mdspan<float const, std::experimental::extents<long, 18446744073709551615ul, 18446744073709551615ul>, std::experimental::layout_right, raft::host_device_accessor<std::experimental::default_accessor<float const>, (raft::memory_type)2> >, std::experimental::mdspan<unsigned int, std::experimental::extents<long, 18446744073709551615ul, 18446744073709551615ul>, std::experimental::layout_right, raft::host_device_accessor<std::experimental::default_accessor<unsigned int>, (raft::memory_type)2> >, std::experimental::mdspan<float, std::experimental::extents<long, 18446744073709551615ul, 18446744073709551615ul>, std::experimental::layout_right, raft::host_device_accessor<std::experimental::default_accessor<float>, (raft::memory_type)2> >, cuvs::neighbors::filtering::none_sample_filter) +0x183 [0x73e180033a83]\n#5 in /workspace/seekdb-amd-study/hipvs/lib/libcuvs.so: void cuvs::neighbors::cagra::detail::search_main<float, unsigned int, cuvs::neighbors::filtering::none_sample_filter, unsigned int, float>(raft::resources const&, cuvs::neighbors::cagra::search_params, cuvs::neighbors::cagra::index<float, unsigned int> const&, std::experimental::mdspan<float const, std::experimental::extents<long, 18446744073709551615ul, 18446744073709551615ul>, std::experimental::layout_right, raft::host_device_accessor<std::experimental::default_accessor<float const>, (raft::memory_type)2> >, std::experimental::mdspan<unsigned int, std::experimental::extents<long, 18446744073709551615ul, 18446744073709551615ul>, std::experimental::layout_right, raft::host_device_accessor<std::experimental::default_accessor<unsigned int>, (raft::memory_type)2> >, std::experimental::mdspan<float, std::experimental::extents<long, 18446744073709551615ul, 18446744073709551615ul>, std::experimental::layout_right, raft::host_device_accessor<std::experimental::default_accessor<float>, (raft::memory_type)2> >, cuvs::neighbors::filtering::none_sample_filter) +0x140 [0x73e180032dd0]\n#6 in /workspace/seekdb-amd-study/hipvs/lib/libcuvs.so: void cuvs::neighbors::cagra::search_with_filtering<float, unsigned int, cuvs::neighbors::filtering::none_sample_filter, unsigned int>(raft::resources const&, cuvs::neighbors::cagra::search_params const&, cuvs::neighbors::cagra::index<float, unsigned int> const&, std::experimental::mdspan<float const, std::experimental::extents<long, 18446744073709551615ul, 18446744073709551615ul>, std::experimental::layout_right, raft::host_device_accessor<std::experimental::default_accessor<float const>, (raft::memory_type)2> >, std::experimental::mdspan<unsigned int, std::experimental::extents<long, 18446744073709551615ul, 18446744073709551615ul>, std::experimental::layout_right, raft::host_device_accessor<std::experimental::default_accessor<unsigned int>, (raft::memory_type)2> >, std::experimental::mdspan<float, std::experimental::extents<long, 18446744073709551615ul, 18446744073709551615ul>, std::experimental::layout_right, raft::host_device_accessor<std::experimental::default_accessor<float>, (raft::memory_type)2> >, cuvs::neighbors::filtering::none_sample_filter) +0x13a [0x73e180031d0a]\n#7 in /workspace/seekdb-amd-study/hipvs/lib/libcuvs.so: void cuvs::neighbors::cagra::search<float, unsigned int, unsigned int>(raft::resources const&, cuvs::neighbors::cagra::search_params const&, cuvs::neighbors::cagra::index<float, unsigned int> const&, std::experimental::mdspan<float const, std::experimental::extents<long, 18446744073709551615ul, 18446744073709551615ul>, std::experimental::layout_right, raft::host_device_accessor<std::experimental::default_accessor<float const>, (raft::memory_type)2> >, std::experimental::mdspan<unsigned int, std::experimental::extents<long, 18446744073709551615ul, 18446744073709551615ul>, std::experimental::layout_right, raft::host_device_accessor<std::experimental::default_accessor<unsigned int>, (raft::memory_type)2> >, std::experimental::mdspan<float, std::experimental::extents<long, 18446744073709551615ul, 18446744073709551615ul>, std::experimental::layout_right, raft::host_device_accessor<std::experimental::default_accessor<float>, (raft::memory_type)2> >, cuvs::neighbors::filtering::base_filter const&) +0x12a [0x73e18003179a]\n#8 in /workspace/seekdb-amd-study/hipvs/lib/libcuvs_c.so(+0x869b2) [0x73e181d569b2]\n#9 in /workspace/seekdb-amd-study/hipvs/lib/libcuvs_c.so: cuvsCagraSearch +0x34 [0x73e181d55ab4]\n#10 in /workspace/seekdb-amd-study/bridge/libseekdb_cuvs_bridge.so: seekdb_cuvs_search +0x2a5 [0x73e182350c95]\n#11 in /workspace/seekdb-amd-study/bridge/test_persistence(+0x16e1) [0x6239733386e1]\n#12 in /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x73e181dbf1ca]\n#13 in /lib/x86_64-linux-gnu/libc.so.6: __libc_start_main +0x8b [0x73e181dbf28b]\n#14 in /workspace/seekdb-amd-study/bridge/test_persistence(+0x1a45) [0x623973338a45]\n\n",
+    "snapshot-pair.log": "sample=0 format=v4 raw_bytes=67110577 stored_bytes=51405159 save_ms=113.359 restore_ms=83.258 verified=1\nsample=0 format=v3 raw_bytes=67110577 stored_bytes=67110577 save_ms=47.899 restore_ms=34.333 verified=1\nsample=1 format=v3 raw_bytes=67110577 stored_bytes=67110577 save_ms=47.039 restore_ms=33.359 verified=1\nsample=1 format=v4 raw_bytes=67110577 stored_bytes=51405159 save_ms=112.881 restore_ms=81.700 verified=1\nsample=2 format=v4 raw_bytes=67110577 stored_bytes=51405159 save_ms=113.109 restore_ms=81.669 verified=1\nsample=2 format=v3 raw_bytes=67110577 stored_bytes=67110577 save_ms=48.584 restore_ms=35.663 verified=1\nsample=3 format=v3 raw_bytes=67110577 stored_bytes=67110577 save_ms=47.454 restore_ms=33.413 verified=1\nsample=3 format=v4 raw_bytes=67110577 stored_bytes=51405159 save_ms=112.569 restore_ms=81.705 verified=1\nsample=4 format=v4 raw_bytes=67110577 stored_bytes=51405159 save_ms=113.712 restore_ms=84.233 verified=1\nsample=4 format=v3 raw_bytes=67110577 stored_bytes=67110577 save_ms=48.414 restore_ms=33.781 verified=1\n",
+    "windows-last-test.log": "Start testing: Nov 09 19:24 \u4e2d\u56fd\u6807\u51c6\u65f6\u95f4\n----------------------------------------------------------\n1/7 Testing: cuvs_bridge_lifecycle\n1/7 Test: cuvs_bridge_lifecycle\nCommand: \"D:/oceanbase-competition/seekdb/.tmp_fts/parser-temp/amd-host-cmake/test_cuvs_bridge.exe\"\nDirectory: D:/oceanbase-competition/seekdb/.tmp_fts/parser-temp/amd-host-cmake\n\"cuvs_bridge_lifecycle\" start time: Nov 09 19:24 \u4e2d\u56fd\u6807\u51c6\u65f6\u95f4\nOutput:\n----------------------------------------------------------\n[seekdb_cuvs] build complete algo=nn_descent n=1 dim=1 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] build complete algo=nn_descent n=1 dim=33 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] build complete algo=nn_descent n=1 dim=128 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] build complete algo=nn_descent n=1 dim=256 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] build complete algo=nn_descent n=255 dim=1 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] build complete algo=nn_descent n=255 dim=33 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] build complete algo=nn_descent n=255 dim=128 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] build complete algo=nn_descent n=255 dim=256 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] build complete algo=nn_descent n=256 dim=1 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] build complete algo=nn_descent n=256 dim=33 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] build complete algo=nn_descent n=256 dim=128 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] build complete algo=nn_descent n=256 dim=256 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] build complete algo=nn_descent n=511 dim=1 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] build complete algo=nn_descent n=511 dim=33 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] build complete algo=nn_descent n=511 dim=128 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] build complete algo=nn_descent n=511 dim=256 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] build complete algo=nn_descent n=512 dim=1 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] build complete algo=nn_descent n=512 dim=33 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] build complete algo=nn_descent n=512 dim=128 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] build complete algo=nn_descent n=512 dim=256 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] build complete algo=nn_descent n=513 dim=1 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] build complete algo=nn_descent n=513 dim=33 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] build complete algo=nn_descent n=513 dim=128 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] build complete algo=nn_descent n=513 dim=256 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] build complete algo=nn_descent n=8193 dim=1 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] build complete algo=nn_descent n=8193 dim=33 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] build complete algo=nn_descent n=8193 dim=128 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] build complete algo=nn_descent n=8193 dim=256 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] build failed (algo=2, n=1000, dim=32): host-test injected failure\n[seekdb_cuvs] build failed (algo=2, n=1000, dim=32): host-test injected failure\n[seekdb_cuvs] built index shape mismatch: 0 x 0, expected 1000 x 32\n[seekdb_cuvs] built index shape mismatch: 1000 x 0, expected 1000 x 32\n[seekdb_cuvs] built index shape mismatch: 999 x 32, expected 1000 x 32\n[seekdb_cuvs] built index shape mismatch: 1000 x 31, expected 1000 x 32\n[seekdb_cuvs] build complete algo=nn_descent n=1000 dim=32 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] search rc=10 nq=1 topk=10: host-test injected failure\n[seekdb_cuvs] build complete algo=nn_descent n=1000 dim=32 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] search rc=11 nq=1 topk=10: host-test injected failure\n[seekdb_cuvs] build complete algo=nn_descent n=1000 dim=32 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] search rc=12 nq=1 topk=10: host-test injected failure\n[seekdb_cuvs] build complete algo=nn_descent n=1000 dim=32 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] search rc=13 nq=1 topk=10: host-test injected failure\n[seekdb_cuvs] search rc=16 nq=1 topk=10: host-test injected failure\n[seekdb_cuvs] search rc=17 nq=1 topk=10: host-test injected failure\n[seekdb_cuvs] search rc=15 nq=1 topk=10: host-test injected failure\n[seekdb_cuvs] search rc=18 nq=1 topk=10: host-test injected failure\n[seekdb_cuvs] serialize failed: host-test injected failure\n[seekdb_cuvs] snapshot shape mismatch: 1000 x 32, expected 999 x 32\n[seekdb_cuvs] deserialize failed: host-test injected failure\n[seekdb_cuvs] snapshot shape mismatch: 1000 x 32, expected 1000 x 31\n[seekdb_cuvs] deserialize failed: host-test injected failure\n[seekdb_cuvs] deserialize failed: host-test injected failure\n[seekdb_cuvs] build complete algo=nn_descent n=7 dim=33 graph_degree=128 intermediate_degree=256\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\nPASS bridge: NN-descent parameter parity, search, buffer reuse, shapes, FP32 dataset export including padding/offsets, async completion, injected errors and release; no GPU used\n<end of output>\nTest time =   0.06 sec\n----------------------------------------------------------\nTest Passed.\n\"cuvs_bridge_lifecycle\" end time: Nov 09 19:24 \u4e2d\u56fd\u6807\u51c6\u65f6\u95f4\n\"cuvs_bridge_lifecycle\" time elapsed: 00:00:00\n----------------------------------------------------------\n\n2/7 Testing: cuvs_worker_lifecycle\n2/7 Test: cuvs_worker_lifecycle\nCommand: \"D:/oceanbase-competition/seekdb/.tmp_fts/parser-temp/amd-host-cmake/test_cuvs_worker.exe\"\nDirectory: D:/oceanbase-competition/seekdb/.tmp_fts/parser-temp/amd-host-cmake\n\"cuvs_worker_lifecycle\" start time: Nov 09 19:24 \u4e2d\u56fd\u6807\u51c6\u65f6\u95f4\nOutput:\n----------------------------------------------------------\nPASS worker: 1800 varying/concurrent jobs, exception recovery, 50 lifecycles; host-only dispatch cold_us=272.876 reused_us=0.618\n<end of output>\nTest time =   0.30 sec\n----------------------------------------------------------\nTest Passed.\n\"cuvs_worker_lifecycle\" end time: Nov 09 19:24 \u4e2d\u56fd\u6807\u51c6\u65f6\u95f4\n\"cuvs_worker_lifecycle\" time elapsed: 00:00:00\n----------------------------------------------------------\n\n3/7 Testing: cuvs_row_batch\n3/7 Test: cuvs_row_batch\nCommand: \"D:/oceanbase-competition/seekdb/.tmp_fts/parser-temp/amd-host-cmake/test_cuvs_row_batch.exe\"\nDirectory: D:/oceanbase-competition/seekdb/.tmp_fts/parser-temp/amd-host-cmake\n\"cuvs_row_batch\" start time: Nov 09 19:24 \u4e2d\u56fd\u6807\u51c6\u65f6\u95f4\nOutput:\n----------------------------------------------------------\nPASS dense batches: byte-exact unaligned input, bounded memory, 64-bit IDs, shapes, full/partial reuse and invalid inputs\n<end of output>\nTest time =   0.02 sec\n----------------------------------------------------------\nTest Passed.\n\"cuvs_row_batch\" end time: Nov 09 19:24 \u4e2d\u56fd\u6807\u51c6\u65f6\u95f4\n\"cuvs_row_batch\" time elapsed: 00:00:00\n----------------------------------------------------------\n\n4/7 Testing: cuvs_snapshot_io\n4/7 Test: cuvs_snapshot_io\nCommand: \"D:/oceanbase-competition/seekdb/.tmp_fts/parser-temp/amd-host-cmake/test_cuvs_snapshot_io.exe\"\nDirectory: D:/oceanbase-competition/seekdb/.tmp_fts/parser-temp/amd-host-cmake\n\"cuvs_snapshot_io\" start time: Nov 09 19:24 \u4e2d\u56fd\u6807\u51c6\u65f6\u95f4\nOutput:\n----------------------------------------------------------\nPASS snapshot bytes, chunk/page boundaries, memfd/tmpfile, failed mmap fallback, short input/output and exception cleanup\n<end of output>\nTest time =   1.05 sec\n----------------------------------------------------------\nTest Passed.\n\"cuvs_snapshot_io\" end time: Nov 09 19:24 \u4e2d\u56fd\u6807\u51c6\u65f6\u95f4\n\"cuvs_snapshot_io\" time elapsed: 00:00:01\n----------------------------------------------------------\n\n5/7 Testing: cuvs_snapshot_format\n5/7 Test: cuvs_snapshot_format\nCommand: \"D:/oceanbase-competition/seekdb/.tmp_fts/parser-temp/amd-host-cmake/test_cuvs_snapshot_format.exe\"\nDirectory: D:/oceanbase-competition/seekdb/.tmp_fts/parser-temp/amd-host-cmake\n\"cuvs_snapshot_format\" start time: Nov 09 19:24 \u4e2d\u56fd\u6807\u51c6\u65f6\u95f4\nOutput:\n----------------------------------------------------------\nPASS snapshot format: V2 compatibility, V3 exact layout, IDs/FP32/opaque graph bytes, next-object boundary, corrupt headers and every truncation/short-write offset\n<end of output>\nTest time =   0.07 sec\n----------------------------------------------------------\nTest Passed.\n\"cuvs_snapshot_format\" end time: Nov 09 19:24 \u4e2d\u56fd\u6807\u51c6\u65f6\u95f4\n\"cuvs_snapshot_format\" time elapsed: 00:00:00\n----------------------------------------------------------\n\n6/7 Testing: cuvs_snapshot_codec\n6/7 Test: cuvs_snapshot_codec\nCommand: \"D:/oceanbase-competition/seekdb/.tmp_fts/parser-temp/amd-host-cmake/test_cuvs_snapshot_codec.exe\"\nDirectory: D:/oceanbase-competition/seekdb/.tmp_fts/parser-temp/amd-host-cmake\n\"cuvs_snapshot_codec\" start time: Nov 09 19:24 \u4e2d\u56fd\u6807\u51c6\u65f6\u95f4\nOutput:\n----------------------------------------------------------\nPASS real bundled Zstd: byte equality, mixed raw/compressed blocks, boundaries, bounded headers, checksum, reorder, truncation, failed I/O and exception cleanup\n<end of output>\nTest time =   0.39 sec\n----------------------------------------------------------\nTest Passed.\n\"cuvs_snapshot_codec\" end time: Nov 09 19:24 \u4e2d\u56fd\u6807\u51c6\u65f6\u95f4\n\"cuvs_snapshot_codec\" time elapsed: 00:00:00\n----------------------------------------------------------\n\n7/7 Testing: cuvs_cpu_budget\n7/7 Test: cuvs_cpu_budget\nCommand: \"D:/oceanbase-competition/seekdb/.tmp_fts/parser-temp/amd-host-cmake/test_cuvs_cpu_budget.exe\"\nDirectory: D:/oceanbase-competition/seekdb/.tmp_fts/parser-temp/amd-host-cmake\n\"cuvs_cpu_budget\" start time: Nov 09 19:24 \u4e2d\u56fd\u6807\u51c6\u65f6\u95f4\nOutput:\n----------------------------------------------------------\nPASS CPU quotas: v1/v2, parent limits, fractional budgets, explicit ceilings, malformed/unlimited/missing values\n<end of output>\nTest time =   0.13 sec\n----------------------------------------------------------\nTest Passed.\n\"cuvs_cpu_budget\" end time: Nov 09 19:24 \u4e2d\u56fd\u6807\u51c6\u65f6\u95f4\n\"cuvs_cpu_budget\" time elapsed: 00:00:00\n----------------------------------------------------------\n\nEnd testing: Nov 09 19:24 \u4e2d\u56fd\u6807\u51c6\u65f6\u95f4\n"
+  }
+}

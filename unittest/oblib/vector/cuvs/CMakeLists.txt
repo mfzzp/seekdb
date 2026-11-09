@@ -63,3 +63,8 @@ target_include_directories(test_cuvs_snapshot_codec PRIVATE "${SEEKDB_ROOT}/src/
 target_link_libraries(test_cuvs_snapshot_codec PRIVATE cuvs_test_zstd)
 add_test(NAME cuvs_snapshot_codec COMMAND test_cuvs_snapshot_codec)
 set_tests_properties(cuvs_snapshot_codec PROPERTIES TIMEOUT 60)
+
+add_executable(test_cuvs_cpu_budget test_cuvs_cpu_budget.cpp)
+target_include_directories(test_cuvs_cpu_budget PRIVATE "${SEEKDB_ROOT}/tools/hipvs_bridge")
+add_test(NAME cuvs_cpu_budget COMMAND test_cuvs_cpu_budget)
+set_tests_properties(cuvs_cpu_budget PROPERTIES TIMEOUT 60)

@@ -428,7 +428,7 @@ static bool ob_cuvs_serialize(void *key, std::ostream &out, int &ret) {
   const int64_t payload_start_us = ObTimeUtility::current_time();
   const int32_t dim32 = ent->dim_;
   const int64_t n64 = static_cast<int64_t>(n);
-  const CuvsSnapshotHeader header{4, graph_bytes, dim32, 0, n64};
+  const CuvsSnapshotHeader header{3, graph_bytes, dim32, 0, n64};
   // The opaque hipVS payload contains the complete FP32 dataset. Persist it
   // once, then recover the host rebuild/fallback buffer through the bridge.
   if (!header.write(out) || !header.write_rows(out, ent->buf_ids_.data())) {
@@ -438,8 +438,11 @@ static bool ob_cuvs_serialize(void *key, std::ostream &out, int &ret) {
   }
   const int64_t graph_write_start_us = ObTimeUtility::current_time();
   const int64_t payload_write_us = graph_write_start_us - payload_start_us;
-  CuvsSnapshotCodec::Stats codec_stats;
-  if (!CuvsSnapshotCodec::encode(graph.file_, graph_bytes, out, codec_stats)) {
+  // Keep the complete snapshot uncompressed: paired real-snapshot measurements
+  // found that compression CPU cost exceeded the saving in transfer time.
+  // The V4 decoder below remains available for already persisted indexes.
+  bool used_mapping = false;
+  if (!cuvs_copy_snapshot(graph.file_, graph_bytes, out, used_mapping, false)) {
     ret = OB_ERR_UNEXPECTED;
     LOG_WARN("[OBVSAG][cuVS] failed to write graph snapshot stream", K(ret), KP(key), K(n));
     return true;
@@ -448,13 +451,10 @@ static bool ob_cuvs_serialize(void *key, std::ostream &out, int &ret) {
   const int64_t graph_write_us = end_us - graph_write_start_us;
   const int64_t snapshot_total_us = end_us - start_us;
   const uint64_t omitted_vector_bytes = ent->buf_vecs_.size() * sizeof(float);
-  const uint64_t graph_stored_bytes = codec_stats.stored_bytes;
-  const uint64_t compressed_blocks = codec_stats.compressed_blocks;
-  const uint64_t raw_blocks = codec_stats.raw_blocks;
   LOG_INFO("[OBVSAG][cuVS] serialized GPU CAGRA snapshot", KP(key), K(n), K(dim32),
            K(built), K(build_us), K(graph_bytes), K(gpu_build_us), K(graph_serialize_us),
            K(payload_write_us), K(graph_write_us), K(snapshot_total_us),
-           K(header.version), K(omitted_vector_bytes), K(graph_stored_bytes), K(compressed_blocks), K(raw_blocks));
+           K(header.version), K(omitted_vector_bytes));
   return true;
 }
 

@@ -11,6 +11,30 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#if defined(__linux__) && defined(_OPENMP)
+#include "cuvs_cpu_budget.h"
+#include <omp.h>
+#include <pthread.h>
+
+static pthread_once_t sk_cpu_budget_once = PTHREAD_ONCE_INIT;
+static void sk_configure_cpu_budget(void)
+{
+  // Explicit administrator policies take precedence over automatic sizing.
+  if (getenv("OMP_NUM_THREADS") || getenv("OMP_THREAD_LIMIT") ||
+      getenv("KMP_ALL_THREADS") || getenv("KMP_HW_SUBSET")) return;
+  const int before = omp_get_max_threads();
+  const int budget = cuvs_cpu_container_limit(before);
+  if (budget > 0 && budget < before) {
+    char setting[64];
+    snprintf(setting, sizeof(setting), "OMP_NUM_THREADS=%d", budget);
+    // hipVS also starts native std::threads. omp_set_num_threads only affects
+    // the caller; LLVM's runtime defaults also apply to those new threads.
+    kmp_set_defaults(setting);
+    fprintf(stderr, "[seekdb_cuvs] container CPU quota: OpenMP threads %d -> %d\n",
+            before, budget);
+  }
+}
+#endif
 
 typedef struct {
   cuvsResources_t        res;
@@ -20,6 +44,7 @@ typedef struct {
   cudaStream_t stream;
   void *query_buffer, *neighbor_buffer, *distance_buffer;
   size_t query_bytes, neighbor_bytes, distance_bytes, default_itopk;
+  enum cuvsCagraSearchAlgo default_search_algo;
   long n, dim;
 } sk_cuvs_index;
 
@@ -27,6 +52,9 @@ typedef struct {
  * the index's persistent search worker. Never depend on a per-thread default. */
 static sk_cuvs_index* sk_create_index(void)
 {
+#if defined(__linux__) && defined(_OPENMP)
+  pthread_once(&sk_cpu_budget_once, sk_configure_cpu_budget);
+#endif
   sk_cuvs_index* h = (sk_cuvs_index*)calloc(1, sizeof(*h));
   if (!h) return NULL;
   if (cuvsResourcesCreate(&h->res) != CUVS_SUCCESS) { free(h); return NULL; }
@@ -39,6 +67,7 @@ static sk_cuvs_index* sk_create_index(void)
     return NULL;
   }
   h->default_itopk = h->sp->itopk_size;
+  h->default_search_algo = h->sp->algo;
   h->sp->search_width = 4;
   return h;
 }
@@ -176,6 +205,10 @@ int seekdb_cuvs_search(void* handle, const float* query, long nq, long topk,
       size_t required_itopk = (size_t)topk * 4;
       if (required_itopk < 512) required_itopk = 512;
       h->sp->itopk_size = h->default_itopk > required_itopk ? h->default_itopk : required_itopk;
+      // The pinned SINGLE_CTA kernel supports at most 512 candidates. Preserve
+      // the full candidate count for larger Top-k, then restore the default
+      // strategy when the handle is reused for a smaller request.
+      h->sp->algo = h->sp->itopk_size > 512 ? MULTI_CTA : h->default_search_algo;
     }
     cuvsFilter f; f.type=NO_FILTER; f.addr=(uintptr_t)0;
     if (cuvsCagraSearch(h->res, h->sp, h->idx, &qt, &nt, &dt, f) != CUVS_SUCCESS) { rc=15; goto done; }
@@ -183,9 +216,20 @@ int seekdb_cuvs_search(void* handle, const float* query, long nq, long topk,
     if (out_dist && cudaMemcpyAsync(out_dist, h->distance_buffer, dbytes, cudaMemcpyDeviceToHost, h->stream) != cudaSuccess) { rc=17; goto done; }
   }
 done:
+  // The following cuVS call can clear the thread-local error text. Report the
+  // failing operation before synchronizing, while still completing cleanup.
+  if (rc) {
+    const char* detail = cuvsGetLastErrorText();
+    fprintf(stderr, "[seekdb_cuvs] search rc=%d nq=%ld topk=%ld: %s\n",
+            rc, nq, topk, detail ? detail : "no additional detail");
+  }
   // Wait even after an error: a caller may release its host buffers on return.
-  if (cuvsStreamSync(h->res) != CUVS_SUCCESS && rc == 0) rc=18;
-  if (rc) fprintf(stderr, "[seekdb_cuvs] search rc=%d: %s\n", rc, cuvsGetLastErrorText());
+  if (cuvsStreamSync(h->res) != CUVS_SUCCESS && rc == 0) {
+    const char* detail = cuvsGetLastErrorText();
+    rc=18;
+    fprintf(stderr, "[seekdb_cuvs] search rc=%d nq=%ld topk=%ld: %s\n",
+            rc, nq, topk, detail ? detail : "no additional detail");
+  }
   return rc;
 }
 

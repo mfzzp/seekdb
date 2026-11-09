@@ -40,7 +40,7 @@ inline bool cuvs_snapshot_read(std::istream &in, void *data, size_t bytes)
 // V4: same as V3, with the opaque snapshot losslessly encoded in bounded blocks.
 struct CuvsSnapshotHeader {
   static constexpr size_t MAGIC_SIZE = 8;
-  int version = 4;
+  int version = 3;
   uint64_t graph_bytes = 0;
   int32_t dim = 0;
   int32_t reserved = 0;

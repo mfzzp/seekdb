@@ -5,7 +5,8 @@ extern "C" {
 #endif
 enum {AUTO_SELECT, IVF_PQ, NN_DESCENT, ITERATIVE_CAGRA_SEARCH};
 typedef struct {size_t graph_degree, intermediate_graph_degree, nn_descent_niter; int build_algo;} *cuvsCagraIndexParams_t;
-typedef struct {size_t itopk_size, search_width;} *cuvsCagraSearchParams_t;
+enum cuvsCagraSearchAlgo {SINGLE_CTA, MULTI_CTA, MULTI_KERNEL, AUTO};
+typedef struct {size_t itopk_size, search_width; enum cuvsCagraSearchAlgo algo;} *cuvsCagraSearchParams_t;
 typedef struct TestIndex *cuvsCagraIndex_t;
 enum {NO_FILTER};
 typedef struct {int type; uintptr_t addr;} cuvsFilter;

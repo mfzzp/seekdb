@@ -77,7 +77,7 @@ cuvsError_t cuvsRMMFree(cuvsResources_t r, void *pointer, size_t bytes)
 }
 cuvsError_t cuvsCagraIndexParamsCreate(cuvsCagraIndexParams_t *p) { if (fail("build-params")) return CUVS_ERROR; *p = new std::remove_pointer<cuvsCagraIndexParams_t>::type{}; ++build_params_live; return CUVS_SUCCESS; }
 cuvsError_t cuvsCagraIndexParamsDestroy(cuvsCagraIndexParams_t p) { delete p; --build_params_live; return CUVS_SUCCESS; }
-cuvsError_t cuvsCagraSearchParamsCreate(cuvsCagraSearchParams_t *p) { if (fail("search-params")) return CUVS_ERROR; *p = new std::remove_pointer<cuvsCagraSearchParams_t>::type{64, 1}; ++search_params_live; ++search_param_creates; return CUVS_SUCCESS; }
+cuvsError_t cuvsCagraSearchParamsCreate(cuvsCagraSearchParams_t *p) { if (fail("search-params")) return CUVS_ERROR; *p = new std::remove_pointer<cuvsCagraSearchParams_t>::type{64, 1, SINGLE_CTA}; ++search_params_live; ++search_param_creates; return CUVS_SUCCESS; }
 cuvsError_t cuvsCagraSearchParamsDestroy(cuvsCagraSearchParams_t p) { delete p; --search_params_live; return CUVS_SUCCESS; }
 cuvsError_t cuvsCagraIndexCreate(cuvsCagraIndex_t *p) { if (fail("index")) return CUVS_ERROR; *p = new TestIndex; ++indexes_live; return CUVS_SUCCESS; }
 cuvsError_t cuvsCagraIndexDestroy(cuvsCagraIndex_t p) { delete p; --indexes_live; return CUVS_SUCCESS; }
@@ -97,6 +97,7 @@ cuvsError_t cuvsCagraSearch(cuvsResources_t r, cuvsCagraSearchParams_t p, cuvsCa
   CHECK(f.type == NO_FILTER && f.addr == 0);
   const size_t nq = q->dl_tensor.shape[0], dim = q->dl_tensor.shape[1], k = n->dl_tensor.shape[1];
   CHECK(p->itopk_size == std::max<size_t>(512, k * 4) && p->search_width == 4);
+  CHECK(p->algo == (p->itopk_size > 512 ? MULTI_CTA : SINGLE_CTA));
   CHECK(dim == static_cast<size_t>(i->dim));
   CHECK(q->dl_tensor.dtype.bits == 32 && n->dl_tensor.dtype.code == kDLUInt && d->dl_tensor.dtype.bits == 32);
   ++search_calls;
