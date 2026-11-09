@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <cstdlib>
 #include <memory>
 #include <set>
@@ -81,6 +82,10 @@ static void fixture(long n, long dim, bool clustered, const std::string &path)
       index.reset(seekdb_cuvs_deserialize(path.c_str(), n, dim));
       require(index != nullptr, "reload failed");
     }
+    std::vector<float> restored(vectors.size());
+    require(seekdb_cuvs_export_vectors(index.get(), restored.data(), n, dim) == 0, "dataset export failed");
+    require(std::memcmp(restored.data(), vectors.data(), vectors.size() * sizeof(float)) == 0,
+            "exported FP32 dataset differs from original rows");
     for (long topk : {10L, 100L}) {
       size_t hits = 0;
       begin = Clock::now();

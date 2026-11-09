@@ -28,6 +28,10 @@ int   seekdb_cuvs_search(void* handle, const float* query, long nq, long topk,
 void  seekdb_cuvs_free(void* handle);
 int seekdb_cuvs_serialize(void* handle, const char* filename);
 void* seekdb_cuvs_deserialize(const char* filename, long n, long dim);
+/* Fill output[n*dim] with the index's original FP32 vectors in row order.
+ * Handles device row padding; synchronizes before return, allocates no device
+ * buffer, and returns nonzero for missing/incompatible data or a failed copy. */
+int seekdb_cuvs_export_vectors(void* handle, float* output, long n, long dim);
 #ifdef __cplusplus
 }
 #endif

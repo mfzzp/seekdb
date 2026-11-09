@@ -82,17 +82,9 @@ void* seekdb_cuvs_build(const float* base, long n, long dim)
   h->ip->graph_degree = 128;
   h->ip->intermediate_graph_degree = 256;
   h->ip->nn_descent_niter = 100;
-  /* The pinned hipVS provides a GPU CAGRA-search-based builder. It grows a
-   * connected seed graph, then refines every row of the complete dataset.
-   * Keep the same graph degrees and FP32 input. For small datasets the seed has
-   * ceil(n/2) nodes; larger seeds are halved further within the library's degree
-   * bound. Guard tiny datasets because the builder does not clamp its top-k. */
-#ifdef SEEKDB_CUVS_NND_CONTROL
+  /* Restore the construction path that passed the platform's Recall/VRAM gates.
+   * Persistence optimization must not change the graph or search parameters. */
   h->ip->build_algo = NN_DESCENT;
-#else
-  h->ip->build_algo = (uint64_t)n > 2 * h->ip->intermediate_graph_degree
-                       ? ITERATIVE_CAGRA_SEARCH : NN_DESCENT;
-#endif
   if (cuvsCagraBuild(h->res, h->ip, &dset, h->idx) != CUVS_SUCCESS ||
       cuvsStreamSync(h->res) != CUVS_SUCCESS) {
     fprintf(stderr, "[seekdb_cuvs] build failed (algo=%d, n=%ld, dim=%ld): %s\n",
@@ -116,6 +108,46 @@ void* seekdb_cuvs_build(const float* base, long n, long dim)
           n, dim, h->ip->graph_degree, h->ip->intermediate_graph_degree);
   h->n = n; h->dim = dim;
   return h;
+}
+
+/* Copy the index-owned FP32 dataset to an existing host buffer, without an
+ * extra device allocation. Used to restore the CPU fallback/rebuild buffer
+ * from a complete hipVS snapshot instead of persisting those vectors twice. */
+int seekdb_cuvs_export_vectors(void* handle, float* output, long n, long dim)
+{
+  sk_cuvs_index* h = (sk_cuvs_index*)handle;
+  size_t bytes = 0, width = 0, pitch = 0;
+  uintptr_t address = 0;
+  int rc = 1;
+  DLManagedTensor view = {0};
+  if (!h || !output || n != h->n || dim != h->dim ||
+      sk_matrix_bytes(n, dim, sizeof(float), &bytes)) return 1;
+  if (cuvsCagraIndexGetDataset(h->idx, &view) != CUVS_SUCCESS) goto done;
+  if (!view.dl_tensor.data || !view.dl_tensor.shape || view.dl_tensor.ndim != 2 ||
+      view.dl_tensor.device.device_type != kDLCUDA ||
+      view.dl_tensor.dtype.code != kDLFloat || view.dl_tensor.dtype.bits != 32 ||
+      view.dl_tensor.dtype.lanes != 1 || view.dl_tensor.shape[0] != n || view.dl_tensor.shape[1] != dim) goto done;
+  width = bytes / (size_t)n;
+  pitch = width;
+  if (view.dl_tensor.strides) {
+    if (view.dl_tensor.strides[1] != 1 || view.dl_tensor.strides[0] < dim ||
+        (uint64_t)view.dl_tensor.strides[0] > SIZE_MAX / sizeof(float)) goto done;
+    pitch = (size_t)view.dl_tensor.strides[0] * sizeof(float);
+  }
+  address = (uintptr_t)view.dl_tensor.data;
+  if (view.dl_tensor.byte_offset > UINTPTR_MAX - address) goto done;
+  address += (uintptr_t)view.dl_tensor.byte_offset;
+  if (width > UINTPTR_MAX - address ||
+      (uint64_t)(n - 1) > (UINTPTR_MAX - address - width) / pitch) goto done;
+  if (cudaMemcpy2DAsync(output, width, (const void*)address, pitch, width, (size_t)n,
+                         cudaMemcpyDeviceToHost, h->stream) != cudaSuccess) goto done;
+  rc = 0;
+done:
+  // Complete even failed submissions before releasing metadata or caller buffers.
+  if (cuvsStreamSync(h->res) != CUVS_SUCCESS) rc = 1;
+  if (view.deleter) view.deleter(&view);
+  if (rc) fprintf(stderr, "[seekdb_cuvs] cannot restore complete FP32 dataset from index\n");
+  return rc;
 }
 
 int seekdb_cuvs_search(void* handle, const float* query, long nq, long topk,

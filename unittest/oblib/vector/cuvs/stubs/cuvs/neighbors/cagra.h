@@ -21,6 +21,7 @@ cuvsError_t cuvsCagraSerialize(cuvsResources_t r, const char *filename, cuvsCagr
 cuvsError_t cuvsCagraDeserialize(cuvsResources_t r, const char *filename, cuvsCagraIndex_t i);
 cuvsError_t cuvsCagraIndexGetSize(cuvsCagraIndex_t i, int64_t *n);
 cuvsError_t cuvsCagraIndexGetDims(cuvsCagraIndex_t i, int64_t *d);
+cuvsError_t cuvsCagraIndexGetDataset(cuvsCagraIndex_t i, DLManagedTensor *dataset);
 #ifdef __cplusplus
 }
 #endif

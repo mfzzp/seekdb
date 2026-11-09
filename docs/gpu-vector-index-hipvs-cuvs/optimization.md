@@ -1,4 +1,4 @@
-# AMD CAGRA candidates: integration costs and iterative construction
+# AMD CAGRA candidates: integration costs and compact persistence
 
 This candidate is based on contest V5 commit
 `634888d9b037153fa143d2c913ba4b25503e1d62`. It uses the unmodified hipVS
@@ -6,7 +6,88 @@ commit `f96a663d0a4441d6f5344bd3ef552b71ae7b370b` supplied by the contest.
 Each new candidate needs its own GPU validation. Host measurements below do not
 establish SQL performance or Recall.
 
-## Fourth candidate: evaluate the fixed library's iterative builder
+## Fifth candidate (current): restore NN-descent and store the dataset once
+
+The fourth candidate, `fa64d4537830b163f7ff53240d338c5d06e8b362`, scored
+**0/20** on the platform. The supplied failures were `relative_vram_limit` and
+`hidden250k:recall@100_baseline_delta`; no numerical VRAM or Recall measurements
+were supplied. These are hard gates, not a lack of timing improvement. The
+iterative builder is therefore removed from the current candidate, including
+its build-time switch. Construction again uses the previously gate-passing
+NN-descent recipe: graph degree 128, intermediate degree 256, 100 maximum
+iterations. The fixed CAGRA search, its parameters, input FP32 rows, SQL workload
+and scoring files are unchanged. The best observed result remains **6.943/20**
+at `79f8929b4caa733598962d110779c1c45d56780a`.
+
+Source inspection found duplicate persistence of every FP32 vector. `OBCUVS02`
+stored IDs and a raw vector array before the hipVS snapshot, but the bridge
+already calls `cuvsCagraSerialize(..., true)`. The pinned library's
+[serializer](https://github.com/AMD-Ecosystem/hipVS/blob/f96a663d0a4441d6f5344bd3ef552b71ae7b370b/cpp/src/neighbors/detail/cagra/cagra_serialize.cuh)
+includes the dataset with the complete graph. The new `OBCUVS03` envelope stores
+the same header fields, IDs and complete hipVS snapshot, omitting only the
+second raw vector array. For 250,000 rows, this removes exactly 128,000,000 bytes
+at dimension 128 or 256,000,000 bytes at dimension 256 from the seekdb stream.
+These byte counts are arithmetic, **not measured build speedups**. The staging
+snapshot remains complete, is transient, and is never reused across builds.
+
+On reload, the bridge uses the pinned library's documented
+[`cuvsCagraIndexGetDataset`](https://github.com/AMD-Ecosystem/hipVS/blob/f96a663d0a4441d6f5344bd3ef552b71ae7b370b/cpp/include/cuvs/neighbors/cagra.h)
+non-owning device view. It validates shape, FP32 dtype, layout and arithmetic,
+then copies each row into the already allocated host rebuild/fallback buffer.
+The copy handles padded row strides and byte offsets, makes no additional
+device allocation, synchronizes before returning and releases view metadata.
+The adaptor publishes a reloaded index only after full vector restoration; a
+failure frees the new GPU handle and fails the load. This adds a device-to-host
+copy during reload in exchange for eliminating duplicate durable I/O. Its
+end-to-end effect and peak memory still need AMD measurement. Persisted graph
+and FP32 data are neither quantized nor recomputed.
+
+Compatibility: this version reads both `OBCUVS02` and `OBCUVS03`, and writes
+`OBCUVS03`. An older binary cannot read the new envelope; use fresh independent
+instances for comparisons or rebuild indexes before downgrading. Deploy the
+bridge and seekdb together because vector export is a new bridge entry point.
+The CPU VSAG dispatch and its snapshot format are unchanged.
+
+Host checks exercise the production envelope helpers against an independently
+encoded V2 layout, exact V3 layout, signed 64-bit IDs, arbitrary FP32 bits,
+opaque graph bytes, next-object boundaries, all truncation/short-write offsets
+and corrupt headers. Bridge API doubles check byte-exact restoration including
+NaNs/signed zero, padding/offsets, invalid metadata, failed copies, failed
+synchronization and resource cleanup without device allocation. These tests
+do not execute hipVS. `test_persistence.cpp` and `test_build_quality.cpp` now
+require full byte equality of exported vectors after build and reload; their
+real-GPU execution, SQL restart and the official paired gates remain pending.
+
+Windows host tests passed 5/5 and the adaptor passed its compatibility-header
+syntax check. On the existing NVIDIA-only Linux server, GCC 13.3 host tests
+passed 5/5 with ASan/UBSan and `-Wall -Wextra -Werror`. C and C++ syntax checks
+against the pinned hipVS C headers, compilation of both real-GPU diagnostic
+sources to objects, and Bash syntax checks passed. CUDA/DLPack declarations
+were test substitutes; these checks did not link ROCm or execute hipVS. Source
+hashes, commands, exit codes and outputs are recorded in
+[`validation/host_compact_20261109.json`](validation/host_compact_20261109.json).
+
+For an AMD host, build a fresh bridge and run the actual GPU diagnostics:
+
+```sh
+HIPVS_ROOT=/opt/hipvs ROCM_ROOT=/opt/rocm bash tools/hipvs_bridge/build.sh /tmp/amd-compact-study/libseekdb_cuvs_bridge.so
+c++ -std=c++17 -O2 tools/hipvs_bridge/test_build_quality.cpp -Itools/hipvs_bridge -L/tmp/amd-compact-study -lseekdb_cuvs_bridge -Wl,-rpath,/tmp/amd-compact-study -Wl,-rpath-link,/opt/hipvs/lib -Wl,-rpath-link,/opt/rocm/lib -o /tmp/amd-compact-study/test_build_quality
+LD_LIBRARY_PATH=/tmp/amd-compact-study:/opt/hipvs/lib:/opt/rocm/lib /tmp/amd-compact-study/test_build_quality /tmp/amd-compact-study/fixture
+c++ -std=c++17 -O2 tools/hipvs_bridge/test_persistence.cpp -Itools/hipvs_bridge -L/tmp/amd-compact-study -lseekdb_cuvs_bridge -Wl,-rpath,/tmp/amd-compact-study -Wl,-rpath-link,/opt/hipvs/lib -Wl,-rpath-link,/opt/rocm/lib -o /tmp/amd-compact-study/test_persistence
+LD_LIBRARY_PATH=/tmp/amd-compact-study:/opt/hipvs/lib:/opt/rocm/lib /tmp/amd-compact-study/test_persistence write /tmp/amd-compact-study/restart.bin
+LD_LIBRARY_PATH=/tmp/amd-compact-study:/opt/hipvs/lib:/opt/rocm/lib /tmp/amd-compact-study/test_persistence read /tmp/amd-compact-study/restart.bin
+```
+
+Use a new directory/prefix for each experiment. These bridge diagnostics still
+need the existing full seekdb SQL build/restart checks and unchanged official
+paired benchmark. The snapshot log records `header.version` and
+`omitted_vector_bytes` alongside the existing phase timers to distinguish the
+durable I/O change from GPU construction time.
+
+## Fourth candidate (historical, failed gates): iterative builder
+
+The following describes `fa64d4537830b163f7ff53240d338c5d06e8b362`, not the
+current implementation. Its hypotheses were not validated by the platform.
 
 Two platform observations supplied by the user are now available:
 
@@ -65,20 +146,8 @@ Recall and reload behavior. Its 0.95 fixture threshold does not replace official
 dataset-specific or baseline-relative Recall gates. GPU execution of this test
 is pending; its source compilation is not a quality result.
 
-For an AMD host, compare the candidate and an explicit NN-descent control using
-the same fixed library. Choose new output directories for a new experiment:
-
-```sh
-HIPVS_ROOT=/opt/hipvs ROCM_ROOT=/opt/rocm tools/hipvs_bridge/build.sh /tmp/amd-build-study/iterative/libseekdb_cuvs_bridge.so
-SEEKDB_CUVS_BUILD_ALGORITHM=nn_descent HIPVS_ROOT=/opt/hipvs ROCM_ROOT=/opt/rocm tools/hipvs_bridge/build.sh /tmp/amd-build-study/control/libseekdb_cuvs_bridge.so
-c++ -std=c++17 -O2 tools/hipvs_bridge/test_build_quality.cpp -Itools/hipvs_bridge -L/tmp/amd-build-study/iterative -lseekdb_cuvs_bridge -Wl,-rpath,/tmp/amd-build-study/iterative -Wl,-rpath-link,/opt/hipvs/lib -Wl,-rpath-link,/opt/rocm/lib -o /tmp/amd-build-study/test_build_quality
-LD_LIBRARY_PATH=/tmp/amd-build-study/iterative:/opt/hipvs/lib:/opt/rocm/lib /tmp/amd-build-study/test_build_quality /tmp/amd-build-study/iterative/fixture
-LD_LIBRARY_PATH=/tmp/amd-build-study/control:/opt/hipvs/lib:/opt/rocm/lib /tmp/amd-build-study/test_build_quality /tmp/amd-build-study/control/fixture
-```
-
-The default official build invocation selects the iterative candidate. The
-control variable is only an explicit build-time comparison knob; no dataset or
-evaluation-environment detection occurs. The two libraries expose the same ABI.
+The historical commit included an NN-descent build-time comparison switch.
+That switch and the iterative default are removed in the fifth candidate.
 Each fixture destroys its built index before reloading, and deletes its own
 successful test snapshot. A failed fixture retains its snapshot for diagnosis;
 use a fresh prefix for the next run. Separate-process persistence remains covered
@@ -323,7 +392,7 @@ benchmark on clean, independent instances for V5 and the candidate.
 Windows and Linux host checks now cover host control flow and Linux mapped-file
 transfer. The current server cannot validate ROCm linking, GPU execution,
 full candidate seekdb startup, SQL persistence or Recall. The table below applies
-to the fourth candidate; the second and third candidates have platform results recorded above.
+to the fifth candidate; prior platform observations are recorded above.
 
 | Required comparison | Status before platform testing |
 | --- | --- |

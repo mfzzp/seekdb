@@ -29,6 +29,11 @@ int main(int argc, char **argv)
     index = seekdb_cuvs_deserialize(argv[2], count, dimension);
     if (!index) return 4;
   }
+  std::vector<float> restored(vectors.size());
+  if (seekdb_cuvs_export_vectors(index, restored.data(), count, dimension) != 0 ||
+      std::memcmp(restored.data(), vectors.data(), vectors.size() * sizeof(float)) != 0) {
+    seekdb_cuvs_free(index); return 12;
+  }
   // Exercise growing/shrinking scratch space, different queries and Top-100
   // after both build and reload. Real GPU execution is required for this test.
   for (const long topk : {10L, 100L, 200L, 10L}) {

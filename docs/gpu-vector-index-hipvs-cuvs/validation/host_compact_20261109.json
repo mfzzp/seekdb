@@ -1,0 +1,185 @@
+{
+  "date": "2026-11-09",
+  "parent_commit": "fa64d4537830b163f7ff53240d338c5d06e8b362",
+  "highest_observed_score_commit": "79f8929b4caa733598962d110779c1c45d56780a",
+  "failed_parent_platform_gates": [
+    "relative_vram_limit",
+    "hidden250k:recall@100_baseline_delta"
+  ],
+  "scope": "Host-only validation. API syntax uses pinned hipVS headers plus CUDA/DLPack test declarations. No AMD runtime, GPU build, full seekdb build, SQL, GPU Recall, peak VRAM or end-to-end performance measurement.",
+  "source_sha256_lf": {
+    "src/oblib/lib/vector/ob_vsag_adaptor.cpp": "26cc0546131ecb95db12f557000fbb7fe02c708a1ae63bbddd02e56e26242fc8",
+    "src/oblib/lib/vector/cuvs_snapshot_format.h": "31d222f769fa7f9147bdcd524a17d7a3c1280153209ff4a735d8b534f5258a97",
+    "tools/hipvs_bridge/build.sh": "6664a4d00895187fa0eea287db186574d10b3b297680586d353ae552590ff426",
+    "tools/hipvs_bridge/seekdb_cuvs_bridge.c": "e1235c5bbe4da34580a8a9340d0fbb35c09117b3f5cf69b3ad4246b40d91e735",
+    "tools/hipvs_bridge/seekdb_cuvs_bridge.h": "338754b87a8b8f5fffbeb52c4c3d98c898b337732581e96ceeb008281e1f3bb2",
+    "tools/hipvs_bridge/test_build_quality.cpp": "40ab901b6df086b6c7b1c609b46a082417d138700b8d8bb476abad1a8c377c63",
+    "tools/hipvs_bridge/test_persistence.cpp": "c87b93abc1ab3ef3ec3348d90413e8cb08ce330619aa64e58decd75aa230135e",
+    "unittest/oblib/vector/cuvs/CMakeLists.txt": "5b7b191a2ddc42e1f951ad5f8dadd27241601fb41df2c53f70f75d573647c1de",
+    "unittest/oblib/vector/cuvs/test_cuvs_bridge.cpp": "648e0a1262c3e6e33de778ec52ddae3edab6b38161689ae789de6a68af89080a",
+    "unittest/oblib/vector/cuvs/test_cuvs_snapshot_format.cpp": "a3c3663707eb90c45f06a6d439fe3861dc8dace501f2cc62b64de6830ae5c33e",
+    "unittest/oblib/vector/cuvs/stubs/cuda_runtime.h": "d266e04069bc7c3cac3b6b62552d4a2e0b60cc7caca49db5cda8cb24baf7a10e",
+    "unittest/oblib/vector/cuvs/stubs/cuvs/neighbors/cagra.h": "5251065f3230840a9da50c2266ca1f15374da81ffd15b0c20ed16ade36455927"
+  },
+  "frozen_hipvs_commit": "f96a663d0a4441d6f5344bd3ef552b71ae7b370b",
+  "api_headers": {
+    "commit": "f96a663d0a4441d6f5344bd3ef552b71ae7b370b",
+    "headers": {
+      "cuvs/neighbors/cagra.h": "4fbca2261378ce270dae35ec5aa5675b317fb4374f0e426c3965f75ba9f4d29f",
+      "cuvs/core/c_api.h": "fd90189f0421d1613e3384d98ae1cb72acc1971c5ea7e7291803b5dcb06ca36e",
+      "cuvs/neighbors/ivf_pq.h": "7fdcac73615dd00a1e64c6fe2dab8b8d859e55ebc68b8fbb0de26cd6cc72b483",
+      "cuvs/distance/distance.h": "f5f24a86aed1f82887d68e9b84c449d4dfb7aa8859b0487ce9a1d9bde4046690",
+      "cuvs/neighbors/common.h": "12cd53863f21c2f8475e8b937ea3f7a07f6f4ddd1fcdb49bd0fa40d7d93bc166"
+    }
+  },
+  "windows": {
+    "host_tests_passed": 5,
+    "host_tests_total": 5,
+    "adaptor_syntax_exit_code": 0,
+    "compiler": "Clang 21, developer compatibility headers"
+  },
+  "linux": {
+    "os": "Ubuntu 24.04",
+    "compiler": "GCC 13.3.0",
+    "host_tests_passed": 5,
+    "host_tests_total": 5,
+    "sanitizers": [
+      "address",
+      "undefined"
+    ],
+    "warnings_as_errors": true,
+    "amd_gpu": false,
+    "commands": [
+      {
+        "command": [
+          "cmake",
+          "-S",
+          "unittest/oblib/vector/cuvs",
+          "-B",
+          "build",
+          "-DCMAKE_BUILD_TYPE=Debug",
+          "-DCMAKE_C_FLAGS=-Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer",
+          "-DCMAKE_CXX_FLAGS=-Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer"
+        ],
+        "exit_code": 0,
+        "output": "-- The C compiler identification is GNU 13.3.0\n-- The CXX compiler identification is GNU 13.3.0\n-- Detecting C compiler ABI info\n-- Detecting C compiler ABI info - done\n-- Check for working C compiler: /usr/bin/cc - skipped\n-- Detecting C compile features\n-- Detecting C compile features - done\n-- Detecting CXX compiler ABI info\n-- Detecting CXX compiler ABI info - done\n-- Check for working CXX compiler: /usr/bin/c++ - skipped\n-- Detecting CXX compile features\n-- Detecting CXX compile features - done\n-- Performing Test CMAKE_HAVE_LIBC_PTHREAD\n-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success\n-- Found Threads: TRUE  \n-- Configuring done (0.6s)\n-- Generating done (0.0s)\n-- Build files have been written to: /tmp/seekdb-amd-compact-e0l5xcfg/build\n"
+      },
+      {
+        "command": [
+          "cmake",
+          "--build",
+          "build",
+          "--parallel",
+          "2"
+        ],
+        "exit_code": 0,
+        "output": "[  9%] Building C object CMakeFiles/bridge_under_test.dir/tmp/seekdb-amd-compact-e0l5xcfg/tools/hipvs_bridge/seekdb_cuvs_bridge.c.o\n[ 18%] Building CXX object CMakeFiles/test_cuvs_worker.dir/test_cuvs_worker.cpp.o\n[ 18%] Built target bridge_under_test\n[ 27%] Building CXX object CMakeFiles/test_cuvs_row_batch.dir/test_cuvs_row_batch.cpp.o\n[ 36%] Linking CXX executable test_cuvs_row_batch\n[ 36%] Built target test_cuvs_row_batch\n[ 45%] Linking CXX executable test_cuvs_worker\n[ 54%] Building CXX object CMakeFiles/test_cuvs_snapshot_io.dir/test_cuvs_snapshot_io.cpp.o\n[ 54%] Built target test_cuvs_worker\n[ 63%] Building CXX object CMakeFiles/test_cuvs_snapshot_format.dir/test_cuvs_snapshot_format.cpp.o\n[ 72%] Linking CXX executable test_cuvs_snapshot_io\n[ 72%] Built target test_cuvs_snapshot_io\n[ 81%] Building CXX object CMakeFiles/test_cuvs_bridge.dir/test_cuvs_bridge.cpp.o\n[ 90%] Linking CXX executable test_cuvs_snapshot_format\n[ 90%] Built target test_cuvs_snapshot_format\n[100%] Linking CXX executable test_cuvs_bridge\n[100%] Built target test_cuvs_bridge\n"
+      },
+      {
+        "command": [
+          "ctest",
+          "--test-dir",
+          "build",
+          "--output-on-failure",
+          "-V"
+        ],
+        "exit_code": 0,
+        "output": "Internal ctest changing into directory: /tmp/seekdb-amd-compact-e0l5xcfg/build\nUpdateCTestConfiguration  from :/tmp/seekdb-amd-compact-e0l5xcfg/build/DartConfiguration.tcl\nUpdateCTestConfiguration  from :/tmp/seekdb-amd-compact-e0l5xcfg/build/DartConfiguration.tcl\nTest project /tmp/seekdb-amd-compact-e0l5xcfg/build\nConstructing a list of tests\nDone constructing a list of tests\nUpdating test list for fixtures\nAdded 0 tests to meet fixture requirements\nChecking test dependency graph...\nChecking test dependency graph end\ntest 1\n    Start 1: cuvs_bridge_lifecycle\n\n1: Test command: /tmp/seekdb-amd-compact-e0l5xcfg/build/test_cuvs_bridge\n1: Working Directory: /tmp/seekdb-amd-compact-e0l5xcfg/build\n1: Test timeout computed to be: 60\n1: [seekdb_cuvs] build complete algo=nn_descent n=1 dim=1 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=1 dim=33 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=1 dim=128 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=1 dim=256 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=255 dim=1 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=255 dim=33 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=255 dim=128 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=255 dim=256 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=256 dim=1 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=256 dim=33 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=256 dim=128 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=256 dim=256 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=511 dim=1 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=511 dim=33 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=511 dim=128 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=511 dim=256 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=512 dim=1 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=512 dim=33 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=512 dim=128 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=512 dim=256 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=513 dim=1 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=513 dim=33 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=513 dim=128 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=513 dim=256 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=8193 dim=1 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=8193 dim=33 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=8193 dim=128 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build complete algo=nn_descent n=8193 dim=256 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] build failed (algo=2, n=1000, dim=32): host-test injected failure\n1: [seekdb_cuvs] build failed (algo=2, n=1000, dim=32): host-test injected failure\n1: [seekdb_cuvs] built index shape mismatch: 0 x 0, expected 1000 x 32\n1: [seekdb_cuvs] built index shape mismatch: 1000 x 0, expected 1000 x 32\n1: [seekdb_cuvs] built index shape mismatch: 999 x 32, expected 1000 x 32\n1: [seekdb_cuvs] built index shape mismatch: 1000 x 31, expected 1000 x 32\n1: [seekdb_cuvs] build complete algo=nn_descent n=1000 dim=32 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] search rc=10: host-test injected failure\n1: [seekdb_cuvs] build complete algo=nn_descent n=1000 dim=32 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] search rc=11: host-test injected failure\n1: [seekdb_cuvs] build complete algo=nn_descent n=1000 dim=32 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] search rc=12: host-test injected failure\n1: [seekdb_cuvs] build complete algo=nn_descent n=1000 dim=32 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] search rc=13: host-test injected failure\n1: [seekdb_cuvs] search rc=16: host-test injected failure\n1: [seekdb_cuvs] search rc=17: host-test injected failure\n1: [seekdb_cuvs] search rc=15: host-test injected failure\n1: [seekdb_cuvs] search rc=18: host-test injected failure\n1: [seekdb_cuvs] serialize failed: host-test injected failure\n1: [seekdb_cuvs] snapshot shape mismatch: 1000 x 32, expected 999 x 32\n1: [seekdb_cuvs] deserialize failed: host-test injected failure\n1: [seekdb_cuvs] snapshot shape mismatch: 1000 x 32, expected 1000 x 31\n1: [seekdb_cuvs] deserialize failed: host-test injected failure\n1: [seekdb_cuvs] deserialize failed: host-test injected failure\n1: [seekdb_cuvs] build complete algo=nn_descent n=7 dim=33 graph_degree=128 intermediate_degree=256\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: [seekdb_cuvs] cannot restore complete FP32 dataset from index\n1: PASS bridge: NN-descent parameter parity, search, buffer reuse, shapes, FP32 dataset export including padding/offsets, async completion, injected errors and release; no GPU used\n1/5 Test #1: cuvs_bridge_lifecycle ............   Passed    0.01 sec\ntest 2\n    Start 2: cuvs_worker_lifecycle\n\n2: Test command: /tmp/seekdb-amd-compact-e0l5xcfg/build/test_cuvs_worker\n2: Working Directory: /tmp/seekdb-amd-compact-e0l5xcfg/build\n2: Test timeout computed to be: 60\n2: PASS worker: 1800 varying/concurrent jobs, exception recovery, 50 lifecycles; host-only dispatch cold_us=153.973 reused_us=8.471\n2/5 Test #2: cuvs_worker_lifecycle ............   Passed    0.21 sec\ntest 3\n    Start 3: cuvs_row_batch\n\n3: Test command: /tmp/seekdb-amd-compact-e0l5xcfg/build/test_cuvs_row_batch\n3: Working Directory: /tmp/seekdb-amd-compact-e0l5xcfg/build\n3: Test timeout computed to be: 60\n3: PASS dense batches: byte-exact unaligned input, bounded memory, 64-bit IDs, shapes, full/partial reuse and invalid inputs\n3/5 Test #3: cuvs_row_batch ...................   Passed    0.09 sec\ntest 4\n    Start 4: cuvs_snapshot_io\n\n4: Test command: /tmp/seekdb-amd-compact-e0l5xcfg/build/test_cuvs_snapshot_io\n4: Working Directory: /tmp/seekdb-amd-compact-e0l5xcfg/build\n4: Test timeout computed to be: 60\n4: PASS snapshot bytes, chunk/page boundaries, memfd/tmpfile, failed mmap fallback, short input/output and exception cleanup\n4/5 Test #4: cuvs_snapshot_io .................   Passed    1.77 sec\ntest 5\n    Start 5: cuvs_snapshot_format\n\n5: Test command: /tmp/seekdb-amd-compact-e0l5xcfg/build/test_cuvs_snapshot_format\n5: Working Directory: /tmp/seekdb-amd-compact-e0l5xcfg/build\n5: Test timeout computed to be: 60\n5: PASS snapshot format: V2 compatibility, V3 exact layout, IDs/FP32/opaque graph bytes, next-object boundary, corrupt headers and every truncation/short-write offset\n5/5 Test #5: cuvs_snapshot_format .............   Passed    0.01 sec\n\n100% tests passed, 0 tests failed out of 5\n\nTotal Test time (real) =   2.10 sec\n"
+      },
+      {
+        "command": [
+          "gcc",
+          "-std=c11",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsyntax-only",
+          "-I.validation/pinned-headers",
+          "-Iunittest/oblib/vector/cuvs/stubs",
+          "tools/hipvs_bridge/seekdb_cuvs_bridge.c"
+        ],
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "command": [
+          "g++",
+          "-x",
+          "c++",
+          "-std=c++17",
+          "-Wno-missing-field-initializers",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsyntax-only",
+          "-I.validation/pinned-headers",
+          "-Iunittest/oblib/vector/cuvs/stubs",
+          "tools/hipvs_bridge/seekdb_cuvs_bridge.c"
+        ],
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "command": [
+          "g++",
+          "-std=c++17",
+          "-O2",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-c",
+          "tools/hipvs_bridge/test_build_quality.cpp",
+          "-o",
+          "quality.o"
+        ],
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "command": [
+          "g++",
+          "-std=c++17",
+          "-O2",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-c",
+          "tools/hipvs_bridge/test_persistence.cpp",
+          "-o",
+          "persistence.o"
+        ],
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "command": [
+          "bash",
+          "-n",
+          "tools/hipvs_bridge/build.sh"
+        ],
+        "exit_code": 0,
+        "output": ""
+      }
+    ]
+  },
+  "byte_reduction": {
+    "method": "Arithmetic n * dim * sizeof(float), not a measured performance result",
+    "rows": 250000,
+    "dim128": 128000000,
+    "dim256": 256000000
+  },
+  "compatibility": {
+    "read": [
+      "OBCUVS02",
+      "OBCUVS03"
+    ],
+    "write": "OBCUVS03",
+    "downgrade": "Old binaries cannot read OBCUVS03; rebuild in a fresh independent instance"
+  },
+  "pending": [
+    "Official ROCm bridge and complete seekdb build",
+    "Real-GPU full vector export equality and separate-process reload",
+    "SQL V2/V3 persistence, restart and CPU VSAG regression",
+    "Official paired Recall, memory and end-to-end build/query measurements"
+  ]
+}
