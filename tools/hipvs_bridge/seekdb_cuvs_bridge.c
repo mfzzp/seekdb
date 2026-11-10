@@ -44,7 +44,6 @@ typedef struct {
   cudaStream_t stream;
   void *query_buffer, *neighbor_buffer, *distance_buffer;
   size_t query_bytes, neighbor_bytes, distance_bytes, default_itopk;
-  enum cuvsCagraSearchAlgo default_search_algo;
   long n, dim;
 } sk_cuvs_index;
 
@@ -67,7 +66,6 @@ static sk_cuvs_index* sk_create_index(void)
     return NULL;
   }
   h->default_itopk = h->sp->itopk_size;
-  h->default_search_algo = h->sp->algo;
   h->sp->search_width = 4;
   return h;
 }
@@ -108,11 +106,11 @@ void* seekdb_cuvs_build(const float* base, long n, long dim)
   dset.dl_tensor.dtype.code = kDLFloat; dset.dl_tensor.dtype.bits = 32; dset.dl_tensor.dtype.lanes = 1;
   dset.dl_tensor.shape = ds; dset.dl_tensor.strides = 0; dset.dl_tensor.byte_offset = 0;
 
-  h->ip->graph_degree = 128;
-  h->ip->intermediate_graph_degree = 256;
-  h->ip->nn_descent_niter = 100;
-  /* Restore the construction path that passed the platform's Recall/VRAM gates.
-   * Persistence optimization must not change the graph or search parameters. */
+  /* Pair a smaller graph/refinement budget with the broader multi-CTA search
+   * below. Use the same construction settings for every input shape. */
+  h->ip->graph_degree = 96;
+  h->ip->intermediate_graph_degree = 128;
+  h->ip->nn_descent_niter = 2;
   h->ip->build_algo = NN_DESCENT;
   if (cuvsCagraBuild(h->res, h->ip, &dset, h->idx) != CUVS_SUCCESS ||
       cuvsStreamSync(h->res) != CUVS_SUCCESS) {
@@ -132,9 +130,9 @@ void* seekdb_cuvs_build(const float* base, long n, long dim)
       return NULL;
     }
   }
-  fprintf(stderr, "[seekdb_cuvs] build complete algo=%s n=%ld dim=%ld graph_degree=%zu intermediate_degree=%zu\n",
+  fprintf(stderr, "[seekdb_cuvs] build complete algo=%s n=%ld dim=%ld graph_degree=%zu intermediate_degree=%zu nn_descent_niter=%zu\n",
           h->ip->build_algo == NN_DESCENT ? "nn_descent" : "iterative_cagra_search",
-          n, dim, h->ip->graph_degree, h->ip->intermediate_graph_degree);
+          n, dim, h->ip->graph_degree, h->ip->intermediate_graph_degree, h->ip->nn_descent_niter);
   h->n = n; h->dim = dim;
   return h;
 }
@@ -188,7 +186,7 @@ int seekdb_cuvs_search(void* handle, const float* query, long nq, long topk,
       sk_matrix_bytes(nq, h->dim, sizeof(float), &qbytes) ||
       sk_matrix_bytes(nq, topk, sizeof(unsigned), &nbytes) ||
       sk_matrix_bytes(nq, topk, sizeof(float), &dbytes) ||
-      (uint64_t)topk > SIZE_MAX / 4) return 1;
+      (uint64_t)topk > (SIZE_MAX - 63) / 4 || h->default_itopk > SIZE_MAX - 63) return 1;
   int rc = 0;
   if (sk_reserve(h, &h->query_buffer, &h->query_bytes, qbytes)) { rc=10; goto done; }
   if (sk_reserve(h, &h->neighbor_buffer, &h->neighbor_bytes, nbytes)) { rc=11; goto done; }
@@ -203,12 +201,12 @@ int seekdb_cuvs_search(void* handle, const float* query, long nq, long topk,
     dt=qt; dt.dl_tensor.data=h->distance_buffer; dt.dl_tensor.dtype.code=kDLFloat; dt.dl_tensor.shape=dsh;
     {
       size_t required_itopk = (size_t)topk * 4;
-      if (required_itopk < 512) required_itopk = 512;
+      if (required_itopk < 8192) required_itopk = 8192;
       h->sp->itopk_size = h->default_itopk > required_itopk ? h->default_itopk : required_itopk;
-      // The pinned SINGLE_CTA kernel supports at most 512 candidates. Preserve
-      // the full candidate count for larger Top-k, then restore the default
-      // strategy when the handle is reused for a smaller request.
-      h->sp->algo = h->sp->itopk_size > 512 ? MULTI_CTA : h->default_search_algo;
+      // Let multiple native GPU blocks traverse each SQL query. Recompute the
+      // aligned budget for every request so a larger Top-k does not persist.
+      h->sp->itopk_size = ((h->sp->itopk_size + 63) / 64) * 64;
+      h->sp->algo = MULTI_CTA;
     }
     cuvsFilter f; f.type=NO_FILTER; f.addr=(uintptr_t)0;
     if (cuvsCagraSearch(h->res, h->sp, h->idx, &qt, &nt, &dt, f) != CUVS_SUCCESS) { rc=15; goto done; }

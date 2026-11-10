@@ -1,0 +1,1665 @@
+{
+  "date": "2026-11-10",
+  "status": "WIP: real GPU and SQL quality validated on diagnostic inputs; runtime stalls unresolved; no official submission or score prediction",
+  "parent_commit": "af06346bff80aeadca159518d424b9d8c16ef8d9",
+  "official_v5_commit": "634888d9b037153fa143d2c913ba4b25503e1d62",
+  "hipvs_commit": "f96a663d0a4441d6f5344bd3ef552b71ae7b370b",
+  "source_sha256": {
+    "tools/hipvs_bridge/seekdb_cuvs_bridge.c": "389b4f2b5ff7aab290edd982af4a500d1f7dff7840d61c1872c5fd3309a18b4b",
+    "tools/hipvs_bridge/benchmark_recall.cpp": "f4e7c5f62e0fb2bf1492dbc90ccbd470365a896caa68dfb6c1fb6dd078fe695e",
+    "tools/hipvs_bridge/benchmark_sql.py": "8029b24e066252daec92b14ce73ac3ee0fd1d9908a57bd14233685ac2e109110",
+    "unittest/oblib/vector/cuvs/test_cuvs_bridge.cpp": "309b51521efca3aeebac6aa6987234dd3058bdd2d6d56ab2ac6ab0d5a6b77c0e",
+    "unittest/rootserver/test_cuvs_ddl_batch.py": "7c0b7ee6749e9a3769b5c98a907d8bb65b23c72e48f734475d0b84bb2f4b1eab"
+  },
+  "bridge_binary_sha256": "3cfcfad6b2f8dc3f9af29e730ebe3b906bb0cf05110937ddd66dd5d8cb0ce76d",
+  "seekdb_binary_sha256": "cfa09d03ff2a376f624450dd1d01f8fbdfd1d9b1a84aecf83193926173151405",
+  "parameters": {
+    "graph_degree": 96,
+    "intermediate_graph_degree": 128,
+    "nn_descent_niter": 2,
+    "algorithm": "MULTI_CTA",
+    "minimum_itopk": 8192,
+    "candidate_alignment": 64,
+    "search_width": 4,
+    "vectors": "complete FP32",
+    "snapshot_writer_version": 3
+  },
+  "environment": {
+    "gpu_arch": "gfx1100",
+    "vram_gib": 48,
+    "container_cpu_quota": 16,
+    "container_ram_gib": 55,
+    "rocm": "7.2.1",
+    "seekdb_memory_budget": "24G",
+    "trace": false,
+    "phase_timing": true,
+    "official_environment_reproduced": false
+  },
+  "full_linux_build": {
+    "result": "PASS; complete seekdb target linked; fresh GPU bootstrap and SELECT 1 passed",
+    "source": "parent commit; bridge-only candidate loaded into identical binary for both SQL variants",
+    "clang": "17",
+    "rust_override": "1.98.1 (repository pin 1.97.1 unchanged)",
+    "source_archive_sha256": "cfa3bb787daece1598c568fa4f08a5cb312e62a9cef1e1969e0f3716faf42369"
+  },
+  "host_checks": {
+    "windows": {
+      "passed": 7,
+      "total": 7,
+      "output": "Start testing: Nov 10 14:24 中国标准时间\n----------------------------------------------------------\n1/7 Testing: cuvs_bridge_lifecycle\n1/7 Test: cuvs_bridge_lifecycle\nCommand: \"D:/oceanbase-competition/seekdb-amd-cagra/.validation/host-20261110/test_cuvs_bridge.exe\"\nDirectory: D:/oceanbase-competition/seekdb-amd-cagra/.validation/host-20261110\n\"cuvs_bridge_lifecycle\" start time: Nov 10 14:24 中国标准时间\nOutput:\n----------------------------------------------------------\n[seekdb_cuvs] build complete algo=nn_descent n=1 dim=1 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=1 dim=33 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=1 dim=128 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=1 dim=256 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=255 dim=1 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=255 dim=33 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=255 dim=128 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=255 dim=256 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=256 dim=1 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=256 dim=33 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=256 dim=128 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=256 dim=256 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=511 dim=1 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=511 dim=33 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=511 dim=128 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=511 dim=256 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=512 dim=1 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=512 dim=33 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=512 dim=128 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=512 dim=256 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=513 dim=1 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=513 dim=33 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=513 dim=128 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=513 dim=256 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=8193 dim=1 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=8193 dim=33 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=8193 dim=128 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=8193 dim=256 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build failed (algo=2, n=1000, dim=32): host-test injected failure\n[seekdb_cuvs] build failed (algo=2, n=1000, dim=32): host-test injected failure\n[seekdb_cuvs] built index shape mismatch: 0 x 0, expected 1000 x 32\n[seekdb_cuvs] built index shape mismatch: 1000 x 0, expected 1000 x 32\n[seekdb_cuvs] built index shape mismatch: 999 x 32, expected 1000 x 32\n[seekdb_cuvs] built index shape mismatch: 1000 x 31, expected 1000 x 32\n[seekdb_cuvs] build complete algo=nn_descent n=1000 dim=32 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] search rc=10 nq=1 topk=10: host-test injected failure\n[seekdb_cuvs] build complete algo=nn_descent n=1000 dim=32 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] search rc=11 nq=1 topk=10: host-test injected failure\n[seekdb_cuvs] build complete algo=nn_descent n=1000 dim=32 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] search rc=12 nq=1 topk=10: host-test injected failure\n[seekdb_cuvs] build complete algo=nn_descent n=1000 dim=32 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] search rc=13 nq=1 topk=10: host-test injected failure\n[seekdb_cuvs] search rc=16 nq=1 topk=10: host-test injected failure\n[seekdb_cuvs] search rc=17 nq=1 topk=10: host-test injected failure\n[seekdb_cuvs] search rc=15 nq=1 topk=10: host-test injected failure\n[seekdb_cuvs] search rc=18 nq=1 topk=10: host-test injected failure\n[seekdb_cuvs] serialize failed: host-test injected failure\n[seekdb_cuvs] snapshot shape mismatch: 1000 x 32, expected 999 x 32\n[seekdb_cuvs] deserialize failed: host-test injected failure\n[seekdb_cuvs] snapshot shape mismatch: 1000 x 32, expected 1000 x 31\n[seekdb_cuvs] deserialize failed: host-test injected failure\n[seekdb_cuvs] deserialize failed: host-test injected failure\n[seekdb_cuvs] build complete algo=nn_descent n=4096 dim=32 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=1000 dim=32 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=7 dim=33 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\nPASS bridge: NN-descent parameter parity, search, buffer reuse, shapes, FP32 dataset export including padding/offsets, async completion, injected errors and release; no GPU used\n<end of output>\nTest time =   0.04 sec\n----------------------------------------------------------\nTest Passed.\n\"cuvs_bridge_lifecycle\" end time: Nov 10 14:24 中国标准时间\n\"cuvs_bridge_lifecycle\" time elapsed: 00:00:00\n----------------------------------------------------------\n\n2/7 Testing: cuvs_worker_lifecycle\n2/7 Test: cuvs_worker_lifecycle\nCommand: \"D:/oceanbase-competition/seekdb-amd-cagra/.validation/host-20261110/test_cuvs_worker.exe\"\nDirectory: D:/oceanbase-competition/seekdb-amd-cagra/.validation/host-20261110\n\"cuvs_worker_lifecycle\" start time: Nov 10 14:24 中国标准时间\nOutput:\n----------------------------------------------------------\nPASS worker: 1800 varying/concurrent jobs, exception recovery, 50 lifecycles; host-only dispatch cold_us=262.622 reused_us=0.533\n<end of output>\nTest time =   0.29 sec\n----------------------------------------------------------\nTest Passed.\n\"cuvs_worker_lifecycle\" end time: Nov 10 14:24 中国标准时间\n\"cuvs_worker_lifecycle\" time elapsed: 00:00:00\n----------------------------------------------------------\n\n3/7 Testing: cuvs_row_batch\n3/7 Test: cuvs_row_batch\nCommand: \"D:/oceanbase-competition/seekdb-amd-cagra/.validation/host-20261110/test_cuvs_row_batch.exe\"\nDirectory: D:/oceanbase-competition/seekdb-amd-cagra/.validation/host-20261110\n\"cuvs_row_batch\" start time: Nov 10 14:24 中国标准时间\nOutput:\n----------------------------------------------------------\nPASS dense batches: byte-exact unaligned input, bounded memory, 64-bit IDs, shapes, full/partial reuse and invalid inputs\n<end of output>\nTest time =   0.02 sec\n----------------------------------------------------------\nTest Passed.\n\"cuvs_row_batch\" end time: Nov 10 14:24 中国标准时间\n\"cuvs_row_batch\" time elapsed: 00:00:00\n----------------------------------------------------------\n\n4/7 Testing: cuvs_snapshot_io\n4/7 Test: cuvs_snapshot_io\nCommand: \"D:/oceanbase-competition/seekdb-amd-cagra/.validation/host-20261110/test_cuvs_snapshot_io.exe\"\nDirectory: D:/oceanbase-competition/seekdb-amd-cagra/.validation/host-20261110\n\"cuvs_snapshot_io\" start time: Nov 10 14:24 中国标准时间\nOutput:\n----------------------------------------------------------\nPASS snapshot bytes, chunk/page boundaries, memfd/tmpfile, failed mmap fallback, short input/output and exception cleanup\n<end of output>\nTest time =   1.14 sec\n----------------------------------------------------------\nTest Passed.\n\"cuvs_snapshot_io\" end time: Nov 10 14:24 中国标准时间\n\"cuvs_snapshot_io\" time elapsed: 00:00:01\n----------------------------------------------------------\n\n5/7 Testing: cuvs_snapshot_format\n5/7 Test: cuvs_snapshot_format\nCommand: \"D:/oceanbase-competition/seekdb-amd-cagra/.validation/host-20261110/test_cuvs_snapshot_format.exe\"\nDirectory: D:/oceanbase-competition/seekdb-amd-cagra/.validation/host-20261110\n\"cuvs_snapshot_format\" start time: Nov 10 14:24 中国标准时间\nOutput:\n----------------------------------------------------------\nPASS snapshot format: V2 compatibility, V3 exact layout, IDs/FP32/opaque graph bytes, next-object boundary, corrupt headers and every truncation/short-write offset\n<end of output>\nTest time =   0.02 sec\n----------------------------------------------------------\nTest Passed.\n\"cuvs_snapshot_format\" end time: Nov 10 14:24 中国标准时间\n\"cuvs_snapshot_format\" time elapsed: 00:00:00\n----------------------------------------------------------\n\n6/7 Testing: cuvs_snapshot_codec\n6/7 Test: cuvs_snapshot_codec\nCommand: \"D:/oceanbase-competition/seekdb-amd-cagra/.validation/host-20261110/test_cuvs_snapshot_codec.exe\"\nDirectory: D:/oceanbase-competition/seekdb-amd-cagra/.validation/host-20261110\n\"cuvs_snapshot_codec\" start time: Nov 10 14:24 中国标准时间\nOutput:\n----------------------------------------------------------\nPASS real bundled Zstd: byte equality, mixed raw/compressed blocks, boundaries, bounded headers, checksum, reorder, truncation, failed I/O and exception cleanup\n<end of output>\nTest time =   0.36 sec\n----------------------------------------------------------\nTest Passed.\n\"cuvs_snapshot_codec\" end time: Nov 10 14:24 中国标准时间\n\"cuvs_snapshot_codec\" time elapsed: 00:00:00\n----------------------------------------------------------\n\n7/7 Testing: cuvs_cpu_budget\n7/7 Test: cuvs_cpu_budget\nCommand: \"D:/oceanbase-competition/seekdb-amd-cagra/.validation/host-20261110/test_cuvs_cpu_budget.exe\"\nDirectory: D:/oceanbase-competition/seekdb-amd-cagra/.validation/host-20261110\n\"cuvs_cpu_budget\" start time: Nov 10 14:24 中国标准时间\nOutput:\n----------------------------------------------------------\nPASS CPU quotas: v1/v2, parent limits, fractional budgets, explicit ceilings, malformed/unlimited/missing values\n<end of output>\nTest time =   0.03 sec\n----------------------------------------------------------\nTest Passed.\n\"cuvs_cpu_budget\" end time: Nov 10 14:24 中国标准时间\n\"cuvs_cpu_budget\" time elapsed: 00:00:00\n----------------------------------------------------------\n\nEnd testing: Nov 10 14:24 中国标准时间\n"
+    },
+    "linux_asan_ubsan": {
+      "passed": 7,
+      "total": 7,
+      "output": "Start testing: Nov 10 13:55 CST\n----------------------------------------------------------\n1/7 Testing: cuvs_bridge_lifecycle\n1/7 Test: cuvs_bridge_lifecycle\nCommand: \"/mnt/SSD1/zzp/amd-validation-20261110/host-sanitized/test_cuvs_bridge\"\nDirectory: /mnt/SSD1/zzp/amd-validation-20261110/host-sanitized\n\"cuvs_bridge_lifecycle\" start time: Nov 10 13:55 CST\nOutput:\n----------------------------------------------------------\n[seekdb_cuvs] build complete algo=nn_descent n=1 dim=1 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=1 dim=33 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=1 dim=128 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=1 dim=256 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=255 dim=1 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=255 dim=33 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=255 dim=128 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=255 dim=256 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=256 dim=1 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=256 dim=33 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=256 dim=128 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=256 dim=256 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=511 dim=1 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=511 dim=33 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=511 dim=128 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=511 dim=256 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=512 dim=1 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=512 dim=33 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=512 dim=128 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=512 dim=256 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=513 dim=1 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=513 dim=33 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=513 dim=128 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=513 dim=256 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=8193 dim=1 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=8193 dim=33 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=8193 dim=128 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=8193 dim=256 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build failed (algo=2, n=1000, dim=32): host-test injected failure\n[seekdb_cuvs] build failed (algo=2, n=1000, dim=32): host-test injected failure\n[seekdb_cuvs] built index shape mismatch: 0 x 0, expected 1000 x 32\n[seekdb_cuvs] built index shape mismatch: 1000 x 0, expected 1000 x 32\n[seekdb_cuvs] built index shape mismatch: 999 x 32, expected 1000 x 32\n[seekdb_cuvs] built index shape mismatch: 1000 x 31, expected 1000 x 32\n[seekdb_cuvs] build complete algo=nn_descent n=1000 dim=32 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] search rc=10 nq=1 topk=10: host-test injected failure\n[seekdb_cuvs] build complete algo=nn_descent n=1000 dim=32 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] search rc=11 nq=1 topk=10: host-test injected failure\n[seekdb_cuvs] build complete algo=nn_descent n=1000 dim=32 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] search rc=12 nq=1 topk=10: host-test injected failure\n[seekdb_cuvs] build complete algo=nn_descent n=1000 dim=32 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] search rc=13 nq=1 topk=10: host-test injected failure\n[seekdb_cuvs] search rc=16 nq=1 topk=10: host-test injected failure\n[seekdb_cuvs] search rc=17 nq=1 topk=10: host-test injected failure\n[seekdb_cuvs] search rc=15 nq=1 topk=10: host-test injected failure\n[seekdb_cuvs] search rc=18 nq=1 topk=10: host-test injected failure\n[seekdb_cuvs] serialize failed: host-test injected failure\n[seekdb_cuvs] snapshot shape mismatch: 1000 x 32, expected 999 x 32\n[seekdb_cuvs] deserialize failed: host-test injected failure\n[seekdb_cuvs] snapshot shape mismatch: 1000 x 32, expected 1000 x 31\n[seekdb_cuvs] deserialize failed: host-test injected failure\n[seekdb_cuvs] deserialize failed: host-test injected failure\n[seekdb_cuvs] build complete algo=nn_descent n=4096 dim=32 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=1000 dim=32 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] build complete algo=nn_descent n=7 dim=33 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\n[seekdb_cuvs] cannot restore complete FP32 dataset from index\nPASS bridge: NN-descent parameter parity, search, buffer reuse, shapes, FP32 dataset export including padding/offsets, async completion, injected errors and release; no GPU used\n<end of output>\nTest time =   0.01 sec\n----------------------------------------------------------\nTest Passed.\n\"cuvs_bridge_lifecycle\" end time: Nov 10 13:55 CST\n\"cuvs_bridge_lifecycle\" time elapsed: 00:00:00\n----------------------------------------------------------\n\n2/7 Testing: cuvs_worker_lifecycle\n2/7 Test: cuvs_worker_lifecycle\nCommand: \"/mnt/SSD1/zzp/amd-validation-20261110/host-sanitized/test_cuvs_worker\"\nDirectory: /mnt/SSD1/zzp/amd-validation-20261110/host-sanitized\n\"cuvs_worker_lifecycle\" start time: Nov 10 13:55 CST\nOutput:\n----------------------------------------------------------\nPASS worker: 1800 varying/concurrent jobs, exception recovery, 50 lifecycles; host-only dispatch cold_us=159.073 reused_us=7.944\n<end of output>\nTest time =   0.21 sec\n----------------------------------------------------------\nTest Passed.\n\"cuvs_worker_lifecycle\" end time: Nov 10 13:55 CST\n\"cuvs_worker_lifecycle\" time elapsed: 00:00:00\n----------------------------------------------------------\n\n3/7 Testing: cuvs_row_batch\n3/7 Test: cuvs_row_batch\nCommand: \"/mnt/SSD1/zzp/amd-validation-20261110/host-sanitized/test_cuvs_row_batch\"\nDirectory: /mnt/SSD1/zzp/amd-validation-20261110/host-sanitized\n\"cuvs_row_batch\" start time: Nov 10 13:55 CST\nOutput:\n----------------------------------------------------------\nPASS dense batches: byte-exact unaligned input, bounded memory, 64-bit IDs, shapes, full/partial reuse and invalid inputs\n<end of output>\nTest time =   0.09 sec\n----------------------------------------------------------\nTest Passed.\n\"cuvs_row_batch\" end time: Nov 10 13:55 CST\n\"cuvs_row_batch\" time elapsed: 00:00:00\n----------------------------------------------------------\n\n4/7 Testing: cuvs_snapshot_io\n4/7 Test: cuvs_snapshot_io\nCommand: \"/mnt/SSD1/zzp/amd-validation-20261110/host-sanitized/test_cuvs_snapshot_io\"\nDirectory: /mnt/SSD1/zzp/amd-validation-20261110/host-sanitized\n\"cuvs_snapshot_io\" start time: Nov 10 13:55 CST\nOutput:\n----------------------------------------------------------\nPASS snapshot bytes, chunk/page boundaries, memfd/tmpfile, failed mmap fallback, short input/output and exception cleanup\n<end of output>\nTest time =   1.74 sec\n----------------------------------------------------------\nTest Passed.\n\"cuvs_snapshot_io\" end time: Nov 10 13:55 CST\n\"cuvs_snapshot_io\" time elapsed: 00:00:01\n----------------------------------------------------------\n\n5/7 Testing: cuvs_snapshot_format\n5/7 Test: cuvs_snapshot_format\nCommand: \"/mnt/SSD1/zzp/amd-validation-20261110/host-sanitized/test_cuvs_snapshot_format\"\nDirectory: /mnt/SSD1/zzp/amd-validation-20261110/host-sanitized\n\"cuvs_snapshot_format\" start time: Nov 10 13:55 CST\nOutput:\n----------------------------------------------------------\nPASS snapshot format: V2 compatibility, V3 exact layout, IDs/FP32/opaque graph bytes, next-object boundary, corrupt headers and every truncation/short-write offset\n<end of output>\nTest time =   0.01 sec\n----------------------------------------------------------\nTest Passed.\n\"cuvs_snapshot_format\" end time: Nov 10 13:55 CST\n\"cuvs_snapshot_format\" time elapsed: 00:00:00\n----------------------------------------------------------\n\n6/7 Testing: cuvs_snapshot_codec\n6/7 Test: cuvs_snapshot_codec\nCommand: \"/mnt/SSD1/zzp/amd-validation-20261110/host-sanitized/test_cuvs_snapshot_codec\"\nDirectory: /mnt/SSD1/zzp/amd-validation-20261110/host-sanitized\n\"cuvs_snapshot_codec\" start time: Nov 10 13:55 CST\nOutput:\n----------------------------------------------------------\nPASS real bundled Zstd: byte equality, mixed raw/compressed blocks, boundaries, bounded headers, checksum, reorder, truncation, failed I/O and exception cleanup\n<end of output>\nTest time =   0.60 sec\n----------------------------------------------------------\nTest Passed.\n\"cuvs_snapshot_codec\" end time: Nov 10 13:55 CST\n\"cuvs_snapshot_codec\" time elapsed: 00:00:00\n----------------------------------------------------------\n\n7/7 Testing: cuvs_cpu_budget\n7/7 Test: cuvs_cpu_budget\nCommand: \"/mnt/SSD1/zzp/amd-validation-20261110/host-sanitized/test_cuvs_cpu_budget\"\nDirectory: /mnt/SSD1/zzp/amd-validation-20261110/host-sanitized\n\"cuvs_cpu_budget\" start time: Nov 10 13:55 CST\nOutput:\n----------------------------------------------------------\nPASS CPU quotas: v1/v2, parent limits, fractional budgets, explicit ceilings, malformed/unlimited/missing values\n<end of output>\nTest time =   0.02 sec\n----------------------------------------------------------\nTest Passed.\n\"cuvs_cpu_budget\" end time: Nov 10 13:55 CST\n\"cuvs_cpu_budget\" time elapsed: 00:00:00\n----------------------------------------------------------\n\nEnd testing: Nov 10 13:55 CST\n",
+      "note": "Same executable changes; later source change only corrects a comment, GPU rebuild byte-identical"
+    }
+  },
+  "datasets": {
+    "sift": {
+      "url": "https://ann-benchmarks.com/sift-128-euclidean.hdf5",
+      "bytes": 525128288,
+      "sha256": "dd6f0a6ed6b7ebb8934680f861a33ed01ff33991eaee4fd60914d854a0ca5984",
+      "subset": "first 250000 train rows / first 4096 test rows, exact truth recomputed for subset; not claimed to match official subset"
+    },
+    "gaussian": {
+      "rows": 250000,
+      "dimension": 256,
+      "queries": 4096,
+      "seed": 371912,
+      "generator": "std::mt19937 + std::normal_distribution<float>; base and probes generated independently; exact CPU double accumulation over every row"
+    }
+  },
+  "sql_initial": [
+    {
+      "profile": "control",
+      "case": "sift250k",
+      "rows": 250000,
+      "dim": 128,
+      "nq": 4096,
+      "verify_only": false,
+      "queries": {
+        "10": {
+          "recall": 0.9999755859375,
+          "qps": 310.750450229412,
+          "total_seconds": 13.180994579335675,
+          "p50_seconds": 0.0032126220175996423,
+          "p95_seconds": 0.0034430809319019318,
+          "max_seconds": 0.042993796057999134,
+          "result_sha256": "0a3e867a83b5527dae19b0cac0b06e888b72cfad73532d676c62f09972c37039",
+          "ids_unique_and_valid": true
+        },
+        "100": {
+          "recall": 0.99996337890625,
+          "qps": 264.07330587545135,
+          "total_seconds": 15.510844560456462,
+          "p50_seconds": 0.0037579500349238515,
+          "p95_seconds": 0.003952308092266321,
+          "max_seconds": 0.047620201017707586,
+          "result_sha256": "4d81df3e82f51ce1496496a34a480bcf38b743859daa5cf38ebb50a463fc3878",
+          "ids_unique_and_valid": true
+        }
+      },
+      "started": 1794290137.5413954,
+      "load_seconds": 5.3385342919500545,
+      "ddl_seconds": 21.558076105080545,
+      "build_including_first_query_seconds": 21.568065010011196,
+      "plan": [
+        [
+          "======================================================="
+        ],
+        [
+          "|ID|OPERATOR         |NAME      |EST.ROWS|EST.TIME(us)|"
+        ],
+        [
+          "-------------------------------------------------------"
+        ],
+        [
+          "|0 |VECTOR INDEX SCAN|items(idx)|1       |7           |"
+        ],
+        [
+          "======================================================="
+        ],
+        [
+          "Outputs & filters:"
+        ],
+        [
+          "-------------------------------------"
+        ],
+        [
+          "  0 - output([items.id]), filter(nil), rowset=16"
+        ],
+        [
+          "      access([items.id]), partitions(p0)"
+        ],
+        [
+          "      is_index_back=true, is_global_index=false, "
+        ],
+        [
+          "      range_key([items.__vid_1794290143001990], [items.__type_17_1794290143615172]), range(MIN,MIN ; MAX,MAX)always true"
+        ]
+      ],
+      "completed": 1794290193.689509,
+      "exit_code": 0
+    },
+    {
+      "profile": "control",
+      "case": "gaussian250k",
+      "rows": 250000,
+      "dim": 256,
+      "nq": 4096,
+      "verify_only": false,
+      "queries": {
+        "10": {
+          "recall": 0.94765625,
+          "qps": 246.234874826045,
+          "total_seconds": 16.63452426425647,
+          "p50_seconds": 0.004070227965712547,
+          "p95_seconds": 0.004129417007789016,
+          "max_seconds": 0.017752662068232894,
+          "result_sha256": "616f00fb426b8692300a50658cc798a6399f6e7408cd5f295baf1a8dbf1a97db",
+          "ids_unique_and_valid": true
+        },
+        "100": {
+          "recall": 0.89783203125,
+          "qps": 217.53593342448357,
+          "total_seconds": 18.829073135275394,
+          "p50_seconds": 0.004583035013638437,
+          "p95_seconds": 0.004687714972533286,
+          "max_seconds": 0.017230224912054837,
+          "result_sha256": "95221311e0f042fef1484cff22fb17d92c2bb209ca7cc6089f7ba1ce88d90410",
+          "ids_unique_and_valid": true
+        }
+      },
+      "started": 1794290194.014649,
+      "load_seconds": 11.553687394945882,
+      "ddl_seconds": 22.126494189957157,
+      "build_including_first_query_seconds": 22.14140447799582,
+      "plan": [
+        [
+          "======================================================="
+        ],
+        [
+          "|ID|OPERATOR         |NAME      |EST.ROWS|EST.TIME(us)|"
+        ],
+        [
+          "-------------------------------------------------------"
+        ],
+        [
+          "|0 |VECTOR INDEX SCAN|items(idx)|1       |7           |"
+        ],
+        [
+          "======================================================="
+        ],
+        [
+          "Outputs & filters:"
+        ],
+        [
+          "-------------------------------------"
+        ],
+        [
+          "  0 - output([items.id]), filter(nil), rowset=16"
+        ],
+        [
+          "      access([items.id]), partitions(p0)"
+        ],
+        [
+          "      is_index_back=true, is_global_index=false, "
+        ],
+        [
+          "      range_key([items.__vid_1794290205723501], [items.__type_17_1794290206356742]), range(MIN,MIN ; MAX,MAX)always true"
+        ]
+      ],
+      "completed": 1794290263.8156297,
+      "exit_code": 0
+    },
+    {
+      "profile": "g96_n2_q8192",
+      "case": "sift250k",
+      "rows": 250000,
+      "dim": 128,
+      "nq": 4096,
+      "verify_only": false,
+      "queries": {
+        "10": {
+          "recall": 0.9999755859375,
+          "qps": 1143.3888924636133,
+          "total_seconds": 3.5823332087602466,
+          "p50_seconds": 0.0008454060880467296,
+          "p95_seconds": 0.0008837149944156408,
+          "max_seconds": 0.06200213101692498,
+          "result_sha256": "fbe6aebe148d94a9aeb8c214ede222de9d0a4405cc3878a5a8f70644796c60e6",
+          "ids_unique_and_valid": true
+        },
+        "100": {
+          "recall": 0.9999755859375,
+          "qps": 777.654903049134,
+          "total_seconds": 5.267117823008448,
+          "p50_seconds": 0.0012646729592233896,
+          "p95_seconds": 0.0014396519400179386,
+          "max_seconds": 0.002285007038153708,
+          "result_sha256": "0dc506dfd9087acb701c7b52d982ce063f2dbde65d8b33e67434d047771d24ac",
+          "ids_unique_and_valid": true
+        }
+      },
+      "started": 1794290713.2938342,
+      "load_seconds": 4.711520798038691,
+      "ddl_seconds": 4.732151267002337,
+      "build_including_first_query_seconds": 4.741491034976207,
+      "plan": [
+        [
+          "======================================================="
+        ],
+        [
+          "|ID|OPERATOR         |NAME      |EST.ROWS|EST.TIME(us)|"
+        ],
+        [
+          "-------------------------------------------------------"
+        ],
+        [
+          "|0 |VECTOR INDEX SCAN|items(idx)|1       |7           |"
+        ],
+        [
+          "======================================================="
+        ],
+        [
+          "Outputs & filters:"
+        ],
+        [
+          "-------------------------------------"
+        ],
+        [
+          "  0 - output([items.id]), filter(nil), rowset=16"
+        ],
+        [
+          "      access([items.id]), partitions(p0)"
+        ],
+        [
+          "      is_index_back=true, is_global_index=false, "
+        ],
+        [
+          "      range_key([items.__vid_1794290718130185], [items.__type_17_1794290718763875]), range(MIN,MIN ; MAX,MAX)always true"
+        ]
+      ],
+      "completed": 1794290732.0094159,
+      "exit_code": 0
+    },
+    {
+      "profile": "g96_n2_q8192",
+      "case": "gaussian250k",
+      "rows": 250000,
+      "dim": 256,
+      "nq": 4096,
+      "verify_only": false,
+      "queries": {
+        "10": {
+          "recall": 0.999755859375,
+          "qps": 14.190580979287095,
+          "total_seconds": 288.64216383942403,
+          "p50_seconds": 0.0011754129081964493,
+          "p95_seconds": 0.0012193729635328054,
+          "max_seconds": 283.7981917139841,
+          "result_sha256": "9605678f1a2c1f5446d17eb3ac1eeec9cebe02ce9265040a567730a4af47b3aa",
+          "ids_unique_and_valid": true
+        },
+        "100": {
+          "recall": 0.99942626953125,
+          "qps": 632.668451345507,
+          "total_seconds": 6.474165088031441,
+          "p50_seconds": 0.0015785909490659833,
+          "p95_seconds": 0.00163836102001369,
+          "max_seconds": 0.002891283016651869,
+          "result_sha256": "ecf95359b07be7a1c329edff12c2468a86c168d0940f806485fecf1028c38c99",
+          "ids_unique_and_valid": true
+        }
+      },
+      "started": 1794290732.31589,
+      "load_seconds": 11.348298047087155,
+      "ddl_seconds": 6.439294758951291,
+      "build_including_first_query_seconds": 6.455169150023721,
+      "plan": [
+        [
+          "======================================================="
+        ],
+        [
+          "|ID|OPERATOR         |NAME      |EST.ROWS|EST.TIME(us)|"
+        ],
+        [
+          "-------------------------------------------------------"
+        ],
+        [
+          "|0 |VECTOR INDEX SCAN|items(idx)|1       |7           |"
+        ],
+        [
+          "======================================================="
+        ],
+        [
+          "Outputs & filters:"
+        ],
+        [
+          "-------------------------------------"
+        ],
+        [
+          "  0 - output([items.id]), filter(nil), rowset=16"
+        ],
+        [
+          "      access([items.id]), partitions(p0)"
+        ],
+        [
+          "      is_index_back=true, is_global_index=false, "
+        ],
+        [
+          "      range_key([items.__vid_1794290743793625], [items.__type_17_1794290744427896]), range(MIN,MIN ; MAX,MAX)always true"
+        ]
+      ],
+      "completed": 1794291045.664137,
+      "exit_code": 0
+    },
+    {
+      "profile": "g96_n2_q8192",
+      "case": "sift250k",
+      "rows": 250000,
+      "dim": 128,
+      "nq": 4096,
+      "verify_only": true,
+      "queries": {
+        "10": {
+          "recall": 0.999951171875,
+          "qps": 1158.7259304541158,
+          "total_seconds": 3.534917008713819,
+          "p50_seconds": 0.0008361259242519736,
+          "p95_seconds": 0.0008901349501684308,
+          "max_seconds": 0.047415431938134134,
+          "result_sha256": "b8ef1d7b00947d105f6e66e49a87646e5d4963081110a74e12f6b5fa1aa7c25d",
+          "ids_unique_and_valid": true
+        },
+        "100": {
+          "recall": 0.9999755859375,
+          "qps": 769.7887212635354,
+          "total_seconds": 5.320940521545708,
+          "p50_seconds": 0.0012834420194849372,
+          "p95_seconds": 0.0014118829276412725,
+          "max_seconds": 0.009089087950997055,
+          "result_sha256": "b15a7dd689f27034c80c3cbe3c7a9e86cd881d85ce4f4b11f6830bace07b8aae",
+          "ids_unique_and_valid": true
+        }
+      },
+      "started": 1794291052.0928981,
+      "plan": [
+        [
+          "======================================================="
+        ],
+        [
+          "|ID|OPERATOR         |NAME      |EST.ROWS|EST.TIME(us)|"
+        ],
+        [
+          "-------------------------------------------------------"
+        ],
+        [
+          "|0 |VECTOR INDEX SCAN|items(idx)|1       |7           |"
+        ],
+        [
+          "======================================================="
+        ],
+        [
+          "Outputs & filters:"
+        ],
+        [
+          "-------------------------------------"
+        ],
+        [
+          "  0 - output([items.id]), filter(nil), rowset=16"
+        ],
+        [
+          "      access([items.id]), partitions(p0)"
+        ],
+        [
+          "      is_index_back=true, is_global_index=false, "
+        ],
+        [
+          "      range_key([items.__vid_1794290718130185], [items.__type_17_1794290718763875]), range(MIN,MIN ; MAX,MAX)always true"
+        ]
+      ],
+      "completed": 1794291061.8654804,
+      "exit_code": 0
+    },
+    {
+      "profile": "g96_n2_q8192",
+      "case": "gaussian250k",
+      "rows": 250000,
+      "dim": 256,
+      "nq": 4096,
+      "verify_only": true,
+      "queries": {
+        "10": {
+          "recall": 0.999755859375,
+          "qps": 805.7568025954025,
+          "total_seconds": 5.083419695380144,
+          "p50_seconds": 0.001160043990239501,
+          "p95_seconds": 0.001192523050121963,
+          "max_seconds": 0.1124470520298928,
+          "result_sha256": "868f3d5e27e7100418152606fd3618de6d981cde9cba44fe8a8a04c3f874bcd7",
+          "ids_unique_and_valid": true
+        },
+        "100": {
+          "recall": 0.99944091796875,
+          "qps": 632.7869549534224,
+          "total_seconds": 6.472952654818073,
+          "p50_seconds": 0.001572751090861857,
+          "p95_seconds": 0.0016461008926853538,
+          "max_seconds": 0.0025688960449770093,
+          "result_sha256": "1d22aea342b91716ec53c60bbf789a238adbea760ea4b24672c3c9043ca1f60a",
+          "ids_unique_and_valid": true
+        }
+      },
+      "started": 1794291062.206701,
+      "plan": [
+        [
+          "======================================================="
+        ],
+        [
+          "|ID|OPERATOR         |NAME      |EST.ROWS|EST.TIME(us)|"
+        ],
+        [
+          "-------------------------------------------------------"
+        ],
+        [
+          "|0 |VECTOR INDEX SCAN|items(idx)|1       |7           |"
+        ],
+        [
+          "======================================================="
+        ],
+        [
+          "Outputs & filters:"
+        ],
+        [
+          "-------------------------------------"
+        ],
+        [
+          "  0 - output([items.id]), filter(nil), rowset=16"
+        ],
+        [
+          "      access([items.id]), partitions(p0)"
+        ],
+        [
+          "      is_index_back=true, is_global_index=false, "
+        ],
+        [
+          "      range_key([items.__vid_1794290743793625], [items.__type_17_1794290744427896]), range(MIN,MIN ; MAX,MAX)always true"
+        ]
+      ],
+      "completed": 1794291074.68201,
+      "exit_code": 0
+    }
+  ],
+  "sql_initial_commands": [
+    {
+      "name": "doc-start",
+      "command": [
+        "python3",
+        "/workspace/seekdb-amd-study/validation/sql_study.py",
+        "start",
+        "g96_n2_q8192"
+      ],
+      "exit_code": 0,
+      "started": 1794290709.5005653,
+      "ended": 1794290710.6163597
+    },
+    {
+      "name": "doc-regression",
+      "command": [
+        "python3",
+        "/workspace/seekdb-amd-study/validation/test_cuvs_ddl_batch.py"
+      ],
+      "exit_code": 0,
+      "started": 1794290710.6166508,
+      "ended": 1794290713.13436
+    },
+    {
+      "name": "sql-g96_n2_q8192-sift250k",
+      "command": [
+        "python3",
+        "/workspace/seekdb-amd-study/validation/sql_benchmark.py",
+        "run",
+        "g96_n2_q8192",
+        "sift250k"
+      ],
+      "exit_code": 0,
+      "started": 1794290713.1347227,
+      "ended": 1794290732.0248423
+    },
+    {
+      "name": "sql-g96_n2_q8192-gaussian250k",
+      "command": [
+        "python3",
+        "/workspace/seekdb-amd-study/validation/sql_benchmark.py",
+        "run",
+        "g96_n2_q8192",
+        "gaussian250k"
+      ],
+      "exit_code": 0,
+      "started": 1794290732.0251548,
+      "ended": 1794291045.697446
+    },
+    {
+      "name": "doc-restart",
+      "command": [
+        "python3",
+        "/workspace/seekdb-amd-study/validation/sql_study.py",
+        "restart",
+        "g96_n2_q8192"
+      ],
+      "exit_code": 0,
+      "started": 1794291045.6978302,
+      "ended": 1794291051.9368107
+    },
+    {
+      "name": "sql-g96_n2_q8192-sift250k-restart",
+      "command": [
+        "python3",
+        "/workspace/seekdb-amd-study/validation/sql_benchmark.py",
+        "verify",
+        "g96_n2_q8192",
+        "sift250k"
+      ],
+      "exit_code": 0,
+      "started": 1794291051.9372017,
+      "ended": 1794291061.9156923
+    },
+    {
+      "name": "sql-g96_n2_q8192-gaussian250k-restart",
+      "command": [
+        "python3",
+        "/workspace/seekdb-amd-study/validation/sql_benchmark.py",
+        "verify",
+        "g96_n2_q8192",
+        "gaussian250k"
+      ],
+      "exit_code": 0,
+      "started": 1794291061.9162252,
+      "ended": 1794291074.698696
+    }
+  ],
+  "sql_sdma_isolation": {
+    "HSA_ENABLE_SDMA": "0",
+    "status": "INCOMPLETE paired performance comparison: control Gaussian timeout; candidate completed but SIFT build stalled",
+    "runs": [
+      {
+        "name": "repeat-stop-original",
+        "command": [
+          "python3",
+          "-c",
+          "from sql_study import stop;stop('g96_n2_q8192')"
+        ],
+        "exit_code": 0,
+        "started": 1794291917.4547708,
+        "ended": 1794291918.5710814,
+        "HSA_ENABLE_SDMA": null,
+        "sampled_device_vram_peak_bytes": 514658304,
+        "sample_interval_seconds": 0.02
+      },
+      {
+        "name": "start-g96_n2_q8192_r1",
+        "command": [
+          "python3",
+          "-c",
+          "from sql_study import start;start('g96_n2_q8192_r1')"
+        ],
+        "exit_code": 0,
+        "started": 1794291918.5715234,
+        "ended": 1794291919.6875703,
+        "HSA_ENABLE_SDMA": "0",
+        "sampled_device_vram_peak_bytes": 245030912,
+        "sample_interval_seconds": 0.02
+      },
+      {
+        "name": "g96_n2_q8192_r1-gaussian250k",
+        "command": [
+          "python3",
+          "/workspace/seekdb-amd-study/validation/benchmark_sql.py",
+          "--mode",
+          "run",
+          "--dataset-prefix",
+          "/workspace/seekdb-amd-study/datasets/gaussian250k",
+          "--dimension",
+          "256",
+          "--database",
+          "gaussian250k",
+          "--label",
+          "g96_n2_q8192_r1",
+          "--output",
+          "/workspace/seekdb-amd-study/validation/g96_n2_q8192_r1-gaussian250k.json"
+        ],
+        "exit_code": 0,
+        "started": 1794291919.687927,
+        "ended": 1794291950.2490265,
+        "HSA_ENABLE_SDMA": "0",
+        "sampled_device_vram_peak_bytes": 870809600,
+        "sample_interval_seconds": 0.02
+      },
+      {
+        "name": "g96_n2_q8192_r1-sift250k",
+        "command": [
+          "python3",
+          "/workspace/seekdb-amd-study/validation/benchmark_sql.py",
+          "--mode",
+          "run",
+          "--dataset-prefix",
+          "/workspace/seekdb-amd-study/datasets/sift250k",
+          "--dimension",
+          "128",
+          "--database",
+          "sift250k",
+          "--label",
+          "g96_n2_q8192_r1",
+          "--output",
+          "/workspace/seekdb-amd-study/validation/g96_n2_q8192_r1-sift250k.json"
+        ],
+        "exit_code": 0,
+        "started": 1794291950.249429,
+        "ended": 1794292086.7183006,
+        "HSA_ENABLE_SDMA": "0",
+        "sampled_device_vram_peak_bytes": 1248714752,
+        "sample_interval_seconds": 0.02
+      },
+      {
+        "name": "stop-g96_n2_q8192_r1",
+        "command": [
+          "python3",
+          "-c",
+          "from sql_study import stop;stop('g96_n2_q8192_r1')"
+        ],
+        "exit_code": 0,
+        "started": 1794292086.7186759,
+        "ended": 1794292087.8346975,
+        "HSA_ENABLE_SDMA": "0",
+        "sampled_device_vram_peak_bytes": 1248714752,
+        "sample_interval_seconds": 0.02
+      },
+      {
+        "name": "start-control_r1",
+        "command": [
+          "python3",
+          "-c",
+          "from sql_study import start;start('control_r1')"
+        ],
+        "exit_code": 0,
+        "started": 1794292087.8352046,
+        "ended": 1794292088.9512496,
+        "HSA_ENABLE_SDMA": "0",
+        "sampled_device_vram_peak_bytes": 293236736,
+        "sample_interval_seconds": 0.02
+      },
+      {
+        "name": "control_r1-gaussian250k",
+        "command": [
+          "python3",
+          "/workspace/seekdb-amd-study/validation/benchmark_sql.py",
+          "--mode",
+          "run",
+          "--dataset-prefix",
+          "/workspace/seekdb-amd-study/datasets/gaussian250k",
+          "--dimension",
+          "256",
+          "--database",
+          "gaussian250k",
+          "--label",
+          "control_r1",
+          "--output",
+          "/workspace/seekdb-amd-study/validation/control_r1-gaussian250k.json"
+        ],
+        "exit_code": 124,
+        "started": 1794292088.9517417,
+        "ended": 1794292388.956588,
+        "HSA_ENABLE_SDMA": "0",
+        "sampled_device_vram_peak_bytes": 1183580160,
+        "sample_interval_seconds": 0.02
+      }
+    ],
+    "results": [
+      {
+        "label": "g96_n2_q8192_r1",
+        "rows": 250000,
+        "dimension": 256,
+        "query_count": 4096,
+        "mode": "run",
+        "database": "gaussian250k",
+        "queries": {
+          "10": {
+            "recall": 0.999853515625,
+            "qps": 837.505866219035,
+            "total_seconds": 4.890712011954747,
+            "p50_seconds": 0.0011955229565501213,
+            "p95_seconds": 0.001228542998433113,
+            "max_seconds": 0.004141743993386626,
+            "result_sha256": "7c4f3bc0f621d444e4ad1c792f8acb78baaf3a8dbb8db66cb0208ee93a748311",
+            "ids_unique_and_valid": true
+          },
+          "100": {
+            "recall": 0.99945556640625,
+            "qps": 611.784105395427,
+            "total_seconds": 6.695172306499444,
+            "p50_seconds": 0.0016169899608939886,
+            "p95_seconds": 0.0017432889435440302,
+            "max_seconds": 0.005539205973036587,
+            "result_sha256": "e152cc238e27c159be2d38bb743a3dd553a0125d842479a811f78b91955b1e91",
+            "ids_unique_and_valid": true
+          }
+        },
+        "started": 1794291919.9798539,
+        "load_seconds": 11.257153219077736,
+        "ddl_seconds": 6.873185408068821,
+        "build_including_first_query_seconds": 6.893258071970195,
+        "plan": [
+          [
+            "======================================================="
+          ],
+          [
+            "|ID|OPERATOR         |NAME      |EST.ROWS|EST.TIME(us)|"
+          ],
+          [
+            "-------------------------------------------------------"
+          ],
+          [
+            "|0 |VECTOR INDEX SCAN|items(idx)|1       |7           |"
+          ],
+          [
+            "======================================================="
+          ],
+          [
+            "Outputs & filters:"
+          ],
+          [
+            "-------------------------------------"
+          ],
+          [
+            "  0 - output([items.id]), filter(nil), rowset=16"
+          ],
+          [
+            "      access([items.id]), partitions(p0)"
+          ],
+          [
+            "      is_index_back=true, is_global_index=false, "
+          ],
+          [
+            "      range_key([items.__vid_1794291931411993], [items.__type_17_1794291932084345]), range(MIN,MIN ; MAX,MAX)always true"
+          ]
+        ],
+        "completed": 1794291950.2072031,
+        "exit_code": 0
+      },
+      {
+        "label": "g96_n2_q8192_r1",
+        "rows": 250000,
+        "dimension": 128,
+        "query_count": 4096,
+        "mode": "run",
+        "database": "sift250k",
+        "queries": {
+          "10": {
+            "recall": 0.999951171875,
+            "qps": 1200.4402412455622,
+            "total_seconds": 3.412081550806761,
+            "p50_seconds": 0.0008267239900305867,
+            "p95_seconds": 0.0008664450142532587,
+            "max_seconds": 0.006897847983054817,
+            "result_sha256": "7f25e5646091798d2f1ea63d7c439d9f1e261a96a3b0e4447a6271b2c543bf7a",
+            "ids_unique_and_valid": true
+          },
+          "100": {
+            "recall": 0.99997802734375,
+            "qps": 785.8817640646693,
+            "total_seconds": 5.211979953339323,
+            "p50_seconds": 0.001268552034161985,
+            "p95_seconds": 0.001336261979304254,
+            "max_seconds": 0.003167880931869149,
+            "result_sha256": "ac90c4be300c3dd59c0c8a8e706b4a2469887c01903a2065d1ed07aefd9f0b36",
+            "ids_unique_and_valid": true
+          }
+        },
+        "started": 1794291950.4074187,
+        "load_seconds": 4.6568997140275314,
+        "ddl_seconds": 122.5891583369812,
+        "build_including_first_query_seconds": 122.60718208702747,
+        "plan": [
+          [
+            "======================================================="
+          ],
+          [
+            "|ID|OPERATOR         |NAME      |EST.ROWS|EST.TIME(us)|"
+          ],
+          [
+            "-------------------------------------------------------"
+          ],
+          [
+            "|0 |VECTOR INDEX SCAN|items(idx)|1       |7           |"
+          ],
+          [
+            "======================================================="
+          ],
+          [
+            "Outputs & filters:"
+          ],
+          [
+            "-------------------------------------"
+          ],
+          [
+            "  0 - output([items.id]), filter(nil), rowset=16"
+          ],
+          [
+            "      access([items.id]), partitions(p0)"
+          ],
+          [
+            "      is_index_back=true, is_global_index=false, "
+          ],
+          [
+            "      range_key([items.__vid_1794291955192916], [items.__type_17_1794291955814044]), range(MIN,MIN ; MAX,MAX)always true"
+          ]
+        ],
+        "completed": 1794292086.6957593,
+        "exit_code": 0
+      },
+      {
+        "label": "control_r1",
+        "rows": 250000,
+        "dimension": 256,
+        "query_count": 4096,
+        "mode": "run",
+        "database": "gaussian250k",
+        "queries": {
+          "10": {
+            "recall": 0.94794921875,
+            "qps": 247.26424977772518,
+            "total_seconds": 16.56527380598709,
+            "p50_seconds": 0.004061464918777347,
+            "p95_seconds": 0.0041248450288549066,
+            "max_seconds": 0.005196299054659903,
+            "result_sha256": "c497c9ca058758d02a93a2883edbe9c8e7e67f6b87835d68f3491247a707cc59",
+            "ids_unique_and_valid": true
+          }
+        },
+        "started": 1794292089.243969,
+        "load_seconds": 11.397008807049133,
+        "ddl_seconds": 149.47904666000977,
+        "build_including_first_query_seconds": 149.51991784304846,
+        "plan": [
+          [
+            "======================================================="
+          ],
+          [
+            "|ID|OPERATOR         |NAME      |EST.ROWS|EST.TIME(us)|"
+          ],
+          [
+            "-------------------------------------------------------"
+          ],
+          [
+            "|0 |VECTOR INDEX SCAN|items(idx)|1       |7           |"
+          ],
+          [
+            "======================================================="
+          ],
+          [
+            "Outputs & filters:"
+          ],
+          [
+            "-------------------------------------"
+          ],
+          [
+            "  0 - output([items.id]), filter(nil), rowset=16"
+          ],
+          [
+            "      access([items.id]), partitions(p0)"
+          ],
+          [
+            "      is_index_back=true, is_global_index=false, "
+          ],
+          [
+            "      range_key([items.__vid_1794292100814705], [items.__type_17_1794292101478859]), range(MIN,MIN ; MAX,MAX)always true"
+          ]
+        ]
+      }
+    ]
+  },
+  "sql_regression": {
+    "original_control": "test_offline_batch_ids_nulls_tail_and_cpu_path (__main__.CuvsDDLBatchTest.test_offline_batch_ids_nulls_tail_and_cpu_path) ... ok\n\n----------------------------------------------------------------------\nRan 1 test in 2.875s\n\nOK\n",
+    "original_candidate": "test_offline_batch_ids_nulls_tail_and_cpu_path (__main__.CuvsDDLBatchTest.test_offline_batch_ids_nulls_tail_and_cpu_path) ... ok\n\n----------------------------------------------------------------------\nRan 1 test in 2.406s\n\nOK\n",
+    "expanded_default_runtime": "test_offline_batch_ids_nulls_tail_and_cpu_path (__main__.CuvsDDLBatchTest.test_offline_batch_ids_nulls_tail_and_cpu_path) ... ERROR\ntest_offline_batch_ids_nulls_tail_and_cpu_path (__main__.CuvsDDLBatchTest.test_offline_batch_ids_nulls_tail_and_cpu_path) ... ERROR\n\n======================================================================\nERROR: test_offline_batch_ids_nulls_tail_and_cpu_path (__main__.CuvsDDLBatchTest.test_offline_batch_ids_nulls_tail_and_cpu_path)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/workspace/seekdb-amd-study/python-deps/pymysql/connections.py\", line 818, in _read_bytes\n    data = self._rfile.read(num_bytes)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.12/socket.py\", line 707, in readinto\n    return self._sock.recv_into(b)\n           ^^^^^^^^^^^^^^^^^^^^^^^\nTimeoutError: timed out\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"/workspace/seekdb-amd-study/validation/test_cuvs_ddl_batch_final.py\", line 57, in test_offline_batch_ids_nulls_tail_and_cpu_path\n    cur.execute(f\"CREATE VECTOR INDEX idx ON {table}(v) WITH (distance=l2,type=hnsw,lib={backend},m=16,ef_construction=200,ef_search=64)\")\n  File \"/workspace/seekdb-amd-study/python-deps/pymysql/cursors.py\", line 170, in execute\n    result = self._query(query)\n             ^^^^^^^^^^^^^^^^^^\n  File \"/workspace/seekdb-amd-study/python-deps/pymysql/cursors.py\", line 335, in _query\n    conn.query(q)\n  File \"/workspace/seekdb-amd-study/python-deps/pymysql/connections.py\", line 581, in query\n    self._affected_rows = self._read_query_result(unbuffered=unbuffered)\n                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/workspace/seekdb-amd-study/python-deps/pymysql/connections.py\", line 857, in _read_query_result\n    result.read()\n  File \"/workspace/seekdb-amd-study/python-deps/pymysql/connections.py\", line 1290, in read\n    first_packet = self.connection._read_packet()\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/workspace/seekdb-amd-study/python-deps/pymysql/connections.py\", line 779, in _read_packet\n    packet_header = self._read_bytes(4)\n                    ^^^^^^^^^^^^^^^^^^^\n  File \"/workspace/seekdb-amd-study/python-deps/pymysql/connections.py\", line 824, in _read_bytes\n    raise err.OperationalError(\npymysql.err.OperationalError: (2013, 'Lost connection to MySQL server during query (timed out)')\n\n======================================================================\nERROR: test_offline_batch_ids_nulls_tail_and_cpu_path (__main__.CuvsDDLBatchTest.test_offline_batch_ids_nulls_tail_and_cpu_path)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/workspace/seekdb-amd-study/validation/test_cuvs_ddl_batch_final.py\", line 35, in tearDown\n    cur.execute(\"DROP DATABASE \" + self.database)\n  File \"/workspace/seekdb-amd-study/python-deps/pymysql/cursors.py\", line 170, in execute\n    result = self._query(query)\n             ^^^^^^^^^^^^^^^^^^\n  File \"/workspace/seekdb-amd-study/python-deps/pymysql/cursors.py\", line 335, in _query\n    conn.query(q)\n  File \"/workspace/seekdb-amd-study/python-deps/pymysql/connections.py\", line 580, in query\n    self._execute_command(COMMAND.COM_QUERY, sql)\n  File \"/workspace/seekdb-amd-study/python-deps/pymysql/connections.py\", line 875, in _execute_command\n    raise err.InterfaceError(0, \"\")\npymysql.err.InterfaceError: (0, '')\n\n----------------------------------------------------------------------\nRan 1 test in 300.165s\n\nFAILED (errors=2)\n",
+    "expanded_sdma_disabled": "test_offline_batch_ids_nulls_tail_and_cpu_path (__main__.CuvsDDLBatchTest.test_offline_batch_ids_nulls_tail_and_cpu_path) ... ok\n\n----------------------------------------------------------------------\nRan 1 test in 2.768s\n\nOK\n",
+    "expanded_note": "Initial draft exact-reference query incorrectly included NULL distances; corrected reference to exclude NULL vectors, matching ANN index input semantics"
+  },
+  "native_sweeps": [
+    {
+      "profile": "v5",
+      "dim": 128,
+      "kind": "uniform",
+      "command": [
+        "/workspace/seekdb-amd-study/validation/compare_profiles",
+        "/workspace/seekdb-amd-study/candidates/v5/libseekdb_cuvs_bridge.so",
+        "250000",
+        "128",
+        "512",
+        "uniform",
+        "/workspace/seekdb-amd-study/validation/uniform-128-v5.bin"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 132.354666232015,
+      "sampled_device_vram_bytes": 732237824,
+      "sampled_process_hwm_bytes": 2031947776,
+      "output": "n=250000 dim=128 nq=512 kind=uniform phase=0 topk=10 recall=0.991796875 build_ms=75405.740 save_ms=313.280 load_ms=0.000 search_ms=1482.907 bridge_qps=345.268 verified_ids_distances=1\nn=250000 dim=128 nq=512 kind=uniform phase=0 topk=100 recall=0.964902344 build_ms=75405.740 save_ms=313.280 load_ms=0.000 search_ms=1514.613 bridge_qps=338.040 verified_ids_distances=1\nn=250000 dim=128 nq=512 kind=uniform phase=1 topk=10 recall=0.991796875 build_ms=75405.740 save_ms=313.280 load_ms=175.585 search_ms=1464.920 bridge_qps=349.507 verified_ids_distances=1\nn=250000 dim=128 nq=512 kind=uniform phase=1 topk=100 recall=0.964902344 build_ms=75405.740 save_ms=313.280 load_ms=175.585 search_ms=49958.512 bridge_qps=10.249 verified_ids_distances=1\n"
+    },
+    {
+      "profile": "control",
+      "dim": 128,
+      "kind": "uniform",
+      "command": [
+        "/workspace/seekdb-amd-study/validation/compare_profiles",
+        "/workspace/seekdb-amd-study/candidates/control/libseekdb_cuvs_bridge.so",
+        "250000",
+        "128",
+        "512",
+        "uniform",
+        "/workspace/seekdb-amd-study/validation/uniform-128-control.bin"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 134.45021333510522,
+      "sampled_device_vram_bytes": 732217344,
+      "sampled_process_hwm_bytes": 2032058368,
+      "output": "[seekdb_cuvs] build complete algo=nn_descent n=250000 dim=128 graph_degree=128 intermediate_degree=256\nn=250000 dim=128 nq=512 kind=uniform phase=0 topk=10 recall=0.991015625 build_ms=76323.688 save_ms=319.182 load_ms=0.000 search_ms=1470.246 bridge_qps=348.241 verified_ids_distances=1\nn=250000 dim=128 nq=512 kind=uniform phase=0 topk=100 recall=0.964394531 build_ms=76323.688 save_ms=319.182 load_ms=0.000 search_ms=51035.183 bridge_qps=10.032 verified_ids_distances=1\nn=250000 dim=128 nq=512 kind=uniform phase=1 topk=10 recall=0.991015625 build_ms=76323.688 save_ms=319.182 load_ms=171.413 search_ms=1452.309 bridge_qps=352.542 verified_ids_distances=1\nn=250000 dim=128 nq=512 kind=uniform phase=1 topk=100 recall=0.964394531 build_ms=76323.688 save_ms=319.182 load_ms=171.413 search_ms=1492.825 bridge_qps=342.974 verified_ids_distances=1\n"
+    },
+    {
+      "profile": "search_only",
+      "dim": 128,
+      "kind": "uniform",
+      "command": [
+        "/workspace/seekdb-amd-study/validation/compare_profiles",
+        "/workspace/seekdb-amd-study/candidates/search_only/libseekdb_cuvs_bridge.so",
+        "250000",
+        "128",
+        "512",
+        "uniform",
+        "/workspace/seekdb-amd-study/validation/uniform-128-search_only.bin"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 81.00044318393338,
+      "sampled_device_vram_bytes": 729276416,
+      "sampled_process_hwm_bytes": 2032021504,
+      "output": "[seekdb_cuvs] build complete algo=nn_descent n=250000 dim=128 graph_degree=128 intermediate_degree=256\nn=250000 dim=128 nq=512 kind=uniform phase=0 topk=10 recall=1.000000000 build_ms=76131.138 save_ms=316.230 load_ms=0.000 search_ms=528.564 bridge_qps=968.663 verified_ids_distances=1\nn=250000 dim=128 nq=512 kind=uniform phase=0 topk=100 recall=1.000000000 build_ms=76131.138 save_ms=316.230 load_ms=0.000 search_ms=557.447 bridge_qps=918.473 verified_ids_distances=1\nn=250000 dim=128 nq=512 kind=uniform phase=1 topk=10 recall=1.000000000 build_ms=76131.138 save_ms=316.230 load_ms=195.240 search_ms=523.394 bridge_qps=978.231 verified_ids_distances=1\nn=250000 dim=128 nq=512 kind=uniform phase=1 topk=100 recall=1.000000000 build_ms=76131.138 save_ms=316.230 load_ms=195.240 search_ms=526.319 bridge_qps=972.793 verified_ids_distances=1\n"
+    },
+    {
+      "profile": "g128_n5_q4096",
+      "dim": 128,
+      "kind": "uniform",
+      "command": [
+        "/workspace/seekdb-amd-study/validation/compare_profiles",
+        "/workspace/seekdb-amd-study/candidates/g128_n5_q4096/libseekdb_cuvs_bridge.so",
+        "250000",
+        "128",
+        "512",
+        "uniform",
+        "/workspace/seekdb-amd-study/validation/uniform-128-g128_n5_q4096.bin"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 65.01903349300846,
+      "sampled_device_vram_bytes": 729280512,
+      "sampled_process_hwm_bytes": 1392144384,
+      "output": "[seekdb_cuvs] build complete algo=nn_descent n=250000 dim=128 graph_degree=128 intermediate_degree=128\nn=250000 dim=128 nq=512 kind=uniform phase=0 topk=10 recall=1.000000000 build_ms=60744.525 save_ms=323.113 load_ms=0.000 search_ms=383.064 bridge_qps=1336.590 verified_ids_distances=1\nn=250000 dim=128 nq=512 kind=uniform phase=0 topk=100 recall=0.999882812 build_ms=60744.525 save_ms=323.113 load_ms=0.000 search_ms=379.908 bridge_qps=1347.696 verified_ids_distances=1\nn=250000 dim=128 nq=512 kind=uniform phase=1 topk=10 recall=1.000000000 build_ms=60744.525 save_ms=323.113 load_ms=190.697 search_ms=377.189 bridge_qps=1357.411 verified_ids_distances=1\nn=250000 dim=128 nq=512 kind=uniform phase=1 topk=100 recall=0.999921875 build_ms=60744.525 save_ms=323.113 load_ms=190.697 search_ms=379.609 bridge_qps=1348.756 verified_ids_distances=1\n"
+    },
+    {
+      "profile": "g96_n2_q8192",
+      "dim": 128,
+      "kind": "uniform",
+      "command": [
+        "/workspace/seekdb-amd-study/validation/compare_profiles",
+        "/workspace/seekdb-amd-study/candidates/g96_n2_q8192/libseekdb_cuvs_bridge.so",
+        "250000",
+        "128",
+        "512",
+        "uniform",
+        "/workspace/seekdb-amd-study/validation/uniform-128-g96_n2_q8192.bin"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 6.0848563719773665,
+      "sampled_device_vram_bytes": 695701504,
+      "sampled_process_hwm_bytes": 1391955968,
+      "output": "[seekdb_cuvs] build complete algo=nn_descent n=250000 dim=128 graph_degree=96 intermediate_degree=128\nn=250000 dim=128 nq=512 kind=uniform phase=0 topk=10 recall=1.000000000 build_ms=1986.330 save_ms=292.377 load_ms=0.000 search_ms=347.239 bridge_qps=1474.487 verified_ids_distances=1\nn=250000 dim=128 nq=512 kind=uniform phase=0 topk=100 recall=0.999882812 build_ms=1986.330 save_ms=292.377 load_ms=0.000 search_ms=385.529 bridge_qps=1328.046 verified_ids_distances=1\nn=250000 dim=128 nq=512 kind=uniform phase=1 topk=10 recall=1.000000000 build_ms=1986.330 save_ms=292.377 load_ms=166.572 search_ms=368.549 bridge_qps=1389.233 verified_ids_distances=1\nn=250000 dim=128 nq=512 kind=uniform phase=1 topk=100 recall=0.999902344 build_ms=1986.330 save_ms=292.377 load_ms=166.572 search_ms=346.080 bridge_qps=1479.428 verified_ids_distances=1\n"
+    },
+    {
+      "profile": "g96_n2_q8192",
+      "dim": 256,
+      "kind": "gaussian",
+      "command": [
+        "/workspace/seekdb-amd-study/validation/compare_profiles",
+        "/workspace/seekdb-amd-study/candidates/g96_n2_q8192/libseekdb_cuvs_bridge.so",
+        "250000",
+        "256",
+        "512",
+        "gaussian",
+        "/workspace/seekdb-amd-study/validation/gaussian-256-g96_n2_q8192.bin"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 135.64873761602212,
+      "sampled_device_vram_bytes": 824074240,
+      "sampled_process_hwm_bytes": 1520369664,
+      "output": "[seekdb_cuvs] build complete algo=nn_descent n=250000 dim=256 graph_degree=96 intermediate_degree=128\nn=250000 dim=256 nq=512 kind=gaussian phase=0 topk=10 recall=0.999804687 build_ms=128374.556 save_ms=429.397 load_ms=0.000 search_ms=502.207 bridge_qps=1019.501 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=0 topk=100 recall=0.999531250 build_ms=128374.556 save_ms=429.397 load_ms=0.000 search_ms=500.633 bridge_qps=1022.705 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=1 topk=10 recall=0.999804687 build_ms=128374.556 save_ms=429.397 load_ms=255.384 search_ms=496.963 bridge_qps=1030.258 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=1 topk=100 recall=0.999511719 build_ms=128374.556 save_ms=429.397 load_ms=255.384 search_ms=501.416 bridge_qps=1021.108 verified_ids_distances=1\n"
+    },
+    {
+      "profile": "g128_n5_q4096",
+      "dim": 256,
+      "kind": "gaussian",
+      "command": [
+        "/workspace/seekdb-amd-study/validation/compare_profiles",
+        "/workspace/seekdb-amd-study/candidates/g128_n5_q4096/libseekdb_cuvs_bridge.so",
+        "250000",
+        "256",
+        "512",
+        "gaussian",
+        "/workspace/seekdb-amd-study/validation/gaussian-256-g128_n5_q4096.bin"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 26.24890157394111,
+      "sampled_device_vram_bytes": 857702400,
+      "sampled_process_hwm_bytes": 1520623616,
+      "output": "[seekdb_cuvs] build complete algo=nn_descent n=250000 dim=256 graph_degree=128 intermediate_degree=128\nn=250000 dim=256 nq=512 kind=gaussian phase=0 topk=10 recall=0.998828125 build_ms=18921.305 save_ms=471.271 load_ms=0.000 search_ms=486.943 bridge_qps=1051.458 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=0 topk=100 recall=0.997167969 build_ms=18921.305 save_ms=471.271 load_ms=0.000 search_ms=484.239 bridge_qps=1057.329 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=1 topk=10 recall=0.999023438 build_ms=18921.305 save_ms=471.271 load_ms=277.419 search_ms=480.991 bridge_qps=1064.469 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=1 topk=100 recall=0.997109375 build_ms=18921.305 save_ms=471.271 load_ms=277.419 search_ms=484.629 bridge_qps=1056.478 verified_ids_distances=1\n"
+    },
+    {
+      "profile": "search_only",
+      "dim": 256,
+      "kind": "gaussian",
+      "command": [
+        "/workspace/seekdb-amd-study/validation/compare_profiles",
+        "/workspace/seekdb-amd-study/candidates/search_only/libseekdb_cuvs_bridge.so",
+        "250000",
+        "256",
+        "512",
+        "gaussian",
+        "/workspace/seekdb-amd-study/validation/gaussian-256-search_only.bin"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 52.08870499802288,
+      "sampled_device_vram_bytes": 857849856,
+      "sampled_process_hwm_bytes": 2160422912,
+      "output": "[seekdb_cuvs] build complete algo=nn_descent n=250000 dim=256 graph_degree=128 intermediate_degree=256\nn=250000 dim=256 nq=512 kind=gaussian phase=0 topk=10 recall=1.000000000 build_ms=43903.399 save_ms=471.792 load_ms=0.000 search_ms=718.042 bridge_qps=713.051 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=0 topk=100 recall=0.999960938 build_ms=43903.399 save_ms=471.792 load_ms=0.000 search_ms=716.139 bridge_qps=714.945 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=1 topk=10 recall=1.000000000 build_ms=43903.399 save_ms=471.792 load_ms=282.232 search_ms=712.017 bridge_qps=719.084 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=1 topk=100 recall=0.999960938 build_ms=43903.399 save_ms=471.792 load_ms=282.232 search_ms=716.272 bridge_qps=714.812 verified_ids_distances=1\n"
+    },
+    {
+      "profile": "control",
+      "dim": 256,
+      "kind": "gaussian",
+      "command": [
+        "/workspace/seekdb-amd-study/validation/compare_profiles",
+        "/workspace/seekdb-amd-study/candidates/control/libseekdb_cuvs_bridge.so",
+        "250000",
+        "256",
+        "512",
+        "gaussian",
+        "/workspace/seekdb-amd-study/validation/gaussian-256-control.bin"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 35.93048242398072,
+      "sampled_device_vram_bytes": 860811264,
+      "sampled_process_hwm_bytes": 2160537600,
+      "output": "[seekdb_cuvs] build complete algo=nn_descent n=250000 dim=256 graph_degree=128 intermediate_degree=256\nn=250000 dim=256 nq=512 kind=gaussian phase=0 topk=10 recall=0.947656250 build_ms=18666.591 save_ms=479.840 load_ms=0.000 search_ms=1999.989 bridge_qps=256.001 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=0 topk=100 recall=0.897460938 build_ms=18666.591 save_ms=479.840 load_ms=0.000 search_ms=1991.677 bridge_qps=257.070 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=1 topk=10 recall=0.947656250 build_ms=18666.591 save_ms=479.840 load_ms=291.927 search_ms=1856.171 bridge_qps=275.837 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=1 topk=100 recall=0.897460938 build_ms=18666.591 save_ms=479.840 load_ms=291.927 search_ms=1979.263 bridge_qps=258.682 verified_ids_distances=1\n"
+    },
+    {
+      "profile": "v5",
+      "dim": 256,
+      "kind": "gaussian",
+      "command": [
+        "/workspace/seekdb-amd-study/validation/compare_profiles",
+        "/workspace/seekdb-amd-study/candidates/v5/libseekdb_cuvs_bridge.so",
+        "250000",
+        "256",
+        "512",
+        "gaussian",
+        "/workspace/seekdb-amd-study/validation/gaussian-256-v5.bin"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 57.75177967501804,
+      "sampled_device_vram_bytes": 860930048,
+      "sampled_process_hwm_bytes": 2160795648,
+      "output": "n=250000 dim=256 nq=512 kind=gaussian phase=0 topk=10 recall=0.954101562 build_ms=45009.455 save_ms=474.724 load_ms=0.000 search_ms=1878.291 bridge_qps=272.588 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=0 topk=100 recall=0.897089844 build_ms=45009.455 save_ms=474.724 load_ms=0.000 search_ms=1964.290 bridge_qps=260.654 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=1 topk=10 recall=0.954101562 build_ms=45009.455 save_ms=474.724 load_ms=284.518 search_ms=1858.935 bridge_qps=275.426 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=1 topk=100 recall=0.897089844 build_ms=45009.455 save_ms=474.724 load_ms=284.518 search_ms=1995.671 bridge_qps=256.555 verified_ids_distances=1\n"
+    }
+  ],
+  "native_repeats": [
+    {
+      "repetition": 0,
+      "profile": "g96_n2_q8192",
+      "dim": 256,
+      "kind": "gaussian",
+      "command": [
+        "/workspace/seekdb-amd-study/validation/compare_profiles_v2",
+        "/workspace/seekdb-amd-study/candidates/g96_n2_q8192/libseekdb_cuvs_bridge.so",
+        "250000",
+        "256",
+        "512",
+        "gaussian",
+        "/workspace/seekdb-amd-study/validation/repeat0-gaussian-256-g96_n2_q8192.bin"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 157.18848364707083,
+      "sampled_device_vram_bytes": 824086528,
+      "sampled_process_hwm_bytes": 1520578560,
+      "output": "[seekdb_cuvs] build complete algo=nn_descent n=250000 dim=256 graph_degree=96 intermediate_degree=128\nn=250000 dim=256 nq=512 kind=gaussian phase=0 topk=10 recall=0.999804687 build_ms=149657.035 save_ms=436.897 load_ms=0.000 search_ms=504.518 bridge_qps=1014.830 p50_ms=0.974 p95_ms=0.992 max_ms=6.928 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=0 topk=100 recall=0.999589844 build_ms=149657.035 save_ms=436.897 load_ms=0.000 search_ms=502.918 bridge_qps=1018.058 p50_ms=0.982 p95_ms=1.000 max_ms=1.015 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=1 topk=10 recall=0.999804687 build_ms=149657.035 save_ms=436.897 load_ms=247.167 search_ms=498.758 bridge_qps=1026.551 p50_ms=0.974 p95_ms=0.987 max_ms=1.322 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=1 topk=100 recall=0.999570312 build_ms=149657.035 save_ms=436.897 load_ms=247.167 search_ms=503.180 bridge_qps=1017.529 p50_ms=0.983 p95_ms=0.996 max_ms=1.021 verified_ids_distances=1\n"
+    },
+    {
+      "repetition": 0,
+      "profile": "v5",
+      "dim": 256,
+      "kind": "gaussian",
+      "command": [
+        "/workspace/seekdb-amd-study/validation/compare_profiles_v2",
+        "/workspace/seekdb-amd-study/candidates/v5/libseekdb_cuvs_bridge.so",
+        "250000",
+        "256",
+        "512",
+        "gaussian",
+        "/workspace/seekdb-amd-study/validation/repeat0-gaussian-256-v5.bin"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 119.57371890707873,
+      "sampled_device_vram_bytes": 860925952,
+      "sampled_process_hwm_bytes": 2160623616,
+      "output": "n=250000 dim=256 nq=512 kind=gaussian phase=0 topk=10 recall=0.951562500 build_ms=106280.497 save_ms=460.342 load_ms=0.000 search_ms=1876.958 bridge_qps=272.782 p50_ms=3.628 p95_ms=3.706 max_ms=18.287 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=0 topk=100 recall=0.897402344 build_ms=106280.497 save_ms=460.342 load_ms=0.000 search_ms=1944.563 bridge_qps=263.298 p50_ms=3.869 p95_ms=3.924 max_ms=4.062 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=1 topk=10 recall=0.951562500 build_ms=106280.497 save_ms=460.342 load_ms=258.033 search_ms=2479.058 bridge_qps=206.530 p50_ms=3.621 p95_ms=3.709 max_ms=622.448 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=1 topk=100 recall=0.897421875 build_ms=106280.497 save_ms=460.342 load_ms=258.033 search_ms=1986.684 bridge_qps=257.716 p50_ms=3.896 p95_ms=3.929 max_ms=4.077 verified_ids_distances=1\n"
+    },
+    {
+      "repetition": 0,
+      "profile": "g96_n2_q8192",
+      "dim": 128,
+      "kind": "uniform",
+      "command": [
+        "/workspace/seekdb-amd-study/validation/compare_profiles_v2",
+        "/workspace/seekdb-amd-study/candidates/g96_n2_q8192/libseekdb_cuvs_bridge.so",
+        "250000",
+        "128",
+        "512",
+        "uniform",
+        "/workspace/seekdb-amd-study/validation/repeat0-uniform-128-g96_n2_q8192.bin"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 64.38315274205524,
+      "sampled_device_vram_bytes": 695664640,
+      "sampled_process_hwm_bytes": 1392160768,
+      "output": "[seekdb_cuvs] build complete algo=nn_descent n=250000 dim=128 graph_degree=96 intermediate_degree=128\nn=250000 dim=128 nq=512 kind=uniform phase=0 topk=10 recall=1.000000000 build_ms=60334.756 save_ms=285.562 load_ms=0.000 search_ms=349.884 bridge_qps=1463.341 p50_ms=0.670 p95_ms=0.681 max_ms=7.466 verified_ids_distances=1\nn=250000 dim=128 nq=512 kind=uniform phase=0 topk=100 recall=0.999882812 build_ms=60334.756 save_ms=285.562 load_ms=0.000 search_ms=347.593 bridge_qps=1472.985 p50_ms=0.679 p95_ms=0.690 max_ms=0.744 verified_ids_distances=1\nn=250000 dim=128 nq=512 kind=uniform phase=1 topk=10 recall=1.000000000 build_ms=60334.756 save_ms=285.562 load_ms=162.013 search_ms=343.328 bridge_qps=1491.285 p50_ms=0.670 p95_ms=0.681 max_ms=0.933 verified_ids_distances=1\nn=250000 dim=128 nq=512 kind=uniform phase=1 topk=100 recall=0.999902344 build_ms=60334.756 save_ms=285.562 load_ms=162.013 search_ms=347.458 bridge_qps=1473.561 p50_ms=0.678 p95_ms=0.689 max_ms=0.721 verified_ids_distances=1\n"
+    },
+    {
+      "repetition": 0,
+      "profile": "v5",
+      "dim": 128,
+      "kind": "uniform",
+      "command": [
+        "/workspace/seekdb-amd-study/validation/compare_profiles_v2",
+        "/workspace/seekdb-amd-study/candidates/v5/libseekdb_cuvs_bridge.so",
+        "250000",
+        "128",
+        "512",
+        "uniform",
+        "/workspace/seekdb-amd-study/validation/repeat0-uniform-128-v5.bin"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 141.01570971903857,
+      "sampled_device_vram_bytes": 732221440,
+      "sampled_process_hwm_bytes": 2031919104,
+      "output": "n=250000 dim=128 nq=512 kind=uniform phase=0 topk=10 recall=0.990429688 build_ms=73927.874 save_ms=328.753 load_ms=0.000 search_ms=1482.373 bridge_qps=345.392 p50_ms=2.861 p95_ms=2.918 max_ms=18.512 verified_ids_distances=1\nn=250000 dim=128 nq=512 kind=uniform phase=0 topk=100 recall=0.964316406 build_ms=73927.874 save_ms=328.753 load_ms=0.000 search_ms=60071.402 bridge_qps=8.523 p50_ms=2.921 p95_ms=3.484 max_ms=58490.545 verified_ids_distances=1\nn=250000 dim=128 nq=512 kind=uniform phase=1 topk=10 recall=0.990429688 build_ms=73927.874 save_ms=328.753 load_ms=187.004 search_ms=1463.195 bridge_qps=349.919 p50_ms=2.855 p95_ms=2.912 max_ms=3.155 verified_ids_distances=1\nn=250000 dim=128 nq=512 kind=uniform phase=1 topk=100 recall=0.964316406 build_ms=73927.874 save_ms=328.753 load_ms=187.004 search_ms=1502.215 bridge_qps=340.830 p50_ms=2.903 p95_ms=3.058 max_ms=3.234 verified_ids_distances=1\n"
+    },
+    {
+      "repetition": 1,
+      "profile": "v5",
+      "dim": 256,
+      "kind": "gaussian",
+      "command": [
+        "/workspace/seekdb-amd-study/validation/compare_profiles_v2",
+        "/workspace/seekdb-amd-study/candidates/v5/libseekdb_cuvs_bridge.so",
+        "250000",
+        "256",
+        "512",
+        "gaussian",
+        "/workspace/seekdb-amd-study/validation/repeat1-gaussian-256-v5.bin"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 118.68642519996502,
+      "sampled_device_vram_bytes": 925589504,
+      "sampled_process_hwm_bytes": 2160549888,
+      "output": "n=250000 dim=256 nq=512 kind=gaussian phase=0 topk=10 recall=0.950585937 build_ms=106043.154 save_ms=469.861 load_ms=0.000 search_ms=1869.582 bridge_qps=273.858 p50_ms=3.611 p95_ms=3.689 max_ms=18.761 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=0 topk=100 recall=0.898808594 build_ms=106043.154 save_ms=469.861 load_ms=0.000 search_ms=1955.566 bridge_qps=261.817 p50_ms=3.870 p95_ms=3.913 max_ms=4.190 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=1 topk=10 recall=0.950585937 build_ms=106043.154 save_ms=469.861 load_ms=265.708 search_ms=1851.165 bridge_qps=276.583 p50_ms=3.605 p95_ms=3.686 max_ms=3.896 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=1 topk=100 recall=0.898808594 build_ms=106043.154 save_ms=469.861 load_ms=265.708 search_ms=1946.316 bridge_qps=263.061 p50_ms=3.864 p95_ms=3.911 max_ms=4.171 verified_ids_distances=1\n"
+    },
+    {
+      "repetition": 1,
+      "profile": "g96_n2_q8192",
+      "dim": 256,
+      "kind": "gaussian",
+      "command": [
+        "/workspace/seekdb-amd-study/validation/compare_profiles_v2",
+        "/workspace/seekdb-amd-study/candidates/g96_n2_q8192/libseekdb_cuvs_bridge.so",
+        "250000",
+        "256",
+        "512",
+        "gaussian",
+        "/workspace/seekdb-amd-study/validation/repeat1-gaussian-256-g96_n2_q8192.bin"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 112.04031682608183,
+      "sampled_device_vram_bytes": 824086528,
+      "sampled_process_hwm_bytes": 1520500736,
+      "output": "[seekdb_cuvs] build complete algo=nn_descent n=250000 dim=256 graph_degree=96 intermediate_degree=128\nn=250000 dim=256 nq=512 kind=gaussian phase=0 topk=10 recall=0.999804687 build_ms=104638.615 save_ms=456.766 load_ms=0.000 search_ms=504.042 bridge_qps=1015.789 p50_ms=0.972 p95_ms=0.990 max_ms=7.086 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=0 topk=100 recall=0.999531250 build_ms=104638.615 save_ms=456.766 load_ms=0.000 search_ms=502.841 bridge_qps=1018.214 p50_ms=0.981 p95_ms=0.998 max_ms=1.025 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=1 topk=10 recall=0.999609375 build_ms=104638.615 save_ms=456.766 load_ms=257.723 search_ms=498.471 bridge_qps=1027.140 p50_ms=0.972 p95_ms=0.989 max_ms=1.366 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=1 topk=100 recall=0.999531250 build_ms=104638.615 save_ms=456.766 load_ms=257.723 search_ms=502.997 bridge_qps=1017.900 p50_ms=0.982 p95_ms=0.996 max_ms=1.049 verified_ids_distances=1\n"
+    },
+    {
+      "repetition": 1,
+      "profile": "v5",
+      "dim": 128,
+      "kind": "uniform",
+      "command": [
+        "/workspace/seekdb-amd-study/validation/compare_profiles_v2",
+        "/workspace/seekdb-amd-study/candidates/v5/libseekdb_cuvs_bridge.so",
+        "250000",
+        "128",
+        "512",
+        "uniform",
+        "/workspace/seekdb-amd-study/validation/repeat1-uniform-128-v5.bin"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 143.48959548806306,
+      "sampled_device_vram_bytes": 925339648,
+      "sampled_process_hwm_bytes": 2032193536,
+      "output": "n=250000 dim=128 nq=512 kind=uniform phase=0 topk=10 recall=0.990625000 build_ms=76289.308 save_ms=327.634 load_ms=0.000 search_ms=1495.688 bridge_qps=342.317 p50_ms=2.885 p95_ms=2.940 max_ms=19.499 verified_ids_distances=1\nn=250000 dim=128 nq=512 kind=uniform phase=0 topk=100 recall=0.964980469 build_ms=76289.308 save_ms=327.634 load_ms=0.000 search_ms=1527.580 bridge_qps=335.171 p50_ms=2.950 p95_ms=3.089 max_ms=3.385 verified_ids_distances=1\nn=250000 dim=128 nq=512 kind=uniform phase=1 topk=10 recall=0.990625000 build_ms=76289.308 save_ms=327.634 load_ms=183.918 search_ms=1475.986 bridge_qps=346.887 p50_ms=2.879 p95_ms=2.933 max_ms=3.174 verified_ids_distances=1\nn=250000 dim=128 nq=512 kind=uniform phase=1 topk=100 recall=0.964980469 build_ms=76289.308 save_ms=327.634 load_ms=183.918 search_ms=60214.380 bridge_qps=8.503 p50_ms=3.471 p95_ms=3.531 max_ms=58452.535 verified_ids_distances=1\n"
+    },
+    {
+      "repetition": 1,
+      "profile": "g96_n2_q8192",
+      "dim": 128,
+      "kind": "uniform",
+      "command": [
+        "/workspace/seekdb-amd-study/validation/compare_profiles_v2",
+        "/workspace/seekdb-amd-study/candidates/g96_n2_q8192/libseekdb_cuvs_bridge.so",
+        "250000",
+        "128",
+        "512",
+        "uniform",
+        "/workspace/seekdb-amd-study/validation/repeat1-uniform-128-g96_n2_q8192.bin"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 63.35485858807806,
+      "sampled_device_vram_bytes": 695664640,
+      "sampled_process_hwm_bytes": 1391910912,
+      "output": "[seekdb_cuvs] build complete algo=nn_descent n=250000 dim=128 graph_degree=96 intermediate_degree=128\nn=250000 dim=128 nq=512 kind=uniform phase=0 topk=10 recall=1.000000000 build_ms=59287.448 save_ms=287.543 load_ms=0.000 search_ms=348.810 bridge_qps=1467.847 p50_ms=0.670 p95_ms=0.684 max_ms=6.400 verified_ids_distances=1\nn=250000 dim=128 nq=512 kind=uniform phase=0 topk=100 recall=0.999902344 build_ms=59287.448 save_ms=287.543 load_ms=0.000 search_ms=349.269 bridge_qps=1465.919 p50_ms=0.681 p95_ms=0.694 max_ms=1.462 verified_ids_distances=1\nn=250000 dim=128 nq=512 kind=uniform phase=1 topk=10 recall=1.000000000 build_ms=59287.448 save_ms=287.543 load_ms=158.853 search_ms=343.522 bridge_qps=1490.444 p50_ms=0.670 p95_ms=0.685 max_ms=0.942 verified_ids_distances=1\nn=250000 dim=128 nq=512 kind=uniform phase=1 topk=100 recall=0.999921875 build_ms=59287.448 save_ms=287.543 load_ms=158.853 search_ms=348.818 bridge_qps=1467.813 p50_ms=0.681 p95_ms=0.692 max_ms=0.727 verified_ids_distances=1\n"
+    }
+  ],
+  "native_sdma_isolation": [
+    {
+      "profile": "g96_n5_q8192",
+      "command": [
+        "/workspace/seekdb-amd-study/validation/compare_profiles_v3",
+        "/workspace/seekdb-amd-study/candidates/g96_n5_q8192/libseekdb_cuvs_bridge.so",
+        "250000",
+        "256",
+        "512",
+        "gaussian",
+        "/workspace/seekdb-amd-study/validation/sdma0-g96_n5_q8192.bin"
+      ],
+      "HSA_ENABLE_SDMA": "0",
+      "exit_code": 0,
+      "wall_seconds": 45.48277235031128,
+      "output": "[seekdb_cuvs] build complete algo=nn_descent n=250000 dim=256 graph_degree=96 intermediate_degree=128\nn=250000 dim=256 nq=512 kind=gaussian phase=0 topk=10 recall=0.999609375 build_ms=38286.672 save_ms=419.119 load_ms=0.000 search_ms=496.522 bridge_qps=1031.173 p50_ms=0.959 p95_ms=0.976 max_ms=6.373 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=0 topk=100 recall=0.999062500 build_ms=38286.672 save_ms=419.119 load_ms=0.000 search_ms=495.661 bridge_qps=1032.965 p50_ms=0.968 p95_ms=0.982 max_ms=1.020 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=1 topk=10 recall=0.999804687 build_ms=38286.672 save_ms=419.119 load_ms=233.111 search_ms=491.214 bridge_qps=1042.316 p50_ms=0.958 p95_ms=0.974 max_ms=1.256 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=1 topk=100 recall=0.998964844 build_ms=38286.672 save_ms=419.119 load_ms=233.111 search_ms=495.343 bridge_qps=1033.626 p50_ms=0.967 p95_ms=0.982 max_ms=1.008 verified_ids_distances=1\n"
+    },
+    {
+      "profile": "v5",
+      "command": [
+        "/workspace/seekdb-amd-study/validation/compare_profiles_v3",
+        "/workspace/seekdb-amd-study/candidates/v5/libseekdb_cuvs_bridge.so",
+        "250000",
+        "256",
+        "512",
+        "gaussian",
+        "/workspace/seekdb-amd-study/validation/sdma0-v5.bin"
+      ],
+      "HSA_ENABLE_SDMA": "0",
+      "exit_code": 0,
+      "wall_seconds": 130.29323387145996,
+      "output": "n=250000 dim=256 nq=512 kind=gaussian phase=0 topk=10 recall=0.952734375 build_ms=99023.224 save_ms=19039.253 load_ms=0.000 search_ms=1918.228 bridge_qps=266.913 p50_ms=3.625 p95_ms=3.699 max_ms=46.556 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=0 topk=100 recall=0.897695313 build_ms=99023.224 save_ms=19039.253 load_ms=0.000 search_ms=1962.658 bridge_qps=260.871 p50_ms=3.880 p95_ms=3.923 max_ms=4.152 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=1 topk=10 recall=0.952734375 build_ms=99023.224 save_ms=19039.253 load_ms=249.345 search_ms=1855.370 bridge_qps=275.956 p50_ms=3.613 p95_ms=3.695 max_ms=3.900 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=1 topk=100 recall=0.897695313 build_ms=99023.224 save_ms=19039.253 load_ms=249.345 search_ms=1950.479 bridge_qps=262.500 p50_ms=3.872 p95_ms=3.922 max_ms=4.202 verified_ids_distances=1\n"
+    },
+    {
+      "profile": "g96_n2_q8192",
+      "command": [
+        "/workspace/seekdb-amd-study/validation/compare_profiles_v3",
+        "/workspace/seekdb-amd-study/candidates/g96_n2_q8192/libseekdb_cuvs_bridge.so",
+        "250000",
+        "256",
+        "512",
+        "gaussian",
+        "/workspace/seekdb-amd-study/validation/sdma0-g96_n2_q8192.bin"
+      ],
+      "HSA_ENABLE_SDMA": "0",
+      "exit_code": 0,
+      "wall_seconds": 53.44477343559265,
+      "output": "[seekdb_cuvs] build complete algo=nn_descent n=250000 dim=256 graph_degree=96 intermediate_degree=128\nn=250000 dim=256 nq=512 kind=gaussian phase=0 topk=10 recall=0.999804687 build_ms=46058.285 save_ms=431.902 load_ms=0.000 search_ms=502.731 bridge_qps=1018.438 p50_ms=0.971 p95_ms=0.987 max_ms=6.449 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=0 topk=100 recall=0.999589844 build_ms=46058.285 save_ms=431.902 load_ms=0.000 search_ms=501.791 bridge_qps=1020.345 p50_ms=0.981 p95_ms=0.993 max_ms=1.032 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=1 topk=10 recall=0.999804687 build_ms=46058.285 save_ms=431.902 load_ms=258.326 search_ms=497.023 bridge_qps=1030.134 p50_ms=0.970 p95_ms=0.986 max_ms=1.275 verified_ids_distances=1\nn=250000 dim=256 nq=512 kind=gaussian phase=1 topk=100 recall=0.999550781 build_ms=46058.285 save_ms=431.902 load_ms=258.326 search_ms=501.748 bridge_qps=1020.433 p50_ms=0.980 p95_ms=0.996 max_ms=1.011 verified_ids_distances=1\n"
+    }
+  ],
+  "native_sift": {
+    "v5": "n=250000 dim=128 nq=4096 kind=file:/workspace/seekdb-amd-study/datasets/sift250k phase=0 topk=10 recall=0.999951172 build_ms=67226.964 save_ms=304.033 load_ms=0.000 search_ms=25162.282 bridge_qps=162.783 p50_ms=3.139 p95_ms=3.309 max_ms=12386.065 verified_ids_distances=1\nn=250000 dim=128 nq=4096 kind=file:/workspace/seekdb-amd-study/datasets/sift250k phase=0 topk=100 recall=0.999965820 build_ms=67226.964 save_ms=304.033 load_ms=0.000 search_ms=12793.964 bridge_qps=320.151 p50_ms=3.141 p95_ms=3.308 max_ms=3.425 verified_ids_distances=1\nn=250000 dim=128 nq=4096 kind=file:/workspace/seekdb-amd-study/datasets/sift250k phase=1 topk=10 recall=0.999975586 build_ms=67226.964 save_ms=304.033 load_ms=167.364 search_ms=12348.643 bridge_qps=331.696 p50_ms=3.063 p95_ms=3.288 max_ms=21.296 verified_ids_distances=1\nn=250000 dim=128 nq=4096 kind=file:/workspace/seekdb-amd-study/datasets/sift250k phase=1 topk=100 recall=0.999963379 build_ms=67226.964 save_ms=304.033 load_ms=167.364 search_ms=12799.442 bridge_qps=320.014 p50_ms=3.144 p95_ms=3.305 max_ms=3.448 verified_ids_distances=1\n",
+    "g96_n2_q8192": "[seekdb_cuvs] build complete algo=nn_descent n=250000 dim=128 graph_degree=96 intermediate_degree=128\nn=250000 dim=128 nq=4096 kind=file:/workspace/seekdb-amd-study/datasets/sift250k phase=0 topk=10 recall=0.999951172 build_ms=84967.329 save_ms=276.261 load_ms=0.000 search_ms=76582.567 bridge_qps=53.485 p50_ms=0.659 p95_ms=0.709 max_ms=73851.666 verified_ids_distances=1\nn=250000 dim=128 nq=4096 kind=file:/workspace/seekdb-amd-study/datasets/sift250k phase=0 topk=100 recall=0.999973145 build_ms=84967.329 save_ms=276.261 load_ms=0.000 search_ms=10122.259 bridge_qps=404.653 p50_ms=0.682 p95_ms=0.734 max_ms=7281.590 verified_ids_distances=1\nn=250000 dim=128 nq=4096 kind=file:/workspace/seekdb-amd-study/datasets/sift250k phase=1 topk=10 recall=0.999951172 build_ms=84967.329 save_ms=276.261 load_ms=149.483 search_ms=2694.519 bridge_qps=1520.123 p50_ms=0.655 p95_ms=0.679 max_ms=0.941 verified_ids_distances=1\nn=250000 dim=128 nq=4096 kind=file:/workspace/seekdb-amd-study/datasets/sift250k phase=1 topk=100 recall=0.999970703 build_ms=84967.329 save_ms=276.261 load_ms=149.483 search_ms=2722.240 bridge_qps=1504.643 p50_ms=0.662 p95_ms=0.685 max_ms=0.869 verified_ids_distances=1\n",
+    "g96_n5_q8192": "[seekdb_cuvs] build complete algo=nn_descent n=250000 dim=128 graph_degree=96 intermediate_degree=128\nn=250000 dim=128 nq=4096 kind=file:/workspace/seekdb-amd-study/datasets/sift250k phase=0 topk=10 recall=0.999975586 build_ms=169687.254 save_ms=287.288 load_ms=0.000 search_ms=83827.205 bridge_qps=48.862 p50_ms=0.656 p95_ms=0.704 max_ms=68703.927 verified_ids_distances=1\nn=250000 dim=128 nq=4096 kind=file:/workspace/seekdb-amd-study/datasets/sift250k phase=0 topk=100 recall=0.999968262 build_ms=169687.254 save_ms=287.288 load_ms=0.000 search_ms=2909.489 bridge_qps=1407.807 p50_ms=0.701 p95_ms=0.737 max_ms=30.098 verified_ids_distances=1\nn=250000 dim=128 nq=4096 kind=file:/workspace/seekdb-amd-study/datasets/sift250k phase=1 topk=10 recall=0.999951172 build_ms=169687.254 save_ms=287.288 load_ms=178.420 search_ms=2723.858 bridge_qps=1503.749 p50_ms=0.655 p95_ms=0.678 max_ms=30.393 verified_ids_distances=1\nn=250000 dim=128 nq=4096 kind=file:/workspace/seekdb-amd-study/datasets/sift250k phase=1 topk=100 recall=0.999973145 build_ms=169687.254 save_ms=287.288 load_ms=178.420 search_ms=2731.368 bridge_qps=1499.615 p50_ms=0.661 p95_ms=0.686 max_ms=14.209 verified_ids_distances=1\n"
+  },
+  "final_components": [
+    {
+      "name": "final-persistence-write",
+      "command": [
+        "/workspace/seekdb-amd-study/candidates/g96_n2_q8192/test_persistence",
+        "write",
+        "/workspace/seekdb-amd-study/validation/final-persistence.bin"
+      ],
+      "exit_code": 0,
+      "HSA_ENABLE_SDMA": "0",
+      "started": 1794292606.5401497,
+      "ended": 1794292607.154783,
+      "output": "[seekdb_cuvs] build complete algo=nn_descent n=10000 dim=32 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\nwrite: n=10000 top1=0 distance=0\n"
+    },
+    {
+      "name": "final-persistence-read",
+      "command": [
+        "/workspace/seekdb-amd-study/candidates/g96_n2_q8192/test_persistence",
+        "read",
+        "/workspace/seekdb-amd-study/validation/final-persistence.bin"
+      ],
+      "exit_code": 0,
+      "HSA_ENABLE_SDMA": "0",
+      "started": 1794292607.1551442,
+      "ended": 1794292608.3705797,
+      "output": "[seekdb_cuvs] snapshot shape mismatch: 10000 x 32, expected 9999 x 32\n[seekdb_cuvs] deserialize failed: (null)\n[seekdb_cuvs] snapshot shape mismatch: 10000 x 32, expected 10000 x 33\n[seekdb_cuvs] deserialize failed: (null)\nread: n=10000 top1=0 distance=0\n"
+    },
+    {
+      "name": "final-sphere",
+      "command": [
+        "/workspace/seekdb-amd-study/validation/benchmark_recall",
+        "/workspace/seekdb-amd-study/candidates/g96_n2_q8192/libseekdb_cuvs_bridge.so",
+        "100000",
+        "256",
+        "256",
+        "sphere",
+        "/workspace/seekdb-amd-study/validation/final-sphere.bin"
+      ],
+      "exit_code": 0,
+      "HSA_ENABLE_SDMA": "0",
+      "started": 1794292608.370965,
+      "ended": 1794292612.0398722,
+      "output": "[seekdb_cuvs] build complete algo=nn_descent n=100000 dim=256 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\nn=100000 dim=256 nq=256 kind=sphere phase=0 topk=10 recall=1.000000000 build_ms=972.128 save_ms=188.964 load_ms=0.000 search_ms=244.967 bridge_qps=1045.037 p50_ms=0.938 p95_ms=0.963 max_ms=6.459 verified_ids_distances=1\nn=100000 dim=256 nq=256 kind=sphere phase=0 topk=100 recall=1.000000000 build_ms=972.128 save_ms=188.964 load_ms=0.000 search_ms=242.771 bridge_qps=1054.493 p50_ms=0.952 p95_ms=0.976 max_ms=0.987 verified_ids_distances=1\nn=100000 dim=256 nq=256 kind=sphere phase=1 topk=10 recall=1.000000000 build_ms=972.128 save_ms=188.964 load_ms=109.495 search_ms=240.212 bridge_qps=1065.724 p50_ms=0.941 p95_ms=0.967 max_ms=1.130 verified_ids_distances=1\nn=100000 dim=256 nq=256 kind=sphere phase=1 topk=100 recall=1.000000000 build_ms=972.128 save_ms=188.964 load_ms=109.495 search_ms=242.673 bridge_qps=1054.918 p50_ms=0.949 p95_ms=0.978 max_ms=1.023 verified_ids_distances=1\n"
+    },
+    {
+      "name": "final-anisotropic",
+      "command": [
+        "/workspace/seekdb-amd-study/validation/benchmark_recall",
+        "/workspace/seekdb-amd-study/candidates/g96_n2_q8192/libseekdb_cuvs_bridge.so",
+        "100000",
+        "256",
+        "256",
+        "anisotropic",
+        "/workspace/seekdb-amd-study/validation/final-anisotropic.bin"
+      ],
+      "exit_code": 0,
+      "HSA_ENABLE_SDMA": "0",
+      "started": 1794292612.040278,
+      "ended": 1794292615.809293,
+      "output": "[seekdb_cuvs] build complete algo=nn_descent n=100000 dim=256 graph_degree=96 intermediate_degree=128 nn_descent_niter=2\nn=100000 dim=256 nq=256 kind=anisotropic phase=0 topk=10 recall=1.000000000 build_ms=1032.141 save_ms=209.817 load_ms=0.000 search_ms=237.804 bridge_qps=1076.515 p50_ms=0.910 p95_ms=0.935 max_ms=6.325 verified_ids_distances=1\nn=100000 dim=256 nq=256 kind=anisotropic phase=0 topk=100 recall=1.000000000 build_ms=1032.141 save_ms=209.817 load_ms=0.000 search_ms=236.177 bridge_qps=1083.934 p50_ms=0.923 p95_ms=0.953 max_ms=0.977 verified_ids_distances=1\nn=100000 dim=256 nq=256 kind=anisotropic phase=1 topk=10 recall=1.000000000 build_ms=1032.141 save_ms=209.817 load_ms=106.424 search_ms=233.158 bridge_qps=1097.970 p50_ms=0.912 p95_ms=0.938 max_ms=1.099 verified_ids_distances=1\nn=100000 dim=256 nq=256 kind=anisotropic phase=1 topk=100 recall=1.000000000 build_ms=1032.141 save_ms=209.817 load_ms=106.424 search_ms=235.146 bridge_qps=1088.683 p50_ms=0.921 p95_ms=0.949 max_ms=0.976 verified_ids_distances=1\n"
+    }
+  ],
+  "five_iteration_interruption": {
+    "reason": "Optional five-iteration experiment interrupted after one Gaussian SQL query stalled over 300 seconds; preserve partial timings, prioritize document two-iteration candidate",
+    "time": 1794290672.857535,
+    "orchestrator": 5657,
+    "children": [
+      8727
+    ],
+    "server": 8518,
+    "status": "INCOMPLETE_NOT_PASS"
+  },
+  "sql_lifecycle": {
+    "sql-control-gpu-lifecycle.log": "[2026-11-10 05:55:35.561138] INFO  [LIB] ~ObCuvsPhaseTimer (ob_vsag_adaptor.cpp:101) [8154][][Y0-0000000000000000-0-0] [lt=0] [OBVSAG][cuVS][phase](name_=\"snapshot_serialize\", ms=1.661787999999999954e+01)\n[2026-11-10 05:55:35.562628] INFO  [LIB] ob_cuvs_serialize (ob_vsag_adaptor.cpp:480) [8014][T1_PX_G0][Y100B427F000001-00065FE5354FEA3C-0-0] [lt=2] [OBVSAG][cuVS] serialized GPU CAGRA snapshot(key=0x74884fa6d000, n=1948, dim32=32, built=true, build_us=550949, graph_bytes=1248433, gpu_build_us=534122, graph_serialize_us=16827, payload_write_us=20, graph_write_us=1375, snapshot_total_us=552344, header.version=3, omitted_vector_bytes=249344)\n[2026-11-10 05:56:03.554499] INFO  [LIB] ~ObCuvsPhaseTimer (ob_vsag_adaptor.cpp:101) [8328][][Y0-0000000000000000-0-0] [lt=0] [OBVSAG][cuVS][phase](name_=\"snapshot_serialize\", ms=1.205041449999999941e+02)\n[2026-11-10 05:56:03.855364] INFO  [LIB] ob_cuvs_serialize (ob_vsag_adaptor.cpp:480) [8192][T1_DDL_4561][Y100B427F000001-00065FE5354FEA61-0-0] [lt=16] [OBVSAG][cuVS] serialized GPU CAGRA snapshot(key=0x7485634d3000, n=250000, dim32=128, built=true, build_us=18245717, graph_bytes=256001713, gpu_build_us=18124889, graph_serialize_us=120828, payload_write_us=97, graph_write_us=300627, snapshot_total_us=18546441, header.version=3, omitted_vector_bytes=128000000)\n[2026-11-10 05:57:06.611808] INFO  [LIB] ~ObCuvsPhaseTimer (ob_vsag_adaptor.cpp:101) [8487][][Y0-0000000000000000-0-0] [lt=0] [OBVSAG][cuVS][phase](name_=\"snapshot_serialize\", ms=1.576987780000000043e+02)\n[2026-11-10 05:57:06.903635] INFO  [LIB] ob_cuvs_serialize (ob_vsag_adaptor.cpp:480) [8019][T1_PX_G0][Y100B427F000001-00065FE537AFF07B-0-0] [lt=12] [OBVSAG][cuVS] serialized GPU CAGRA snapshot(key=0x74856534a000, n=250000, dim32=256, built=true, build_us=17495743, graph_bytes=384001713, gpu_build_us=17337732, graph_serialize_us=158011, payload_write_us=153, graph_write_us=291517, snapshot_total_us=17787413, header.version=3, omitted_vector_bytes=256000000)\n",
+    "sql-g96_n2_q8192-gpu-lifecycle.log": "[2026-11-10 06:11:53.812777] INFO  [LIB] ~ObCuvsPhaseTimer (ob_vsag_adaptor.cpp:101) [10413][][Y0-0000000000000000-0-0] [lt=0] [OBVSAG][cuVS][phase](name_=\"snapshot_serialize\", ms=1.689481000000000011e+00)\n[2026-11-10 06:11:53.814016] INFO  [LIB] ob_cuvs_serialize (ob_vsag_adaptor.cpp:480) [10369][T1_PX_G0][Y100B427F000001-00065FE5F1889AF7-0-0] [lt=4] [OBVSAG][cuVS] serialized GPU CAGRA snapshot(key=0x7e4ece083000, n=1948, dim32=32, built=true, build_us=160166, graph_bytes=999089, gpu_build_us=158260, graph_serialize_us=1906, payload_write_us=15, graph_write_us=1140, snapshot_total_us=161321, header.version=3, omitted_vector_bytes=249344)\n"
+  },
+  "limits": [
+    "Official hidden Recall and paired resource/time gates remain unverified.",
+    "Native probe timings are not SQL timings.",
+    "No outlier removed: initial Gaussian candidate Top-10 contains a 283.798-second stall.",
+    "Unchanged control also stalled; cause not proven, and disabling SDMA did not eliminate stalls.",
+    "Device-wide sampled VRAM is diagnostic and is not an official peak-memory gate.",
+    "Original V5 bridge tested natively; SQL control is the parent revision, not a separate full V5 SQL build.",
+    "No official scoring files, inputs or pinned hipVS sources changed."
+  ],
+  "kernel_only_profiles": {
+    "kernel-only-g96_n5_q8192/j-2iy6pusmxku362anbt57owtdco/5658_kernel_stats.csv": "\"Name\",\"Calls\",\"TotalDurationNs\",\"AverageNs\",\"Percentage\",\"MinNs\",\"MaxNs\",\"StdDev\"\n\"void cuvs::neighbors::nn_descent::detail::local_join_kernel<512, int, cuvs::neighbors::nn_descent::detail::InternalID_t<int>, raft::identity_op>(int const*, int const*, HIP_vector_type<int, 2u> const*, int const*, int const*, HIP_vector_type<int, 2u> const*, int, __half const*, int, cuvs::neighbors::nn_descent::detail::InternalID_t<int>*, float*, int, int*, float*, cuvsDistanceType, raft::identity_op, unsigned long, unsigned long)\",5,438957060,87791412.000000,45.86,58282852,108099118,20286878.427512\n\"void cuvs::neighbors::cagra::detail::graph::(anonymous namespace)::kern_prune<1024, unsigned int>(unsigned int const*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned char*, unsigned int*, unsigned long*)\",1,414604609,414604609.000000,43.31,414604609,414604609,0.00000000e+00\n\"void cuvs::neighbors::cagra::detail::multi_cta_search::search_kernel<128u, cuvs::neighbors::cagra::detail::dataset_descriptor_base_t<float, unsigned int, float>, cuvs::neighbors::filtering::none_sample_filter>(cuvs::neighbors::cagra::detail::dataset_descriptor_base_t<float, unsigned int, float>::INDEX_T*, cuvs::neighbors::cagra::detail::dataset_descriptor_base_t<float, unsigned int, float>::DISTANCE_T*, cuvs::neighbors::cagra::detail::dataset_descriptor_base_t<float, unsigned int, float> const*, cuvs::neighbors::cagra::detail::dataset_descriptor_base_t<float, unsigned int, float>::DATA_T const*, cuvs::neighbors::cagra::detail::dataset_descriptor_base_t<float, unsigned int, float>::INDEX_T const*, unsigned int, unsigned int, unsigned long, cuvs::neighbors::cagra::detail::dataset_descriptor_base_t<float, unsigned int, float>::INDEX_T const*, unsigned int, unsigned int, cuvs::neighbors::cagra::detail::dataset_descriptor_base_t<float, unsigned int, float>::INDEX_T*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int*, cuvs::neighbors::filtering::none_sample_filter)\",64,54609301,853270.328125,5.70,830239,878439,10274.395353\n\"void cuvs::neighbors::cagra::detail::graph::(anonymous namespace)::kern_sort<float, unsigned int, 4>(float const*, unsigned int, unsigned int, unsigned int*, unsigned int, unsigned int, cuvsDistanceType)\",1,30740089,30740089.000000,3.21,30740089,30740089,0.00000000e+00\n\"void cuvs::neighbors::nn_descent::detail::add_rev_edges_kernel<int>(int const*, int*, int, HIP_vector_type<int, 2u>*)\",10,11194268,1119426.800000,1.17,40360,1268238,379734.358466\n\"void raft::linalg::detail::map_kernel<8, false, __half, unsigned long, raft::const_op<__half>>(__half*, unsigned long, raft::const_op<__half>)\",1,1467238,1467238.000000,0.1533,1467238,1467238,0.00000000e+00\n\"void cuvs::neighbors::cagra::detail::graph::(anonymous namespace)::kern_make_rev_graph<unsigned int>(unsigned int const*, unsigned int*, unsigned int*, unsigned int, unsigned int)\",96,1287677,13413.302083,0.1345,12000,23760,1890.066599\n\"void cuvs::neighbors::cagra::detail::kern_topk_cta_11<8, 2, 128, 32, unsigned int>(unsigned int, unsigned int, unsigned int, unsigned int const*, unsigned int, unsigned int const*, unsigned int, unsigned int*, unsigned int, unsigned int*, unsigned int, unsigned char*, unsigned int*, bool)\",32,947399,29606.218750,0.0990,25880,35520,2362.439168\n\"void cuvs::neighbors::nn_descent::detail::preprocess_data_kernel<float>(float const*, __half*, int, float*, unsigned long, cuvsDistanceType)\",3,871399,290466.333333,0.0910,110720,470679,179979.953107\n\"void cuvs::neighbors::cagra::detail::kern_topk_cta_11<8, 2, 32, 32, unsigned int>(unsigned int, unsigned int, unsigned int, unsigned int const*, unsigned int, unsigned int const*, unsigned int, unsigned int*, unsigned int, unsigned int*, unsigned int, unsigned char*, unsigned int*, bool)\",32,756839,23651.218750,0.0791,16720,25440,2351.995539\n\"__amd_rocclr_copyBuffer\",193,745200,3861.139896,0.0778,2480,15160,2589.469208\n\"__amd_rocclr_fillBufferAligned\",7,595800,85114.285714,0.0622,3600,224800,97953.508506\n\"void raft::linalg::detail::map_kernel<4, false, float, unsigned long, raft::const_op<float>>(float*, unsigned long, raft::const_op<float>)\",6,231880,38646.666667,0.0242,27000,94600,27413.846623\n\"void cuvs::neighbors::cagra::detail::multi_cta_search::set_value_batch_kernel<unsigned int>(unsigned int*, unsigned long, unsigned int, unsigned long, unsigned long)\",64,129480,2023.125000,0.0135,1840,3120,255.062240\n\"void raft::linalg::detail::map_kernel<4, false, int, long, raft::const_op<int>>(int*, long, raft::const_op<int>)\",1,81960,81960.000000,8.562e-03,81960,81960,0.00000000e+00\n\"void raft::linalg::detail::map_kernel<4, false, int, unsigned long, raft::const_op<int>>(int*, unsigned long, raft::const_op<int>)\",1,15320,15320.000000,1.600e-03,15320,15320,0.00000000e+00\n\"void cuvs::neighbors::cagra::detail::standard_dataset_descriptor_init_kernel<(cuvsDistanceType)0, 16u, 256u, float, unsigned int, float>(cuvs::neighbors::cagra::detail::dataset_descriptor_base_t<float, unsigned int, float>*, float const*, unsigned int, unsigned int, unsigned int)\",2,5160,2580.000000,5.390e-04,1680,3480,1272.792206\n\"__amd_rocclr_initHeap\",1,3600,3600.000000,3.761e-04,3600,3600,0.00000000e+00\n",
+    "kernel-only-v5/j-2iy6pusmxku362anbt57owtdco/5887_kernel_stats.csv": "\"Name\",\"Calls\",\"TotalDurationNs\",\"AverageNs\",\"Percentage\",\"MinNs\",\"MaxNs\",\"StdDev\"\n\"void cuvs::neighbors::nn_descent::detail::local_join_kernel<512, int, cuvs::neighbors::nn_descent::detail::InternalID_t<int>, raft::identity_op>(int const*, int const*, HIP_vector_type<int, 2u> const*, int const*, int const*, HIP_vector_type<int, 2u> const*, int, __half const*, int, cuvs::neighbors::nn_descent::detail::InternalID_t<int>*, float*, int, int*, float*, cuvsDistanceType, raft::identity_op, unsigned long, unsigned long)\",100,7538573679,75385736.790000,66.43,55457195,129429466,75125510.923189\n\"void cuvs::neighbors::cagra::detail::graph::(anonymous namespace)::kern_prune<1024, unsigned int>(unsigned int const*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned char*, unsigned int*, unsigned long*)\",1,3279442861,3279442861.000000,28.90,3279442861,3279442861,0.00000000e+00\n\"void cuvs::neighbors::nn_descent::detail::add_rev_edges_kernel<int>(int const*, int*, int, HIP_vector_type<int, 2u>*)\",200,237626804,1188134.020000,2.09,40840,1266319,102326.516414\n\"void cuvs::neighbors::cagra::detail::single_cta_search::search_kernel<512u, 64u, 0u, cuvs::neighbors::cagra::detail::dataset_descriptor_base_t<float, unsigned int, float>, cuvs::neighbors::filtering::none_sample_filter>(unsigned long, cuvs::neighbors::cagra::detail::dataset_descriptor_base_t<float, unsigned int, float>::DISTANCE_T*, unsigned int, cuvs::neighbors::cagra::detail::dataset_descriptor_base_t<float, unsigned int, float> const*, cuvs::neighbors::cagra::detail::dataset_descriptor_base_t<float, unsigned int, float>::DATA_T const*, cuvs::neighbors::cagra::detail::dataset_descriptor_base_t<float, unsigned int, float>::INDEX_T const*, unsigned int, unsigned int, unsigned long, cuvs::neighbors::cagra::detail::dataset_descriptor_base_t<float, unsigned int, float>::INDEX_T const*, unsigned int, cuvs::neighbors::cagra::detail::dataset_descriptor_base_t<float, unsigned int, float>::INDEX_T*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int*, unsigned int, unsigned int, unsigned int, cuvs::neighbors::filtering::none_sample_filter)\",64,223498948,3492171.062500,1.97,3427677,3532837,21687.902155\n\"void cuvs::neighbors::cagra::detail::graph::(anonymous namespace)::kern_sort<float, unsigned int, 8>(float const*, unsigned int, unsigned int, unsigned int*, unsigned int, unsigned int, cuvsDistanceType)\",1,60696432,60696432.000000,0.5349,60696432,60696432,0.00000000e+00\n\"void raft::linalg::detail::map_kernel<4, false, float, unsigned long, raft::const_op<float>>(float*, unsigned long, raft::const_op<float>)\",101,2824639,27966.722772,0.0249,26440,88000,6154.659045\n\"void cuvs::neighbors::cagra::detail::graph::(anonymous namespace)::kern_make_rev_graph<unsigned int>(unsigned int const*, unsigned int*, unsigned int*, unsigned int, unsigned int)\",128,1793119,14008.742188,0.0158,11400,20720,2101.498787\n\"void raft::linalg::detail::map_kernel<8, false, __half, unsigned long, raft::const_op<__half>>(__half*, unsigned long, raft::const_op<__half>)\",1,1454439,1454439.000000,0.0128,1454439,1454439,0.00000000e+00\n\"void cuvs::neighbors::nn_descent::detail::preprocess_data_kernel<float>(float const*, __half*, int, float*, unsigned long, cuvsDistanceType)\",3,863399,287799.666667,7.608e-03,110200,468240,179036.902454\n\"__amd_rocclr_fillBufferAligned\",7,629198,89885.428571,5.545e-03,2480,225079,99415.841021\n\"__amd_rocclr_copyBuffer\",193,600678,3112.321244,5.293e-03,2440,10240,686.241204\n\"void raft::linalg::detail::map_kernel<4, false, int, long, raft::const_op<int>>(int*, long, raft::const_op<int>)\",1,54880,54880.000000,4.836e-04,54880,54880,0.00000000e+00\n\"void raft::linalg::detail::map_kernel<4, false, int, unsigned long, raft::const_op<int>>(int*, unsigned long, raft::const_op<int>)\",1,25640,25640.000000,2.259e-04,25640,25640,0.00000000e+00\n\"void cuvs::neighbors::cagra::detail::standard_dataset_descriptor_init_kernel<(cuvsDistanceType)0, 16u, 256u, float, unsigned int, float>(cuvs::neighbors::cagra::detail::dataset_descriptor_base_t<float, unsigned int, float>*, float const*, unsigned int, unsigned int, unsigned int)\",2,6560,3280.000000,5.781e-05,3000,3560,395.979797\n\"__amd_rocclr_initHeap\",1,3800,3800.000000,3.349e-05,3800,3800,0.00000000e+00\n"
+  },
+  "profile_and_sift_commands": [
+    {
+      "name": "kernel-only-g96_n5_q8192",
+      "command": [
+        "rocprofv3",
+        "--kernel-trace",
+        "--stats",
+        "--output-format",
+        "csv",
+        "-d",
+        "/workspace/seekdb-amd-study/validation/kernel-only-g96_n5_q8192",
+        "--",
+        "/workspace/seekdb-amd-study/validation/compare_profiles_v3",
+        "/workspace/seekdb-amd-study/candidates/g96_n5_q8192/libseekdb_cuvs_bridge.so",
+        "250000",
+        "256",
+        "16",
+        "gaussian",
+        "/workspace/seekdb-amd-study/validation/kernel-only-g96_n5_q8192.bin"
+      ],
+      "environment_overrides": {},
+      "exit_code": 0,
+      "started": 1794288901.719025,
+      "ended": 1794289099.974607
+    },
+    {
+      "name": "kernel-only-v5",
+      "command": [
+        "rocprofv3",
+        "--kernel-trace",
+        "--stats",
+        "--output-format",
+        "csv",
+        "-d",
+        "/workspace/seekdb-amd-study/validation/kernel-only-v5",
+        "--",
+        "/workspace/seekdb-amd-study/validation/compare_profiles_v3",
+        "/workspace/seekdb-amd-study/candidates/v5/libseekdb_cuvs_bridge.so",
+        "250000",
+        "256",
+        "16",
+        "gaussian",
+        "/workspace/seekdb-amd-study/validation/kernel-only-v5.bin"
+      ],
+      "environment_overrides": {},
+      "exit_code": 0,
+      "started": 1794289099.9749916,
+      "ended": 1794289245.2818406
+    },
+    {
+      "name": "sift-v5",
+      "command": [
+        "/workspace/seekdb-amd-study/validation/compare_profiles_v3",
+        "/workspace/seekdb-amd-study/candidates/v5/libseekdb_cuvs_bridge.so",
+        "250000",
+        "128",
+        "4096",
+        "file:/workspace/seekdb-amd-study/datasets/sift250k",
+        "/workspace/seekdb-amd-study/validation/sift-v5.bin"
+      ],
+      "environment_overrides": {
+        "STUDY_EXPORT_PREFIX": "/workspace/seekdb-amd-study/datasets/sift250k"
+      },
+      "exit_code": 0,
+      "started": 1794289245.2822306,
+      "ended": 1794289389.681716
+    },
+    {
+      "name": "sift-g96_n2_q8192",
+      "command": [
+        "/workspace/seekdb-amd-study/validation/compare_profiles_v3",
+        "/workspace/seekdb-amd-study/candidates/g96_n2_q8192/libseekdb_cuvs_bridge.so",
+        "250000",
+        "128",
+        "4096",
+        "file:/workspace/seekdb-amd-study/datasets/sift250k",
+        "/workspace/seekdb-amd-study/validation/sift-g96_n2_q8192.bin"
+      ],
+      "environment_overrides": {},
+      "exit_code": 0,
+      "started": 1794289389.6821523,
+      "ended": 1794289810.9295483
+    },
+    {
+      "name": "sift-g96_n5_q8192",
+      "command": [
+        "/workspace/seekdb-amd-study/validation/compare_profiles_v3",
+        "/workspace/seekdb-amd-study/candidates/g96_n5_q8192/libseekdb_cuvs_bridge.so",
+        "250000",
+        "128",
+        "4096",
+        "file:/workspace/seekdb-amd-study/datasets/sift250k",
+        "/workspace/seekdb-amd-study/validation/sift-g96_n5_q8192.bin"
+      ],
+      "environment_overrides": {},
+      "exit_code": 0,
+      "started": 1794289810.9299607,
+      "ended": 1794290087.091416
+    },
+    {
+      "name": "gaussian-export",
+      "command": [
+        "/workspace/seekdb-amd-study/validation/compare_profiles_v3",
+        "/workspace/seekdb-amd-study/candidates/control/libseekdb_cuvs_bridge.so",
+        "250000",
+        "256",
+        "4096",
+        "gaussian",
+        "/workspace/seekdb-amd-study/validation/unused.bin"
+      ],
+      "environment_overrides": {
+        "STUDY_EXPORT_PREFIX": "/workspace/seekdb-amd-study/datasets/gaussian250k",
+        "STUDY_EXPORT_ONLY": "1"
+      },
+      "exit_code": 0,
+      "started": 1794290087.091774,
+      "ended": 1794290113.8944767
+    },
+    {
+      "name": "prepare-sift250k",
+      "command": [
+        "python3",
+        "/workspace/seekdb-amd-study/validation/sql_benchmark.py",
+        "prepare",
+        "control",
+        "sift250k"
+      ],
+      "environment_overrides": {},
+      "exit_code": 0,
+      "started": 1794290113.8948953,
+      "ended": 1794290119.8672376
+    },
+    {
+      "name": "prepare-gaussian250k",
+      "command": [
+        "python3",
+        "/workspace/seekdb-amd-study/validation/sql_benchmark.py",
+        "prepare",
+        "control",
+        "gaussian250k"
+      ],
+      "environment_overrides": {},
+      "exit_code": 0,
+      "started": 1794290119.8675911,
+      "ended": 1794290134.4020631
+    },
+    {
+      "name": "regression-control",
+      "command": [
+        "python3",
+        "/workspace/seekdb-amd-study/validation/test_cuvs_ddl_batch.py"
+      ],
+      "environment_overrides": {},
+      "exit_code": 0,
+      "started": 1794290134.4024954,
+      "ended": 1794290137.3710377
+    },
+    {
+      "name": "sql-control-sift250k",
+      "command": [
+        "python3",
+        "/workspace/seekdb-amd-study/validation/sql_benchmark.py",
+        "run",
+        "control",
+        "sift250k"
+      ],
+      "environment_overrides": {},
+      "exit_code": 0,
+      "started": 1794290137.3715546,
+      "ended": 1794290193.7207193
+    },
+    {
+      "name": "sql-control-gaussian250k",
+      "command": [
+        "python3",
+        "/workspace/seekdb-amd-study/validation/sql_benchmark.py",
+        "run",
+        "control",
+        "gaussian250k"
+      ],
+      "environment_overrides": {},
+      "exit_code": 0,
+      "started": 1794290193.7210965,
+      "ended": 1794290263.8773625
+    },
+    {
+      "name": "stop-control",
+      "command": [
+        "python3",
+        "/workspace/seekdb-amd-study/validation/sql_study.py",
+        "stop",
+        "control"
+      ],
+      "environment_overrides": {},
+      "exit_code": 0,
+      "started": 1794290263.8777215,
+      "ended": 1794290264.9933202
+    },
+    {
+      "name": "start-g96_n5_q8192",
+      "command": [
+        "python3",
+        "/workspace/seekdb-amd-study/validation/sql_study.py",
+        "start",
+        "g96_n5_q8192"
+      ],
+      "environment_overrides": {},
+      "exit_code": 0,
+      "started": 1794290264.9937568,
+      "ended": 1794290266.109279
+    },
+    {
+      "name": "regression-g96_n5_q8192",
+      "command": [
+        "python3",
+        "/workspace/seekdb-amd-study/validation/test_cuvs_ddl_batch.py"
+      ],
+      "environment_overrides": {},
+      "exit_code": 0,
+      "started": 1794290266.109713,
+      "ended": 1794290268.7274306
+    },
+    {
+      "name": "sql-g96_n5_q8192-sift250k",
+      "command": [
+        "python3",
+        "/workspace/seekdb-amd-study/validation/sql_benchmark.py",
+        "run",
+        "g96_n5_q8192",
+        "sift250k"
+      ],
+      "environment_overrides": {},
+      "exit_code": 0,
+      "started": 1794290268.7278373,
+      "ended": 1794290288.2202144
+    }
+  ]
+}

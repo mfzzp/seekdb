@@ -65,6 +65,35 @@ class CuvsDDLBatchTest(unittest.TestCase):
                         self.assertEqual(k, len(set(ids)))
                         self.assertTrue(set(ids) <= valid_ids)
                         self.assertIn(row_id, ids)
+                # Filters and deletes must still use the correct fallback when
+                # the GPU graph cannot represent the visible SQL row set.
+                probe_id, probe_value = probes[0]
+                def nearest(approximate, condition="", parameters=()):
+                    # ANN indexes omit NULL vectors; exact ascending SQL sorts
+                    # NULL distances first unless its reference excludes them.
+                    clause = condition
+                    if not approximate:
+                        clause += " AND v IS NOT NULL" if clause else "WHERE v IS NOT NULL"
+                    cur.execute(f"SELECT id FROM {table} {clause} ORDER BY l2_distance(v,%s) {'APPROXIMATE' if approximate else ''} LIMIT 10",
+                                (*parameters, probe_value))
+                    return [item[0] for item in cur.fetchall()]
+                threshold = probes[len(probes) // 2][0]
+                self.assertEqual(nearest(False, "WHERE id >= %s", (threshold,)),
+                                 nearest(True, "WHERE id >= %s", (threshold,)))
+                cur.execute("START TRANSACTION")
+                try:
+                    cur.execute(f"DELETE FROM {table} WHERE id=%s", (probe_id,))
+                    deleted = nearest(True)
+                    self.assertNotIn(probe_id, deleted)
+                    self.assertEqual(nearest(False), deleted)
+                finally:
+                    cur.execute("ROLLBACK")
+                self.assertIn(probe_id, nearest(True))
+                cur.execute(f"DELETE FROM {table} WHERE id=%s", (probe_id,))
+                self.assertNotIn(probe_id, nearest(True))
+                self.assertEqual(nearest(False), nearest(True))
+                cur.execute(f"INSERT INTO {table} VALUES(%s,%s)", (probe_id, probe_value))
+                self.assertIn(probe_id, nearest(True))
                 cur.execute(f"DROP TABLE {table}")
             cur.execute("CREATE TABLE empty_items(id BIGINT PRIMARY KEY,v VECTOR(32))")
             cur.execute("CREATE VECTOR INDEX idx ON empty_items(v) WITH (distance=l2,type=hnsw,lib=cuvs)")

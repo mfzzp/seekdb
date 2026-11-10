@@ -18,6 +18,7 @@ struct Resources { cudaStream_t stream = nullptr; };
 struct TestIndex { int64_t n = 0, dim = 0; };
 static int resources_live, streams_live, indexes_live, build_params_live, search_params_live;
 static int allocation_calls, search_calls, search_param_creates;
+static size_t library_itopk = 64;
 static int serialization_completions;
 static int dataset_metadata_live, dataset_deletions, export_copies;
 static DLTensor export_dataset = {};
@@ -77,13 +78,13 @@ cuvsError_t cuvsRMMFree(cuvsResources_t r, void *pointer, size_t bytes)
 }
 cuvsError_t cuvsCagraIndexParamsCreate(cuvsCagraIndexParams_t *p) { if (fail("build-params")) return CUVS_ERROR; *p = new std::remove_pointer<cuvsCagraIndexParams_t>::type{}; ++build_params_live; return CUVS_SUCCESS; }
 cuvsError_t cuvsCagraIndexParamsDestroy(cuvsCagraIndexParams_t p) { delete p; --build_params_live; return CUVS_SUCCESS; }
-cuvsError_t cuvsCagraSearchParamsCreate(cuvsCagraSearchParams_t *p) { if (fail("search-params")) return CUVS_ERROR; *p = new std::remove_pointer<cuvsCagraSearchParams_t>::type{64, 1, SINGLE_CTA}; ++search_params_live; ++search_param_creates; return CUVS_SUCCESS; }
+cuvsError_t cuvsCagraSearchParamsCreate(cuvsCagraSearchParams_t *p) { if (fail("search-params")) return CUVS_ERROR; *p = new std::remove_pointer<cuvsCagraSearchParams_t>::type{library_itopk, 1, SINGLE_CTA}; ++search_params_live; ++search_param_creates; return CUVS_SUCCESS; }
 cuvsError_t cuvsCagraSearchParamsDestroy(cuvsCagraSearchParams_t p) { delete p; --search_params_live; return CUVS_SUCCESS; }
 cuvsError_t cuvsCagraIndexCreate(cuvsCagraIndex_t *p) { if (fail("index")) return CUVS_ERROR; *p = new TestIndex; ++indexes_live; return CUVS_SUCCESS; }
 cuvsError_t cuvsCagraIndexDestroy(cuvsCagraIndex_t p) { delete p; --indexes_live; return CUVS_SUCCESS; }
 cuvsError_t cuvsCagraBuild(cuvsResources_t r, cuvsCagraIndexParams_t p, DLManagedTensor *d, cuvsCagraIndex_t i)
 {
-  CHECK(p->build_algo == NN_DESCENT && p->graph_degree == 128 && p->intermediate_graph_degree == 256 && p->nn_descent_niter == 100);
+  CHECK(p->build_algo == NN_DESCENT && p->graph_degree == 96 && p->intermediate_graph_degree == 128 && p->nn_descent_niter == 2);
   CHECK(d->dl_tensor.device.device_type == kDLCPU && d->dl_tensor.dtype.bits == 32);
   if (fail("build")) return CUVS_ERROR;
   i->n = d->dl_tensor.shape[0]; i->dim = d->dl_tensor.shape[1];
@@ -96,8 +97,9 @@ cuvsError_t cuvsCagraSearch(cuvsResources_t r, cuvsCagraSearchParams_t p, cuvsCa
 {
   CHECK(f.type == NO_FILTER && f.addr == 0);
   const size_t nq = q->dl_tensor.shape[0], dim = q->dl_tensor.shape[1], k = n->dl_tensor.shape[1];
-  CHECK(p->itopk_size == std::max<size_t>(512, k * 4) && p->search_width == 4);
-  CHECK(p->algo == (p->itopk_size > 512 ? MULTI_CTA : SINGLE_CTA));
+  CHECK(p->itopk_size >= std::max<size_t>(8192, k * 4) && p->search_width == 4);
+  CHECK(p->itopk_size % 64 == 0 && p->algo == MULTI_CTA);
+  CHECK(p->itopk_size == (k == 2051 || library_itopk == 8193 ? 8256 : 8192));
   CHECK(dim == static_cast<size_t>(i->dim));
   CHECK(q->dl_tensor.dtype.bits == 32 && n->dl_tensor.dtype.code == kDLUInt && d->dl_tensor.dtype.bits == 32);
   ++search_calls;
@@ -143,13 +145,13 @@ cuvsError_t cuvsCagraIndexGetDataset(cuvsCagraIndex_t, DLManagedTensor *out)
 }
 }
 
-static void probe(void *handle, long nq, long k, float value, bool distances = true)
+static void probe(void *handle, long nq, long k, float value, bool distances = true, long n = 1000)
 {
   std::vector<float> query(nq * 32, value), dist(nq * k, -1);
   std::vector<unsigned> ids(nq * k, UINT32_MAX);
   CHECK(seekdb_cuvs_search(handle, query.data(), nq, k, ids.data(), distances ? dist.data() : nullptr) == 0);
   for (long row = 0; row < nq; ++row) for (long col = 0; col < k; ++col) {
-    CHECK(ids[row * k + col] == (static_cast<unsigned>(value) + col) % 1000);
+    CHECK(ids[row * k + col] == (static_cast<unsigned>(value) + col) % n);
     CHECK(dist[row * k + col] == (distances ? value + static_cast<float>(col) : -1));
   }
 }
@@ -237,7 +239,7 @@ int main()
   CHECK(!seekdb_cuvs_build(&base, -1, 32));
   CHECK(!seekdb_cuvs_build(&base, 1000, 0));
   if (sizeof(long) == 8) CHECK(!seekdb_cuvs_build(&base, LONG_MAX, LONG_MAX));
-  // Retain the previously gate-passing NN-descent recipe for every shape.
+  // The same graph/search pairing applies to all shapes, without dataset tags.
   for (const long n : {1L, 255L, 256L, 511L, 512L, 513L, 8193L}) {
     for (const long dim : {1L, 33L, 128L, 256L}) {
       void *h = seekdb_cuvs_build(&base, n, dim); CHECK(h);
@@ -283,6 +285,19 @@ int main()
   CHECK(!seekdb_cuvs_deserialize("unused", 1000, 31)); no_leaks();
   failure = "deserialize"; CHECK(!seekdb_cuvs_deserialize("unused", 1000, 32)); no_leaks();
   h = seekdb_cuvs_deserialize("unused", 1000, 32); CHECK(h); probe(h, 1, 100, 91); seekdb_cuvs_free(h); no_leaks();
+  // Large Top-k grows the aligned budget, then a small query restores it.
+  h = seekdb_cuvs_build(&base, 4096, 32); CHECK(h);
+  probe(h, 1, 2051, 3, true, 4096); probe(h, 1, 10, 5, true, 4096);
+  seekdb_cuvs_free(h); no_leaks();
+  library_itopk = 8193;
+  h = seekdb_cuvs_deserialize("unused", 1000, 32); CHECK(h);
+  probe(h, 1, 10, 7); seekdb_cuvs_free(h); no_leaks();
+  library_itopk = SIZE_MAX;
+  h = seekdb_cuvs_build(&base, 1000, 32); CHECK(h);
+  const int before_allocations = allocation_calls, before_searches = search_calls;
+  CHECK(seekdb_cuvs_search(h, query, 1, 10, ids, dist) != 0);
+  CHECK(allocation_calls == before_allocations && search_calls == before_searches);
+  seekdb_cuvs_free(h); no_leaks(); library_itopk = 64;
   check_vector_export();
   std::puts("PASS bridge: NN-descent parameter parity, search, buffer reuse, shapes, FP32 dataset export including padding/offsets, async completion, injected errors and release; no GPU used");
 }

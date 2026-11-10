@@ -1,14 +1,110 @@
-# AMD CAGRA candidates: CPU budgets and persistence costs
+# AMD CAGRA candidates: construction and multi-CTA search
 
 This candidate is based on contest V5 commit
 `634888d9b037153fa143d2c913ba4b25503e1d62`. It uses the unmodified hipVS
 commit `f96a663d0a4441d6f5344bd3ef552b71ae7b370b` supplied by the contest.
-Each new candidate needs its own GPU validation. The latest measurements below
-execute the real GPU bridge; they do not establish end-to-end SQL performance or
-the official Recall/resource gates. Older sections record evidence available at
-the time of each historical candidate.
+Each new candidate needs its own GPU validation. The 2026-11-10 candidate below
+has real GPU and SQL measurements, including an unresolved long-tail stall.
+It is a WIP candidate, not a declaration that official Recall/resource gates or
+performance requirements pass. Older sections retain their historical status.
 
-## Seventh candidate (current): respect CPU quotas and restore direct snapshot writes
+## Current WIP: lighter construction paired with multi-CTA search (2026-11-10)
+
+Following the supplied optimization walkthrough, the bridge uses graph degree
+96, intermediate degree 128 and two NN-descent iterations. Native `MULTI_CTA`
+search uses `search_width=4` and a candidate budget of
+`align_up(max(hipVS default, 8192, 4*topk), 64)`. Overflow is rejected before
+allocation; each query recomputes its budget, including after loading an older
+index. No dataset name, dimension, query or score selects these parameters.
+Every FP32 input row still reaches the fixed hipVS build and every query executes
+the native search. Existing V3 snapshot deduplication and V2/V3/V4 readers remain.
+
+The comparison uses parent `af06346bff80aeadca159518d424b9d8c16ef8d9` as the SQL
+control, not an independently compiled V5 SQL server. Both bridges run in the
+same seekdb binary, with fresh data directories, 16 CPUs, 24 GiB seekdb memory,
+TRACE disabled and identical FP32 data/individual SQL requests. Hardware is
+gfx1100, 48 GiB VRAM, a 16-CPU/55-GiB container and ROCm 7.2.1. The official
+7.2.4 environment and hidden input are not reproduced.
+
+The public SIFT diagnostic uses the first 250,000 training rows and first 4,096
+test rows from `sift-128-euclidean.hdf5`; exact neighbors are recomputed for that
+subset. The other input contains 250,000 independent 256-dimensional Gaussian
+vectors and 4,096 independent queries generated with seed 371912. No dataset
+rows are omitted. Each SQL run executes all 4,096 probes separately for Top-10
+and Top-100 and includes the first query in index-build readiness.
+
+| First SQL run | Control build, seconds | Candidate build, seconds | Candidate Recall@10 / @100 |
+| --- | ---: | ---: | --- |
+| SIFT subset, 128 dimensions | 21.5681 | 4.7415 | 0.9999756 / 0.9999756 |
+| Gaussian, 256 dimensions | 22.1414 | 6.4552 | 0.9997559 / 0.9994263 |
+
+These build samples improved, but **the Gaussian Top-10 run includes a 283.798-second
+single-query stall**: its measured QPS is only 14.19, compared with the control's
+246.23. That delay is included, not removed as an outlier. The same persisted
+indexes passed a fresh-process restart and another complete query pass; Gaussian
+QPS then measured 805.76 / 632.79, with Recall 0.9997559 / 0.9994409. This does not
+erase the first-run failure to deliver stable performance. A five-iteration
+diagnostic also stalled and was interrupted; it is not a passing alternative.
+
+Native profiling found both long `kern_prune` samples and large gaps between
+GPU operations, including delays in frozen V5. A kernel-only five-iteration
+profile took 195.77 seconds for the bridge build but recorded less than one
+second of GPU kernel execution. The current evidence does not distinguish
+runtime/device scheduling, synchronization and parameter effects sufficiently
+to assign a root cause. Disabling SDMA in a separate native diagnostic did not
+eliminate variable build times. No driver setting is changed by the product.
+A later full SQL isolation run with `HSA_ENABLE_SDMA=0` passed the expanded
+filter/delete/rollback/reinsert regression and all candidate Recall queries,
+but the candidate SIFT build took 122.607 seconds. The unchanged control then
+took 149.520 seconds to build the Gaussian index and its overall run timed out
+at 300 seconds during querying. Disabling SDMA is **not an established remedy**;
+the paired performance run is incomplete.
+
+The complete seekdb binary compiled on Linux, bootstrapped on the GPU instance,
+and returned `SELECT 1`. Its source is the parent revision; bridge-only changes
+are dynamically loaded from the independently compiled candidate library.
+Linux host checks with ASan/UBSan and Windows host checks both passed 7/7.
+Host doubles cover ownership and errors; they do not establish ANN quality.
+The real SQL DDL regression and full-data restart checks passed before the
+additional filter/delete/rollback regression was added. That expanded test first
+hit a 300-second DDL timeout in the default runtime environment; it passed in
+2.768 seconds after restart with SDMA disabled. Neither result is hidden. The
+Linux build used Clang 17 and an available Rust 1.98.1 toolchain override rather
+than the repository Rust 1.97.1 pin; no toolchain pin was changed in source.
+
+Final bridge write/read processes passed FP32 byte equality, shape rejection,
+Top-10/100/200/10 and one/three-query checks. Two additional 100,000-row,
+256-dimensional sphere/anisotropic fixtures each achieved Recall@10/@100 of
+1.0 across 256 independent queries, before and after reload. These final checks
+used the documented SDMA-disabled diagnostic environment, not a product change.
+Commands, individual measurements, failed runs and source/binary hashes are in
+[`validation/gpu_mcta_20261110.json`](validation/gpu_mcta_20261110.json).
+
+Two standalone diagnostic tools preserve the measurement procedure:
+`tools/hipvs_bridge/benchmark_recall.cpp` generates full-input exact references,
+checks FP32 restoration, IDs and distances, and reports native timings;
+`tools/hipvs_bridge/benchmark_sql.py` imports those files and measures individual
+SQL queries. These tools do not replace or alter the contest's runner or scoring.
+Recall values must be compared with the same-round baseline separately; a zero
+exit status only establishes successful execution and structural assertions.
+
+Example single-line commands (use a dedicated instance and new output paths):
+
+```sh
+g++ -O3 -std=c++17 -fopenmp tools/hipvs_bridge/benchmark_recall.cpp -ldl -o /tmp/benchmark_recall
+STUDY_EXPORT_PREFIX=/tmp/gaussian STUDY_EXPORT_ONLY=1 /tmp/benchmark_recall /tmp/amd/libseekdb_cuvs_bridge.so 250000 256 4096 gaussian /tmp/unused-snapshot.bin
+python3 tools/hipvs_bridge/benchmark_sql.py --mode prepare --dataset-prefix /tmp/gaussian --dimension 256
+SEEKDB_TEST_PORT=2881 python3 tools/hipvs_bridge/benchmark_sql.py --mode run --dataset-prefix /tmp/gaussian --dimension 256 --database gaussian_diagnostic --label candidate --output /tmp/candidate-sql.json
+SEEKDB_TEST_PORT=2881 python3 tools/hipvs_bridge/benchmark_sql.py --mode verify --dataset-prefix /tmp/gaussian --dimension 256 --database gaussian_diagnostic --label candidate-restarted --output /tmp/candidate-restarted.json
+```
+
+Run the last command after restarting the same dedicated instance. Dependencies
+are a C++17/OpenMP compiler for reference generation and PyMySQL for SQL. The SQL
+tool reads `SEEKDB_TEST_HOST/PORT/USER/PASSWORD`; never put credentials in source.
+It creates a new database and retains it for restart verification. The native
+tool reports bridge QPS, which must not be described as SQL QPS.
+
+## Seventh candidate (historical): respect CPU quotas and restore direct snapshot writes
 
 The sixth candidate, `2caab0c9a1577b17ca2f7805c8b0d1f4f6c2aede`, received
 **7.204/20**, `build=1.099x, query=1.790x, gates=pass`. The best earlier result
@@ -585,7 +681,7 @@ The fixture is a smoke test, not the official Recall dataset. Follow it with the
 existing SQL DDL/restart smoke checks in `validation/` and the unchanged official
 benchmark on clean, independent instances for V5 and the candidate.
 
-## Evaluation status
+## Historical evaluation status before 2026-11-10
 
 Windows and Linux host checks cover control flow, CPU quota parsing, snapshot
 transfer and the retained lossless decoder. The seventh candidate additionally
