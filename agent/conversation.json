@@ -427,6 +427,19 @@
         "Raising MAX_BLOCK_ROWS alone was not enough: the 4 MiB budget still rejected the table, which the probe showed as groups_built false after the first attempt."
       ],
       "limitations": "Synthetic repeating vectors (k % 997 / 997) rather than realistic data; shared-host timing. The 10k benchmark numbers moved inside their usual noise band, so this entry documents a no-regression check rather than a measured gain at 10k rows. DeepSeek executor experiment."
+    },
+    {
+      "id": "submission-tree-audit",
+      "executor": "DeepSeek",
+      "source": "DeepSeek audit on /mnt/HDD2/zzp/minivectordb-round2 against the committed tree",
+      "baseline": "2231898",
+      "candidate": "2231898",
+      "problem": "Every experiment so far ran against the working tree. The platform builds from the committed tree only, so a file that was never committed, a stale working copy or an oversized agent material would not be visible locally and would surface only at submission time.",
+      "method": "git archive HEAD extracted to /tmp/pristine (committed files only); verify the six required paths exist, compare committed files byte-for-byte with the working tree, validate agent/conversation.json size and structure, then run the official public driver and the full unit suite against the exported copy with and without numpy; finally start the database with stdin already closed.",
+      "output": "Required files: Dockerfile 1065 B, minivectordb.py 28849 B, minivector_sql.py 8629 B, minivector_store.py 12046 B, README.md 7664 B, agent/conversation.json 48827 B. Committed files identical to the working tree. conversation.json 48827 bytes (< 128 KiB), 20 experiments, no synthetic flag. Public cases 20/20 against the exported copy in both modes; unit tests 20 passed with numpy and 20 without (4 skipped). Immediate EOF: prints {\"type\":\"ready\"}, exits 0, leaves rows.log.",
+      "changes": [],
+      "status": "verified, no code change",
+      "limitations": "Verifies the tree contents and behaviour of the Python program; it cannot exercise the Docker build itself because no Docker runtime is available on either machine. DeepSeek executor experiment."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements.",
