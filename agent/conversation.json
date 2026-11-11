@@ -278,6 +278,26 @@
         "numpy availability in the grading image is still unverified end to end because no Docker runtime is available on either machine."
       ],
       "limitations": "Shared-server paired timings only; the baseline column also moved between rounds (15.3-16.4 ms), which is why ratios rather than absolutes are emphasised. DeepSeek executor experiments; no participant-run measurement and no Agent Prompt credit claimed."
+    },
+    {
+      "id": "write-path-probe-no-change",
+      "executor": "DeepSeek",
+      "source": "DeepSeek measurement on /mnt/HDD2/zzp/minivectordb-round2 with /usr/bin/python3 3.12.3",
+      "baseline": "71156c1",
+      "problem": "The 10k-row write phase takes about 1.4 s (100 committed batches of 100 rows). Before changing anything, measure where the per-batch cost goes and decide whether a safe optimisation exists.",
+      "measurement": {
+        "statement_bytes": 122142,
+        "parse_only_ms": 0.946,
+        "execute_insert_commit_fsync_ms": 6.956,
+        "mutate_only_validated_rows_ms": 2.956,
+        "write_plus_fsync_250kb_ms": 1.992
+      },
+      "hypothesis": "If SQL parsing dominated, a parser fast path would be the win; if fsync dominated, nothing safe can be done because commit durability is a hard requirement.",
+      "conclusion": "Per 100-row batch: parse 0.95 ms, typed() validation of 100 vectors about 3 ms, log write plus fsync 2.96 ms (of which 1.99 ms is write+fsync alone on this filesystem). No single component dominates, and the two largest are (a) mandatory durability and (b) required float32 validation that the spec demands. Micro-optimising validation to use map(math.isfinite, ...) and dropping the redundant type check might save 0.1-0.15 s of the 1.4 s, which is below the run-to-run noise on this shared host, so no code change was made.",
+      "changes": [],
+      "command": "python3 scripts/probe_write.py <source-dir>",
+      "status": "measured, intentionally not changed",
+      "limitations": "Single measurement host with shared I/O; fsync cost depends on the storage device and the judge machine may differ substantially. This entry records a rejected optimisation, not a verified improvement."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements.",
