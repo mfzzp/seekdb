@@ -174,22 +174,30 @@ class Database(Store):
 
         return {"affected_rows": self.mutate(operations())}
 
+    def matching_primary_keys(self, name, table, filters):
+        """Evaluate key-only predicates using the transaction-visible directory."""
+        changes = self.changes(name)
+        equality = next((value for _, op, value in filters if op == "="), None)
+        if equality is not None:
+            keys = (equality,) if changes.get(equality, table.rows.get(equality)) is not None else ()
+        elif changes:
+            keys = chain(
+                (key for key in table.rows if key not in changes),
+                (key for key, offset in changes.items() if offset is not None),
+            )
+        else:
+            keys = iter(table.rows)
+        checks = [(COMPARISONS[op], value) for _, op, value in filters]
+        if not checks:
+            return keys
+        return (key for key in keys if all(compare(key, value) for compare, value in checks))
+
     def delete(self, name, terms):
         name = name.casefold()
         table = self.table(name)
         filters = self.filters(table, terms)
         if all(column == table.primary for column, _, _ in filters):
-            # Primary-key predicates can be evaluated without decoding row payloads.
-            changes = self.changes(name)
-            equality = next((value for _, op, value in filters if op == "="), None)
-            if equality is not None:
-                candidates = (equality,)
-            else:
-                candidates = chain(table.rows, (key for key in changes if key not in table.rows))
-            checks = [(COMPARISONS[op], value) for _, op, value in filters]
-            keys = (key for key in candidates
-                    if changes.get(key, table.rows.get(key)) is not None
-                    and (not checks or all(compare(key, value) for compare, value in checks)))
+            keys = self.matching_primary_keys(name, table, filters)
         else:
             keys = (row[table.primary] for row in self.matching(name, table, filters))
         return {"affected_rows": self.mutate(("delete", (name, key)) for key in keys)}
@@ -297,6 +305,21 @@ class Database(Store):
             require(bound < 0 or table.columns[bound][1] != "vector",
                     "unsupported_sql", "cannot order by a raw vector")
             ordering.append((bound, descending))
+
+        if (all(column == table.primary for column in projected)
+                and all(column == table.primary for column, _, _ in filters)
+                and all(column == table.primary for column, _ in ordering)):
+            keys = self.matching_primary_keys(name, table, filters)
+            if ordering:
+                descending = ordering[0][1]
+                if limit is None:
+                    keys = sorted(keys, reverse=descending)
+                else:
+                    top = heapq.nlargest if descending else heapq.nsmallest
+                    keys = top(min(limit, sys.maxsize), keys)
+            elif limit is not None:
+                keys = islice(keys, min(limit, sys.maxsize))
+            return {"columns": names, "rows": [[key] * len(projected) for key in keys]}
 
         clustered = bool(ordering and ordering[0][0] < 0)
         records = self.matching(name, table, filters, clustered)

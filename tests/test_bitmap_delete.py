@@ -66,6 +66,12 @@ class BitmapDeleteTest(unittest.TestCase):
                 run("UPDATE t SET g=21 WHERE id=2")
                 self.assertEqual(run("DELETE FROM t WHERE id=1 AND id=2")["affected_rows"], 0)
                 self.assertEqual(run("DELETE FROM t WHERE id=1")["affected_rows"], 1)
+                self.assertEqual(run("SELECT id FROM t LIMIT 1")["rows"], [[3]])
+                self.assertEqual(run("SELECT id AS k,id FROM t WHERE id>=2 ORDER BY k DESC LIMIT 1"),
+                                 {"columns": ["k", "id"], "rows": [[3, 3]]})
+                self.assertEqual(run("SELECT id FROM t ORDER BY id LIMIT 0")["rows"], [])
+                self.assertEqual(run("SELECT id FROM t WHERE id=1")["rows"], [])
+                self.assertEqual(run("SELECT id FROM t WHERE g=21")["rows"], [[2]])
                 self.assertEqual(run("DELETE FROM t WHERE id>=2")["affected_rows"], 2)
                 self.assertEqual(run("DELETE FROM t")["affected_rows"], 0)
                 self.assertEqual(run("SELECT id FROM t")["rows"], [])

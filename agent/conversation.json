@@ -87,6 +87,14 @@
       "method": "Three paired runs, each reopening 10000 rows of 128 dimensions to start with an empty row cache. Time 500 seeded random primary-key deletes in one transaction and a separate range delete of 1000 rows. Compare remaining primary keys with the expected set.",
       "output": "Point delete seconds before [0.0336,0.0270,0.0344], after [0.0190,0.0287,0.0252]. Range delete seconds before [0.1018,0.0752,0.1020], after [0.0121,0.0384,0.0415]. All remaining primary keys matched. All 20 public cases and 3 regression tests passed, including pending inserts and updates, contradictory predicates, rollback, and restart after an unfiltered delete.",
       "limits": "The range benchmark uses only the primary key. Mixed predicates still inspect row payloads. Point delete timings varied across runs."
+    },
+    {
+      "id": "primary-key-select",
+      "source": "Codex on the requested Linux server with existing Python 3.12.3",
+      "hypothesis": "Queries projecting, filtering and ordering exclusively on the primary key can reuse the key directory path introduced for DELETE.",
+      "method": "Three paired runs on 10000 rows of 128 dimensions. Reopen, time 500 random primary-key lookups, then 100 primary-key range queries with descending ORDER BY and LIMIT 10. Compare every response against expected keys.",
+      "output": "Point query seconds before [0.01591,0.01988,0.02491], after [0.00753,0.01021,0.01304]. Range query seconds before [0.53812,0.48916,0.75986], after [0.22042,0.23374,0.36456]. Results matched. All 20 public cases and 3 regression tests passed. The regression covers aliases, duplicate key projections, LIMIT 0, pending inserts and updates, hidden deletes, and unchanged ordering without ORDER BY.",
+      "limits": "This fast path applies only to primary-key-only queries. Timings are local and do not establish official scores."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed.",
