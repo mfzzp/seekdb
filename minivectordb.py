@@ -946,7 +946,14 @@ def startup_diagnostics(db):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data-dir", default="/data")
-    db = Database(parser.parse_args().data_dir)
+    try:
+        db = Database(parser.parse_args().data_dir)
+    except OSError as exc:
+        # No ready handshake is sent, so the judge sees a failed start rather than
+        # a database that appears to be up; a one-line diagnostic beats a traceback.
+        print(f"minivectordb: cannot open the data directory: {exc}",
+              file=sys.stderr, flush=True)
+        return 2
     try:
         startup_diagnostics(db)
         send({"type": "ready"})
@@ -981,4 +988,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

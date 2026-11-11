@@ -1537,6 +1537,20 @@
    ],
    "changes": "tests/test_evidence_document.py fails when a learning case cites an id that is not in the catalogue, or quotes different text than the statement it cites.",
    "limitations": "This checks internal consistency; it cannot prove a quote matches the original conversation, which only the conversation log can settle. DeepSeek executor experiment."
+  },
+  {
+   "id": "data-directory-startup",
+   "executor": "DeepSeek",
+   "source": "DeepSeek probe against 7e89bd4",
+   "problem": "Every run so far passed --data-dir explicitly, but the image entry point passes nothing and relies on the /data default. Nothing had tested that path, nor what happens when the directory cannot be used.",
+   "method": "scripts/probe_data_dir.sh runs three startups: a nested path that does not exist yet, an unwritable path, and the default with no argument at all.",
+   "results": [
+    "a nested path such as /tmp/a/b/c/data is created and works",
+    "an unwritable path and the absent default /data both exit 2 with a single stderr line and no stdout at all, so the judge never sees a ready handshake from a database that failed to start",
+    "the first version of these failures printed a Python traceback; main() now catches OSError from the store, reports it in one line and returns 2"
+   ],
+   "changes": "minivectordb.main catches OSError around Database() and returns 2; __main__ now exits with that code; tests/test_protocol_surface.py asserts a failed start exits non-zero, writes no handshake and mentions the data directory.",
+   "limitations": "The absent /data case cannot be reproduced as writable here, because / is not writable on this host; in the container /data is a mount, so the successful path is the one the judge exercises. DeepSeek executor experiment."
   }
  ],
  "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",

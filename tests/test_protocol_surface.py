@@ -65,6 +65,28 @@ def run_session(requests, data_dir, app_dir=None, env_extra=None):
 
 
 class ProtocolConformanceTest(unittest.TestCase):
+    def test_startup_failure_is_a_clean_exit_without_ready(self):
+        """An unusable data directory must fail before the ready handshake.
+
+        The judge reads the first stdout line as the handshake, so writing ready and
+        then dying would look like a running database.  A path under an existing
+        file fails on both platforms.
+        """
+        scratch = tempfile.mkdtemp(prefix="baddir-")
+        self.addCleanup(shutil.rmtree, scratch, True)
+        blocker = os.path.join(scratch, "not-a-directory")
+        with open(blocker, "w", encoding="utf-8") as handle:
+            handle.write("x")
+        process = subprocess.run(
+            [sys.executable, os.path.join(SOURCE, "minivectordb.py"),
+             "--data-dir", os.path.join(blocker, "data")],
+            input=b'{"id":1,"op":"shutdown"}\n', stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, timeout=60)
+        self.assertNotEqual(process.returncode, 0, "a failed start must not exit 0")
+        self.assertEqual(process.stdout, b"", "no handshake may be written")
+        self.assertIn(b"data directory", process.stderr,
+                      process.stderr.decode("utf-8", "replace"))
+
     def test_blank_lines_do_not_produce_responses(self):
         """A blank or whitespace-only line is not a request and must be skipped.
 
