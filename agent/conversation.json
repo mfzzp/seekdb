@@ -1003,6 +1003,15 @@
       "method": "tests/test_evidence_document.py asserts UTF-8 without a BOM, a trailing newline, the seven required sections, synthetic=false with a scope sentence, unique ids each carrying one non-empty content field, verbatim quotes wherever a statement or learning case claims one, absence of placeholder markers, and the size budget.",
       "result": "The records span two schema generations, so the checks are invariants rather than one shape; one entry (recovery-logical-offset) legitimately carries change/baseline/median_seconds and no problem field, which the first version of the test rejected. Padding the file to 138 KiB on the server makes the budget check fail, and it passes again after git checkout.",
       "limitations": "The 128 KiB budget is self-imposed; if it is ever too tight, trim or merge entries rather than raising it. DeepSeek executor experiment."
+    },
+    {
+      "id": "document-consistency-checks",
+      "executor": "DeepSeek",
+      "source": "DeepSeek work against fd4793d",
+      "problem": "README, VERIFICATION.md and this file quote the same measurements, and the test count has been edited many times across rounds - the classic setup for a stale figure that nobody notices.",
+      "method": "tests/test_document_consistency.py discovers the real test count instead of hard-coding it, rejects any other count still claimed in either document, and checks nine headline figures in all three documents with the spelling each one is allowed (README keeps one rounded figure where the other two carry the exact median).",
+      "result": "It caught real drift on the first run: both documents still said 83 while discovery reported 88 after the five new tests. It also rejects phrases that would claim an unverified score, and checks experiment ids are unique and the latest fix is recorded.",
+      "limitations": "The figure table is curated, so a new headline number needs to be added by hand; the test protects the ones it knows. DeepSeek executor experiment."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",
