@@ -71,6 +71,20 @@
       "test": "cases/extra_vector_mutation_paths.test",
       "result": "cases/extra_vector_mutation_paths.result",
       "statements": 9
+    },
+    {
+      "id": "extra_batch_atomic",
+      "group": "extra",
+      "test": "cases/extra_batch_atomic.test",
+      "result": "cases/extra_batch_atomic.result",
+      "statements": 7
+    },
+    {
+      "id": "extra_update_rollback_restart",
+      "group": "extra",
+      "test": "cases/extra_update_rollback_restart.test",
+      "result": "cases/extra_update_rollback_restart.result",
+      "statements": 8
     }
   ]
 }

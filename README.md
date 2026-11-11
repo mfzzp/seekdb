@@ -175,7 +175,7 @@ python3 protocol_check/run.py --command '["python3","minivectordb.py","--data-di
 python3 -m unittest discover -s tests -v
 ```
 
-- 20/20 public protocol cases pass with and without numpy, plus ten extra cases
+- 20/20 public protocol cases pass with and without numpy, plus twelve extra cases
   through the same runner: range and AND predicates, restart with an index, two
   tables across a restart, a failed statement inside a transaction, deleting every
   row inside a transaction and rolling it back, LIMIT 0, non-ASCII values, ann vs
@@ -186,7 +186,7 @@ python3 -m unittest discover -s tests -v
   deletion, recovery truncation, real SIGKILL recovery, mixed-workload soak, query
   paths, scan cache, SQL surface, model fuzz, semantics audit, startup
   diagnostics, the protocol-level shape/resilience/read-only suite, a golden
-  transcript of 88 statements, the ten extra judge cases, and the evidence
+  transcript of 88 statements, the twelve extra judge cases, and the evidence
   document's own schema and size budget. 31 are skipped when numpy is absent.
 - Model fuzz: 220 random operations (multi-row inserts, predicate updates and
   deletes, transactions, restarts, TopK queries) match a Python model exactly.

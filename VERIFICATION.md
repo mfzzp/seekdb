@@ -126,7 +126,7 @@ the limit.
 ## 3. Correctness evidence
 
 - 116 regression tests, passing with and without numpy (31 skipped without it).
-- 20/20 public cases plus six extra cases through the judge's own runner
+- 20/20 public cases plus twelve extra cases through the judge's own runner
   (`protocol_check/run.py` with `tests/extra_cases`), in both modes, including
   against a pristine `git archive` export of the committed tree.
 - 480/480 differential fuzz queries identical to the original baseline over four
@@ -150,7 +150,7 @@ the limit.
 - Protocol: 27-statement shape/resilience sweep, read-only application directory,
   UTF-8 round trip, and stdout carrying nothing but protocol lines.
 - 88-statement golden transcript that fails on any behavioural drift (verified by
-  mutating one expectation), and the six extra judge cases (verified the same way).
+  mutating one expectation), and the twelve extra judge cases (verified the same way).
 - Two implementations of the same protocol, written separately in this session,
   agree on 125 statements apart from the four divergences that were reviewed and
   decided one by one; the second one hard-requires numpy and dies without it,

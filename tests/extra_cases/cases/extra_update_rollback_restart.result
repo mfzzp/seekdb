@@ -1,0 +1,45 @@
+[
+  {},
+  {
+    "affected_rows": 1
+  },
+  {},
+  {
+    "affected_rows": 1
+  },
+  {
+    "columns": [
+      "s"
+    ],
+    "rows": [
+      [
+        "during"
+      ]
+    ]
+  },
+  {},
+  {
+    "columns": [
+      "s"
+    ],
+    "rows": [
+      [
+        "before"
+      ]
+    ]
+  },
+  {
+    "columns": [
+      "id",
+      "s",
+      "d"
+    ],
+    "rows": [
+      [
+        1,
+        "before",
+        0.0
+      ]
+    ]
+  }
+]
