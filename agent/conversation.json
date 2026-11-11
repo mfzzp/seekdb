@@ -79,6 +79,14 @@
       "method": "Three paired runs on 10000 rows. Cold path: perform 40 updates and time one filtered TopK after each. Mixed predicates: warm the g index and alternate g=0 AND h=0 and h=0 AND g=0 for 100 queries. Also compare 200 TopK results per pair in the existing 128-dimensional benchmark.",
       "output": "20 groups, cold seconds before [0.4884,0.4861,0.4985], after [0.2984,0.2127,0.3044]. 10000 groups, cold seconds before [0.4953,0.3036,0.4916], after [0.4083,0.3817,0.3849]. Mixed predicates seconds before [1.1213,1.1208,0.7338], after [0.0497,0.0496,0.0496]. 128-dim query seconds before [1.7772,1.7785,1.7838], after [1.2282,1.3431,1.4682]. All compared results matched. All 20 public cases and two regression tests passed.",
       "limits": "Mixed-predicate workload deliberately stresses rebuild churn. The single-predicate warm test showed no consistent improvement. Timings are local and do not establish official score."
+    },
+    {
+      "id": "primary-key-delete",
+      "source": "Codex on the requested Linux server with Python 3.12.3",
+      "hypothesis": "When DELETE predicates use only the primary key, the live directory and pending transaction entries suffice to identify rows.",
+      "method": "Three paired runs, each reopening 10000 rows of 128 dimensions to start with an empty row cache. Time 500 seeded random primary-key deletes in one transaction and a separate range delete of 1000 rows. Compare remaining primary keys with the expected set.",
+      "output": "Point delete seconds before [0.0336,0.0270,0.0344], after [0.0190,0.0287,0.0252]. Range delete seconds before [0.1018,0.0752,0.1020], after [0.0121,0.0384,0.0415]. All remaining primary keys matched. All 20 public cases and 3 regression tests passed, including pending inserts and updates, contradictory predicates, rollback, and restart after an unfiltered delete.",
+      "limits": "The range benchmark uses only the primary key. Mixed predicates still inspect row payloads. Point delete timings varied across runs."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed.",

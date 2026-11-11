@@ -4,7 +4,7 @@ import argparse
 from array import array
 from bisect import bisect_left
 import heapq
-from itertools import islice
+from itertools import chain, islice
 import json
 import math
 import struct
@@ -178,9 +178,21 @@ class Database(Store):
         name = name.casefold()
         table = self.table(name)
         filters = self.filters(table, terms)
-        return {"affected_rows": self.mutate(
-            ("delete", (name, row[table.primary])) for row in self.matching(name, table, filters)
-        )}
+        if all(column == table.primary for column, _, _ in filters):
+            # Primary-key predicates can be evaluated without decoding row payloads.
+            changes = self.changes(name)
+            equality = next((value for _, op, value in filters if op == "="), None)
+            if equality is not None:
+                candidates = (equality,)
+            else:
+                candidates = chain(table.rows, (key for key in changes if key not in table.rows))
+            checks = [(COMPARISONS[op], value) for _, op, value in filters]
+            keys = (key for key in candidates
+                    if changes.get(key, table.rows.get(key)) is not None
+                    and (not checks or all(compare(key, value) for compare, value in checks)))
+        else:
+            keys = (row[table.primary] for row in self.matching(name, table, filters))
+        return {"affected_rows": self.mutate(("delete", (name, key)) for key in keys)}
 
     def axis_top_k(self, table, bound, limit):
         """Visit rows in order of their first-coordinate distance lower bound."""

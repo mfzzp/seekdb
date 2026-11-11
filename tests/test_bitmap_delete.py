@@ -53,3 +53,30 @@ class BitmapDeleteTest(unittest.TestCase):
                 self.assertEqual(db.execute(filtered, "ann")["rows"], [[6], [7]])
             finally:
                 db.close()
+
+    def test_key_only_delete_handles_pending_rows_and_rollback(self):
+        with tempfile.TemporaryDirectory() as root:
+            db = Database(root)
+            try:
+                run = lambda sql: db.execute(sql, "exact")
+                run("CREATE TABLE t (id BIGINT PRIMARY KEY, g BIGINT)")
+                run("INSERT INTO t VALUES (1,10),(2,20)")
+                run("BEGIN")
+                run("INSERT INTO t VALUES (3,30)")
+                run("UPDATE t SET g=21 WHERE id=2")
+                self.assertEqual(run("DELETE FROM t WHERE id=1 AND id=2")["affected_rows"], 0)
+                self.assertEqual(run("DELETE FROM t WHERE id=1")["affected_rows"], 1)
+                self.assertEqual(run("DELETE FROM t WHERE id>=2")["affected_rows"], 2)
+                self.assertEqual(run("DELETE FROM t")["affected_rows"], 0)
+                self.assertEqual(run("SELECT id FROM t")["rows"], [])
+                run("ROLLBACK")
+                self.assertEqual(run("SELECT id FROM t ORDER BY id")["rows"], [[1], [2]])
+                self.assertEqual(run("DELETE FROM t")["affected_rows"], 2)
+            finally:
+                db.close()
+
+            db = Database(root)
+            try:
+                self.assertEqual(db.execute("SELECT id FROM t", "exact")["rows"], [])
+            finally:
+                db.close()
