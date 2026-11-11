@@ -1012,6 +1012,15 @@
       "method": "tests/test_document_consistency.py discovers the real test count instead of hard-coding it, rejects any other count still claimed in either document, and checks nine headline figures in all three documents with the spelling each one is allowed (README keeps one rounded figure where the other two carry the exact median).",
       "result": "It caught real drift on the first run: both documents still said 83 while discovery reported 88 after the five new tests. It also rejects phrases that would claim an unverified score, and checks experiment ids are unique and the latest fix is recorded.",
       "limitations": "The figure table is curated, so a new headline number needs to be added by hand; the test protects the ones it knows. DeepSeek executor experiment."
+    },
+    {
+      "id": "dockerfile-static-guards",
+      "executor": "DeepSeek",
+      "source": "DeepSeek work against d580976",
+      "problem": "The image is the only deliverable that never runs in this environment, because neither machine has a Docker runtime. Everything else had a test; the Dockerfile had none.",
+      "method": "tests/test_dockerfile.py parses the file (joining backslash continuations) and asserts: LF and no BOM, one pinned FROM with no floating tag, COPY sources that exist and cover every module the entry point imports, a single WORKDIR and ENTRYPOINT with no CMD and no baked-in data directory, the three thread limits and PYTHONDONTWRITEBYTECODE, an exactly pinned best-effort install with pip timeouts, and the data volume.",
+      "result": "Eight checks. The first version read the multi-line ENV as four unrelated instructions and reported two false failures until continuation joining was added. Unpinning the base image and deleting OPENBLAS_NUM_THREADS on the server makes two guards fail, and they pass again once restored.",
+      "limitations": "A static check cannot prove the build succeeds; it only keeps every testable property of the file true. DeepSeek executor experiment."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",
