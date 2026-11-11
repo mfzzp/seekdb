@@ -115,6 +115,25 @@ Costs are cut in four places, in order of effect:
 All paths return exact results, so `ann` and `exact` agree and ranking ties keep
 the primary-key rule.
 
+### Cold-start strategy (measured)
+
+Cumulative time to answer N TopK queries on identical data (K=10, 128 dims):
+
+| rows | strategy | N=1 | N=2 | N=3 | N=10 | peak RSS |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| 10k | scan only | 67.6 ms | 78.7 | 89.6 | 164.2 | 88 MiB |
+| 10k | matrix | **50.3 ms** | **51.2** | **52.0** | **57.1** | 57 MiB |
+| 10k | chunk only | 58.5 ms | 114.3 | 169.9 | 555.0 | 54 MiB |
+| 100k | scan only | 579 ms | 1114 | 1656 | 5429 | 127 MiB |
+| 100k | matrix | 521 ms | **531** | **542** | **604** | 247 MiB |
+| 100k | chunk only | **266 ms** | 553 | 862 | 4294 | **71 MiB** |
+
+At the benchmark size the matrix wins even for the first query, so it is built
+immediately; on a large table a single query is twice as fast and 3.5x lighter
+with chunking, while the matrix overtakes from the second query and is ~7x ahead
+by ten. The memory-budget fallback therefore uses the chunked path, which is
+about twice as fast as the per-row scan it replaced.
+
 ### Known limitations
 
 - The log keeps historical row versions; there is no compaction, so a workload

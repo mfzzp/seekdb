@@ -574,6 +574,42 @@
       "inferences": ["the +3-6% query time of the refinement and the chunking is within the observed noise band, so it is not a verified regression either", "two BLAS threads looked ~6% faster in one alternating sample but the spread covers it"],
       "unverified": ["the Docker image build and the runtime presence of numpy", "the formal 29 cases", "cgroup-level memory.peak and io.stat measurements", "a real Linux SIGKILL (the protocol crash suite runs on Windows)"],
       "limitations": "Shared-host local timings; the pathological numeric case is synthetic (ULP clusters), chosen to expose the bound rather than to model judge data. DeepSeek executor experiment."
+    },
+    {
+      "id": "chunked-topk-strategy",
+      "executor": "DeepSeek",
+      "source": "DeepSeek implementation and measurements under /mnt/HDD2/zzp/minivectordb-round2, /usr/bin/python3 3.12.3, numpy 2.3.5, OPENBLAS_NUM_THREADS=1",
+      "baseline": "ff17e0c",
+      "candidate": "f4e8c16",
+      "problem": "When the shared budget refuses a dense matrix the query fell back to the per-row math.dist scan, which decodes and distances every row on every query. A chunked exact TopK was proposed as the memory-bounded alternative, but its cost against the matrix and the scan had never been measured.",
+      "changes": [
+        "Database._chunked_top_k decodes rows in chunks of 8192, ranks each chunk exactly (identity candidates + the error-bound rerank) and keeps only the running K best; used by both the unfiltered and the equality-group paths when build_matrix returns None",
+        "read_row(packed=True) leaves vector columns as the stored float32 bytes so the builders call numpy.frombuffer instead of struct.unpack; the first chunked version was slower than the scan because filling a numpy block from a decoded 128-float tuple costs more than the distance itself",
+        "matrix builds use the packed read too"
+      ],
+      "strategy_table_ms": {
+        "10000": {"scan": [67.6, 78.7, 89.6, 164.2, 1139], "matrix": [50.3, 51.2, 52.0, 57.1, 121],
+                  "chunk": [58.5, 114.3, 169.9, 555.0, 5492], "hybrid": [53.7, 85.2, 85.9, 89.8, 137],
+                  "counts": [1, 2, 3, 10, 100]},
+        "100000": {"scan": [579, 1114, 1656, 5429], "matrix": [521, 531, 542, 604],
+                   "chunk": [266, 553, 862, 4294], "hybrid": [360, 874, 886, 955],
+                   "counts": [1, 2, 3, 10]},
+        "peak_rss_mib": {"10000": {"scan": 88, "matrix": 57, "chunk": 54, "hybrid": 62},
+                         "100000": {"scan": 127, "matrix": 247, "chunk": 71, "hybrid": 248}}
+      },
+      "conclusions": [
+        "At 10k rows the matrix wins even for the first query (50 vs 68 ms for the scan and 59 ms for chunking), so no delayed-build policy is worth adding at the benchmark size.",
+        "At 100k rows a single query is 2x faster and 3.5x lighter with chunking (266 ms / 71 MiB vs 521 ms / 247 MiB), while the matrix takes over from the second query and is ~7x ahead by ten queries.",
+        "The hybrid (chunk the first query, then build) is never the best of the four in these runs because it pays both costs.",
+        "The budget fallback now uses chunking, which is about twice as fast as the per-row scan it replaced under the same memory pressure."
+      ],
+      "correctness": "tests/test_chunked_topk.py forces the chunked path (build_matrix patched to return None) on a 9000-row table and compares ids and distances with the matrix path and with a math.dist oracle: unfiltered, filtered by equality, after deletes and updates, LIMIT larger than the table, and the real budget-refusal case. 49 tests pass with numpy and 49 without (20 skipped); 20/20 public cases pass in both modes.",
+      "regressions": "10k benchmark unchanged: unfiltered 0.837 -> 0.839 ms, filtered 0.461 -> 0.459 ms, ids_digest identical, peak RSS 73 -> 74 MiB.",
+      "failed_attempts": [
+        "The first chunked version filled each numpy block from a decoded tuple and measured 112 ms per query at 10k - slower than the 68 ms scan it was meant to replace. The packed read fixed the cause.",
+        "strategy_compare.py initially never enabled the chunk patch for the hybrid strategy, so the hybrid row was silently the matrix row until the patch handling was corrected."
+      ],
+      "limitations": "One run per strategy per size (shared host), so the crossover points are indicative rather than tight; the data are synthetic repeating vectors. DeepSeek executor experiment."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",
