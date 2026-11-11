@@ -93,16 +93,24 @@ Costs are cut in four places, in order of effect:
    a float64 matrix keyed by the stable snapshot; distances come from
    `|v|² − 2v·q + |q|²` in one mat-vec, and TopK is `argpartition` plus
    boundary tie expansion, then `lexsort` on `(distance, primary key)`.
-   Coordinates above 1000 switch back to the direct difference kernel so the
-   identity cannot lose digits to cancellation.
+   The identity is only used to *propose* candidates: its absolute error is
+   bounded by `4·width·eps·(‖v‖+‖q‖)²`, so every row within twice that bound of
+   the K-th threshold is recomputed with the direct difference kernel before the
+   final order is taken, and the whole set is recomputed when that window grows
+   past `max(8K, 512)`. Coordinates above 1000 bypass the identity entirely.
 2. **Equality groups**: one array of snapshot slots per distinct value of a
    scalar column. A filtered TopK only computes distances for that group's
    slots — with or without a vector index.
 3. **Planned paths**: primary-key-only predicates and orderings answer from the
    key directory without fetching payloads; scalar ordering ranks before
    fetching rows.
-4. **Bounded cache**: a 96 MiB LRU row cache with scan admission control;
-   bulk index builds bypass it so vectors are not stored twice.
+4. **Bounded cache**: a row cache with scan admission control; bulk index
+   builds bypass it so vectors are not stored twice. A single `MemoryBudget`
+   derived from the cgroup limit bounds the cache, every table matrix and every
+   equality group together; when a growth does not fit, other tables' matrices
+   and groups are dropped first, and if it still does not fit the matrix is not
+   built and the query falls back to a scan. Kernels work in 4096-row chunks so
+   a gather or a difference never materialises a table-sized temporary.
 
 All paths return exact results, so `ann` and `exact` agree and ranking ties keep
 the primary-key rule.
@@ -132,9 +140,10 @@ python3 -m unittest discover -s tests -v
 ```
 
 - 20/20 public protocol cases pass with and without numpy.
-- 22 regression tests pass (matrix paths, bitmap deletion, recovery truncation,
-  query paths, scan cache and budgets, SQL surface, model fuzz); 4 are skipped
-  when numpy is absent.
+- 44 regression tests pass (matrix paths, numeric bounds, memory budget, bitmap
+  deletion, recovery truncation, query paths, scan cache, SQL surface, model
+  fuzz, semantics audit, startup diagnostics); 15 are skipped when numpy is
+  absent.
 - Model fuzz: 220 random operations (multi-row inserts, predicate updates and
   deletes, transactions, restarts, TopK queries) match a Python model exactly.
 - Differential fuzz against the previous revision: 720/720 generated queries
