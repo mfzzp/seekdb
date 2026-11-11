@@ -37,6 +37,11 @@
       "id": "continue-query-path-optimization",
       "role": "user",
       "content": "继续优化，消除所有性能瓶颈"
+    },
+    {
+      "id": "external-learning-cache-request",
+      "role": "user",
+      "content": "继续优化所有能优化的地方，可以自己借助外部资源去学习找方法优化"
     }
   ],
   "experiments": [
@@ -139,6 +144,27 @@
         "note": "Single paired smoke run, not a statistically established speedup; insert time varied from 2.629s to 2.905s although insert path unchanged."
       },
       "limitations": "Shared server timing, warm-cache scalar workload, not official score. Large scans exceeding cache and high-dimensional exact distance computation remain potential bottlenecks. These are agent-run experiments; no claim of student execution or guaranteed Agent Prompt points."
+    },
+    {
+      "id": "scan-cache-admission",
+      "source": "Codex implementation and measurements under /mnt/HDD2/zzp/minivectordb-round2, system Python; no environment dependency changes",
+      "baseline": "12bacd0ecb2c62d180c696537aeb0fa03394b127",
+      "external_reference": {
+        "url": "https://github.com/postgres/postgres/blob/master/src/backend/storage/buffer/README",
+        "section": "Buffer Ring Replacement Strategy",
+        "learning": "PostgreSQL limits cache pollution caused by bulk scans. This implementation borrows that principle using admission control; it does not implement PostgreSQL ring buffers."
+      },
+      "changes": [
+        "Estimate a conservative cache weight lower bound from schema and committed row count",
+        "Only broad scans of tables exceeding the existing cache budget bypass eviction and LRU promotion; point queries, small tables, small result batches and small component groups use normal caching",
+        "Remove obsolete cached row versions after successful mutations; retain rollback cache clearing",
+        "Bind row reader once per scan to avoid repeated bound-method lookup"
+      ],
+      "methodology": "Three paired fresh-process runs per size (8000, 24000, 48000 rows, 128 dimensions), reverse order in pair 2; one warm-up, seven native timed exact top-10 queries, one separate untimed query counting decode misses. Median of per-process medians.",
+      "evidence_file": "agent/scan-cache-benchmark.json",
+      "experiment_correction": "The first benchmark wrapped every read to count misses during timing. Different keyword forwarding cost distorted small-table comparisons. Final evidence separates timing and counters; small-table overhead remains about 3 percent in final medians and is not concealed.",
+      "validation": "20 public protocol cases and 10 regression tests pass. All final benchmark result hashes match across revisions. Earlier mixed 200-query vector comparison also byte-identical before final reader-binding micro-optimization. Tests cover hot point rows, small-table warmup under full cache, memory accounting, updates/deletes, repeated pending versions, rollback and offset reuse.",
+      "limitations": "Synthetic local warm-page-cache workload on a shared busy server; no official score or guaranteed Agent Prompt improvement. Conservative size estimate may miss large variable-length rows or pending inserts. Small-table median 12.390ms -> 12.750ms; 24000 rows 178.155ms -> 79.200ms; 48000 rows 242.073ms -> 222.779ms. This does not remove all bottlenecks."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed.",

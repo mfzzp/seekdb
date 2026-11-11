@@ -4,6 +4,7 @@ import argparse
 from array import array
 from bisect import bisect_left
 import heapq
+from functools import partial
 from itertools import chain, islice
 import json
 import math
@@ -99,8 +100,9 @@ class Database(Store):
                 return None
             groups = {}
             budget = MAX_COMPONENT_BYTES
+            read_row = partial(self.read_row, scan=True) if table.large_scan() else self.read_row
             for slot, offset in table.index_snapshot().rows():
-                field = self.read_row(table, offset)[component]
+                field = read_row(table, offset)[component]
                 budget -= 64 + (4 * len(field) if isinstance(field, str) else 0)
                 if budget < 0:
                     return None
@@ -150,18 +152,26 @@ class Database(Store):
     def matching(self, name, table, filters, clustered=False):
         checks = [(col, COMPARISONS[op], value) for col, op, value in filters]
         offsets = self.candidates(name, table, filters, clustered)
+        scan = table.large_scan() and not any(
+            col == table.primary and op == "=" for col, op, _ in filters)
+        if scan and clustered and table.blocks is not None:
+            component, groups = table.blocks
+            if any(col == component and op == "=" and len(groups.get(value, ())) <= 64
+                   for col, op, value in filters):
+                scan = False
+        read_row = partial(self.read_row, scan=True) if scan else self.read_row
         if not checks:
             for offset in offsets:
-                yield self.read_row(table, offset)
+                yield read_row(table, offset)
         elif len(checks) == 1:
             col, compare, value = checks[0]
             for offset in offsets:
-                row = self.read_row(table, offset)
+                row = read_row(table, offset)
                 if compare(row[col], value):
                     yield row
         else:
             for offset in offsets:
-                row = self.read_row(table, offset)
+                row = read_row(table, offset)
                 if all(compare(row[col], value) for col, compare, value in checks):
                     yield row
 
@@ -227,8 +237,9 @@ class Database(Store):
         snapshot = table.index_snapshot()
         if table.axis is None:
             def entries():
+                read_row = partial(self.read_row, scan=True) if table.large_scan() else self.read_row
                 for slot, offset in snapshot.rows():
-                    row = self.read_row(table, offset)
+                    row = read_row(table, offset)
                     yield row[column][0], row[table.primary], slot
 
             table.axis = sorted(entries())
@@ -340,8 +351,11 @@ class Database(Store):
             # Rank/filter keys before fetching payloads or computing projected distances.
             changes = self.changes(name)
             result = []
+            scan = (table.large_scan() and (limit is None or limit > 64)
+                    and not any(op == "=" for _, op, _ in filters))
+            read_row = partial(self.read_row, scan=True) if scan else self.read_row
             for key in keys:
-                row = self.read_row(table, changes.get(key, table.rows.get(key)))
+                row = read_row(table, changes.get(key, table.rows.get(key)))
                 distances = tuple(math.dist(row[column], target) for column, target in evaluators)
                 result.append([row[bound] if bound >= 0 else distances[-bound - 1]
                                for bound in projected])

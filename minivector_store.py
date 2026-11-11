@@ -43,10 +43,16 @@ class Table:
         self.primary = primary
         self.names = {column[0].casefold(): i for i, column in enumerate(columns)}
         self.rows = {}
+        # Lower bound using the same units as cache accounting; strings only add weight.
+        self.minimum_row_weight = 256 + 32 * len(columns) + sum(
+            48 * width for _, kind, width in columns if kind == "vector")
         self.index = None
         self.blocks = None
         self.axis = None
         self.snapshot = None
+
+    def large_scan(self):
+        return len(self.rows) * self.minimum_row_weight > CACHE_BUDGET
 
     def index_snapshot(self):
         if self.snapshot is None:
@@ -188,11 +194,26 @@ class Store:
         if self.pending is None:
             self.durable_commit(updates, start)
         else:
+            self.evict_replaced(updates)
             self.pending.tables.update(updates.tables)
             self.pending.indexes.update(updates.indexes)
             for name, changes in updates.rows.items():
                 self.pending.rows.setdefault(name, {}).update(changes)
         return count
+
+    def evict_replaced(self, transaction):
+        # Obsolete offsets must not occupy the cache retained across scans.
+        if not self.cache:
+            return
+        for name, changes in transaction.rows.items():
+            table = self.tables.get(name)
+            committed = table.rows if table is not None else {}
+            pending = self.changes(name)
+            for key in changes:
+                old = pending.get(key, committed.get(key))
+                cached = self.cache.pop(old, None)
+                if cached is not None:
+                    self.cache_bytes -= cached[0]
 
     def durable_commit(self, transaction, abort_offset):
         try:
@@ -203,6 +224,8 @@ class Store:
             self.truncate(abort_offset)
             raise
         self.committed_end = self.log_end
+        if self.pending is None:
+            self.evict_replaced(transaction)
         transaction.publish(self.tables)
 
     def begin(self):
@@ -238,10 +261,11 @@ class Store:
     def changes(self, name):
         return self.pending.rows.get(name, {}) if self.pending is not None else {}
 
-    def read_row(self, table, offset):
+    def read_row(self, table, offset, scan=False):
         cached = self.cache.get(offset)
         if cached is not None:
-            self.cache.move_to_end(offset)
+            if not scan:
+                self.cache.move_to_end(offset)
             return cached[1]
         self.reader.seek(offset)
         length, = LENGTH.unpack(self.reader.read(LENGTH.size))
@@ -255,7 +279,8 @@ class Store:
             if kind == "vector":
                 values[i] = struct.unpack(f"<{width}f", values[i])
                 weight += 32 * width
-        if weight <= CACHE_BUDGET:
+        # Large scans may fill spare capacity, but must not evict cached rows.
+        if weight <= CACHE_BUDGET and (not scan or self.cache_bytes + weight <= CACHE_BUDGET):
             while self.cache_bytes + weight > CACHE_BUDGET:
                 _, (removed, _) = self.cache.popitem(last=False)
                 self.cache_bytes -= removed
