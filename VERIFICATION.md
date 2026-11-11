@@ -209,9 +209,11 @@ public corpus barely exercises.
 
 **Verified by measurement here:** the performance tables above; exact agreement of
 every TopK route with `math.dist` or an independent scan; crash recovery under
-SIGKILL; bounded memory at 10k and 100k rows; the read-only runtime; the pinned
-numpy wheel exists for cp312 manylinux and imports and runs a mat-vec; the public
-20 cases pass.
+SIGKILL; bounded memory at 10k and 100k rows; the read-only runtime; a start under
+`env -i` with a read-only application directory, which serves queries and writes no
+bytecode into it; the judge's `--handshake-only` mode; the pinned numpy wheel exists
+for cp312 manylinux and imports and runs a mat-vec; the public 20 cases pass, alone,
+in reverse order, and in `ann` mode, as do the twelve extra cases.
 
 **Inferred, not proven:** that the hidden cases use the same SQL surface as the
 public ones; that an empty `error_codes` in the public config means codes are not
