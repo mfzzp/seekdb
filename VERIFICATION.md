@@ -87,6 +87,23 @@ Execution owns 89% of the request, SQL parse 7% and JSON in both directions 4%;
 a blocking round trip takes 609 us against 557 us of server stages, so the pipe
 and the two context switches cost about 43 us.
 
+Shared budget under a simulated container limit (150k rows x 128 dimensions, a
+filtered TopK at 1% selectivity; the limit is injected because
+`/sys/fs/cgroup/memory.max` cannot be written here):
+
+| container limit | derived capacity | row cache | dense matrix | warm query | peak RSS | answer exact |
+| ---: | ---: | ---: | --- | ---: | ---: | --- |
+| 2048 MiB (the judge's) | 1440 MiB | 96 MiB | built, 146.5 MiB | 2.7 ms | 348 MiB | ✔ |
+| 1024 MiB | 672 MiB | 96 MiB | built | 2.5 ms | 348 MiB | ✔ |
+| 512 MiB | 288 MiB | 96 MiB | built | 2.1 ms | 348 MiB | ✔ |
+| 256 MiB | 96 MiB | 38.4 MiB | refused | 32.8 ms | 70 MiB | ✔ |
+| 128 MiB | 8 MiB (floor) | 16 MiB | refused | 38.5 ms | 68 MiB | ✔ |
+
+At the judge's 2 GiB the matrix is comfortably inside the budget; at 256 MiB and
+below the budget refuses it, the query falls back to the chunked path (about 15x
+slower but still exact) and peak resident memory drops to about 70 MiB, well under
+the limit.
+
 ## 3. Correctness evidence
 
 - 72 regression tests, passing with and without numpy (26 skipped without it).

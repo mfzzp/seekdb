@@ -946,6 +946,23 @@
       "note": "The first version of the recovery test killed at 100 ms against a 50k-row log; the measurement showed recovery finished at 92.7 ms, so the kill was landing after startup. The test now asserts that no ready line was produced, so the same mistake cannot come back silently.",
       "tests": "72 tests pass with numpy and 72 without (26 skipped); 20/20 public cases pass; the crash file now covers six scenarios.",
       "limitations": "The kill timing depends on host speed; the ready-line assertion is what keeps the test honest, and it would fail loudly rather than pass vacuously if the machine were fast enough to finish recovery in 150 ms. DeepSeek executor experiment."
+    },
+    {
+      "id": "budget-under-container-limits",
+      "executor": "DeepSeek",
+      "source": "DeepSeek measurement on the Linux server against b0c0113",
+      "problem": "Every budget measurement so far ran on a host with no cgroup limit, while the judge runs the image with --memory=2g. The path where the budget refuses the dense matrix had only been exercised by unit tests that inject a capacity, never by a full query workload with a realistic limit.",
+      "method": "scripts/probe_budget_limits.py patches minivector_store.memory_limit_bytes (the real /sys/fs/cgroup/memory.max cannot be written here) and runs one configuration per process: 150k rows x 128 dimensions, a filtered TopK at 1% selectivity, compared against a math.dist oracle.",
+      "results": [
+        "2048 MiB (the judge's limit): capacity 1440 MiB, cache 96 MiB, matrix built at 146.5 MiB, 2.7 ms warm, peak RSS 348 MiB, answer exact",
+        "1024 MiB: capacity 672 MiB, matrix built, 2.5 ms warm, peak RSS 348 MiB, answer exact",
+        "512 MiB: capacity 288 MiB, matrix built, 2.1 ms warm, peak RSS 348 MiB, answer exact",
+        "256 MiB: capacity 96 MiB, cache 38.4 MiB, matrix refused, chunked fallback, 32.8 ms warm, peak RSS 70 MiB, answer exact",
+        "128 MiB: capacity falls to the 8 MiB floor, matrix refused, 38.5 ms warm, peak RSS 68 MiB, answer exact"
+      ],
+      "reading": "At the judge's limit the matrix is far inside the budget and resident memory is 348 MiB against 2048, i.e. about 17%. The refusal path is not merely safe but graceful: the answer stays exact, the warm query costs about 15x more and peak memory falls to a third. The 256 MiB row also confirms the capacity arithmetic, since 146.5 MiB of matrix plus the 96 MiB cache would exceed the 96 MiB capacity and is therefore rejected.",
+      "changes": "No code change. VERIFICATION.md gained the table and README a two-line summary.",
+      "limitations": "The limit is injected through the same function the cgroup reader feeds, which reproduces the budget decision but not the kernel's own enforcement; a real container run would also show the OOM killer if the arithmetic were wrong. DeepSeek executor experiment."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",

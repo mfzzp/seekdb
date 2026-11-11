@@ -137,6 +137,10 @@ dimensions with K=10 the headline results are:
 - The dense matrix is built on the first query because it already wins there
   (50 ms against 68 ms for the scan). On 100k rows a single query is twice as fast
   and 3.5x lighter with chunking, and the matrix takes over from the second query.
+- Under a 2 GiB container limit the matrix (146.5 MiB at 150k rows) is allowed and
+  peak resident memory is 348 MiB; at 256 MiB and below the budget refuses it, the
+  query falls back to the chunked path (32.8 ms against 2.1 ms warm, still exact)
+  and peak memory drops to about 70 MiB.
 
 ### Known limitations
 
