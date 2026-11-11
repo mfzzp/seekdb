@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from unittest.mock import patch
+import minivectordb
 from minivectordb import Database
 import minivector_store
 
@@ -16,6 +17,25 @@ class AdaptiveBudgetTest(unittest.TestCase):
     def test_limit_probe_is_optional(self):
         limit = minivector_store.memory_limit_bytes()
         self.assertTrue(limit is None or (isinstance(limit, int) and limit > 0))
+
+
+class ComponentBudgetTest(unittest.TestCase):
+    def test_tiny_budget_falls_back_but_stays_correct(self):
+        """A budget too small for the groups must not change the results."""
+        with tempfile.TemporaryDirectory() as root, \
+                patch.object(minivectordb, "COMPONENT_BUDGET", 500):
+            db = Database(root)
+            try:
+                db.execute("CREATE TABLE t (id BIGINT PRIMARY KEY,g BIGINT,v VECTOR(2))", "exact")
+                db.execute("INSERT INTO t VALUES " + ",".join(
+                    f"({k},{k % 5},'[{k},0]')" for k in range(200)), "exact")
+                db.execute("CREATE VECTOR INDEX vi ON t(v)", "exact")
+                rows = db.execute("SELECT id,L2_DISTANCE(v,'[0,0]') AS d FROM t "
+                                  "WHERE g = 2 ORDER BY d LIMIT 3", "exact")["rows"]
+                self.assertEqual([row[0] for row in rows], [2, 7, 12])
+                self.assertIsNone(db.tables["t"].blocks)
+            finally:
+                db.close()
 
 
 class ScanCacheTest(unittest.TestCase):

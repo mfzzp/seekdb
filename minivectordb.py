@@ -20,8 +20,12 @@ from minivector_sql import COMPARISONS, DISTANCE, Parser, SQLError, require, typ
 from minivector_store import Store, adaptive_budget, memory_limit_bytes
 
 
-MAX_BLOCK_ROWS = 50_000
-MAX_COMPONENT_BYTES = 4 * 1024 * 1024
+MAX_BLOCK_ROWS = 1_000_000
+# The first-coordinate axis keeps one tuple per row, so it keeps its own,
+# much smaller ceiling than the packed equality groups.
+MAX_AXIS_ROWS = 50_000
+COMPONENT_BUDGET = adaptive_budget(memory_limit_bytes(), 64 * 1024 * 1024,
+                                   8 * 1024 * 1024)
 # Dense distance matrix acceleration: only worth it for large tables, and capped
 # so a huge table cannot turn the cache into an unbounded allocation.
 MATRIX_MIN_ROWS = 2048
@@ -108,25 +112,34 @@ class Database(Store):
         return bound
 
     def ensure_groups(self, table, component):
-        """Build or reuse equality groups (value -> stable slots) for a column."""
+        """Build or reuse equality groups (value -> stable slots) for a column.
+
+        Accounting follows the real footprint: four bytes per slot plus one dict
+        entry per distinct value. The previous 64-bytes-per-row estimate rejected
+        every table beyond a few tens of thousands of rows, which sent filtered
+        queries to a full scan.
+        """
         if table.blocks is not None and table.blocks[0] == component:
             return table.blocks[1]
         if len(table.rows) > MAX_BLOCK_ROWS:
             return None
         groups = {}
-        budget = MAX_COMPONENT_BYTES
+        budget = COMPONENT_BUDGET
         # Bulk index builds keep their own compact representation, so they must
         # not also fill the row cache with decoded vectors.
         read_row = partial(self.read_row, cache=False)
         for slot, offset in table.index_snapshot().rows():
             field = read_row(table, offset)[component]
-            budget -= 64 + (4 * len(field) if isinstance(field, str) else 0)
-            if budget < 0:
-                return None
             slots = groups.get(field)
             if slots is None:
+                budget -= 72
+                if budget < 0:
+                    return None
                 groups[field] = slots = array("I")
             slots.append(slot)
+            budget -= 4
+            if budget < 0:
+                return None
         table.blocks = component, groups
         return groups
 
@@ -553,7 +566,7 @@ class Database(Store):
             if (mode == "ann" and clustered and len(ordering) == len(evaluators) == 1
                     and not ordering[0][1] and limit is not None and not filters
                     and table.index is not None and not self.changes(name)
-                    and len(table.rows) <= MAX_BLOCK_ROWS and len(evaluators[0][1]) <= 8):
+                    and len(table.rows) <= MAX_AXIS_ROWS and len(evaluators[0][1]) <= 8):
                 rows = self.axis_top_k(table, evaluators[0], limit)
             elif (clustered and len(ordering) == len(evaluators) == 1
                     and not ordering[0][1] and limit is not None):
