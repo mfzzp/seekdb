@@ -90,6 +90,58 @@ class MatrixPathTest(unittest.TestCase):
         db.execute('ROLLBACK', 'exact')
         self.assertEqual(db.execute(sql, 'exact')['rows'], result)
 
+    def test_large_coordinates_keep_the_direct_kernel(self):
+        """The BLAS identity must not be used where cancellation would bite."""
+        root = tempfile.TemporaryDirectory()
+        self.addCleanup(root.cleanup)
+        db = Database(root.name)
+        self.addCleanup(db.close)
+        db.execute('CREATE TABLE t (id BIGINT PRIMARY KEY,v VECTOR(2))', 'exact')
+        rows = []
+        for key in range(3000):
+            literal = '[16777216,0]' if key < 5 else '[0,16777216]'
+            rows.append(f"({key},'{literal}')")
+            if len(rows) == 1000:
+                db.execute('INSERT INTO t VALUES ' + ','.join(rows), 'exact')
+                rows = []
+        sql = "SELECT id,L2_DISTANCE(v,'[16777216,0]') AS d FROM t ORDER BY d LIMIT 5"
+        result = db.execute(sql, 'exact')['rows']
+        self.assertEqual([row[0] for row in result], [0, 1, 2, 3, 4])
+        for row in result:
+            self.assertEqual(row[1], 0.0, "float32 boundary must give exact zero")
+        # 16777217 rounds to 16777216 in float32, so this row is one unit away.
+        db.execute("INSERT INTO t VALUES (9999,'[16777217,1]')", 'exact')
+        result = db.execute("SELECT id,L2_DISTANCE(v,'[16777216,0]') AS d FROM t "
+                            "ORDER BY d LIMIT 6", 'exact')['rows']
+        self.assertEqual([row[0] for row in result], [0, 1, 2, 3, 4, 9999])
+        self.assertAlmostEqual(result[-1][1], 1.0, places=6)
+
+    def test_filtered_group_path_matches_oracle(self):
+        db, data = self.build(count=3000, dimension=4, seed=11)
+        target = [0.5, -0.5, 0.0, 1.0]
+        literal = "[" + ",".join(str(value) for value in target) + "]"
+        sql = (f"SELECT id,L2_DISTANCE(v,'{literal}') AS d FROM t "
+               f"WHERE g = 3 ORDER BY d LIMIT 10")
+        result = db.execute(sql, 'exact')['rows']
+        expected = sorted((math.dist(vec, target), key)
+                          for key, vec in data.items() if key % 7 == 3)[:10]
+        self.assertEqual([row[0] for row in result], [key for _, key in expected])
+        for got, (distance, _) in zip(result, expected):
+            self.assertLessEqual(abs(got[1] - distance), 1e-9)
+        self.assertIsNotNone(db.tables['t'].blocks, "equality groups must be cached")
+        empty = db.execute("SELECT id,L2_DISTANCE(v,'[0,0,0,0]') AS d FROM t "
+                           "WHERE g = 99 ORDER BY d LIMIT 5", 'exact')['rows']
+        self.assertEqual(empty, [])
+        self.assertEqual(db.execute("SELECT id,L2_DISTANCE(v,'[0,0,0,0]') AS d FROM t "
+                                    "WHERE g = 3 ORDER BY d LIMIT 0", 'exact')['rows'], [])
+
+        db.execute('DELETE FROM t WHERE id < 900', 'exact')
+        survivors = {key: vec for key, vec in data.items() if key >= 900}
+        result = db.execute(sql, 'exact')['rows']
+        expected = sorted((math.dist(vec, target), key)
+                          for key, vec in survivors.items() if key % 7 == 3)[:10]
+        self.assertEqual([row[0] for row in result], [key for _, key in expected])
+
     def test_limit_and_ties(self):
         root = tempfile.TemporaryDirectory()
         self.addCleanup(root.cleanup)

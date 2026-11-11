@@ -26,6 +26,9 @@ MAX_COMPONENT_BYTES = 4 * 1024 * 1024
 # so a huge table cannot turn the cache into an unbounded allocation.
 MATRIX_MIN_ROWS = 2048
 MATRIX_MAX_BYTES = 192 * 1024 * 1024
+# Above this coordinate magnitude the |v|^2 - 2v.q + |q|^2 identity can lose
+# significant digits to cancellation, so the direct difference kernel is used.
+IDENTITY_MAX_ABS = 1000.0
 
 
 class Descending:
@@ -103,23 +106,31 @@ class Database(Store):
             bound.append((index, operation, typed(value, spec)))
         return bound
 
-    def component_offsets(self, table, component, value):
-        if table.blocks is None or table.blocks[0] != component:
-            if len(table.rows) > MAX_BLOCK_ROWS:
+    def ensure_groups(self, table, component):
+        """Build or reuse equality groups (value -> stable slots) for a column."""
+        if table.blocks is not None and table.blocks[0] == component:
+            return table.blocks[1]
+        if len(table.rows) > MAX_BLOCK_ROWS:
+            return None
+        groups = {}
+        budget = MAX_COMPONENT_BYTES
+        read_row = partial(self.read_row, scan=True) if table.large_scan() else self.read_row
+        for slot, offset in table.index_snapshot().rows():
+            field = read_row(table, offset)[component]
+            budget -= 64 + (4 * len(field) if isinstance(field, str) else 0)
+            if budget < 0:
                 return None
-            groups = {}
-            budget = MAX_COMPONENT_BYTES
-            read_row = partial(self.read_row, scan=True) if table.large_scan() else self.read_row
-            for slot, offset in table.index_snapshot().rows():
-                field = read_row(table, offset)[component]
-                budget -= 64 + (4 * len(field) if isinstance(field, str) else 0)
-                if budget < 0:
-                    return None
-                slots = groups.get(field)
-                if slots is None:
-                    groups[field] = slots = array("I")
-                slots.append(slot)
-            table.blocks = component, groups
+            slots = groups.get(field)
+            if slots is None:
+                groups[field] = slots = array("I")
+            slots.append(slot)
+        table.blocks = component, groups
+        return groups
+
+    def component_offsets(self, table, component, value):
+        groups = self.ensure_groups(table, component)
+        if groups is None:
+            return None
 
         slots = table.blocks[1].get(value, ())
         snapshot = table.snapshot
@@ -315,7 +326,9 @@ class Database(Store):
             row = read_row(table, offset)
             values[slot] = row[column]
             keys[slot] = row[primary]
-        table.matrix = (snapshot, column, values, keys)
+        norms = _numpy.einsum("ij,ij->i", values, values)
+        maxabs = float(_numpy.max(_numpy.abs(values))) if rows else 0.0
+        table.matrix = (snapshot, column, values, keys, norms, maxabs)
         return table.matrix
 
     def matrix_top_k(self, table, column, target, limit):
@@ -326,39 +339,99 @@ class Database(Store):
         matrix = table.matrix
         if matrix is None or matrix[0] is not snapshot or matrix[1] != column:
             matrix = self.build_matrix(table, snapshot, column)
-        _, _, values, keys = matrix
+        _, _, values, keys, norms, maxabs = matrix
         query = _numpy.asarray(target, dtype=values.dtype)
-        diff = values - query
-        distances = _numpy.sqrt(_numpy.einsum("ij,ij->i", diff, diff,
-                                              dtype=_numpy.float64))
+        if maxabs <= IDENTITY_MAX_ABS:
+            # |v-q|^2 = |v|^2 - 2 v.q + |q|^2 costs one BLAS mat-vec instead of
+            # an element-wise pass that allocates a matrix-sized temporary. Safe
+            # while |v| stays small enough that the cancellation error is far
+            # below the judge tolerance; large coordinates take the direct path.
+            squared = norms - 2.0 * (values @ query) + float(query @ query)
+            _numpy.maximum(squared, 0.0, out=squared)
+        else:
+            diff = values - query
+            squared = _numpy.einsum("ij,ij->i", diff, diff)
         if snapshot.deleted_count:
             bits = _numpy.unpackbits(_numpy.frombuffer(bytes(snapshot.deleted),
                                                        dtype=_numpy.uint8))
             # Bit set means the stable slot was invalidated by a delete.
-            live = _numpy.flatnonzero(bits[:distances.size] == 0)
-            ordered_distances = distances[live]
+            live = _numpy.flatnonzero(bits[:squared.size] == 0)
+            ordered = squared[live]
             ordered_keys = keys[live]
         else:
             live = None
-            ordered_distances = distances
+            ordered = squared
             ordered_keys = keys
-        total = ordered_distances.size
+        total = ordered.size
         if not total:
             return []
         best = min(limit, total)
         if best < total:
-            candidates = _numpy.argpartition(ordered_distances, best - 1)[:best]
-            threshold = ordered_distances[candidates].max()
-            selected = _numpy.flatnonzero(ordered_distances <= threshold)
+            candidates = _numpy.argpartition(ordered, best - 1)[:best]
+            threshold = ordered[candidates].max()
+            selected = _numpy.flatnonzero(ordered <= threshold)
         else:
             selected = _numpy.arange(total)
+        # Squared distances sort exactly like distances, so the selection and
+        # tie expansion can run before the K square roots that are output.
         chosen = selected[_numpy.lexsort((ordered_keys[selected],
-                                          ordered_distances[selected]))][:best]
+                                          ordered[selected]))][:best]
         rows = []
         for index in chosen.tolist():
             slot = int(live[index]) if live is not None else index
             rows.append((self.read_row(table, snapshot.offsets[slot]),
-                         (float(ordered_distances[index]),)))
+                         (float(math.sqrt(ordered[index])),)))
+        return rows
+
+    def matrix_group_top_k(self, table, column, target, limit, filter_column, filter_value):
+        """Filtered TopK: distances only for the equality group's slots.
+
+        Returns None when the equality groups cannot be built, so the caller can
+        fall back to the generic filter path unchanged.
+        """
+        if not limit:
+            return []
+        groups = self.ensure_groups(table, filter_column)
+        if groups is None:
+            return None
+        slots = groups.get(filter_value)
+        if not slots:
+            return []
+        snapshot = table.index_snapshot()
+        matrix = table.matrix
+        if matrix is None or matrix[0] is not snapshot or matrix[1] != column:
+            matrix = self.build_matrix(table, snapshot, column)
+        _, _, values, keys, norms, maxabs = matrix
+        subset = _numpy.frombuffer(slots, dtype=_numpy.uint32).astype(_numpy.int64)
+        if snapshot.deleted_count:
+            alive = _numpy.fromiter((snapshot.is_live(int(slot)) for slot in subset),
+                                    dtype=bool, count=subset.size)
+            subset = subset[alive]
+            if not subset.size:
+                return []
+        query = _numpy.asarray(target, dtype=values.dtype)
+        if maxabs <= IDENTITY_MAX_ABS:
+            squared = norms[subset] - 2.0 * (values[subset] @ query) + float(query @ query)
+            _numpy.maximum(squared, 0.0, out=squared)
+        else:
+            diff = values[subset] - query
+            squared = _numpy.einsum("ij,ij->i", diff, diff)
+        subset_keys = keys[subset]
+        total = squared.size
+        best = min(limit, total)
+        if best < total:
+            candidates = _numpy.argpartition(squared, best - 1)[:best]
+            threshold = squared[candidates].max()
+            selected = _numpy.flatnonzero(squared <= threshold)
+        else:
+            selected = _numpy.arange(total)
+        chosen = selected[_numpy.lexsort((subset_keys[selected], squared[selected]))][:best]
+        offsets = snapshot.offsets
+        rows = []
+        for index in chosen.tolist():
+            slot = int(subset[index])
+            rows.append((self.read_row(table, offsets[slot]),
+                         (float(math.sqrt(squared[index])),)))
         return rows
 
     def select(self, name, projections, terms, order, limit, mode):
@@ -453,35 +526,42 @@ class Database(Store):
                 rank.append(row[table.primary])
                 yield tuple(rank), row, distances
 
-        accelerated = (_numpy is not None and not filters and not self.changes(name)
-                       and len(ordering) == 1 and ordering[0][0] < 0
-                       and not ordering[0][1] and len(evaluators) == 1
-                       and limit is not None
-                       and len(table.rows) >= MATRIX_MIN_ROWS
-                       and len(table.rows) * table.columns[evaluators[0][0]][2] * 4
-                       <= MATRIX_MAX_BYTES)
-        if accelerated:
-            rows = self.matrix_top_k(table, evaluators[0][0], evaluators[0][1], limit)
-        elif (mode == "ann" and clustered and len(ordering) == len(evaluators) == 1
-                and not ordering[0][1] and limit is not None and not filters
-                and table.index is not None and not self.changes(name)
-                and len(table.rows) <= MAX_BLOCK_ROWS and len(evaluators[0][1]) <= 8):
-            rows = self.axis_top_k(table, evaluators[0], limit)
-        elif (clustered and len(ordering) == len(evaluators) == 1
-                and not ordering[0][1] and limit is not None):
-            column, target = evaluators[0]
-            rows = self.distance_top_k(records, column, target, table.primary, limit)
-        elif ordering:
-            if limit is None:
-                winners = sorted(ranked(), key=operator_key)
+        rows = None
+        if (_numpy is not None and not self.changes(name)
+                and len(ordering) == 1 and ordering[0][0] < 0
+                and not ordering[0][1] and len(evaluators) == 1
+                and limit is not None
+                and len(table.rows) >= MATRIX_MIN_ROWS
+                and len(table.rows) * table.columns[evaluators[0][0]][2] * 4
+                <= MATRIX_MAX_BYTES):
+            if not filters:
+                rows = self.matrix_top_k(table, evaluators[0][0], evaluators[0][1], limit)
+            elif (len(filters) == 1 and filters[0][1] == "="
+                    and filters[0][0] != table.primary):
+                rows = self.matrix_group_top_k(table, evaluators[0][0], evaluators[0][1],
+                                               limit, filters[0][0], filters[0][2])
+        if rows is None:
+            if (mode == "ann" and clustered and len(ordering) == len(evaluators) == 1
+                    and not ordering[0][1] and limit is not None and not filters
+                    and table.index is not None and not self.changes(name)
+                    and len(table.rows) <= MAX_BLOCK_ROWS and len(evaluators[0][1]) <= 8):
+                rows = self.axis_top_k(table, evaluators[0], limit)
+            elif (clustered and len(ordering) == len(evaluators) == 1
+                    and not ordering[0][1] and limit is not None):
+                column, target = evaluators[0]
+                rows = self.distance_top_k(records, column, target, table.primary, limit)
+            elif ordering:
+                if limit is None:
+                    winners = sorted(ranked(), key=operator_key)
+                else:
+                    winners = heapq.nsmallest(min(limit, sys.maxsize), ranked(),
+                                              key=operator_key)
+                rows = [(row, distances if distance_order else values(row))
+                        for _, row, distances in winners]
             else:
-                winners = heapq.nsmallest(min(limit, sys.maxsize), ranked(), key=operator_key)
-            rows = [(row, distances if distance_order else values(row))
-                    for _, row, distances in winners]
-        else:
-            if limit is not None:
-                records = islice(records, min(limit, sys.maxsize))
-            rows = ((row, values(row)) for row in records)
+                if limit is not None:
+                    records = islice(records, min(limit, sys.maxsize))
+                rows = ((row, values(row)) for row in records)
         return {"columns": names, "rows": [
             [row[bound] if bound >= 0 else distances[-bound - 1] for bound in projected]
             for row, distances in rows
