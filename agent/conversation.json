@@ -1646,6 +1646,20 @@
    ],
    "changes": "VERIFICATION.md records the state so the participant is not surprised by fsck noise at submission time.",
    "limitations": "The gap could not be repaired here because the network proxy was unreachable during this round, so the fork's current tip could not be re-checked either. DeepSeek executor experiment."
+  },
+  {
+   "id": "public-suite-in-ann-mode",
+   "executor": "DeepSeek",
+   "source": "DeepSeek run against 6cef687",
+   "problem": "Only one public case selects ann; the other nineteen run in exact mode, so a defect confined to the ann path could survive the whole public suite. The harness picks the mode from a --mode line inside each case, which makes the coverage repairable without touching the implementation.",
+   "method": "scripts/run_public_ann.sh copies mysqltest, prepends '--mode ann' to all twenty cases, keeps the published .result files unchanged and runs protocol_check/run.py against the copy, with numpy and without.",
+   "results": [
+    "20/20 cases pass with every statement in ann mode when numpy is available",
+    "20/20 pass in the same configuration in pure Python",
+    "the published expectations are met unchanged, so ann returns the same answers as exact on the whole corpus"
+   ],
+   "changes": "VERIFICATION.md records the run; the script reruns it.",
+   "limitations": "The public corpus is small, so this bounds ann equivalence over those twenty cases rather than over all possible queries; the golden transcript and the ann index check cover further shapes. DeepSeek executor experiment."
   }
  ],
  "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",

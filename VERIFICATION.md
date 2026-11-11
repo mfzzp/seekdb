@@ -176,6 +176,21 @@ boundary; the public cases never project a vector column at all.
   decided one by one; the second one hard-requires numpy and dies without it,
   which is the deployment failure this implementation avoids.
 
+### The whole public suite in ann mode
+
+Only one public case selects `ann` (`vector_index_maintenance`); the rest run in the
+default `exact` mode, so a regression confined to `ann` could have stayed hidden. The
+package was copied with `--mode ann` prepended to all twenty cases, keeping the
+published `.result` files unchanged, and run twice:
+
+| dependency mode | result |
+| --- | --- |
+| numpy | 20/20 pass |
+| pure Python | 20/20 pass |
+
+Every published expectation therefore holds under `ann` as well, which is what an
+implementation that resolves `ann` exactly should do.
+
 ## 4. Verified, inferred, unverified
 
 **Verified by measurement here:** the performance tables above; exact agreement of
