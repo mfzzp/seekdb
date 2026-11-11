@@ -884,6 +884,20 @@
       "result": "protocol_check/run.py - the public half of the judge, with its own transport and its type-strict comparison - passes all six cases in both dependency modes. The package now lives in tests/extra_cases and tests/test_judge_package.py runs it, so any future change that breaks one of these shapes fails the suite.",
       "drift_proof": "one expected row set was mutated to [[7]] on the server; the runner reported the failing case, and the test passed again once restored",
       "limitations": "Six cases are a sample, not the hidden set; the expectations encode this session's reading of the SQL semantics, which the two implementations share. DeepSeek executor experiment."
+    },
+    {
+      "id": "large-table-cold-start-refresh",
+      "executor": "DeepSeek",
+      "source": "DeepSeek measurement on the Linux server against 4a694d0",
+      "problem": "The README quoted a first filtered query of about 4 s and a warm cost of 1.5 ms at 300k rows. Both numbers predate the scalar index, the shared memory budget and the chunked kernels, so the documented cost of the large-table path was stale.",
+      "method": "scripts/probe_large_paths.py inserts 300k x 128 rows through the store API and times the first and second equality-filtered query, the first and second range-filtered query, then reads peak RSS and the matrix size.",
+      "results": {"rows": 300000, "insert_s": 1.6, "equality_first_ms": 3004.7, "equality_warm_ms": 3.1,
+                  "range_first_ms": 1720.8, "range_warm_ms": 16.7,
+                  "peak_rss_mib": 358, "matrix_mib": 146.5,
+                  "scalar_index_built": true, "groups_built": true},
+      "reading": "The equality path builds groups plus the matrix in 3.0 s; the first range query then builds the scalar index in 1.7 s and reuses the matrix. Warm costs are 3.1 ms (15k-row group) and 16.7 ms (30k-row range). The 358 MiB peak on an unlimited host shows the budget accounting is not inflating anything.",
+      "changes": "README and VERIFICATION.md now carry the current figures, with the table living in VERIFICATION.md only.",
+      "limitations": "Single run per path on a shared host; the 1.7 s range figure is incremental after the matrix already exists. DeepSeek executor experiment."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",
