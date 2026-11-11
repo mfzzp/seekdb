@@ -714,11 +714,14 @@ class Database(Store):
         if not limit or subset.size == 0:
             return []
         rows = len(snapshot.offsets)
-        if subset.size <= SMALL_SUBSET_ROWS:
+        matrix = table.matrix
+        fresh = (matrix is not None and matrix[0] is snapshot
+                 and matrix[1] == column)
+        if not fresh and subset.size <= SMALL_SUBSET_ROWS:
+            # No matrix yet: reading the few candidate rows beats building one.
             return self._chunked_top_k(table, snapshot, column, target, limit,
                                        slots=subset)
-        matrix = table.matrix
-        if matrix is None or matrix[0] is not snapshot or matrix[1] != column:
+        if not fresh:
             matrix = self.build_matrix(table, snapshot, column)
             if matrix is None:
                 return self._chunked_top_k(table, snapshot, column, target, limit,
