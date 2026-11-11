@@ -165,9 +165,67 @@
       "experiment_correction": "The first benchmark wrapped every read to count misses during timing. Different keyword forwarding cost distorted small-table comparisons. Final evidence separates timing and counters; small-table overhead remains about 3 percent in final medians and is not concealed.",
       "validation": "20 public protocol cases and 10 regression tests pass. All final benchmark result hashes match across revisions. Earlier mixed 200-query vector comparison also byte-identical before final reader-binding micro-optimization. Tests cover hot point rows, small-table warmup under full cache, memory accounting, updates/deletes, repeated pending versions, rollback and offset reuse.",
       "limitations": "Synthetic local warm-page-cache workload on a shared busy server; no official score or guaranteed Agent Prompt improvement. Conservative size estimate may miss large variable-length rows or pending inserts. Small-table median 12.390ms -> 12.750ms; 24000 rows 178.155ms -> 79.200ms; 48000 rows 242.073ms -> 222.779ms. This does not remove all bottlenecks."
+    },
+    {
+      "id": "dense-matrix-topk",
+      "executor": "DeepSeek",
+      "source": "DeepSeek implementation and measurements under /mnt/HDD2/zzp/minivectordb-round2, system /usr/bin/python3 3.12.3, numpy 2.3.5 unpacked from the cp312 manylinux wheel onto PYTHONPATH",
+      "baseline": "716867c0103984aa840f6d4de07d69b8d31746c0",
+      "candidate": "274d62f",
+      "problem": "A new competition-shaped benchmark (10000 rows x 128 dims, 500 unfiltered + 500 filtered TopK, K=10) showed the unfiltered queries costing 15.9 ms each and 7.4 s of the 8.3 s query phase, while filtered queries cost 1.25 ms because the scalar equality groups already restrict candidates. math.dist over a 128-float list measures 1.22 us, and 10000 of those per query is essentially the whole cost, so the bottleneck was per-row Python distance computation, not decoding or the heap.",
+      "hypothesis": "Materialise the live float32 vectors once into a dense matrix indexed by the existing stable index snapshot, compute every distance with a single BLAS mat-vec, and select Top-K with argpartition plus boundary tie expansion. The ranking key must stay (distance, primary key) and values must come from the stored float32 payloads, so exact semantics, the tie rule and float32 storage semantics are unchanged.",
+      "reference": [
+        {
+          "url": "https://numpy.org/doc/stable/reference/generated/numpy.argpartition.html",
+          "learning": "argpartition only guarantees that the k-th element is in place; elements equal to the boundary value may be split arbitrarily. That is why the implementation re-expands every candidate with distance <= boundary threshold before the final lexsort, instead of trusting the partition slice."
+        },
+        {
+          "url": "https://numpy.org/doc/stable/reference/generated/numpy.lexsort.html",
+          "learning": "lexsort uses the last key as the primary key, so passing (primary_key, distance) yields distance-first ordering with primary-key tie-break, matching the SQL rule without a custom comparator."
+        },
+        {
+          "url": "https://numpy.org/doc/stable/reference/generated/numpy.einsum.html",
+          "learning": "einsum with an explicit float64 accumulator keeps the squared-distance sum in double precision even when the matrix is stored as float32, which keeps distances within the judge's 1e-5 tolerance of the previous math.dist results."
+        }
+      ],
+      "changes": [
+        "Database.build_matrix: one pass over the index snapshot, assigning decoded float32 payloads and primary keys into dense arrays; float64 storage while it fits in 192 MiB, float32 beyond that",
+        "Database.matrix_top_k: single mat-vec for all distances, argpartition for the K-th threshold, boundary tie expansion, lexsort by (distance, primary key), then fetch only the K selected payloads",
+        "Table.matrix cache keyed to the snapshot object identity, invalidated together with blocks/axis/snapshot in Transaction.publish",
+        "Acceleration gated on: numpy importable, no WHERE filter, no pending transaction changes, exactly one distance ordering key ascending, LIMIT present, table >= 2048 rows and matrix bytes <= 192 MiB; otherwise the previous paths run unchanged",
+        "Dockerfile installs numpy==2.3.5 best-effort under a 300 s timeout and pins OPENBLAS/OMP/MKL to one thread; the pure-Python distance path remains the fallback"
+      ],
+      "command": "python3 tests/bench_competition.py <source> --tag <tag>;  OPENBLAS_NUM_THREADS=1 PYTHONPATH=/tmp/npydeps python3 tests/bench_competition.py <source> --tag cand",
+      "workload": "10000 rows x 128 dims, batches of 100 inserted through SQL, vector index created, 500 unfiltered + 500 filtered (category eq, 20 categories) TopK queries with K=10; three alternating rounds, medians reported",
+      "evidence_file": "agent/competition-benchmark.json",
+      "correctness": "20/20 public protocol cases pass in both modes (with and without numpy). 12 regression tests pass with numpy (the two new matrix tests execute) and 12 pass without numpy (2 skipped). The new tests compare the matrix path against a brute-force math.dist oracle after inserts, deletes, updates and inside a transaction, and assert exact/ann agreement plus LIMIT 0 and large tie groups. Selected ids for the full 1000-query benchmark are byte-identical to the baseline (ids_digest equal); distances differ only by summation order.",
+      "results": {
+        "unfiltered_median_ms": {"baseline": 15.855, "candidate": 2.322},
+        "filtered_median_ms": {"baseline": 1.245, "candidate": 1.284},
+        "query_total_seconds": {"baseline": 8.317, "candidate": 1.965},
+        "write_seconds": {"baseline": 1.422, "candidate": 1.137},
+        "peak_rss_mib": {"baseline": 80, "candidate": 115},
+        "single_blas_thread_unfiltered_ms": 1.939,
+        "scan_cache_medians_ms": {"8000": [11.941, 1.882], "24000": [78.342, 7.205], "48000": [138.435, 22.206]},
+        "recovery_median_ms": {"baseline": 314.643, "candidate": 317.676}
+      },
+      "failed_attempts": [
+        "First version used the delete bitmap directly as the live mask (flatnonzero(bits)). The new delete-after-build test caught it: every returned row was deleted. Fixed to flatnonzero(bits == 0).",
+        "The first oracle compared against the unrounded input doubles and failed by 1.2e-8. That was the test modelling storage wrongly, not an engine defect: rounding the fixture through struct float32 made the oracle exact.",
+        "Prefix / early-abandon pruning was considered and rejected before coding: for 128-dimensional data the partial squared distance crosses the K-th threshold only after most dimensions, so pruning saves little, and a Python-level early-exit loop is far slower than the C math.dist it would replace.",
+        "Default OpenBLAS threading measured 2.29 ms versus 1.94 ms with OPENBLAS_NUM_THREADS=1, and unconstrained threading inside the judge container risks the 128-pid limit, so one thread was pinned."
+      ],
+      "regressions": "Peak RSS grows by 35 MiB (numpy import about 30 MiB plus a 10 MiB matrix), which counts against the 20% memory component. The first unfiltered query also pays a one-off matrix build (about 140 ms at 10000 rows) that is inside measured time. Filtered queries are unchanged because the scalar group path already handles them.",
+      "unresolved": [
+        "Whether the grading image really has numpy is unverified: neither the development machine nor the build server can run Docker, so the best-effort install plus fallback is the only guarantee. The fallback was measured at 7.9 s versus 8.3 s baseline for the same workload.",
+        "The matrix build re-decodes rows through read_row; reading packed frames directly into the matrix with frombuffer is an obvious follow-up that should cut the build cost.",
+        "The row cache still stores fully decoded vectors, so memory could drop substantially by keeping packed payloads and decoding lazily; that is the next candidate and was not attempted here.",
+        "Filtered TopK still needs a vector index for the scalar group path; without one it falls back to a full scan."
+      ],
+      "limitations": "Shared-server timings with visible run-to-run variance (a single baseline workload varied 148-280 ms across the session), so only paired medians are quoted. These are DeepSeek executor experiments; the participant did not run or interpret them, and no Agent Prompt credit is claimed for them."
     }
   ],
-  "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed.",
+  "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements.",
   "learning_cases": [
     {
       "id": "bitmap-proposal-to-verification",

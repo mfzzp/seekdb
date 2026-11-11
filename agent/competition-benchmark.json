@@ -1,0 +1,232 @@
+{
+  "experiment": "dense-matrix-topk",
+  "executor": "DeepSeek",
+  "host": "lenovo-px (128 cores, shared), Ubuntu 6.17 kernel, /usr/bin/python3 3.12.3",
+  "baseline_commit": "716867c0103984aa840f6d4de07d69b8d31746c0",
+  "candidate_commit": "274d62f",
+  "workload": {
+    "rows": 10000,
+    "dimensions": 128,
+    "queries": 1000,
+    "k": 10,
+    "filtered_queries": 500,
+    "categories": 20,
+    "write_batch": 100,
+    "vector_index": true,
+    "numpy": "2.3.5 (unpacked wheel, PYTHONPATH), OPENBLAS_NUM_THREADS=1"
+  },
+  "method": "python3 tests/bench_competition.py <source> --tag <tag>; 3 alternating rounds baseline/candidate, medians reported",
+  "medians": {
+    "baseline": {
+      "write_seconds": {
+        "median": 1.421548024052754,
+        "runs": [
+          1.0517443460412323,
+          1.421548024052754,
+          1.4398046690039337
+        ]
+      },
+      "unfiltered_median_ms": {
+        "median": 15.854657860472798,
+        "runs": [
+          15.854657860472798,
+          15.845639631152153,
+          17.32781541068107
+        ]
+      },
+      "filtered_median_ms": {
+        "median": 1.2446005130186677,
+        "runs": [
+          1.2380434200167656,
+          1.2446005130186677,
+          1.464711967855692
+        ]
+      },
+      "query_total_s": {
+        "median": 8.31729226373136,
+        "runs": [
+          7.998682590201497,
+          8.31729226373136,
+          9.086548738181591
+        ]
+      },
+      "peak_rss_mib": {
+        "median": 80,
+        "runs": [
+          80,
+          80,
+          80
+        ]
+      }
+    },
+    "candidate_numpy": {
+      "write_seconds": {
+        "median": 1.1373292340431362,
+        "runs": [
+          1.430031785974279,
+          0.9642801370937377,
+          1.1373292340431362
+        ]
+      },
+      "unfiltered_median_ms": {
+        "median": 2.321747480891645,
+        "runs": [
+          2.321747480891645,
+          2.4001470301300287,
+          1.7487920122221112
+        ]
+      },
+      "filtered_median_ms": {
+        "median": 1.2837039539590478,
+        "runs": [
+          1.2837039539590478,
+          1.2961184838786721,
+          0.9556076256558299
+        ]
+      },
+      "query_total_s": {
+        "median": 1.9647196969017386,
+        "runs": [
+          1.9647196969017386,
+          1.9752774597145617,
+          1.6316964805591851
+        ]
+      },
+      "peak_rss_mib": {
+        "median": 115,
+        "runs": [
+          115,
+          115,
+          117
+        ]
+      }
+    }
+  },
+  "raw": {
+    "baseline": [
+      {
+        "tag": "base-1",
+        "source": "/mnt/HDD2/zzp/round2-results/deepseek-r1-20261111/src/baseline",
+        "rows": 10000,
+        "queries": 1000,
+        "index": true,
+        "write_seconds": 1.0517443460412323,
+        "unfiltered_median_ms": 15.854657860472798,
+        "unfiltered_total_s": 7.4098431477323174,
+        "filtered_median_ms": 1.2380434200167656,
+        "filtered_total_s": 0.5888394424691796,
+        "query_total_s": 7.998682590201497,
+        "peak_rss_mib": 80,
+        "digest": "b40c0e21c3140e66b00d97addc45649ddda0e703cc44fd495f5116f3f3dd22e0"
+      },
+      {
+        "tag": "base-2",
+        "source": "/mnt/HDD2/zzp/round2-results/deepseek-r1-20261111/src/baseline",
+        "rows": 10000,
+        "queries": 1000,
+        "index": true,
+        "write_seconds": 1.421548024052754,
+        "unfiltered_median_ms": 15.845639631152153,
+        "unfiltered_total_s": 7.675010807113722,
+        "filtered_median_ms": 1.2446005130186677,
+        "filtered_total_s": 0.6422814566176385,
+        "query_total_s": 8.31729226373136,
+        "peak_rss_mib": 80,
+        "digest": "b40c0e21c3140e66b00d97addc45649ddda0e703cc44fd495f5116f3f3dd22e0"
+      },
+      {
+        "tag": "base-3",
+        "source": "/mnt/HDD2/zzp/round2-results/deepseek-r1-20261111/src/baseline",
+        "rows": 10000,
+        "queries": 1000,
+        "index": true,
+        "write_seconds": 1.4398046690039337,
+        "unfiltered_median_ms": 17.32781541068107,
+        "unfiltered_total_s": 8.37035955535248,
+        "filtered_median_ms": 1.464711967855692,
+        "filtered_total_s": 0.7161891828291118,
+        "query_total_s": 9.086548738181591,
+        "peak_rss_mib": 80,
+        "digest": "b40c0e21c3140e66b00d97addc45649ddda0e703cc44fd495f5116f3f3dd22e0"
+      }
+    ],
+    "candidate_numpy": [
+      {
+        "tag": "cand-1",
+        "source": "/mnt/HDD2/zzp/round2-results/deepseek-r1-20261111/src/candidate",
+        "rows": 10000,
+        "queries": 1000,
+        "index": true,
+        "write_seconds": 1.430031785974279,
+        "unfiltered_median_ms": 2.321747480891645,
+        "unfiltered_total_s": 1.31026747263968,
+        "filtered_median_ms": 1.2837039539590478,
+        "filtered_total_s": 0.6544522242620587,
+        "query_total_s": 1.9647196969017386,
+        "peak_rss_mib": 115,
+        "digest": "fb4b92082b2f006643a92a7cf024ce243c9b0c335c28138ee506fa381ea379b0"
+      },
+      {
+        "tag": "cand-2",
+        "source": "/mnt/HDD2/zzp/round2-results/deepseek-r1-20261111/src/candidate",
+        "rows": 10000,
+        "queries": 1000,
+        "index": true,
+        "write_seconds": 0.9642801370937377,
+        "unfiltered_median_ms": 2.4001470301300287,
+        "unfiltered_total_s": 1.3138432761188596,
+        "filtered_median_ms": 1.2961184838786721,
+        "filtered_total_s": 0.661434183595702,
+        "query_total_s": 1.9752774597145617,
+        "peak_rss_mib": 115,
+        "digest": "fb4b92082b2f006643a92a7cf024ce243c9b0c335c28138ee506fa381ea379b0"
+      },
+      {
+        "tag": "cand-3",
+        "source": "/mnt/HDD2/zzp/round2-results/deepseek-r1-20261111/src/candidate",
+        "rows": 10000,
+        "queries": 1000,
+        "index": true,
+        "write_seconds": 1.1373292340431362,
+        "unfiltered_median_ms": 1.7487920122221112,
+        "unfiltered_total_s": 1.0839088417124003,
+        "filtered_median_ms": 0.9556076256558299,
+        "filtered_total_s": 0.5477876388467848,
+        "query_total_s": 1.6316964805591851,
+        "peak_rss_mib": 117,
+        "digest": "fb4b92082b2f006643a92a7cf024ce243c9b0c335c28138ee506fa381ea379b0"
+      }
+    ]
+  },
+  "consistency": {
+    "selected_ids_identical": true,
+    "ids_digest": "38e0d1533d51ec4e5287b3935abb2d5df8d9059956920a905d6ea0d5378b46d5",
+    "distance_digest_identical": false,
+    "note": "Distances differ only by float summation order (matrix path uses numpy pairwise summation); judge tolerance is 1e-5 absolute/relative."
+  },
+  "side_benchmarks": {
+    "scan_cache_8000_rows_ms": {
+      "baseline": 11.941,
+      "candidate_numpy": 1.882
+    },
+    "scan_cache_24000_rows_ms": {
+      "baseline": 78.342,
+      "candidate_numpy": 7.205
+    },
+    "scan_cache_48000_rows_ms": {
+      "baseline": 138.435,
+      "candidate_numpy": 22.206
+    },
+    "query_paths_paired_ratio": {
+      "primary_payload_topk": 1.01,
+      "primary_range_distance": 1.01,
+      "scalar_distance_projection": 1.01,
+      "scalar_filter": 1.0,
+      "unfiltered_scan": 1.03
+    },
+    "recovery_median_ms": {
+      "baseline": 314.643,
+      "candidate_numpy": 317.676
+    }
+  }
+}
