@@ -9,6 +9,7 @@ The process is killed with SIGKILL, so it never runs its shutdown path.
 import json
 import os
 import signal
+import struct
 import subprocess
 import sys
 import tempfile
@@ -67,6 +68,78 @@ class CrashRecoveryTest(unittest.TestCase):
         self.root = tempfile.TemporaryDirectory()
         self.addCleanup(self.root.cleanup)
         self.data = os.path.join(self.root.name, "data")
+
+    def test_recovery_survives_being_killed_while_recovering(self):
+        """Killing the process during recovery must not corrupt the log.
+
+        A 300k-row log takes about 0.4-0.6 s to reach the ready line (measured by
+        scripts/probe_recovery_time.py), so a kill 0.15 s after start lands inside
+        recovery; the test asserts that no ready line was produced before the kill,
+        so the timing cannot silently degrade into a kill after startup.
+        """
+        from minivectordb import Database
+        rows = 300000
+        db = Database(self.data)
+        db.execute("CREATE TABLE t (id BIGINT PRIMARY KEY,v VECTOR(4));", "exact")
+        db.mutate(("put", ("t", key, [key, struct.pack("<4f", 0.0, 0.0, 0.0, 0.0)]))
+                  for key in range(rows))
+        db.close()
+
+        for attempt in range(2):
+            process = subprocess.Popen(
+                [sys.executable, os.path.join(SOURCE, "minivectordb.py"),
+                 "--data-dir", self.data],
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+            time.sleep(0.15)
+            if os.name == "nt":
+                process.kill()
+            else:
+                os.kill(process.pid, signal.SIGKILL)
+            process.wait(timeout=60)
+            produced = process.stdout.read()
+            for stream in (process.stdin, process.stdout):
+                try:
+                    stream.close()
+                except (BrokenPipeError, OSError):
+                    pass
+            self.assertEqual(produced, b"",
+                             f"attempt {attempt}: the kill landed after the ready "
+                             f"handshake, so it did not interrupt recovery")
+
+        restarted = Client(self.data)
+        count = len(restarted.ask("SELECT id FROM t;")["rows"])
+        self.assertEqual(count, rows,
+                         "a recovery that was interrupted must not lose rows")
+        self.assertEqual(restarted.ask("SELECT id FROM t WHERE id = 299999;")["rows"],
+                         [[299999]], "the tail of the log must still be readable")
+        self.assertIs(restarted.ask("INSERT INTO t VALUES (999999,'[1,1,1,1]');")["ok"],
+                      True)
+        restarted.shutdown()
+
+    def test_kill_before_commit_drops_a_large_transaction(self):
+        """A large uncommitted transaction leaves nothing behind."""
+        client = Client(self.data)
+        client.ask("CREATE TABLE t (id BIGINT PRIMARY KEY,v VECTOR(4));")
+        self.assertEqual(client.ask("INSERT INTO t VALUES (0,'[0,0,0,0]');")
+                         ["affected_rows"], 1)
+        client.ask("BEGIN;")
+        for batch in range(5):
+            rows = ",".join(f"({1 + batch * 2000 + index},'[0,0,0,0]')"
+                            for index in range(2000))
+            self.assertIs(client.ask(f"INSERT INTO t VALUES {rows};")["ok"], True)
+        client.kill()
+
+        restarted = Client(self.data)
+        rows = restarted.ask("SELECT id FROM t ORDER BY id;")["rows"]
+        self.assertEqual(rows, [[0]],
+                         "ten thousand uncommitted rows must not survive")
+        self.assertIs(restarted.ask("INSERT INTO t VALUES (50000,'[2,2,2,2]');")["ok"],
+                      True)
+        restarted.shutdown()
+        again = Client(self.data)
+        self.assertEqual(again.ask("SELECT id FROM t ORDER BY id;")["rows"],
+                         [[0], [50000]])
+        again.shutdown()
 
     def test_kill_between_commits_keeps_acknowledged_batches(self):
         client = Client(self.data)
