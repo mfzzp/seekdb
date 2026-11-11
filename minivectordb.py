@@ -210,12 +210,18 @@ class Database(Store):
 
         def operations():
             for current in self.matching(name, table, filters):
+                old = list(current)
                 row = list(current)
                 for i, (_, kind, width) in enumerate(table.columns):
-                    if i in updates:
+                    if kind == "vector":
+                        # Compare in the stored packed form; the SQL text is
+                        # already float32 so this comparison is exact.
+                        old[i] = struct.pack(f"<{width}f", *old[i])
+                        row[i] = updates[i] if i in updates else old[i]
+                    elif i in updates:
                         row[i] = updates[i]
-                    elif kind == "vector":
-                        row[i] = struct.pack(f"<{width}f", *row[i])
+                if row == old:
+                    continue
                 yield "put", (name, row[table.primary], row)
 
         return {"affected_rows": self.mutate(operations())}

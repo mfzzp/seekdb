@@ -1,21 +1,59 @@
 # MiniVectorDB
 
-The submission runs on Python 3.12 with only the standard library. The container starts the database on stdin/stdout and stores its data under `/data`. Each request and response occupies one line of UTF-8 JSON. See [STDIO_PROTOCOL.md](STDIO_PROTOCOL.md) for the wire format.
+Single-process vector database for the `2026-competition-round2` task. It speaks
+one-line JSON on stdin/stdout (see [STDIO_PROTOCOL.md](STDIO_PROTOCOL.md)) and
+keeps all data under `/data`.
+
+- Language: Python 3.12, standard library only.
+- Optional acceleration: `numpy` is installed best-effort in the image; without
+  it the pure-Python distance path runs and results are unchanged.
+
+## Build and run
 
 ```sh
 docker build -t minivectordb .
-docker volume create minivectordb-data
-docker run --rm -i -v minivectordb-data:/data minivectordb
+docker run --rm -i --network=none --cpus=2 --memory=2g \
+  -v minivectordb-data:/data minivectordb
 ```
 
-After the ready response, send the following lines against an empty data volume.
+The container stays in the foreground, prints `{"type":"ready"}` after recovery,
+then answers one response per request. `stderr` is diagnostics only.
+Locally: `python3 minivectordb.py --data-dir /tmp/mvdb`.
+
+## SQL scope
+
+| Statement | Notes |
+| --- | --- |
+| `CREATE TABLE t (id BIGINT PRIMARY KEY, c VARCHAR(n), v VECTOR(d))` | one signed BIGINT primary key, at most one vector column; column or table level `PRIMARY KEY` |
+| `CREATE VECTOR INDEX name ON t(v)` | records index metadata; queries stay exact in both modes |
+| `INSERT INTO t VALUES (...), (...)` | optional column list; the whole statement is atomic |
+| `SELECT ... FROM t [WHERE ...] [ORDER BY ...] [LIMIT n]` | projection, `*`, `= <> < <= > >=`, `AND`, `L2_DISTANCE(col,'[...]') AS alias` |
+| `UPDATE t SET c = ... [WHERE ...]` | returns the number of rows whose value actually changed (MySQL semantics) |
+| `DELETE FROM t [WHERE ...]` | returns the number of deleted rows |
+| `BEGIN` / `COMMIT` / `ROLLBACK` | at most one explicit transaction per connection |
+
+Semantics: statements outside a transaction commit automatically and are
+`fsync`ed before the response; a transaction sees its own writes; a failed
+statement leaves no partial effect; filtered TopK is computed inside the filter
+and ties break on ascending primary key; vectors are stored as float32 and
+distances use the stored values; `NaN`, `Infinity`, dimension mismatches and
+float32 overflow are rejected. Unsupported syntax (`NULL`, `JOIN`, aggregation,
+subqueries, `ALTER`/`DROP`, nested transactions, primary-key updates) returns
+`unsupported_sql` instead of being silently reinterpreted.
+
+Errors look like `{"id":3,"ok":false,"error":{"code":"duplicate_key","message":"..."}}`.
+Codes: `invalid_request`, `unsupported_sql`, `unknown_table`, `table_exists`,
+`unknown_column`, `duplicate_key`, `invalid_value`, `invalid_schema`,
+`index_exists`, `transaction_active`, `no_transaction`.
+
+## Example from an empty data directory
 
 ```jsonl
 {"id":1,"op":"execute","sql":"CREATE TABLE docs (id BIGINT PRIMARY KEY, category VARCHAR(32), embedding VECTOR(2));"}
-{"id":2,"op":"execute","sql":"INSERT INTO docs VALUES (1,'db','[3,4]'), (2,'sql','[0,0]');"}
+{"id":2,"op":"execute","sql":"INSERT INTO docs VALUES (1,'db','[3,4]'),(2,'sql','[0,0]');"}
 {"id":3,"op":"execute","sql":"SELECT id, category FROM docs ORDER BY id;"}
 {"id":4,"op":"execute","sql":"CREATE VECTOR INDEX docs_vec ON docs(embedding);"}
-{"id":5,"op":"execute","search_mode":"ann","sql":"SELECT id, L2_DISTANCE(embedding,'[0,0]') AS d FROM docs WHERE category='db' ORDER BY d LIMIT 1;"}
+{"id":5,"op":"execute","sql":"SELECT id,L2_DISTANCE(embedding,'[0,0]') AS d FROM docs WHERE category='db' ORDER BY d LIMIT 1;"}
 {"id":6,"op":"execute","sql":"BEGIN;"}
 {"id":7,"op":"execute","sql":"UPDATE docs SET category='updated' WHERE id=1;"}
 {"id":8,"op":"execute","sql":"COMMIT;"}
@@ -25,46 +63,90 @@ After the ready response, send the following lines against an empty data volume.
 {"id":12,"op":"shutdown"}
 ```
 
-Start another container with the same run command and send the following query. The returned row should be `[1,"updated"]`.
+Start the container again against the same volume and query; the row is still
+`[1,"updated"]` because the rollback discarded only the delete.
 
-```jsonl
-{"id":13,"op":"execute","sql":"SELECT id, category FROM docs WHERE id=1;"}
-```
+## Design
 
-## SQL and storage
+### Row log
 
-- A tokenizer and parser extract command parameters. The dispatcher sends `CREATE TABLE`, `CREATE VECTOR INDEX`, CRUD, and transaction commands to separate handlers.
-- Tables require one signed `BIGINT` primary key and support `VARCHAR(n)` and one `VECTOR(n)`. Inserts can specify a column order and include multiple rows. Queries support projection, `*`, the five scalar comparisons, `AND`, `ORDER BY`, and `LIMIT`. Invalid or unsupported SQL returns an error object and leaves the process available.
-- TopK computes Euclidean distance from stored float32 coordinates after applying all filters. Ordering ties use the primary key. An optional vector index groups row offsets by scalar equality value. Each value maps directly to compact slots. When an existing group can satisfy an equality predicate, the planner reuses it regardless of predicate order. The groups are derived from the durable row log and are invalidated on commit. For unfiltered ANN requests, a sorted first-coordinate index can skip records whose lower bound exceeds the current TopK distance. Both paths preserve exact results. Unsupported shapes, transactional row overlays and large tables fall back to a scan.
-- A length-framed append log stores schema and binary float32 row payloads. Primary keys map to disk offsets. A bounded row cache avoids loading every payload into memory. Each statement stages its changes and truncates its log suffix on failure. COMMIT flushes and syncs the commit marker before acknowledging. Recovery replays complete committed transactions and truncates the unfinished suffix.
-- The log currently retains historical versions and has no compaction. The primary-key directory grows with row count. Large result sets can consume memory proportional to the returned rows.
+`/data/rows.log` is an append-only file of length-prefixed frames:
 
-## Checks
+| tag | payload | meaning |
+| --- | --- | --- |
+| `r` | `(table, key)` header + marshalled row | one row version, addressable by its file offset |
+| `m` | marshalled operation | `CREATE TABLE`, `CREATE VECTOR INDEX`, or a delete tombstone |
+| `!` | — | commit marker |
 
-Run the official public tests against a Linux process or against the Docker image.
+Primary keys map to row offsets in an in-memory directory. Every statement
+stages its writes; a failing statement truncates its own suffix. `COMMIT`
+appends the commit marker, flushes, `fsync`s and only then answers. Recovery
+replays frames up to the last commit marker and truncates the unfinished
+suffix, so a forced kill keeps committed data and drops partial transactions.
+
+### Queries
+
+Costs are cut in four places, in order of effect:
+
+1. **Dense matrix + BLAS** (numpy present, table ≥ 2048 rows, no pending
+   transaction, LIMIT present): live float32 vectors are materialised once into
+   a float64 matrix keyed by the stable snapshot; distances come from
+   `|v|² − 2v·q + |q|²` in one mat-vec, and TopK is `argpartition` plus
+   boundary tie expansion, then `lexsort` on `(distance, primary key)`.
+   Coordinates above 1000 switch back to the direct difference kernel so the
+   identity cannot lose digits to cancellation.
+2. **Equality groups**: one array of snapshot slots per distinct value of a
+   scalar column. A filtered TopK only computes distances for that group's
+   slots — with or without a vector index.
+3. **Planned paths**: primary-key-only predicates and orderings answer from the
+   key directory without fetching payloads; scalar ordering ranks before
+   fetching rows.
+4. **Bounded cache**: a 96 MiB LRU row cache with scan admission control;
+   bulk index builds bypass it so vectors are not stored twice.
+
+All paths return exact results, so `ann` and `exact` agree and ranking ties keep
+the primary-key rule.
+
+### Known limitations
+
+- The log keeps historical row versions; there is no compaction, so a workload
+  of many updates grows the file and the recovery time.
+- Equality groups are capped at 50,000 rows; above that a filtered query falls
+  back to a full scan (474 ms per query at 100k rows in a local measurement).
+- Non-equality scalar filters combined with distance ordering still scan.
+- The matrix is rebuilt after any committed mutation; a write/query interleaving
+  pays that rebuild each time.
+- Rows are decoded into Python objects; very large tables are bounded by the
+  cache and the matrix cap (192 MiB) rather than by true streaming.
+
+## Verification
+
+Local Linux server (`/usr/bin/python3` 3.12.3, shared 128-core host):
 
 ```sh
-python3 protocol_check/run.py --command '["python3","minivectordb.py","--data-dir","{data_dir}"]' --output /tmp/minivectordb-public-process
-python3 protocol_check/run.py --image minivectordb --output /tmp/minivectordb-public-container
-```
-
-The Linux process passed all 20 public cases. A separate 500-row test compared 48 pairs of exact and indexed queries across four limits, with and without scalar filters. It also verified that a forced termination kept committed changes and discarded uncommitted changes, and that a failed multi-row insert preserved an earlier successful statement in the same transaction.
-
-## Server optimization verification
-
-Development and tests ran under /mnt/HDD2/zzp on the requested server using its existing /usr/bin/python3 (3.12.3). Dependencies were unchanged. A specialized heap path avoids per-row ranking allocations for single-distance ascending TopK. ANN uses the first-coordinate index only up to eight dimensions; higher-dimensional queries use the exact heap scan. Scalar filters still run before selection.
-
-Three alternating process runs used identical seeded data, 10,000 rows, 128 dimensions, 200 queries, K=10, half with scalar equality filters. Query times in seconds were baseline [2.336006, 2.417962, 2.506663] and optimized [1.694702, 1.452181, 1.320672]. Medians were 2.417962 and 1.452181, about 40% less time. Process peak RSS remained around 68 MiB. These local measurements include query execution and exclude loading, indexing and the ten warm-up queries. They are separate from the competition's end-to-end performance score.
-
-All 200 complete results matched the baseline. All 20 official public cases passed. The regression test checks exact/ann, 2/128 dimensions, ties, filters, empty results, limits 0/1/10/100, and transactional deletion/rollback against an independent oracle.
-
-```sh
+python3 protocol_check/run.py --command '["python3","minivectordb.py","--data-dir","{data_dir}"]' \
+    --output /tmp/public
 python3 -m unittest discover -s tests -v
 ```
 
+- 20/20 public protocol cases pass with and without numpy.
+- 15 regression tests pass (matrix paths, bitmap deletion, recovery truncation,
+  query paths, scan cache, model fuzz); 4 are skipped when numpy is absent.
+- Model fuzz: 220 random operations (multi-row inserts, predicate updates and
+  deletes, transactions, restarts, TopK queries) match a Python model exactly.
+- Differential fuzz against the previous revision: 360/360 generated queries
+  identical (ids exact, distances to 1e-9).
 
-A committed delete appends a tombstone to the existing row log, removes the key from the live directory, and marks its slot in the shared in-memory index bitmap. Existing scalar blocks and the vector axis skip deleted slots before loading payloads. Rebuilding the derived snapshot after writes or when at least half its slots are deleted bounds the cost of scanning tombstones. Recovery still replays the original log format. The bitmap uses one bit per snapshot slot, in addition to the existing row directory and the snapshot's offset array.
+Paired medians over three rounds, 10,000 rows × 128 dimensions, 500 unfiltered
+and 500 filtered TopK queries with K=10:
 
-The design draws on early candidate exclusion in *CertEx: Exact Visual Retrieval at Scale by Certified Exclusion* and attribute filtering in *Navigable Proximity Graph-Driven Native Hybrid Queries with Structured and Unstructured Constraints*. The deletion bitmap was proposed by the user.
+| metric | before | after |
+| --- | ---: | ---: |
+| unfiltered TopK | 17.37 ms | 0.62 ms |
+| filtered TopK | 1.48 ms | 0.31 ms |
+| 1,000 queries total | 9.32 s | 0.64 s |
+| peak RSS | 80 MiB | 74 MiB |
 
-On the requested server, three alternating local runs over 10,000 two-dimensional vectors performed 100 single-row deletes, each followed by a filtered and an unfiltered TopK query. Baseline seconds were [2.6333, 2.4883, 2.8116] and bitmap seconds were [2.1002, 1.7351, 2.0364]. Median elapsed time fell from 2.6333 s to 2.0364 s. All 200 query results per run matched the expected IDs. All 20 public cases and both regression tests passed.
+These are local shared-host measurements, not the competition score. The agent
+material in `agent/conversation.json` records each experiment with its raw
+numbers and limitations.
