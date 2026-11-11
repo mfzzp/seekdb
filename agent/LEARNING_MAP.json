@@ -1,0 +1,249 @@
+{
+  "base_commit": "ac0c62fb05e7622d01d8b218e1483e528e760a1a",
+  "purpose": "Evidence navigation for problem understanding, prompt iteration, correction, judgment and transfer. No scoring promise.",
+  "cards": [
+    {
+      "id": "diagnosis",
+      "source_experiment_id": "bitmap-delete-comparison",
+      "source_record_sha256": "8d0f0f7f9be19c2f6761f7aa0bd8cabad7f0ef6d1681f585c882f9001a3f5678",
+      "artifact": "tests/test_bitmap_delete.py",
+      "review_summary": "The proposal assumed physical deletion was expensive. Inspection located avoidable index rebuilds instead.",
+      "transferable_method": "Inspect the actual storage and invalidation path before selecting an optimization.",
+      "authorship": "Codex retrospective synthesis; original experiments attributed in source record. Not a historical user quote or a new experiment.",
+      "reviewer_check": "Read the source experiment limitations and inspect the named artifact; do not infer current performance from historical measurements.",
+      "historical_result": {
+        "record": "agent/conversation.json",
+        "experiment_id": "bitmap-delete-comparison",
+        "fields": [
+          "output"
+        ],
+        "executor": "Codex, server /mnt/HDD2/zzp, existing Python 3.12.3",
+        "status": "historical agent record, not independently remeasured in this audit"
+      },
+      "current_check": {
+        "record_hash": "verified",
+        "artifact_exists": true,
+        "artifact_sha256": "972759849c864d63318c032702bb42fa9cae01cc137325994753ce4c86944f42",
+        "scope": "Reference integrity and artifact availability only. Does not establish that the performance measurement or full workload is reproducible.",
+        "checked_against_commit": "ac0c62fb05e7622d01d8b218e1483e528e760a1a"
+      },
+      "rerun_status": "not_rerun",
+      "reproducibility": {
+        "linked_artifact": "repository_contained",
+        "original_full_experiment": "not_reproduced_in_this_audit",
+        "setup": "Use the historical record and its revision/dependencies; the current checkout alone may differ."
+      }
+    },
+    {
+      "id": "measurement",
+      "source_experiment_id": "scan-cache-admission",
+      "source_record_sha256": "3ccdd2ca86be8c626b91e6614fd58d1018951fe5eae12efdb1af9f4fc44ccafd",
+      "artifact": "agent/scan-cache-benchmark.json",
+      "review_summary": "Accessor instrumentation distorted small-table timing; native timing and counters were separated.",
+      "transferable_method": "Request paired runs, uninstrumented timings and explicit regressions.",
+      "authorship": "Codex retrospective synthesis; original experiments attributed in source record. Not a historical user quote or a new experiment.",
+      "reviewer_check": "Read the source experiment limitations and inspect the named artifact; do not infer current performance from historical measurements.",
+      "historical_result": {
+        "record": "agent/conversation.json",
+        "experiment_id": "scan-cache-admission",
+        "fields": [
+          "methodology",
+          "experiment_correction",
+          "limitations"
+        ],
+        "executor": "Codex implementation and measurements under /mnt/HDD2/zzp/minivectordb-round2, system Python; no environment dependency changes",
+        "status": "historical agent record, not independently remeasured in this audit"
+      },
+      "current_check": {
+        "record_hash": "verified",
+        "artifact_exists": true,
+        "artifact_sha256": "dfac017ed8c3ecacd7491fb43fad96835cd931e506fc3b23bf917d178225c4a2",
+        "scope": "Reference integrity and artifact availability only. Does not establish that the performance measurement or full workload is reproducible.",
+        "checked_against_commit": "ac0c62fb05e7622d01d8b218e1483e528e760a1a"
+      },
+      "rerun_status": "not_rerun",
+      "reproducibility": {
+        "linked_artifact": "repository_contained",
+        "original_full_experiment": "not_reproduced_in_this_audit",
+        "setup": "Use the historical record and its revision/dependencies; the current checkout alone may differ."
+      }
+    },
+    {
+      "id": "rejected-change",
+      "source_experiment_id": "write-path-probe-no-change",
+      "source_record_sha256": "70a634684c97594cc4ed204b5bf6036013a60cb7367f0b2b6f487dde6c4dac8d",
+      "artifact": "minivector_store.py",
+      "review_summary": "The write probe did not justify a safe implementation change; fsync and validation were retained.",
+      "transferable_method": "A measured decision to keep code can be more useful than an unverified optimization.",
+      "authorship": "Codex retrospective synthesis; original experiments attributed in source record. Not a historical user quote or a new experiment.",
+      "reviewer_check": "Read the source experiment limitations and inspect the named artifact; do not infer current performance from historical measurements.",
+      "historical_result": {
+        "record": "agent/conversation.json",
+        "experiment_id": "write-path-probe-no-change",
+        "fields": [
+          "measurement",
+          "conclusion",
+          "status",
+          "limitations"
+        ],
+        "executor": "DeepSeek",
+        "status": "historical agent record, not independently remeasured in this audit"
+      },
+      "current_check": {
+        "record_hash": "verified",
+        "artifact_exists": true,
+        "artifact_sha256": "a6efbe894b60cf47318fca2e69e2a4158d05f64ee2a544f69c3adf34ee243534",
+        "scope": "Reference integrity and artifact availability only. Does not establish that the performance measurement or full workload is reproducible.",
+        "checked_against_commit": "ac0c62fb05e7622d01d8b218e1483e528e760a1a"
+      },
+      "rerun_status": "not_rerun",
+      "reproducibility": {
+        "linked_artifact": "repository_contained",
+        "original_full_experiment": "not_reproduced_in_this_audit",
+        "setup": "Use the historical record and its revision/dependencies; the current checkout alone may differ.",
+        "original_probe": {
+          "path": "/mnt/HDD2/zzp/round2-results/deepseek-r1-20261111/scripts/probe_write.py",
+          "availability": "exists_checked",
+          "distribution": "server_only",
+          "executed_in_this_audit": false
+        }
+      }
+    },
+    {
+      "id": "numeric-boundary",
+      "source_experiment_id": "float32-matrix-margin",
+      "source_record_sha256": "f02d1388a3ea7fe59394f82fde8f5ae4de6b1d913cb0d35f9deda8401bbca972",
+      "artifact": "tests/test_float32_margin.py",
+      "review_summary": "The error bound used the wrong dtype epsilon; several attempted end-to-end reproductions still returned correct results.",
+      "transferable_method": "Distinguish a theoretical defect, a unit-level counterexample and an observed end-to-end failure.",
+      "authorship": "Codex retrospective synthesis; original experiments attributed in source record. Not a historical user quote or a new experiment.",
+      "reviewer_check": "Read the source experiment limitations and inspect the named artifact; do not infer current performance from historical measurements.",
+      "historical_result": {
+        "record": "agent/conversation.json",
+        "experiment_id": "float32-matrix-margin",
+        "fields": [
+          "investigation",
+          "conclusion",
+          "tests",
+          "cost",
+          "limitations"
+        ],
+        "executor": "DeepSeek",
+        "status": "historical agent record, not independently remeasured in this audit"
+      },
+      "current_check": {
+        "record_hash": "verified",
+        "artifact_exists": true,
+        "artifact_sha256": "bfd58596a02314829359036e57935032485bf2a060635be96a8f30e5535d6d79",
+        "scope": "Reference integrity and artifact availability only. Does not establish that the performance measurement or full workload is reproducible.",
+        "test_reading": "test_a_float32_window_is_needed_to_keep_the_true_neighbour injects an approximate-distance array; it is a unit-level counterexample, not an observed BLAS end-to-end failure.",
+        "checked_against_commit": "ac0c62fb05e7622d01d8b218e1483e528e760a1a"
+      },
+      "rerun_status": "not_rerun",
+      "reproducibility": {
+        "linked_artifact": "repository_contained",
+        "original_full_experiment": "not_reproduced_in_this_audit",
+        "setup": "Use the historical record and its revision/dependencies; the current checkout alone may differ."
+      }
+    },
+    {
+      "id": "deployment",
+      "source_experiment_id": "cgroup-limit-reader",
+      "source_record_sha256": "9290d00a557eaa975ecb2ad27c72c7aaeb952122f930e5394a9fff9a5a6cf051",
+      "artifact": "tests/test_cgroup_limit.py",
+      "review_summary": "Injected budget tests did not reveal incorrect discovery of a real nested cgroup limit.",
+      "transferable_method": "Pair isolated logic tests with a real environment test.",
+      "authorship": "Codex retrospective synthesis; original experiments attributed in source record. Not a historical user quote or a new experiment.",
+      "reviewer_check": "Read the source experiment limitations and inspect the named artifact; do not infer current performance from historical measurements.",
+      "historical_result": {
+        "record": "agent/conversation.json",
+        "experiment_id": "cgroup-limit-reader",
+        "fields": [
+          "problem",
+          "method",
+          "results",
+          "limitations"
+        ],
+        "executor": "DeepSeek",
+        "status": "historical agent record, not independently remeasured in this audit"
+      },
+      "current_check": {
+        "record_hash": "verified",
+        "artifact_exists": true,
+        "artifact_sha256": "7d8d1da48979dd304c186b30990b949faff3aa59a7d84f1793e791139abf91bc",
+        "scope": "Reference integrity and artifact availability only. Does not establish that the performance measurement or full workload is reproducible.",
+        "checked_against_commit": "ac0c62fb05e7622d01d8b218e1483e528e760a1a"
+      },
+      "rerun_status": "not_rerun",
+      "reproducibility": {
+        "linked_artifact": "repository_contained",
+        "original_full_experiment": "not_reproduced_in_this_audit",
+        "setup": "Use the historical record and its revision/dependencies; the current checkout alone may differ."
+      }
+    },
+    {
+      "id": "published-cache-repair",
+      "source_experiment_id": "cache-reuse-and-bit-order-20261111",
+      "artifact": "tests/test_incremental_matrix.py",
+      "review_summary": "The published revision retains old matrix values only as a rebuild source and fixes the deletion mask bit order. This addresses repeated decoding after small updates and a correctness fault, not a new approximate ANN index.",
+      "transferable_method": "Preserve immutable identity when reusing data; test deletion bit boundaries independently of performance gains.",
+      "authorship": "Codex retrospective navigation of the already-published experiment. No new runtime measurement or participant reflection.",
+      "historical_result": {
+        "record": "agent/conversation.json",
+        "experiment_id": "cache-reuse-and-bit-order-20261111",
+        "fields": [
+          "problem",
+          "method",
+          "results",
+          "limitations"
+        ],
+        "executor": "As attributed by the published source record",
+        "status": "published historical agent record"
+      },
+      "current_check": {
+        "scope": "Read test names and benchmark metadata; checked artifact hashes only. This is not a runtime rerun.",
+        "record_hash": "verified",
+        "artifact_exists": true,
+        "artifact_sha256": "9c3deb2ba28da088ded0538244c2683d89e525bf123285823153d19f965286d4",
+        "checked_against_commit": "ac0c62fb05e7622d01d8b218e1483e528e760a1a"
+      },
+      "rerun_status": "not_rerun",
+      "reproducibility": {
+        "linked_artifact": "repository_contained",
+        "original_full_experiment": "not_reproduced_in_this_integration"
+      },
+      "benchmark_artifact": "tests/results/cache-reuse-20261111.json",
+      "source_record_sha256": "cb47a67c79d60a5628c82812cb54228fd52d6b47f885b1ae253ec58d44b0c0dd",
+      "benchmark_artifact_sha256": "7b29dc25103e42d32034b76702e0c75dee2c5981f674ce115582687da7078eea"
+    }
+  ],
+  "boundary": "Summaries synthesize existing records; they do not establish participant independent understanding or claim experiments were rerun.",
+  "claim_notes": [
+    {
+      "source_experiment_id": "correctness-and-memory-risk-pass",
+      "field": "results.tests_without_numpy",
+      "recorded_claim": "44 passed (15 skipped)",
+      "interpretation": "Ambiguous historical summary. Do not infer 44 successful tests plus 15 skipped, or convert it to 29 passed without inspecting the original runner output.",
+      "raw_runner_log_status": "not_checked_in_this_audit"
+    },
+    {
+      "source_experiment_id": "float32-matrix-margin",
+      "field": "conclusion / tests / limitations",
+      "interpretation": "Incorrect dtype epsilon identified by reasoning; injected unit counterexample and routing tests recorded; attempted full-query probes did not produce an old-version wrong answer.",
+      "not_established": "Universal bitwise equality to math.dist or a reproduced end-to-end failure on that historical workload."
+    },
+    {
+      "source_experiment_id": "scan-cache-admission",
+      "field": "limitations",
+      "interpretation": "Local paired synthetic timing included a small-table regression; large-table gains do not imply every workload improves.",
+      "not_established": "Official score or a universal speedup."
+    },
+    {
+      "source_experiment_id": "cgroup-limit-reader",
+      "field": "results / limitations",
+      "interpretation": "Historical real-systemd-scope measurements support the recorded environment-discovery fix.",
+      "not_established": "Docker build success, all deployment layouts, or hidden-case success."
+    }
+  ],
+  "initial_material_base_commit": "8f744ea8eb472d4d732f4f787b9cf05a543a9e32"
+}

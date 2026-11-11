@@ -61,19 +61,31 @@
       "id": "S-2026-11-11-c",
       "when": "2026-11-11T16:07:00+08:00",
       "verbatim": "不能把缓存预算直接调大来宣称优化。",
-      "note": "One bullet of a longer message that also gave the code directory (/mnt/HDD2/zzp/minivectordb-round2), the current implementation limits, the six candidate directions and the testing requirements. Quoted here verbatim; the full list is paraphrased in learning_cases."
+      "note": "Technical text from the Codex handoff forwarded by the participant to DeepSeek. Any measurements mentioned in that handoff were agent-run. Historical timestamps are retained from the DeepSeek record, not independently confirmed.",
+      "provenance": "Codex-authored handoff relayed by participant to DeepSeek. Technical authorship: Codex; relay: participant. Historical DeepSeek timestamps not independently verified here.",
+      "original_author": "Codex",
+      "relayed_by": "participant",
+      "verification_status": "Original wording visible in this Codex conversation; DeepSeek receipt metadata not independently checked."
     },
     {
       "id": "S-2026-11-11-d",
       "when": "2026-11-11T16:07:00+08:00",
       "verbatim": "这些是候选方向，不是已证明有效的改进。每次只落实一项，先测量再保留。",
-      "note": "Same message; the participant also reported a measured regression (8000-row median 12.39 ms -> 12.75 ms) and required reading result.json instead of trusting exit codes."
+      "note": "Technical text from the Codex handoff forwarded by the participant to DeepSeek. Any measurements mentioned in that handoff were agent-run. Historical timestamps are retained from the DeepSeek record, not independently confirmed.",
+      "provenance": "Codex-authored handoff relayed by participant to DeepSeek. Technical authorship: Codex; relay: participant. Historical DeepSeek timestamps not independently verified here.",
+      "original_author": "Codex",
+      "relayed_by": "participant",
+      "verification_status": "Original wording visible in this Codex conversation; DeepSeek receipt metadata not independently checked."
     },
     {
       "id": "S-2026-11-11-e",
       "when": "2026-11-11T16:07:00+08:00",
       "verbatim": "应查看检查器生成的 result.json，确认具体用例状态，不能只根据进程退出码判断。",
-      "note": "Same message; the participant then listed the scenarios the tests must cover (transaction DML, failed statements, rollback, restart, truncated log, aliases, distance ties, empty results, LIMIT boundaries, cache offset reuse) and asked that timing and decode counting stay separate."
+      "note": "Technical text from the Codex handoff forwarded by the participant to DeepSeek. Any measurements mentioned in that handoff were agent-run. Historical timestamps are retained from the DeepSeek record, not independently confirmed.",
+      "provenance": "Codex-authored handoff relayed by participant to DeepSeek. Technical authorship: Codex; relay: participant. Historical DeepSeek timestamps not independently verified here.",
+      "original_author": "Codex",
+      "relayed_by": "participant",
+      "verification_status": "Original wording visible in this Codex conversation; DeepSeek receipt metadata not independently checked."
     },
     {
       "id": "S-2026-11-11-f",
@@ -85,7 +97,7 @@
       "id": "S-2026-11-11-g",
       "when": "2026-11-11, after the first successful pushes",
       "verbatim": "你现在不用推送了，就在本地改就行",
-      "note": "After the first pushes, the participant asked the agent to stop pushing and continue with local changes only; the branch is therefore left a few commits behind the server."
+      "note": "Historical participant instruction to defer pushing, as reported by DeepSeek. Do not infer the current branch distance from this quote."
     },
     {
       "id": "bitmap-delete-proposal",
@@ -1743,14 +1755,14 @@
       "limitations": "Shared-host timings vary. Warm recently written data is not a cold-disk benchmark. Matrix copying is still O(N*d). No new approximate ANN index, LSM compaction or real Docker build is claimed."
     }
   ],
-  "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",
+  "limitations": "The participant supplied teacher/team notes, constraints, questions and the bitmap proposal; authorship beyond the supplied messages is not established. Technical handoff instructions on cache budgets, isolated measurements and result.json verification were authored by Codex and relayed to DeepSeek. The agents performed the implementation and experiments. No participant-run experiments or demonstrated participant mastery are claimed. Historical experiment records retain their original scope and counts; a later material audit is not a rerun or proof of those measurements. Claim clarifications and current evidence status are in agent/LEARNING_MAP.json. No official performance score, Agent Prompt score or universal numerical equivalence is inferred.",
   "learning_cases": [
     {
       "id": "bitmap-proposal-to-verification",
       "student_contribution": {
         "source_id": "bitmap-delete-proposal",
         "verbatim": "这个删除可以搞假删除。就把他有效/无效标记改一下，不然磁盘block会经常随机删除，很麻烦。标记按位图的话，10亿条也就128m，能常驻内存。可以参考这两个论文在服务器进行修改提交",
-        "context": "The participant independently suggested marking rows invalid and estimated the packed bitmap space for one billion entries."
+        "context": "Participant supplied the proposal in this conversation. Original intellectual authorship beyond this message is not established."
       },
       "agent_investigation": "Inspecting the old row log corrected the initial premise: DELETE already appended a tombstone. The avoidable cost was discarding both in-memory indexes and rebuilding them on the next query. The implementation retains stable snapshot slots and applies the invalidation bit only after durable commit.",
       "verification": {
@@ -1764,44 +1776,59 @@
     {
       "id": "optimisation-boundaries",
       "student_contribution": {
-        "source": "participant message describing the current implementation and its limits",
+        "source": "Codex-authored handoff relayed by participant to DeepSeek",
         "verbatim": "不能把缓存预算直接调大来宣称优化。\n- 不能为了速度取消 fsync、提交边界、回滚语义。",
-        "context": "Before handing over the code directory the participant listed four boundaries that an optimisation must not cross, including a warning against claiming a win by enlarging the cache budget and against trading durability for speed."
+        "context": "Participant relayed AI-authored technical instructions; this is task coordination, not independent technical authorship."
       },
       "agent_response": "Every change was checked against those boundaries: the dense matrix keeps exact results and the primary-key tie rule, the cache change only altered admission (bulk builds stop filling the LRU) without changing its size to buy a number, the log format is unchanged, and the ann path still returns exact results so recall cannot silently drop.",
       "result_evidence": {
         "method": "1000-query benchmark ids_digest compared with the baseline, 360 differential fuzz queries, 20 public protocol cases",
         "output": "ids_digest identical in the indexed and no-index scenarios; 360/360 fuzz queries identical; PUBLIC passed=True cases=20 fails=[]"
       },
-      "attribution": "The boundaries are the participant's; the implementations, measurements and their interpretation are Agent work. The participant did not run these checks."
+      "attribution": "Prompt technical content: Codex; relay: participant; implementation and experiments: agents. No participant-run experiment claimed."
     },
     {
       "id": "measure-one-direction-at-a-time",
       "student_contribution": {
-        "source": "participant message with six candidate directions",
+        "source": "Codex-authored handoff relayed by participant to DeepSeek",
         "verbatim": "这些是候选方向，不是已证明有效的改进。每次只落实一项，先测量再保留。",
-        "context": "The participant supplied six candidate directions together with an observed regression (8000-row median 12.39 ms -> 12.75 ms) and required measurement before keeping any change."
+        "context": "Participant relayed AI-authored technical instructions; this is task coordination, not independent technical authorship."
       },
       "agent_response": "The agent profiled before touching code: an isolated kernel probe showed the 10k x 128 distance kernel at 1.514 ms of which 1.198 ms was a matrix-sized allocation, which is why direction 4 (high-dimensional TopK) was taken first and directions 1/5 largely dissolved once the matrix existed. Each kept change has paired before/after medians; the write-path probe that found no safe win was recorded as measured-but-not-changed instead of being converted into a claim.",
       "result_evidence": {
         "method": "three alternating paired rounds of tests/bench_competition.py plus scripts/probe_kernels.py",
         "output": "unfiltered 15.855/16.436/17.369 ms -> 0.62-0.80 ms; filtered 1.226/1.326/1.476 ms -> 0.31-0.42 ms; query total 7.77-9.32 s -> 0.64-0.79 s; the write probe reported parse 0.95 ms, validation ~3 ms, log+fsync 2.96 ms and no code change"
       },
-      "attribution": "The working rule is the participant's; all measurements were executed by the Agent and the participant did not reproduce them."
+      "attribution": "Prompt technical content: Codex; relay: participant; implementation and experiments: agents. No participant-run experiment claimed."
     },
     {
       "id": "verify-from-result-json",
       "student_contribution": {
-        "source": "participant message listing verification requirements",
+        "source": "Codex-authored handoff relayed by participant to DeepSeek",
         "verbatim": "应查看检查器生成的 result.json，确认具体用例状态，不能只根据进程退出码判断。",
-        "context": "The participant required reading the checker's structured result rather than trusting a process exit code, and asked for coverage of transactions, failed statements, rollback, restart, truncated log, aliases, distance ties, empty results, LIMIT boundaries and cache offset reuse."
+        "context": "Participant relayed AI-authored technical instructions; this is task coordination, not independent technical authorship."
       },
       "agent_response": "The public runner now parses result.json and prints passed/cases/fails for every run, and every reported number in this material quotes that line rather than an exit status. The requested coverage exists as tests/test_model_fuzz.py (transactions, failed statements, rollback, restart), tests/test_recovery.py (truncated log suffix), tests/test_topk.py (aliases, ties, LIMIT 0/1/10/100, empty results) and the cache tests (offset reuse after rollback).",
       "result_evidence": {
         "method": "scripts/run_public.sh parses result.json; the unit suite is discovered from tests/",
         "output": "PUBLIC passed=True cases=20 fails=[] for both the numpy and the pure-Python runs; 22 unit tests pass with numpy and 22 without (4 skipped)"
       },
-      "attribution": "The verification requirement is the participant's; the harness and the runs are Agent work."
+      "attribution": "Prompt technical content: Codex; relay: participant; implementation and experiments: agents. No participant-run experiment claimed."
     }
-  ]
+  ],
+  "review_guide": {
+    "file": "agent/REVIEW_GUIDE.md",
+    "purpose": "Retrospective evidence navigation; not an invented conversation.",
+    "learning_map": "agent/LEARNING_MAP.json",
+    "audit": "agent/EVIDENCE_AUDIT.json"
+  },
+  "evidence_review": {
+    "executor": "Codex",
+    "date": "2026-11-11",
+    "base_commit": "8f744ea",
+    "scope": "Attribution and navigation review only. All 67 published experiment records preserved unchanged; historical runtime measurements not independently rerun for this materials-only integration.",
+    "publication": "The user explicitly authorized merging these Agent Prompt changes onto the published baseline and pushing the final commit. Earlier no-push instructions are historical.",
+    "followup": "Aligned attribution notes; separated historical records from current artifact checks and reruns; added scoped claim clarifications. Runtime source unchanged.",
+    "integration_base_commit": "ac0c62fb05e7622d01d8b218e1483e528e760a1a"
+  }
 }
