@@ -179,7 +179,7 @@ python3 -m unittest discover -s tests -v
   row inside a transaction and rolling it back, LIMIT 0, non-ASCII values, ann vs
   exact, the row order of a multi-row answer without ORDER BY, and vector
   distances after an update and a delete.
-- 83 regression tests pass: matrix paths, numeric bounds and float32 margins,
+- 88 regression tests pass: matrix paths, numeric bounds and float32 margins,
   memory budget, chunked TopK, scalar filters, ann/exact equivalence, bitmap
   deletion, recovery truncation, real SIGKILL recovery, mixed-workload soak, query
   paths, scan cache, SQL surface, model fuzz, semantics audit, startup
