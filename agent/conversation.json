@@ -70,6 +70,15 @@
       "method": "Three paired runs with 10000 rows, dimension 128, batches of 100, and 200 queries. Separately append 200000 buffered 64-byte payloads and verify every returned offset.",
       "output": "Write-phase seconds before [2.8393,2.8441,2.6745], after [2.4640,2.5567,2.6318]. All paired query results matched. Frame probe seconds before [0.2044,0.2072,0.2025], after [0.1310,0.1315,0.1296]. All 20 public cases and both regressions passed. After reopening a log with an uncommitted suffix, the next committed row reused the correct offset and survived another reopen.",
       "limits": "The frame probe excludes fsync. End-to-end local write timings include data generation. The alternative vector validation change was reverted after failing to improve the paired median."
+    },
+    {
+      "id": "scalar-group-reuse",
+      "source": "Codex on the requested Linux server with existing Python 3.12.3",
+      "reference": "https://www.sqlite.org/queryplanner.html#multiple_and_connected_where_clause_terms",
+      "hypothesis": "TopK already orders results by distance and primary key, so an equality index can group slots without sorting. Reusing an eligible cached column avoids rebuilds when AND predicates change order.",
+      "method": "Three paired runs on 10000 rows. Cold path: perform 40 updates and time one filtered TopK after each. Mixed predicates: warm the g index and alternate g=0 AND h=0 and h=0 AND g=0 for 100 queries. Also compare 200 TopK results per pair in the existing 128-dimensional benchmark.",
+      "output": "20 groups, cold seconds before [0.4884,0.4861,0.4985], after [0.2984,0.2127,0.3044]. 10000 groups, cold seconds before [0.4953,0.3036,0.4916], after [0.4083,0.3817,0.3849]. Mixed predicates seconds before [1.1213,1.1208,0.7338], after [0.0497,0.0496,0.0496]. 128-dim query seconds before [1.7772,1.7785,1.7838], after [1.2282,1.3431,1.4682]. All compared results matched. All 20 public cases and two regression tests passed.",
+      "limits": "Mixed-predicate workload deliberately stresses rebuild churn. The single-predicate warm test showed no consistent improvement. Timings are local and do not establish official score."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed.",

@@ -95,39 +95,26 @@ class Database(Store):
 
     def component_offsets(self, table, component, value):
         if table.blocks is None or table.blocks[0] != component:
-            # Cluster row offsets by component, then by primary key within a block.
             if len(table.rows) > MAX_BLOCK_ROWS:
                 return None
-            members = []
+            groups = {}
             budget = MAX_COMPONENT_BYTES
             for slot, offset in table.index_snapshot().rows():
-                row = self.read_row(table, offset)
-                field = row[component]
+                field = self.read_row(table, offset)[component]
                 budget -= 64 + (4 * len(field) if isinstance(field, str) else 0)
                 if budget < 0:
                     return None
-                members.append((field, row[table.primary], slot))
-            members.sort()
-            slots = array("I")
-            ranges = {}
-            for field, _, slot in members:
-                if field not in ranges:
-                    ranges[field] = [len(slots), len(slots)]
+                slots = groups.get(field)
+                if slots is None:
+                    groups[field] = slots = array("I")
                 slots.append(slot)
-                ranges[field][1] += 1
-            table.blocks = component, slots, ranges
-        _, slots, ranges = table.blocks
-        start, stop = ranges.get(value, (0, 0))
+            table.blocks = component, groups
+
+        slots = table.blocks[1].get(value, ())
         snapshot = table.snapshot
         if snapshot.deleted_count:
-            def live_offsets():
-                for i in range(start, stop):
-                    slot = slots[i]
-                    if snapshot.is_live(slot):
-                        yield snapshot.offsets[slot]
-
-            return live_offsets()
-        return (snapshot.offsets[slots[i]] for i in range(start, stop))
+            return (snapshot.offsets[slot] for slot in slots if snapshot.is_live(slot))
+        return (snapshot.offsets[slot] for slot in slots)
 
     def candidates(self, name, table, filters, clustered):
         changes = self.changes(name)
@@ -136,6 +123,11 @@ class Database(Store):
                 offset = changes.get(value, table.rows.get(value))
                 return () if offset is None else (offset,)
         if clustered and table.index is not None and not changes:
+            if table.blocks is not None:
+                indexed_column = table.blocks[0]
+                for col, op, value in filters:
+                    if col == indexed_column and op == "=":
+                        return self.component_offsets(table, col, value)
             for col, op, value in filters:
                 if op == "=":
                     offsets = self.component_offsets(table, col, value)
