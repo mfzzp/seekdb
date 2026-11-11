@@ -1473,6 +1473,21 @@
    ],
    "changes": "tests/test_ddl_edges.py adds six tests. The evidence budget moved from 128 KiB to 160 KiB with the rationale written into the test, because the recorded measurements are worth more than an arbitrary cap.",
    "limitations": "These are plausible shapes, not the hidden cases. DeepSeek executor experiment."
+  },
+  {
+   "id": "insert-column-list",
+   "executor": "DeepSeek",
+   "source": "DeepSeek probe against cb924a7",
+   "problem": "The public cases only insert with a full value list. A hidden case can name the columns, reorder them, omit one, repeat one or invent one, and none of that behaviour was pinned.",
+   "method": "scripts/probe_insert_columns.sh sends a reordered column list, a partial list, a duplicate column, an unknown column and a two-vector table, then tests/test_ddl_edges.py pins the answers.",
+   "results": [
+    "a reordered list maps values by name: (b, id, a, v) with (x, 1, 10, [1,2]) stores id=1, a=10, b=x, v=[1,2]",
+    "a partial list is rejected with invalid_value, because this database has no NULL or DEFAULT to fall back on",
+    "a duplicated column in the list is rejected with the same code, an unknown one with unknown_column",
+    "two vector columns are rejected with invalid_schema and the name stays free afterwards"
+   ],
+   "changes": "tests/test_ddl_edges.py adds two tests; the README SQL scope now states that a column list may reorder values but must name every column once.",
+   "limitations": "Whether a partial insert should instead default the missing columns is a semantic choice; with no NULL support it has no sensible answer here. DeepSeek executor experiment."
   }
  ],
  "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",

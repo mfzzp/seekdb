@@ -26,7 +26,7 @@ Locally: `python3 minivectordb.py --data-dir /tmp/mvdb`.
 | --- | --- |
 | `CREATE TABLE t (id BIGINT PRIMARY KEY, c VARCHAR(n), v VECTOR(d))` | one signed BIGINT primary key, at most one vector column; column or table level `PRIMARY KEY` |
 | `CREATE VECTOR INDEX name ON t(v)` | records index metadata; queries stay exact in both modes |
-| `INSERT INTO t VALUES (...), (...)` | optional column list; the whole statement is atomic |
+| `INSERT INTO t VALUES (...), (...)` | optional column list that may reorder the values but must name every column exactly once (no NULL or DEFAULT to fall back on); the whole statement is atomic |
 | `SELECT ... FROM t [WHERE ...] [ORDER BY ...] [LIMIT n]` | projection, `*`, `= < <= > >=`, `AND`, `L2_DISTANCE(col,'[...]') AS alias` |
 | `UPDATE t SET c = ... [WHERE ...]` | returns the number of rows whose value actually changed (MySQL semantics) |
 | `DELETE FROM t [WHERE ...]` | returns the number of deleted rows |
@@ -179,7 +179,7 @@ python3 -m unittest discover -s tests -v
   row inside a transaction and rolling it back, LIMIT 0, non-ASCII values, ann vs
   exact, the row order of a multi-row answer without ORDER BY, and vector
   distances after an update and a delete.
-- 105 regression tests pass: matrix paths, numeric bounds and float32 margins,
+- 107 regression tests pass: matrix paths, numeric bounds and float32 margins,
   memory budget, chunked TopK, scalar filters, ann/exact equivalence, bitmap
   deletion, recovery truncation, real SIGKILL recovery, mixed-workload soak, query
   paths, scan cache, SQL surface, model fuzz, semantics audit, startup

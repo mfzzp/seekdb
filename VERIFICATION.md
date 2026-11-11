@@ -125,7 +125,7 @@ the limit.
 
 ## 3. Correctness evidence
 
-- 105 regression tests, passing with and without numpy (31 skipped without it).
+- 107 regression tests, passing with and without numpy (31 skipped without it).
 - 20/20 public cases plus six extra cases through the judge's own runner
   (`protocol_check/run.py` with `tests/extra_cases`), in both modes, including
   against a pristine `git archive` export of the committed tree.
