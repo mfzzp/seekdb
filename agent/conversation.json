@@ -1,5 +1,5 @@
 {
-  "scope": "本次 Codex 开发交互的真实节选。会议内容由用户转述，未验证用户的个人学习成果。省略了人员姓名与对话中与实现无关的内容。",
+  "scope": "Authentic excerpts and reproducible experiment evidence for this MiniVectorDB submission. User contributions and agent observations are attributed separately.",
   "synthetic": false,
   "conversations": [
     {
@@ -54,7 +54,33 @@
       "id": "bitmap-delete-comparison",
       "source": "Codex, server /mnt/HDD2/zzp, existing Python 3.12.3",
       "output": "Three paired runs: 10000 rows x 2 dimensions, 100 committed deletes each followed by filtered and unfiltered TopK. Baseline seconds [2.6333, 2.4883, 2.8116]; bitmap seconds [2.1002, 1.7351, 2.0364]. All 200 results per run correct. 20 public cases passed. Regression confirmed log prefix unchanged, index reuse, rollback, reinsertion and restart."
+    },
+    {
+      "id": "batch-tokenizer",
+      "source": "Codex on the requested Linux server, Python 3.12.3.",
+      "hypothesis": "Consuming runs of non-quote characters reduces the regex work for SQL batches with long quoted vectors.",
+      "method": "Three alternating process runs, same seeded 10000 rows of 128 dimensions, batches of 100, then 200 TopK queries. Compare complete query outputs. Also parse a fixed 100-row SQL batch 300 times with no storage work.",
+      "output": "Write-phase seconds before [3.234867686, 2.938377720, 11.621469150], after [2.805967852, 2.690905519, 2.465986656]. Parse-only 1.3027 s before and 0.4636 s after. All three pairs returned identical 200 query results. 9841 short quote/space token inputs matched the prior pattern, escaped quotes parsed correctly, and 20 public cases plus two regression tests passed.",
+      "limits": "Local timings include load on a shared server; write timings include data generation. No official score inferred."
     }
   ],
-  "limitations": "测试和实现由 Codex 执行。本材料没有收录学生自行执行的实验、对结果的解释或赛方隐藏评测结果。"
+  "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed.",
+  "learning_cases": [
+    {
+      "id": "bitmap-proposal-to-verification",
+      "student_contribution": {
+        "source_id": "bitmap-delete-proposal",
+        "verbatim": "这个删除可以搞假删除。就把他有效/无效标记改一下，不然磁盘block会经常随机删除，很麻烦。标记按位图的话，10亿条也就128m，能常驻内存。可以参考这两个论文在服务器进行修改提交",
+        "context": "The participant independently suggested marking rows invalid and estimated the packed bitmap space for one billion entries."
+      },
+      "agent_investigation": "Inspecting the old row log corrected the initial premise: DELETE already appended a tombstone. The avoidable cost was discarding both in-memory indexes and rebuilding them on the next query. The implementation retains stable snapshot slots and applies the invalidation bit only after durable commit.",
+      "verification": {
+        "source": "Codex on the requested Linux server using existing Python 3.12.3.",
+        "method": "Insert 10000 rows (id=i, g=i%10, vector=[i,0]), warm the filtered scalar blocks and unfiltered vector axis, DELETE WHERE id=0, reset the read_row call counter, then query both TopK paths with target [0,0], K=2. Filtered query uses WHERE g=0.",
+        "output": "Before bitmap: 20999 read_row calls. With bitmap: 1001 read_row calls. Correct IDs in both versions: unfiltered [1,2], filtered [10,20].",
+        "scope": "Counts row accessor calls, including cache hits. Does not measure disk reads."
+      },
+      "agent_interpretation": "The bitmap keeps the prior snapshot usable for delete-heavy interleaving. One billion bits require 125000000 bytes (~119.2 MiB), excluding row and offset metadata. A snapshot is retired once at least half its slots are dead; the tests verify this transition but do not establish an optimal threshold."
+    }
+  ]
 }

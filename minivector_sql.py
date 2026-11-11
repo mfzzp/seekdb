@@ -21,7 +21,8 @@ def require(condition, code, message):
 TOKEN = re.compile(
     r"(?P<skip>\s+|--[^\n]*|/\*[\s\S]*?\*/)"
     r"|(?P<name>[a-zA-Z_][a-zA-Z_0-9]*|`(?:[^`]|\x60\x60)+`)"
-    r"|(?P<string>'(?:[^']|'')*')"
+    # Consume each run of non-quote characters once, even in long vector literals.
+    r"|(?P<string>'(?:[^']++|'')*')"
     r"|(?P<number>[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)"
     r"|(?P<symbol><=|>=|[(),;*=<>\[\]])"
 )
