@@ -172,7 +172,7 @@ python3 -m unittest discover -s tests -v
   row inside a transaction and rolling it back, LIMIT 0, non-ASCII values, ann vs
   exact, the row order of a multi-row answer without ORDER BY, and vector
   distances after an update and a delete.
-- 70 regression tests pass (matrix paths, numeric bounds, memory budget, chunked
+- 72 regression tests pass (matrix paths, numeric bounds, memory budget, chunked
   TopK, scalar filters, ann/exact equivalence, bitmap deletion, recovery
   truncation, real SIGKILL recovery, mixed-workload soak, query paths, scan
   cache, SQL surface, model fuzz, semantics audit, startup diagnostics, the
@@ -185,9 +185,10 @@ python3 -m unittest discover -s tests -v
   in an earlier run.
 - SQL surface: ~75 statements × exact/ann all answer cleanly, and the connection
   survives every error.
-- Crash recovery: four scenarios under a real SIGKILL — between commits, inside
-  an open transaction, during a 100k-row statement, and a torn log suffix — all
-  keep acknowledged rows, drop uncommitted ones and truncate the partial frame.
+- Crash recovery: six scenarios under a real SIGKILL — between commits, inside an
+  open transaction, during a 100k-row statement, a 10k-row transaction killed
+  before COMMIT, a kill that lands inside recovery itself (a 300k-row log, with the
+  test asserting no ready line was produced first), and a torn log suffix.
 
 ### Timings through the real JSONL protocol
 

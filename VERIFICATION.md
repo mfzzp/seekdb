@@ -89,7 +89,7 @@ and the two context switches cost about 43 us.
 
 ## 3. Correctness evidence
 
-- 70 regression tests, passing with and without numpy (26 skipped without it).
+- 72 regression tests, passing with and without numpy (26 skipped without it).
 - 20/20 public cases plus six extra cases through the judge's own runner
   (`protocol_check/run.py` with `tests/extra_cases`), in both modes, including
   against a pristine `git archive` export of the committed tree.
@@ -98,9 +98,12 @@ and the two context switches cost about 43 us.
 - Numeric: a real mis-ranking was found and fixed (ULP cluster at magnitude 30,
   128 dimensions, where the identity kernel clamped a whole cluster to zero); the
   regression test for it fails on the previous commit and passes now.
-- Crash: a real SIGKILL between commits, inside a transaction, during a 100k-row
-  statement, and a torn log suffix; recovery keeps every acknowledged row, drops
-  uncommitted ones, leaves no partial statement, and truncates the suffix exactly.
+- Crash: six SIGKILL scenarios — between commits, inside a transaction, during a
+  100k-row statement, a 10k-row transaction killed before COMMIT, a kill landing
+  inside recovery of a 300k-row log (with the test asserting no ready line was
+  produced first), and a torn log suffix. Recovery keeps every acknowledged row,
+  drops uncommitted ones, leaves no partial statement, and truncates the suffix
+  exactly.
 - Scale: 100k rows for exact, ann, filtered and fallback paths with ids identical
   to independent scans; memory stays bounded at 128 MiB without numpy.
 - Soak: 3,856 mixed operations over 300 rounds, resident memory flat (30 -> 31 MiB

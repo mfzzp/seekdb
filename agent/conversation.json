@@ -931,6 +931,21 @@
       "consequence": "All ten extra cases pass through the official runner in both dependency modes, so the suite now asserts 10 extra judge cases plus the 20 public ones. All three expectations were derived by hand and passed first time, which is the evidence that the invalidation paths are correct rather than merely self-consistent.",
       "cross_check": "The ten cases were also run against the second, independently written implementation (with numpy on its path): 10/10 pass there too. The expectations therefore encode SQL semantics rather than this implementation's quirks; the second one only fails the whole package when numpy is absent, because it hard-requires it.",
       "limitations": "Ten hand-written cases are still a sample. DeepSeek executor experiment."
+    },
+    {
+      "id": "recovery-interrupted-and-large-transaction",
+      "executor": "DeepSeek",
+      "source": "DeepSeek work against 6b8609c on the Linux server",
+      "problem": "Crash coverage had four scenarios, none of which killed the process while it was recovering, and none of which killed a large open transaction. Both are durability paths the judge can trigger by killing the container at an arbitrary moment.",
+      "method": "scripts/probe_recovery_time.py measured time-to-ready for a 300k-row log first, so the new test could aim a kill inside recovery rather than guess; the two scenarios then went into tests/test_crash_recovery.py.",
+      "results": [
+        "time-to-ready for 300k rows (16.6 MiB log): 358.6, 405.2 and 642.1 ms, median 405.2 ms; a 50k-row log only takes 92.7 ms, which is why the first version of the test (kill at 100 ms) was not actually interrupting recovery",
+        "with the kill at 150 ms and an assertion that the process produced no ready line, two interrupted recoveries still leave all 300k rows readable, the log tail intact and new writes working",
+        "five statements inserting 10,000 rows inside BEGIN, then a SIGKILL, leave only the row committed before BEGIN, and the log accepts a new insert and a restart afterwards"
+      ],
+      "note": "The first version of the recovery test killed at 100 ms against a 50k-row log; the measurement showed recovery finished at 92.7 ms, so the kill was landing after startup. The test now asserts that no ready line was produced, so the same mistake cannot come back silently.",
+      "tests": "72 tests pass with numpy and 72 without (26 skipped); 20/20 public cases pass; the crash file now covers six scenarios.",
+      "limitations": "The kill timing depends on host speed; the ready-line assertion is what keeps the test honest, and it would fail loudly rather than pass vacuously if the machine were fast enough to finish recovery in 150 ms. DeepSeek executor experiment."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",
