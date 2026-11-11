@@ -43,6 +43,30 @@ class TopKTest(unittest.TestCase):
                 self.assertEqual(db.execute(sql, 'ann')['rows'], expected)
                 db.close()
 
+    def test_two_distance_expressions_keep_their_own_targets(self):
+        """Each (column, target) pair binds once; a second target must not reuse it."""
+        with tempfile.TemporaryDirectory() as root:
+            db = Database(root)
+            self.addCleanup(db.close)
+            db.execute('CREATE TABLE t (id BIGINT PRIMARY KEY, v VECTOR(2))', 'exact')
+            db.execute("INSERT INTO t VALUES (1,'[0,0]'),(2,'[1,1]')", 'exact')
+            sql = ("SELECT id, L2_DISTANCE(v,'[0,0]') AS a, L2_DISTANCE(v,'[1,1]') AS b "
+                   "FROM t ORDER BY b")
+            rows = db.execute(sql, 'exact')['rows']
+            self.assertEqual([row[0] for row in rows], [2, 1], "ordered by b ascending")
+            self.assertAlmostEqual(rows[0][1], math.sqrt(2), places=12)
+            self.assertAlmostEqual(rows[0][2], 0.0, places=12)
+            self.assertAlmostEqual(rows[1][1], 0.0, places=12)
+            self.assertAlmostEqual(rows[1][2], math.sqrt(2), places=12)
+            # ORDER BY the expression itself must agree with ORDER BY the alias
+            by_expression = db.execute(
+                "SELECT id, L2_DISTANCE(v,'[1,1]') AS b FROM t "
+                "ORDER BY L2_DISTANCE(v,'[1,1]')", 'exact')['rows']
+            by_alias = db.execute(
+                "SELECT id, L2_DISTANCE(v,'[1,1]') AS b FROM t ORDER BY b", 'exact')['rows']
+            self.assertEqual(by_expression, by_alias)
+            db.close()
+
 
 if __name__ == '__main__':
     unittest.main()
