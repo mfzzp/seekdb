@@ -929,6 +929,7 @@
         "extra_vector_mutation_paths: ordering is correct before the UPDATE (id 1 at 0), after it (id 1 moves to 12.727922061357855) and after deleting a row, and filtering by the scalar column gives the same order"
       ],
       "consequence": "All ten extra cases pass through the official runner in both dependency modes, so the suite now asserts 10 extra judge cases plus the 20 public ones. All three expectations were derived by hand and passed first time, which is the evidence that the invalidation paths are correct rather than merely self-consistent.",
+      "cross_check": "The ten cases were also run against the second, independently written implementation (with numpy on its path): 10/10 pass there too. The expectations therefore encode SQL semantics rather than this implementation's quirks; the second one only fails the whole package when numpy is absent, because it hard-requires it.",
       "limitations": "Ten hand-written cases are still a sample. DeepSeek executor experiment."
     }
   ],
