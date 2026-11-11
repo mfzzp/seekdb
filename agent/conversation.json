@@ -1703,6 +1703,21 @@
    ],
    "changes": "VERIFICATION.md records the start under an empty environment.",
    "limitations": "numpy is absent in this run because the empty environment also drops PYTHONPATH; in the image numpy lives in site-packages, which every other run exercises. DeepSeek executor experiment."
+  },
+  {
+   "id": "cgroup-limit-reader",
+   "executor": "DeepSeek",
+   "source": "DeepSeek work against 7001778",
+   "problem": "The container memory limit was read from /sys/fs/cgroup/memory.max only. That works in a plain Docker container, but this host puts a process in a systemd scope, where the file lives under the slice path; the read returned None and the budget became unbounded. A container that nests cgroups - Kubernetes, docker-in-docker, systemd - would have had its limit ignored.",
+   "method": "The reader now parses /proc/self/cgroup, walks the cgroup path upwards and returns the tightest finite memory.max, keeping the old root paths and the v1 file as fallbacks, with the paths injectable for testing. tests/test_cgroup_limit.py drives it against a fake tree; the behaviour was then measured inside real systemd scopes.",
+   "results": [
+    "real limits now map to capacities of 1440 MiB at 2 GiB, 288 at 512 MiB, 96 at 256 MiB and the 8 MiB floor at 128 MiB, matching the injected numbers",
+    "the 123-test suite passes inside a real 2 GiB / 2 CPU scope, with and without numpy",
+    "the public suite passes at 2 GiB and at 512 MiB with 2 CPUs pinned",
+    "before the fix the same scopes read None, so the matrix cap stayed at 192 MiB and the shared budget had no cap at all"
+   ],
+   "changes": "minivector_store.memory_limit_bytes walks the process cgroup and takes the tightest limit; tests/test_cgroup_limit.py adds six tests; VERIFICATION.md records the measurements.",
+   "limitations": "The systemd scopes here apply a memory limit but ignore AllowedCPUs, so CPUs were pinned with taskset instead; the judge's container also limits pids and drops capabilities, which cannot be reproduced without a container runtime. DeepSeek executor experiment."
   }
  ],
  "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",

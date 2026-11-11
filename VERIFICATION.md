@@ -145,7 +145,7 @@ boundary; the public cases never project a vector column at all.
 
 ## 3. Correctness evidence
 
-- 117 regression tests, passing with and without numpy (31 skipped without it).
+- 123 regression tests, passing with and without numpy (31 skipped without it).
 - 20/20 public cases plus twelve extra cases through the judge's own runner
   (`protocol_check/run.py` with `tests/extra_cases`), in both modes, including
   against a pristine `git archive` export of the committed tree.
@@ -175,6 +175,29 @@ boundary; the public cases never project a vector column at all.
   agree on 125 statements apart from the four divergences that were reviewed and
   decided one by one; the second one hard-requires numpy and dies without it,
   which is the deployment failure this implementation avoids.
+
+### The budget follows a real kernel limit
+
+The reader used to look only at `/sys/fs/cgroup/memory.max`, which is where a plain
+Docker container exposes its limit but which does not exist when the process sits in
+a nested cgroup - a systemd scope, a Kubernetes pod, docker-in-docker. There the read
+returned `None`, the budget became unbounded, and the container limit was ignored.
+
+It now walks `/proc/self/cgroup` upwards and takes the tightest `memory.max` it finds,
+falling back to the old paths. Measured inside real systemd scopes on this host:
+
+| real cgroup limit | derived capacity | row cache | matrix cap |
+| --- | ---: | ---: | ---: |
+| none (host) | unbounded | 96 MiB | 192 MiB |
+| 2 GiB | 1440 MiB | 96 MiB | 192 MiB |
+| 512 MiB | 288 MiB | 96 MiB | 128 MiB |
+| 256 MiB | 96 MiB | 64 MiB | 64 MiB |
+| 128 MiB | 8 MiB (floor) | 32 MiB | 32 MiB |
+
+Those match the numbers previously obtained by injecting a limit into the budget, so
+the adaptive path is confirmed against the kernel rather than a mock. The whole suite
+also passes inside a real 2 GiB / 2 CPU scope (123 tests, with and without numpy) and
+the public cases pass at 2 GiB and at 512 MiB.
 
 ### Cases do not depend on each other
 

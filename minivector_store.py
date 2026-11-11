@@ -21,18 +21,60 @@ BASELINE_BYTES = 96 * 1024 * 1024
 USABLE_FRACTION = 0.75
 
 
-def memory_limit_bytes():
-    """Best-effort container memory limit (cgroup v2, then v1)."""
-    for path in ("/sys/fs/cgroup/memory.max",
-                 "/sys/fs/cgroup/memory/memory.limit_in_bytes"):
+def _cgroup_memory_files(root="/sys/fs/cgroup", proc="/proc/self/cgroup"):
+    """Yield the v2 memory-limit files for this process, innermost first.
+
+    Reading only `/sys/fs/cgroup/memory.max` works in a plain Docker container, where
+    the mount is the container's own cgroup root, but not when the process sits in a
+    nested cgroup - a systemd user scope or a Kubernetes pod - where the file lives
+    under the slice path and the root file does not exist.  The ancestors matter too:
+    a scope often says "max" while the slice above it carries the limit.
+    """
+    relative = None
+    try:
+        with open(proc, encoding="ascii") as handle:
+            for line in handle:
+                fields = line.strip().split("::")
+                if len(fields) == 2:
+                    relative = fields[1] or "/"
+                    break
+    except OSError:
+        relative = None
+    if relative:
+        path = relative
+        while True:
+            yield os.path.join(root, path.strip("/"), "memory.max")
+            if path in ("", "/"):
+                break
+            path = os.path.dirname(path) or "/"
+
+
+def memory_limit_bytes(root="/sys/fs/cgroup", proc="/proc/self/cgroup"):
+    """Best-effort container memory limit (cgroup v2 from this process, then v1)."""
+    limits = []
+    for path in _cgroup_memory_files(root, proc):
         try:
             with open(path, encoding="ascii") as handle:
                 text = handle.read().strip()
         except OSError:
             continue
         if text.isdigit():
-            return int(text)
-        return None            # "max" means unlimited
+            limits.append(int(text))
+    if limits:
+        # The effective limit is the tightest one on the way up.
+        return min(limits)
+    for legacy in (os.path.join(root, "memory.max"),
+                   os.path.join(root, "memory", "memory.limit_in_bytes")):
+        try:
+            with open(legacy, encoding="ascii") as handle:
+                text = handle.read().strip()
+        except OSError:
+            continue
+        if text.isdigit():
+            value = int(text)
+            # cgroup v1 uses a near-2**63 number for "unlimited".
+            if 0 < value < (1 << 60):
+                return value
     return None
 
 
