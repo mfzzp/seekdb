@@ -741,6 +741,33 @@
       ],
       "follow_up": "Both checks are now permanent tests in tests/test_protocol_surface.py (27-statement shape sweep, semantic assertions for SELECT *, LIMIT 0 and an empty WHERE, and a read-only application directory run), so the suite is 58 tests in both modes.",
       "limitations": "Read-only and pid/memory limits were simulated with file permissions and not with a real cgroup; the 2 GB budget path is covered only by unit tests that inject a capacity. DeepSeek executor experiment."
+    },
+    {
+      "id": "ann-routes-and-fallback-scale",
+      "executor": "DeepSeek",
+      "source": "DeepSeek measurement under /mnt/HDD2/zzp/minivectordb-round2, /usr/bin/python3 3.12.3, with and without numpy 2.3.5",
+      "baseline": "76079a0",
+      "candidate": "cbe917a",
+      "problem": "Two shapes had never been exercised: ann on a table with no vector index (the public cases always create one), and the pure-Python fallback at 100k rows. A hidden case using either could have produced wrong results or a timeout.",
+      "work": [
+        {
+          "item": "ann routes",
+          "method": "scripts/ann_index_check.py at 100k rows x 128 dims x {index, no index} x {exact, ann}, compared with a math.dist oracle; scripts/axis_path_check.py at dim 4/8/16 and 2k/10k/40k rows for the branch-and-bound route",
+          "result": "all 12 combinations returned the oracle ids; with numpy 10-11 ms per query (peak RSS 261 MiB), without numpy 545-550 ms (peak RSS 128 MiB)",
+          "code_finding": "axis_top_k is not approximate: it visits rows in order of |v0-q0|, which lower-bounds the full distance, and stops only when that bound exceeds the current K-th distance, so the pruning cannot drop a true TopK member. ann is therefore exact on every route, and the three routes only differ in cost."
+        },
+        {
+          "item": "fallback at scale",
+          "finding": "Without numpy, 100k rows cost about 550 ms per query because every query re-decodes the rows that do not fit the 96 MiB cache; memory stays bounded at 128 MiB. A thousand queries on such a table would take about nine minutes.",
+          "assessment": "This is a documented timeout risk, not a correctness one, and it only exists if the image build fails to install numpy. No code change was made: in pure Python the decode cost dominates and there is no compact representation that fits the budget without numpy."
+        }
+      ],
+      "tests": "tests/test_ann_equivalence.py compares ann, exact and a math.dist oracle for dim 4/8/16 with and without a vector index, ann with a WHERE clause, and ann after deletes and updates, in both modes. 61 tests pass with numpy and 61 without (26 skipped); 20/20 public cases pass.",
+      "conclusions": [
+        "ann is exact in every configuration tested, including without a vector index, so a missing index cannot make results wrong - only slower.",
+        "The fallback is memory-bounded at 100k rows but ~50x slower per query than the numpy path, which makes the best-effort numpy install the single most valuable deployment property."
+      ],
+      "limitations": "The oracle compares against the same stored float32 values, so it validates ranking and plumbing rather than float behaviour (that is what the numeric-bounds tests do). Timings are single-host. DeepSeek executor experiment."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",
