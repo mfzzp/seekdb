@@ -11,12 +11,21 @@ import math
 import struct
 import sys
 
+try:  # optional acceleration; the pure-Python path stays authoritative
+    import numpy as _numpy
+except Exception:  # pragma: no cover - exercised only when numpy is absent
+    _numpy = None
+
 from minivector_sql import COMPARISONS, DISTANCE, Parser, SQLError, require, typed
 from minivector_store import Store
 
 
 MAX_BLOCK_ROWS = 50_000
 MAX_COMPONENT_BYTES = 4 * 1024 * 1024
+# Dense distance matrix acceleration: only worth it for large tables, and capped
+# so a huge table cannot turn the cache into an unbounded allocation.
+MATRIX_MIN_ROWS = 2048
+MATRIX_MAX_BYTES = 192 * 1024 * 1024
 
 
 class Descending:
@@ -287,6 +296,71 @@ class Database(Store):
                 replace(best, (-distance, -key, row))
         return [(row, (-distance,)) for distance, _, row in sorted(best, reverse=True)]
 
+    def build_matrix(self, table, snapshot, column):
+        """Materialise live vectors once so TopK becomes one BLAS mat-vec.
+
+        Values come from the same decoded float32 payloads the row cache uses,
+        so the matrix cannot drift from the stored representation.
+        """
+        width = table.columns[column][2]
+        rows = len(snapshot.offsets)
+        dtype = _numpy.float64
+        if rows * width * 8 > MATRIX_MAX_BYTES:
+            dtype = _numpy.float32
+        values = _numpy.empty((rows, width), dtype=dtype)
+        keys = _numpy.empty(rows, dtype=_numpy.int64)
+        primary = table.primary
+        read_row = partial(self.read_row, scan=True)
+        for slot, offset in snapshot.rows():
+            row = read_row(table, offset)
+            values[slot] = row[column]
+            keys[slot] = row[primary]
+        table.matrix = (snapshot, column, values, keys)
+        return table.matrix
+
+    def matrix_top_k(self, table, column, target, limit):
+        """Exact TopK over the dense matrix; ties still break on primary key."""
+        if not limit:
+            return []
+        snapshot = table.index_snapshot()
+        matrix = table.matrix
+        if matrix is None or matrix[0] is not snapshot or matrix[1] != column:
+            matrix = self.build_matrix(table, snapshot, column)
+        _, _, values, keys = matrix
+        query = _numpy.asarray(target, dtype=values.dtype)
+        diff = values - query
+        distances = _numpy.sqrt(_numpy.einsum("ij,ij->i", diff, diff,
+                                              dtype=_numpy.float64))
+        if snapshot.deleted_count:
+            bits = _numpy.unpackbits(_numpy.frombuffer(bytes(snapshot.deleted),
+                                                       dtype=_numpy.uint8))
+            # Bit set means the stable slot was invalidated by a delete.
+            live = _numpy.flatnonzero(bits[:distances.size] == 0)
+            ordered_distances = distances[live]
+            ordered_keys = keys[live]
+        else:
+            live = None
+            ordered_distances = distances
+            ordered_keys = keys
+        total = ordered_distances.size
+        if not total:
+            return []
+        best = min(limit, total)
+        if best < total:
+            candidates = _numpy.argpartition(ordered_distances, best - 1)[:best]
+            threshold = ordered_distances[candidates].max()
+            selected = _numpy.flatnonzero(ordered_distances <= threshold)
+        else:
+            selected = _numpy.arange(total)
+        chosen = selected[_numpy.lexsort((ordered_keys[selected],
+                                          ordered_distances[selected]))][:best]
+        rows = []
+        for index in chosen.tolist():
+            slot = int(live[index]) if live is not None else index
+            rows.append((self.read_row(table, snapshot.offsets[slot]),
+                         (float(ordered_distances[index]),)))
+        return rows
+
     def select(self, name, projections, terms, order, limit, mode):
         name = name.casefold()
         table = self.table(name)
@@ -379,7 +453,16 @@ class Database(Store):
                 rank.append(row[table.primary])
                 yield tuple(rank), row, distances
 
-        if (mode == "ann" and clustered and len(ordering) == len(evaluators) == 1
+        accelerated = (_numpy is not None and not filters and not self.changes(name)
+                       and len(ordering) == 1 and ordering[0][0] < 0
+                       and not ordering[0][1] and len(evaluators) == 1
+                       and limit is not None
+                       and len(table.rows) >= MATRIX_MIN_ROWS
+                       and len(table.rows) * table.columns[evaluators[0][0]][2] * 4
+                       <= MATRIX_MAX_BYTES)
+        if accelerated:
+            rows = self.matrix_top_k(table, evaluators[0][0], evaluators[0][1], limit)
+        elif (mode == "ann" and clustered and len(ordering) == len(evaluators) == 1
                 and not ordering[0][1] and limit is not None and not filters
                 and table.index is not None and not self.changes(name)
                 and len(table.rows) <= MAX_BLOCK_ROWS and len(evaluators[0][1]) <= 8):

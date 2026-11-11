@@ -50,6 +50,9 @@ class Table:
         self.blocks = None
         self.axis = None
         self.snapshot = None
+        # Optional dense (snapshot, column, values, keys) acceleration built by
+        # the executor; always invalidated together with the index snapshot.
+        self.matrix = None
 
     def large_scan(self):
         return len(self.rows) * self.minimum_row_weight > CACHE_BUDGET
@@ -90,7 +93,7 @@ class Transaction:
         for name, changes in self.rows.items():
             table = tables[name]
             if table.snapshot is not None and any(offset is not None for offset in changes.values()):
-                table.blocks = table.axis = table.snapshot = None
+                table.blocks = table.axis = table.snapshot = table.matrix = None
             for key, offset in changes.items():
                 if offset is None:
                     previous = table.rows.pop(key, None)
@@ -99,7 +102,7 @@ class Transaction:
                 else:
                     table.rows[key] = offset
             if table.snapshot is not None and table.snapshot.deleted_count >= len(table.rows):
-                table.blocks = table.axis = table.snapshot = None
+                table.blocks = table.axis = table.snapshot = table.matrix = None
 
 
 class Store:
