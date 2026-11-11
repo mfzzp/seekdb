@@ -710,6 +710,36 @@
         "No regression from the six changes: fuzz, public cases and the unit suite all agree with the baseline and with the committed tree."
       ],
       "limitations": "The 0.1%/50%/100% scan comparisons use a warm cache for the scan side, which flatters it; the guard rail for the 100<->1000 rows band is a measured constant, not a proof. DeepSeek executor experiment."
+    },
+    {
+      "id": "runtime-shape-and-surface-sweep",
+      "executor": "DeepSeek",
+      "source": "DeepSeek scripts against the committed tree at 4f641ec on /mnt/HDD2/zzp/minivectordb-round2",
+      "problem": "The judge runs the image with --read-only, --network=none, 2 CPUs, 2 GB and a pid limit, and sends statements that are expected to fail. Neither the read-only root filesystem nor the failure-resilience shape had been exercised outside Docker, and Docker is unavailable on both machines.",
+      "work": [
+        {
+          "item": "read-only runtime",
+          "method": "scripts/readonly_runtime_check.sh copies the three sources into a directory chmod 555, makes the files 444, runs as the non-root user with PYTHONDONTWRITEBYTECODE=1 and a writable /data elsewhere, then replays the exact four requests of STDIO_PROTOCOL.md section 7 including the UTF-8 content",
+          "result": "exit 0; five stdout lines (ready, create, insert with affected_rows 1, select, shutdown); the UTF-8 value round-trips as [1,\"你好\"]; no __pycache__ or .pyc is written; stderr carries only the diagnostics line",
+          "note": "The probe initially asserted a nested result object; the spec puts columns and rows at the top level, which is what the program emits and what the example at section 5 shows."
+        },
+        {
+          "item": "failure resilience",
+          "method": "scripts/protocol_surface_sweep.py drives the real subprocess through 28 statements mixing the happy path with duplicate keys, unknown table and column, a wrong literal type, a missing value, an oversized VARCHAR, a wrong vector dimension, a duplicate index, a duplicate table, COMMIT/ROLLBACK outside a transaction, nonsense syntax and a scalar ORDER BY, then sends shutdown",
+          "result": "all 28 responses have an int id, a JSON boolean ok, columns/rows or an int affected_rows on success and a non-empty error.code on failure; the process answered every statement, exited 0 and acknowledged shutdown"
+        },
+        {
+          "item": "vector echo format",
+          "method": "scripts/vector_echo_probe.sh inserts one 3-dimensional row and selects it plus a distance",
+          "result": "{'columns':['id','v'],'rows':[[1,[0.5,1.5,2.5]]]} - a VECTOR column is echoed as a JSON array, and the distance as a number"
+        }
+      ],
+      "conclusions": [
+        "The read-only container shape works without any write outside /data, which is the failure mode that would have been fatal in Docker.",
+        "A failing statement never ends the process, and every response keeps the shape the spec fixes.",
+        "The remaining Docker risk is the build itself (base image pull, pip network), not the program."
+      ],
+      "limitations": "Read-only and pid/memory limits were simulated with file permissions and not with a real cgroup; the 2 GB budget path is covered only by unit tests that inject a capacity. DeepSeek executor experiment."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",
