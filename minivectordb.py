@@ -605,6 +605,14 @@ def send(response):
     print(line, flush=True)
 
 
+def shutdown_quietly(db):
+    """Flush and close, but never let a cleanup failure swallow the response."""
+    try:
+        db.close()
+    except Exception as exc:  # noqa: BLE001 - the protocol answer wins
+        print(f"shutdown cleanup failed: {exc}", file=sys.stderr, flush=True)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data-dir", default="/data")
@@ -618,7 +626,7 @@ def main():
                 require(isinstance(request, dict), "invalid_request", "expected an object")
                 operation = request.get("op")
                 if operation == "shutdown":
-                    db.close()
+                    shutdown_quietly(db)
                     send({"id": request.get("id"), "ok": True})
                     return
                 require(operation == "execute", "invalid_request", "expected execute")
@@ -634,7 +642,7 @@ def main():
                 send({"id": ident, "ok": False, "error": {"code": code, "message": str(exc)}})
     finally:
         if not db.writer.closed:
-            db.close()
+            shutdown_quietly(db)
 
 
 if __name__ == "__main__":

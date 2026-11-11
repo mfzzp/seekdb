@@ -141,5 +141,29 @@ class SQLSurfaceTest(unittest.TestCase):
         self.assertEqual(db.execute("SELECT id,v FROM t", "exact")["rows"], [[1, "a"]])
 
 
+class ShutdownRobustnessTest(unittest.TestCase):
+    def test_cleanup_failure_does_not_escape(self):
+        """A failing close must never stop the shutdown response."""
+        import minivectordb
+
+        class Broken:
+            def close(self):
+                raise OSError("simulated disk failure")
+
+        minivectordb.shutdown_quietly(Broken())   # must not raise
+
+    def test_shutdown_response_is_always_sent(self):
+        class Fake:
+            closed = False
+
+            def close(self):
+                self.closed = True
+
+        fake = Fake()
+        import minivectordb
+        minivectordb.shutdown_quietly(fake)
+        self.assertTrue(fake.closed)
+
+
 if __name__ == "__main__":
     unittest.main()
