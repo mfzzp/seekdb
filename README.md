@@ -137,10 +137,12 @@ dimensions with K=10 the headline results are:
 
 - The log keeps historical row versions; there is no compaction, so a workload
   of many updates grows the file and the recovery time.
-- The first filtered query on a large table pays a one-time group build
-  (about 4 s at 300k rows) plus the dense matrix; later filtered queries are
-  ~1.5 ms. Memory is governed by one shared budget derived from the container
-  limit (a quarter of it for the matrix in the default configuration).
+- The first filtered query on a large table pays one-time builds: at 300k rows ×
+  128 dimensions the equality path costs 3.0 s (groups plus a 146 MiB matrix) and
+  the first range query costs 1.7 s more (the scalar index); afterwards equality
+  queries take 3.1 ms and range queries 16.7 ms. Peak resident memory for that
+  table is 358 MiB, governed by the shared budget derived from the container
+  limit.
 - `<>`, parenthesised predicates, qualified column references, NULL literals and
   aggregates are rejected as unsupported, matching the SQL subset the task lists.
 - The matrix is rebuilt after any committed mutation; a write/query interleaving

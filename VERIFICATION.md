@@ -50,6 +50,14 @@ Scalar predicates resolved before any vector work (10k rows, K=10, median of 7):
 At 100k rows the same queries take 0.6-10 ms against 310-517 ms for the scan, with
 ids identical to the scan in every case.
 
+Large table cold start (300k rows x 128 dimensions, measured at the current
+revision; both queries return the same 10 rows):
+
+| path | first query | warm query | peak RSS | matrix |
+| --- | ---: | ---: | ---: | ---: |
+| equality filter | 3.0 s | 3.1 ms | 358 MiB | 146.5 MiB |
+| range filter | 1.7 s additional | 16.7 ms | 358 MiB | reused |
+
 Cold start: cumulative time to answer N TopK queries on identical data.
 
 | rows | strategy | N=1 | N=2 | N=3 | N=10 | peak RSS |
