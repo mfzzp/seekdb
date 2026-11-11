@@ -328,6 +328,29 @@
         "Dropping the vector payload from cached rows (lazy decode) was considered as a follow-up but not attempted in this step; it would need consistent handling in UPDATE re-encoding and vector projection."
       ],
       "limitations": "Local shared-server measurement; peak RSS is process RSS, not the cgroup memory.peak the judge uses, so the absolute number is indicative only. DeepSeek executor experiment; no participant-run measurement claimed."
+    },
+    {
+      "id": "model-fuzz-and-update-semantics",
+      "executor": "DeepSeek",
+      "source": "DeepSeek implementation and measurements under /mnt/HDD2/zzp/minivectordb-round2, /usr/bin/python3 3.12.3",
+      "baseline": "688d384",
+      "candidate": "22d8717",
+      "problem": "Transactional and recovery semantics are the highest-risk part of the submission: one wrong assertion in a formal case sets the whole score to zero, yet the existing tests only covered a handful of fixed scenarios. Separately, UPDATE returned the number of matched rows rather than the number of rows whose value actually changed.",
+      "hypothesis": "A model-based random test (Python dict of committed rows plus a transaction overlay) can predict visibility for every operation, including after restarts, and will expose any divergence between the engine and MySQL-like semantics before the judge does.",
+      "changes": [
+        "tests/test_model_fuzz.py: 220 random operations over a 240-row table - multi-row INSERT, predicate UPDATE on g/s/v, predicate DELETE, BEGIN/COMMIT/ROLLBACK, repeated process restarts, and TopK queries compared with brute force; every statement's affected_rows is predicted by the model",
+        "UPDATE counts only rows whose stored value actually changes (MySQL semantics); vector columns are compared in their packed float32 form so the comparison is exact",
+        "README rewritten as a reference document for the current design (build/run, SQL scope, error codes, end-to-end example, row-log format, the four query paths, limitations)"
+      ],
+      "command": "cd tests && PYTHONPATH=<src> python3 -m unittest test_model_fuzz -v; python3 protocol_check/run.py --command '[...]' --output <dir>",
+      "findings": [
+        "The harness itself was wrong first: SQL literals formatted with %.6g lose float32 digits (4.05e-6 error at the restart comparison). Switching the generator to repr() made the round-trip exact.",
+        "The engine reported 19 affected rows for UPDATE t SET s='c' WHERE g=0 while only 12 rows changed value, because unchanged rows were re-written. Fixed to skip unchanged rows."
+      ],
+      "correctness": "15 regression tests pass with numpy and 15 without (4 skipped); 20/20 public protocol cases pass in both modes; the model fuzz runs 220 operations with inserts, updates, deletes, commits, rollbacks, restarts and 20+ TopK comparisons and matches the model exactly.",
+      "regressions": "None measured: affected_rows only shrinks for no-op updates, and the benchmark write/query timings are unchanged because inserts do not go through UPDATE.",
+      "risks": "Counting changed rows is a judgement call. If the formal reference counts matched rows, a no-op UPDATE case would expect the larger number. It was chosen because the task is described as a MySQL case suite and MySQL's affected_rows counts changed rows; the previous behaviour (matched rows) was the alternative.",
+      "limitations": "The fuzz runs at small scale (240 rows, 3 dimensions) so it exercises semantics rather than performance; the matrix fast path is only reached by the dedicated matrix tests. DeepSeek executor experiment; no participant-run measurement claimed."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements.",
