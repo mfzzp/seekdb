@@ -833,6 +833,26 @@
       ],
       "tests": "68 tests pass with numpy and 68 without (26 skipped); 20/20 public cases pass for this implementation, and the second implementation also passes 20/20 when numpy is on its path.",
       "limitations": "The second implementation shares this session's reading of the protocol, so agreement does not prove the reading is right; it only removes implementation slips. Neither implementation has ever seen the 29 hidden cases. DeepSeek executor experiment."
+    },
+    {
+      "id": "golden-transcript-lock",
+      "executor": "DeepSeek",
+      "source": "DeepSeek tests against 41a29db",
+      "problem": "The differential run caught a real semantic risk once, but it compared two live implementations on an ad-hoc statement list. Any future change could silently flip one of the reviewed decisions (bare COMMIT succeeds, unlike rows rejected, ORDER BY <distance expression> accepted, two distance targets distinct) without anything failing.",
+      "method": "scripts/make_golden.py captured the responses of 88 statements into tests/protocol_golden.json; tests/test_golden_protocol.py replays them against a fresh database and compares columns, rows and affected_rows, with a relative tolerance on floats because the numpy and pure-Python kernels may differ in the last bits.",
+      "results": {
+        "entries": 88,
+        "modes": "passes with numpy and without",
+        "drift_proof": "one expected row set was mutated on the server; the test failed with the exact mismatch ('step 10 ORDER BY id DESC: [[5],[4],[3],[2],[1]] != [[999]]') and passed again once restored"
+      },
+      "decisions_locked": [
+        "COMMIT and ROLLBACK outside a transaction succeed",
+        "'<>' , parenthesised predicates, qualified column references (ORDER BY t.id) and a bare SELECT 1 are unsupported",
+        "ORDER BY L2_DISTANCE(...) without an alias is accepted",
+        "two different distance targets in one projection keep their own values",
+        "LIMIT 0 returns columns with no rows; an oversized LIMIT returns every row"
+      ],
+      "limitations": "A golden file locks whatever was captured, so a wrong expectation becomes a permanent test; the entries were reviewed by hand against STDIO_PROTOCOL.md and the second implementation before being committed. DeepSeek executor experiment."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",
