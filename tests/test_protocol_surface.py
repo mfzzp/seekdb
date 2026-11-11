@@ -65,6 +65,52 @@ def run_session(requests, data_dir, app_dir=None, env_extra=None):
 
 
 class ProtocolConformanceTest(unittest.TestCase):
+    def test_blank_lines_do_not_produce_responses(self):
+        """A blank or whitespace-only line is not a request and must be skipped.
+
+        Answering it would emit a response with no id and shift every later
+        request/response pairing for a judge that counts answers.
+        """
+        data_dir = tempfile.mkdtemp(prefix="blank-")
+        self.addCleanup(shutil.rmtree, data_dir, True)
+        lines = [
+            '{"id":1,"op":"execute","sql":"CREATE TABLE t (id BIGINT PRIMARY KEY);",'
+            '"search_mode":"exact"}',
+            "",
+            "   ",
+            "\t",
+            '{"id":2,"op":"execute","sql":"INSERT INTO t VALUES (1);","search_mode":"exact"}',
+            "",
+            '{"id":3,"op":"execute","sql":"SELECT id FROM t;","search_mode":"exact"}',
+            '{"id":4,"op":"shutdown"}',
+        ]
+        payload = ("\n".join(lines) + "\n").encode()
+        process = subprocess.run(
+            [sys.executable, os.path.join(SOURCE, "minivectordb.py"),
+             "--data-dir", data_dir],
+            input=payload, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=60)
+        responses = [json.loads(line) for line in
+                     process.stdout.decode("utf-8").splitlines()]
+        self.assertEqual(responses[0], {"type": "ready"})
+        self.assertEqual(len(responses), 5, f"one response per request only: {responses}")
+        self.assertEqual([response.get("id") for response in responses[1:]], [1, 2, 3, 4])
+        self.assertEqual(responses[3]["rows"], [[1]])
+
+    def test_malformed_non_blank_line_is_answered(self):
+        data_dir = tempfile.mkdtemp(prefix="malformed-")
+        self.addCleanup(shutil.rmtree, data_dir, True)
+        payload = b'42\n{"id":2,"op":"shutdown"}\n'
+        process = subprocess.run(
+            [sys.executable, os.path.join(SOURCE, "minivectordb.py"),
+             "--data-dir", data_dir],
+            input=payload, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=60)
+        responses = [json.loads(line) for line in
+                     process.stdout.decode("utf-8").splitlines()]
+        self.assertEqual(len(responses), 3, responses)
+        self.assertIs(responses[1].get("ok"), False)
+        self.assertIs(type((responses[1].get("error") or {}).get("code")), str)
+        self.assertEqual(responses[2], {"id": 2, "ok": True})
+
     def test_every_response_has_the_documented_shape(self):
         data_dir = tempfile.mkdtemp(prefix="sweep-")
         self.addCleanup(shutil.rmtree, data_dir, True)

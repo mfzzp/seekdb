@@ -1445,6 +1445,17 @@
    "reading": "With numpy the final tree is 7.8x faster end to end and 10x on an unfiltered query; the pure-Python path is the baseline within noise, so the dependency adds the speed and the fallback costs nothing. The previous table (9.64 s and 1.31 s) was measured on a busier moment of the same host: absolute values move between rounds, the ratios do not.",
    "changes": "README and VERIFICATION.md now carry the re-measured table, and the consistency test checks the new figures in all three documents.",
    "limitations": "Single host, three paired rounds for the 200-query figures and one run for the 1000-query figures. DeepSeek executor experiment."
+  },
+  {
+   "id": "blank-line-requests",
+   "executor": "DeepSeek",
+   "source": "DeepSeek probe against e982d86",
+   "problem": "Blank and whitespace-only stdin lines produced an error response with id null. A judge that pairs one answer with one request would shift every later pairing, so a stray empty line could fail a case for the wrong reason.",
+   "method": "scripts/probe_blank_lines.sh sends two blank lines, a whitespace-only line, a non-object JSON line and a string id, then counts the responses.",
+   "before": "three blank lines produced three extra responses: ids 1, null, 2, null, 3, null, 4, five, 6 - ten lines for six real requests",
+   "after": "blank and whitespace-only lines are skipped; the same transcript yields ready plus six responses, the non-object line still gets an error with a code, and the string id is echoed as a string",
+   "changes": "minivectordb.main skips a line when it is empty after strip(); tests/test_protocol_surface.py pins both behaviours.",
+   "limitations": "The specification does not say what to do with an empty line; skipping is the reading that cannot desynchronise a request/answer pairing. DeepSeek executor experiment."
   }
  ],
  "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",

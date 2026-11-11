@@ -951,6 +951,10 @@ def main():
         startup_diagnostics(db)
         send({"type": "ready"})
         for line in sys.stdin.buffer:
+            if not line.strip():
+                # A blank line is not a request.  Answering it would emit a
+                # response with no id and shift every later pairing.
+                continue
             request = {}
             try:
                 request = json.loads(line)
