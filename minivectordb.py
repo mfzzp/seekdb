@@ -350,8 +350,56 @@ class Database(Store):
             keys[slot] = row[primary]
         norms = _numpy.einsum("ij,ij->i", values, values)
         maxabs = float(_numpy.max(_numpy.abs(values))) if rows else 0.0
-        table.matrix = (snapshot, column, values, keys, norms, maxabs)
+        norms_max = float(norms.max()) if rows else 0.0
+        table.matrix = (snapshot, column, values, keys, norms, maxabs, norms_max)
         return table.matrix
+
+    @staticmethod
+    def identity_error_margin(norms_max, query_norm_sq, width):
+        """Absolute error bound of |v|^2 - 2 v.q + |q|^2 in float64.
+
+        Summing `width` squares and the BLAS dot each accumulate a small
+        multiple of eps times the operated magnitudes, so the squared distance
+        carries an absolute error of roughly factor*(||v|| + ||q||)^2.  The
+        factor below multiplies the usual n*eps bound by 4 and the caller widens
+        the window again by 2, because the cancellation is what turns a tiny
+        relative error into a large absolute one when the vectors are close.
+        """
+        factor = 4.0 * width * 2.220446049250313e-16
+        return factor * (math.sqrt(norms_max) + math.sqrt(query_norm_sq)) ** 2
+
+    def select_exact(self, values, query, keys, squared, row_index, limit, margin):
+        """Exact TopK: the approximate ranking only proposes candidates.
+
+        With a positive `margin` the squared distances came from the identity.
+        Every row within 2*margin of the K-th threshold is recomputed with the
+        direct difference kernel before ordering, so a true TopK member cannot be
+        excluded: its approximate value differs from its exact value by at most
+        `margin`, hence it lies inside the widened window.  When the window grows
+        past a small multiple of K the whole set is recomputed instead.
+        """
+        total = squared.size
+        if not total or not limit:
+            return [], _numpy.empty(0)
+        best = min(limit, total)
+        if best < total:
+            candidates = _numpy.argpartition(squared, best - 1)[:best]
+            threshold = squared[candidates].max()
+            window = threshold + 2.0 * margin if margin > 0.0 else threshold
+            pool = _numpy.flatnonzero(squared <= window)
+        else:
+            pool = _numpy.arange(total)
+        rows = row_index[pool] if row_index is not None else pool
+        if margin > 0.0:
+            if pool.size > max(8 * best, 512):
+                rows = row_index if row_index is not None else _numpy.arange(total)
+                pool = _numpy.arange(total)
+            diff = values[rows] - query
+            pool_sq = _numpy.einsum("ij,ij->i", diff, diff)
+        else:
+            pool_sq = squared[pool]
+        order = _numpy.lexsort((keys[rows], pool_sq))[:best]
+        return rows[order], _numpy.sqrt(_numpy.maximum(pool_sq[order], 0.0))
 
     def matrix_top_k(self, table, column, target, limit):
         """Exact TopK over the dense matrix; ties still break on primary key."""
@@ -361,49 +409,34 @@ class Database(Store):
         matrix = table.matrix
         if matrix is None or matrix[0] is not snapshot or matrix[1] != column:
             matrix = self.build_matrix(table, snapshot, column)
-        _, _, values, keys, norms, maxabs = matrix
+        _, _, values, keys, norms, maxabs, norms_max = matrix
         query = _numpy.asarray(target, dtype=values.dtype)
+        query_norm_sq = float(query @ query)
+        width = values.shape[1]
         if maxabs <= IDENTITY_MAX_ABS:
             # |v-q|^2 = |v|^2 - 2 v.q + |q|^2 costs one BLAS mat-vec instead of
-            # an element-wise pass that allocates a matrix-sized temporary. Safe
-            # while |v| stays small enough that the cancellation error is far
-            # below the judge tolerance; large coordinates take the direct path.
-            squared = norms - 2.0 * (values @ query) + float(query @ query)
+            # an element-wise pass that allocates a matrix-sized temporary; the
+            # ranking it produces is only used to choose candidates.
+            squared = norms - 2.0 * (values @ query) + query_norm_sq
             _numpy.maximum(squared, 0.0, out=squared)
+            margin = self.identity_error_margin(norms_max, query_norm_sq, width)
         else:
             diff = values - query
             squared = _numpy.einsum("ij,ij->i", diff, diff)
+            margin = 0.0
         if snapshot.deleted_count:
             bits = _numpy.unpackbits(_numpy.frombuffer(bytes(snapshot.deleted),
                                                        dtype=_numpy.uint8))
             # Bit set means the stable slot was invalidated by a delete.
             live = _numpy.flatnonzero(bits[:squared.size] == 0)
-            ordered = squared[live]
-            ordered_keys = keys[live]
+            ordered, row_index = squared[live], live
         else:
-            live = None
-            ordered = squared
-            ordered_keys = keys
-        total = ordered.size
-        if not total:
-            return []
-        best = min(limit, total)
-        if best < total:
-            candidates = _numpy.argpartition(ordered, best - 1)[:best]
-            threshold = ordered[candidates].max()
-            selected = _numpy.flatnonzero(ordered <= threshold)
-        else:
-            selected = _numpy.arange(total)
-        # Squared distances sort exactly like distances, so the selection and
-        # tie expansion can run before the K square roots that are output.
-        chosen = selected[_numpy.lexsort((ordered_keys[selected],
-                                          ordered[selected]))][:best]
-        rows = []
-        for index in chosen.tolist():
-            slot = int(live[index]) if live is not None else index
-            rows.append((self.read_row(table, snapshot.offsets[slot]),
-                         (float(math.sqrt(ordered[index])),)))
-        return rows
+            ordered, row_index = squared, None
+        rows, distances = self.select_exact(values, query, keys, ordered, row_index,
+                                            limit, margin)
+        offsets = snapshot.offsets
+        return [(self.read_row(table, offsets[int(slot)]), (float(distance),))
+                for slot, distance in zip(rows, distances)]
 
     def matrix_group_top_k(self, table, column, target, limit, filter_column, filter_value):
         """Filtered TopK: distances only for the equality group's slots.
@@ -423,7 +456,7 @@ class Database(Store):
         matrix = table.matrix
         if matrix is None or matrix[0] is not snapshot or matrix[1] != column:
             matrix = self.build_matrix(table, snapshot, column)
-        _, _, values, keys, norms, maxabs = matrix
+        _, _, values, keys, norms, maxabs, norms_max = matrix
         subset = _numpy.frombuffer(slots, dtype=_numpy.uint32).astype(_numpy.int64)
         if snapshot.deleted_count:
             alive = _numpy.fromiter((snapshot.is_live(int(slot)) for slot in subset),
@@ -432,29 +465,21 @@ class Database(Store):
             if not subset.size:
                 return []
         query = _numpy.asarray(target, dtype=values.dtype)
+        query_norm_sq = float(query @ query)
+        width = values.shape[1]
         if maxabs <= IDENTITY_MAX_ABS:
-            squared = norms[subset] - 2.0 * (values[subset] @ query) + float(query @ query)
+            squared = norms[subset] - 2.0 * (values[subset] @ query) + query_norm_sq
             _numpy.maximum(squared, 0.0, out=squared)
+            margin = self.identity_error_margin(norms_max, query_norm_sq, width)
         else:
             diff = values[subset] - query
             squared = _numpy.einsum("ij,ij->i", diff, diff)
-        subset_keys = keys[subset]
-        total = squared.size
-        best = min(limit, total)
-        if best < total:
-            candidates = _numpy.argpartition(squared, best - 1)[:best]
-            threshold = squared[candidates].max()
-            selected = _numpy.flatnonzero(squared <= threshold)
-        else:
-            selected = _numpy.arange(total)
-        chosen = selected[_numpy.lexsort((subset_keys[selected], squared[selected]))][:best]
+            margin = 0.0
+        rows, distances = self.select_exact(values, query, keys, squared, subset,
+                                            limit, margin)
         offsets = snapshot.offsets
-        rows = []
-        for index in chosen.tolist():
-            slot = int(subset[index])
-            rows.append((self.read_row(table, offsets[slot]),
-                         (float(math.sqrt(squared[index])),)))
-        return rows
+        return [(self.read_row(table, offsets[int(slot)]), (float(distance),))
+                for slot, distance in zip(rows, distances)]
 
     def select(self, name, projections, terms, order, limit, mode):
         name = name.casefold()
