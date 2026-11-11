@@ -31,6 +31,9 @@ class EvidenceDocumentTest(unittest.TestCase):
     def test_encoding_and_framing(self):
         self.assertFalse(self.raw.startswith(b"\xef\xbb\xbf"), "file must not start with a BOM")
         self.assertTrue(self.raw.endswith(b"\n"), "file must end with a newline")
+        self.assertNotIn(b"\r\n", self.raw,
+                         "the file must use LF; a CRLF rewrite adds about a kilobyte "
+                         "and makes diffs noisy")
         self.raw.decode("utf-8")          # raises if the file is not valid UTF-8
 
     def test_required_sections(self):
