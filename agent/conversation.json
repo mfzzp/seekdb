@@ -533,6 +533,47 @@
       "changes": [],
       "status": "measured, README updated with protocol-level numbers",
       "limitations": "The measurement client is Python and adds its own serialisation cost on both sides, which the judge's driver will also have in some form; absolute values are therefore indicative. Shared host, local only. DeepSeek executor experiment."
+    },
+    {
+      "id": "correctness-and-memory-risk-pass",
+      "executor": "DeepSeek",
+      "source": "DeepSeek implementation and measurements under /mnt/HDD2/zzp/minivectordb-round2, /usr/bin/python3 3.12.3, numpy 2.3.5 on PYTHONPATH",
+      "baseline": "60e3131",
+      "candidates": ["079fa7f (numeric rerank)", "0b98a6e (shared memory budget, chunked kernels)", "3d81826 (diagnostics, behaviour audit)"],
+      "context": "A review of the previous report asked to prioritise correctness and deployment risk over further hot-path tuning, and specifically predicted that the fixed |v| <= 1000 guard for the identity kernel was not a sufficient precision protection.",
+      "work": [
+        {
+          "item": "identity precision",
+          "finding": "The prediction was correct, and worse than expected: a search over ULP clusters produced a 128-dimensional case at magnitude 30 - far below the guard - where the identity clamped an entire cluster to 0.0 while the true squared distances were 3.6e-12, so the old code returned primary-key order. Old result [16,29,33,...] with distances 0.0, true result [33,39,92,...] at 1.907349e-06.",
+          "fix": "The kernel's absolute error is bounded by 4*width*eps*(||v||+||q||)^2; every row within twice that bound of the K-th threshold is recomputed with the direct difference kernel before the final (distance, key) order, and if the widened window exceeds max(8K, 512) the whole set is recomputed. maximum(squared, 0) alone was never going to repair the ranking.",
+          "cost": "Paired medians with numpy on both sides versus the previous commit: unfiltered 0.611 -> 0.629 ms, filtered 0.308 -> 0.319 ms, ids_digest unchanged. The pathological cluster costs 24 -> 27 ms for that one query because it falls back to a full recompute.",
+          "tests": "tests/test_numeric_bounds.py: ULP neighbours at 0.1/1/100/999/999.9, duplicate vectors, a K/K+1 near tie at 1e-7, 128-dimensional accumulation, a direct check that the margin really bounds the observed error, and the found regression which fails on 60e3131 and passes now."
+        },
+        {
+          "item": "memory budget",
+          "finding": "The cache, each table matrix and each group were each capped at a quarter of the container limit, so their sum could exceed it and two tables could each hold a full matrix. Temporaries were unbounded: a filtered gather copied the whole group block and the direct kernel copied the entire matrix (307 MiB at 300k x 128 float64).",
+          "fix": "MemoryBudget derives one capacity (75% of the cgroup limit minus a 96 MiB interpreter/numpy baseline, 8 MiB floor); used bytes are recomputed from the live structures so invalidation cannot leave them stale; Database._reserve() refuses a growth that does not fit, first dropping other tables' matrices/groups/axis, and build_matrix returns None when it still does not fit so the query falls back to a scan. Kernels now work in 4096-row chunks, bounding a temporary to chunk*dimension*8 bytes.",
+          "cost": "10k benchmark unchanged in shape without a cgroup limit (capacity is None): query total 0.771 -> 0.821 s ratio 1.06, inside the noise band; peak RSS 73 -> 74 MiB; ids_digest identical.",
+          "tests": "tests/test_memory_budget.py: budget arithmetic, refusal when 1 KiB is available (results still exact), two tables alternating under a 400 KiB budget (at most one matrix, memory_used <= capacity), and both chunked kernels compared against the unchunked computation including index gathers."
+        },
+        {
+          "item": "numpy deliverability",
+          "finding": "The largest speedup depends on a dependency installed best-effort at build time, which cannot be verified here: neither machine has a Docker runtime, so the image build is unverified.",
+          "fix": "One stderr line at startup reports python and numpy versions (or 'numpy=absent'), the matrix cap and the memory budget; stdout stays protocol-only. BLAS threading was measured with process-local environment only, 1/2/4 threads and an alternating 1-vs-2 run: 0.684/0.609/0.655 s and 0.695 vs 0.654 s, spreads overlapping; the decision stays at one thread.",
+          "tests": "tests/test_startup_diagnostics.py runs the real program and asserts stdout holds exactly ready + one response + shutdown, with the diagnostics only on stderr; the fallback suite runs with numpy unavailable and skips the accelerated tests."
+        },
+        {
+          "item": "behaviour audit",
+          "finding": "affected_rows and the shutdown error path were chosen earlier without an explicit record, and both can affect admission.",
+          "fix": "UPDATE reports rows whose stored value actually changed; shutdown_quietly() is documented as safe because every commit is already fsynced and uncommitted frames are truncated at the next recovery, so a failed close is a cleanup failure rather than a durability one.",
+          "tests": "tests/test_semantics_audit.py: matched-but-unchanged returns 0, partial changes count only changed rows, a vector update to identical bytes returns 0, a repeated update inside a transaction returns 0 the second time, and a close() that raises still leaves committed rows readable after a reopen with the uncommitted row gone."
+        }
+      ],
+      "results": {"tests_with_numpy": "44 passed", "tests_without_numpy": "44 passed (15 skipped)", "public_cases": "20/20 in both modes"},
+      "verified_gains": ["the identity kernel no longer mis-ranks ULP clusters (regression test fails on the previous commit)", "one shared memory budget bounds cache + matrices + groups and degrades to a scan instead of over-allocating", "temporaries are bounded by chunking instead of the table size"],
+      "inferences": ["the +3-6% query time of the refinement and the chunking is within the observed noise band, so it is not a verified regression either", "two BLAS threads looked ~6% faster in one alternating sample but the spread covers it"],
+      "unverified": ["the Docker image build and the runtime presence of numpy", "the formal 29 cases", "cgroup-level memory.peak and io.stat measurements", "a real Linux SIGKILL (the protocol crash suite runs on Windows)"],
+      "limitations": "Shared-host local timings; the pathological numeric case is synthetic (ULP clusters), chosen to expose the bound rather than to model judge data. DeepSeek executor experiment."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",
