@@ -3,7 +3,10 @@
   "executor": "DeepSeek",
   "host": "lenovo-px (128 cores, shared), Ubuntu 6.17 kernel, /usr/bin/python3 3.12.3",
   "baseline_commit": "716867c0103984aa840f6d4de07d69b8d31746c0",
-  "candidate_commit": "274d62f",
+  "candidate_commits": [
+    "274d62f",
+    "71156c1"
+  ],
   "workload": {
     "rows": 10000,
     "dimensions": 128,
@@ -12,42 +15,76 @@
     "filtered_queries": 500,
     "categories": 20,
     "write_batch": 100,
-    "vector_index": true,
-    "numpy": "2.3.5 (unpacked wheel, PYTHONPATH), OPENBLAS_NUM_THREADS=1"
+    "vector_index": "both variants measured",
+    "numpy": "2.3.5 (unpacked manylinux wheel on PYTHONPATH), OPENBLAS_NUM_THREADS=1"
   },
-  "method": "python3 tests/bench_competition.py <source> --tag <tag>; 3 alternating rounds baseline/candidate, medians reported",
+  "method": "python3 tests/bench_competition.py <source> --tag <tag>; 3 alternating rounds baseline/candidate; medians reported; ids compared separately",
+  "steps": [
+    {
+      "name": "dense matrix + BLAS",
+      "commit": "274d62f",
+      "before": {
+        "unfiltered_median_ms": 15.855,
+        "query_total_s": 8.317
+      },
+      "after": {
+        "unfiltered_median_ms": 2.322,
+        "query_total_s": 1.965
+      }
+    },
+    {
+      "name": "identity kernel (no matrix-sized temporary)",
+      "commit": "71156c1",
+      "before": {
+        "unfiltered_median_ms": 2.322
+      },
+      "after": {
+        "unfiltered_median_ms": 0.716
+      }
+    },
+    {
+      "name": "filtered TopK over equality groups",
+      "commit": "71156c1",
+      "before": {
+        "filtered_median_ms": 1.226
+      },
+      "after": {
+        "filtered_median_ms": 0.308
+      }
+    }
+  ],
   "medians": {
     "baseline": {
       "write_seconds": {
-        "median": 1.421548024052754,
+        "median": 1.4299565791152418,
         "runs": [
-          1.0517443460412323,
-          1.421548024052754,
-          1.4398046690039337
+          1.4299565791152418,
+          0.9372389898635447,
+          1.4357845149934292
         ]
       },
       "unfiltered_median_ms": {
-        "median": 15.854657860472798,
+        "median": 15.673205954954028,
         "runs": [
-          15.854657860472798,
-          15.845639631152153,
-          17.32781541068107
+          15.673205954954028,
+          15.647603548131883,
+          16.44850557204336
         ]
       },
       "filtered_median_ms": {
-        "median": 1.2446005130186677,
+        "median": 1.2257640482857823,
         "runs": [
-          1.2380434200167656,
-          1.2446005130186677,
-          1.464711967855692
+          1.2257640482857823,
+          1.2166650267317891,
+          1.3108925195410848
         ]
       },
       "query_total_s": {
-        "median": 8.31729226373136,
+        "median": 8.005600177915767,
         "runs": [
-          7.998682590201497,
-          8.31729226373136,
-          9.086548738181591
+          8.005600177915767,
+          7.639754514908418,
+          8.3382653654553
         ]
       },
       "peak_rss_mib": {
@@ -61,43 +98,43 @@
     },
     "candidate_numpy": {
       "write_seconds": {
-        "median": 1.1373292340431362,
+        "median": 1.438045830000192,
         "runs": [
-          1.430031785974279,
-          0.9642801370937377,
-          1.1373292340431362
+          1.438045830000192,
+          1.1698765261098742,
+          1.466059196041897
         ]
       },
       "unfiltered_median_ms": {
-        "median": 2.321747480891645,
+        "median": 0.6947225192561746,
         "runs": [
-          2.321747480891645,
-          2.4001470301300287,
-          1.7487920122221112
+          0.6947225192561746,
+          0.5223049083724618,
+          0.7170919561758637
         ]
       },
       "filtered_median_ms": {
-        "median": 1.2837039539590478,
+        "median": 0.3076450666412711,
         "runs": [
-          1.2837039539590478,
-          1.2961184838786721,
-          0.9556076256558299
+          0.3076450666412711,
+          0.20916457287967205,
+          0.31715212389826775
         ]
       },
       "query_total_s": {
-        "median": 1.9647196969017386,
+        "median": 0.6630197789054364,
         "runs": [
-          1.9647196969017386,
-          1.9752774597145617,
-          1.6316964805591851
+          0.6630197789054364,
+          0.48201367957517505,
+          0.6887273995671421
         ]
       },
       "peak_rss_mib": {
-        "median": 115,
+        "median": 114,
         "runs": [
-          115,
-          115,
-          117
+          114,
+          114,
+          114
         ]
       }
     }
@@ -110,14 +147,15 @@
         "rows": 10000,
         "queries": 1000,
         "index": true,
-        "write_seconds": 1.0517443460412323,
-        "unfiltered_median_ms": 15.854657860472798,
-        "unfiltered_total_s": 7.4098431477323174,
-        "filtered_median_ms": 1.2380434200167656,
-        "filtered_total_s": 0.5888394424691796,
-        "query_total_s": 7.998682590201497,
+        "write_seconds": 1.4299565791152418,
+        "unfiltered_median_ms": 15.673205954954028,
+        "unfiltered_total_s": 7.4134802396874875,
+        "filtered_median_ms": 1.2257640482857823,
+        "filtered_total_s": 0.5921199382282794,
+        "query_total_s": 8.005600177915767,
         "peak_rss_mib": 80,
-        "digest": "b40c0e21c3140e66b00d97addc45649ddda0e703cc44fd495f5116f3f3dd22e0"
+        "digest": "b40c0e21c3140e66b00d97addc45649ddda0e703cc44fd495f5116f3f3dd22e0",
+        "ids_digest": "38e0d1533d51ec4e5287b3935abb2d5df8d9059956920a905d6ea0d5378b46d5"
       },
       {
         "tag": "base-2",
@@ -125,14 +163,15 @@
         "rows": 10000,
         "queries": 1000,
         "index": true,
-        "write_seconds": 1.421548024052754,
-        "unfiltered_median_ms": 15.845639631152153,
-        "unfiltered_total_s": 7.675010807113722,
-        "filtered_median_ms": 1.2446005130186677,
-        "filtered_total_s": 0.6422814566176385,
-        "query_total_s": 8.31729226373136,
+        "write_seconds": 0.9372389898635447,
+        "unfiltered_median_ms": 15.647603548131883,
+        "unfiltered_total_s": 7.0748967591207474,
+        "filtered_median_ms": 1.2166650267317891,
+        "filtered_total_s": 0.5648577557876706,
+        "query_total_s": 7.639754514908418,
         "peak_rss_mib": 80,
-        "digest": "b40c0e21c3140e66b00d97addc45649ddda0e703cc44fd495f5116f3f3dd22e0"
+        "digest": "b40c0e21c3140e66b00d97addc45649ddda0e703cc44fd495f5116f3f3dd22e0",
+        "ids_digest": "38e0d1533d51ec4e5287b3935abb2d5df8d9059956920a905d6ea0d5378b46d5"
       },
       {
         "tag": "base-3",
@@ -140,14 +179,15 @@
         "rows": 10000,
         "queries": 1000,
         "index": true,
-        "write_seconds": 1.4398046690039337,
-        "unfiltered_median_ms": 17.32781541068107,
-        "unfiltered_total_s": 8.37035955535248,
-        "filtered_median_ms": 1.464711967855692,
-        "filtered_total_s": 0.7161891828291118,
-        "query_total_s": 9.086548738181591,
+        "write_seconds": 1.4357845149934292,
+        "unfiltered_median_ms": 16.44850557204336,
+        "unfiltered_total_s": 7.711165435379371,
+        "filtered_median_ms": 1.3108925195410848,
+        "filtered_total_s": 0.6270999300759286,
+        "query_total_s": 8.3382653654553,
         "peak_rss_mib": 80,
-        "digest": "b40c0e21c3140e66b00d97addc45649ddda0e703cc44fd495f5116f3f3dd22e0"
+        "digest": "b40c0e21c3140e66b00d97addc45649ddda0e703cc44fd495f5116f3f3dd22e0",
+        "ids_digest": "38e0d1533d51ec4e5287b3935abb2d5df8d9059956920a905d6ea0d5378b46d5"
       }
     ],
     "candidate_numpy": [
@@ -157,14 +197,15 @@
         "rows": 10000,
         "queries": 1000,
         "index": true,
-        "write_seconds": 1.430031785974279,
-        "unfiltered_median_ms": 2.321747480891645,
-        "unfiltered_total_s": 1.31026747263968,
-        "filtered_median_ms": 1.2837039539590478,
-        "filtered_total_s": 0.6544522242620587,
-        "query_total_s": 1.9647196969017386,
-        "peak_rss_mib": 115,
-        "digest": "fb4b92082b2f006643a92a7cf024ce243c9b0c335c28138ee506fa381ea379b0"
+        "write_seconds": 1.438045830000192,
+        "unfiltered_median_ms": 0.6947225192561746,
+        "unfiltered_total_s": 0.5011896200012416,
+        "filtered_median_ms": 0.3076450666412711,
+        "filtered_total_s": 0.16183015890419483,
+        "query_total_s": 0.6630197789054364,
+        "peak_rss_mib": 114,
+        "digest": "3067ca0bfd13249d2fefc8975bd97d509f1385eda9b1d9c52d73011ea324a9a8",
+        "ids_digest": "38e0d1533d51ec4e5287b3935abb2d5df8d9059956920a905d6ea0d5378b46d5"
       },
       {
         "tag": "cand-2",
@@ -172,14 +213,15 @@
         "rows": 10000,
         "queries": 1000,
         "index": true,
-        "write_seconds": 0.9642801370937377,
-        "unfiltered_median_ms": 2.4001470301300287,
-        "unfiltered_total_s": 1.3138432761188596,
-        "filtered_median_ms": 1.2961184838786721,
-        "filtered_total_s": 0.661434183595702,
-        "query_total_s": 1.9752774597145617,
-        "peak_rss_mib": 115,
-        "digest": "fb4b92082b2f006643a92a7cf024ce243c9b0c335c28138ee506fa381ea379b0"
+        "write_seconds": 1.1698765261098742,
+        "unfiltered_median_ms": 0.5223049083724618,
+        "unfiltered_total_s": 0.3708427536766976,
+        "filtered_median_ms": 0.20916457287967205,
+        "filtered_total_s": 0.11117092589847744,
+        "query_total_s": 0.48201367957517505,
+        "peak_rss_mib": 114,
+        "digest": "3067ca0bfd13249d2fefc8975bd97d509f1385eda9b1d9c52d73011ea324a9a8",
+        "ids_digest": "38e0d1533d51ec4e5287b3935abb2d5df8d9059956920a905d6ea0d5378b46d5"
       },
       {
         "tag": "cand-3",
@@ -187,35 +229,109 @@
         "rows": 10000,
         "queries": 1000,
         "index": true,
-        "write_seconds": 1.1373292340431362,
-        "unfiltered_median_ms": 1.7487920122221112,
-        "unfiltered_total_s": 1.0839088417124003,
-        "filtered_median_ms": 0.9556076256558299,
-        "filtered_total_s": 0.5477876388467848,
-        "query_total_s": 1.6316964805591851,
-        "peak_rss_mib": 117,
-        "digest": "fb4b92082b2f006643a92a7cf024ce243c9b0c335c28138ee506fa381ea379b0"
+        "write_seconds": 1.466059196041897,
+        "unfiltered_median_ms": 0.7170919561758637,
+        "unfiltered_total_s": 0.5199445670004934,
+        "filtered_median_ms": 0.31715212389826775,
+        "filtered_total_s": 0.16878283256664872,
+        "query_total_s": 0.6887273995671421,
+        "peak_rss_mib": 114,
+        "digest": "3067ca0bfd13249d2fefc8975bd97d509f1385eda9b1d9c52d73011ea324a9a8",
+        "ids_digest": "38e0d1533d51ec4e5287b3935abb2d5df8d9059956920a905d6ea0d5378b46d5"
       }
     ]
   },
   "consistency": {
-    "selected_ids_identical": true,
+    "indexed_ids_identical": true,
+    "no_index_ids_identical": true,
     "ids_digest": "38e0d1533d51ec4e5287b3935abb2d5df8d9059956920a905d6ea0d5378b46d5",
     "distance_digest_identical": false,
-    "note": "Distances differ only by float summation order (matrix path uses numpy pairwise summation); judge tolerance is 1e-5 absolute/relative."
+    "note": "Distances differ only by float summation order; squared-distance selection is order-equivalent to distance selection."
+  },
+  "scenarios": {
+    "indexed": {
+      "baseline": {
+        "tag": "base-id",
+        "source": "/mnt/HDD2/zzp/round2-results/deepseek-r1-20261111/src/baseline",
+        "rows": 10000,
+        "queries": 1000,
+        "index": true,
+        "write_seconds": 1.4291835150215775,
+        "unfiltered_median_ms": 16.436224104836583,
+        "unfiltered_total_s": 7.669615557882935,
+        "filtered_median_ms": 1.326033496297896,
+        "filtered_total_s": 0.6293082640040666,
+        "query_total_s": 8.298923821887001,
+        "peak_rss_mib": 80,
+        "digest": "b40c0e21c3140e66b00d97addc45649ddda0e703cc44fd495f5116f3f3dd22e0",
+        "ids_digest": "38e0d1533d51ec4e5287b3935abb2d5df8d9059956920a905d6ea0d5378b46d5"
+      },
+      "candidate": {
+        "tag": "cand-id",
+        "source": "/mnt/HDD2/zzp/round2-results/deepseek-r1-20261111/src/candidate",
+        "rows": 10000,
+        "queries": 1000,
+        "index": true,
+        "write_seconds": 1.424409039085731,
+        "unfiltered_median_ms": 0.712071661837399,
+        "unfiltered_total_s": 0.5168370027095079,
+        "filtered_median_ms": 0.3189040580764413,
+        "filtered_total_s": 0.16825024574063718,
+        "query_total_s": 0.6850872484501451,
+        "peak_rss_mib": 114,
+        "digest": "3067ca0bfd13249d2fefc8975bd97d509f1385eda9b1d9c52d73011ea324a9a8",
+        "ids_digest": "38e0d1533d51ec4e5287b3935abb2d5df8d9059956920a905d6ea0d5378b46d5"
+      }
+    },
+    "no_index": {
+      "baseline": {
+        "tag": "base-noidx",
+        "source": "/mnt/HDD2/zzp/round2-results/deepseek-r1-20261111/src/baseline",
+        "rows": 10000,
+        "queries": 1000,
+        "index": false,
+        "write_seconds": 1.1237873299978673,
+        "unfiltered_median_ms": 15.307255904190242,
+        "unfiltered_total_s": 7.058246604166925,
+        "filtered_median_ms": 4.073948482982814,
+        "filtered_total_s": 1.8059855934698135,
+        "query_total_s": 8.864232197636738,
+        "peak_rss_mib": 79,
+        "digest": "b40c0e21c3140e66b00d97addc45649ddda0e703cc44fd495f5116f3f3dd22e0",
+        "ids_digest": "38e0d1533d51ec4e5287b3935abb2d5df8d9059956920a905d6ea0d5378b46d5"
+      },
+      "candidate": {
+        "tag": "cand-noidx",
+        "source": "/mnt/HDD2/zzp/round2-results/deepseek-r1-20261111/src/candidate",
+        "rows": 10000,
+        "queries": 1000,
+        "index": false,
+        "write_seconds": 1.623691791901365,
+        "unfiltered_median_ms": 0.6932355463504791,
+        "unfiltered_total_s": 0.4805599353276193,
+        "filtered_median_ms": 0.30835496727377176,
+        "filtered_total_s": 0.15941920317709446,
+        "query_total_s": 0.6399791385047138,
+        "peak_rss_mib": 113,
+        "digest": "3067ca0bfd13249d2fefc8975bd97d509f1385eda9b1d9c52d73011ea324a9a8",
+        "ids_digest": "38e0d1533d51ec4e5287b3935abb2d5df8d9059956920a905d6ea0d5378b46d5"
+      }
+    }
   },
   "side_benchmarks": {
-    "scan_cache_8000_rows_ms": {
-      "baseline": 11.941,
-      "candidate_numpy": 1.882
-    },
-    "scan_cache_24000_rows_ms": {
-      "baseline": 78.342,
-      "candidate_numpy": 7.205
-    },
-    "scan_cache_48000_rows_ms": {
-      "baseline": 138.435,
-      "candidate_numpy": 22.206
+    "scan_cache_medians_ms": {
+      "8000": [
+        11.941,
+        1.882
+      ],
+      "24000": [
+        78.342,
+        7.205
+      ],
+      "48000": [
+        138.435,
+        22.206
+      ]
     },
     "query_paths_paired_ratio": {
       "primary_payload_topk": 1.01,
