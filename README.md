@@ -27,24 +27,29 @@ Locally: `python3 minivectordb.py --data-dir /tmp/mvdb`.
 | `CREATE TABLE t (id BIGINT PRIMARY KEY, c VARCHAR(n), v VECTOR(d))` | one signed BIGINT primary key, at most one vector column; column or table level `PRIMARY KEY` |
 | `CREATE VECTOR INDEX name ON t(v)` | records index metadata; queries stay exact in both modes |
 | `INSERT INTO t VALUES (...), (...)` | optional column list; the whole statement is atomic |
-| `SELECT ... FROM t [WHERE ...] [ORDER BY ...] [LIMIT n]` | projection, `*`, `= <> < <= > >=`, `AND`, `L2_DISTANCE(col,'[...]') AS alias` |
+| `SELECT ... FROM t [WHERE ...] [ORDER BY ...] [LIMIT n]` | projection, `*`, `= < <= > >=`, `AND`, `L2_DISTANCE(col,'[...]') AS alias` |
 | `UPDATE t SET c = ... [WHERE ...]` | returns the number of rows whose value actually changed (MySQL semantics) |
 | `DELETE FROM t [WHERE ...]` | returns the number of deleted rows |
-| `BEGIN` / `COMMIT` / `ROLLBACK` | at most one explicit transaction per connection |
+| `BEGIN` / `COMMIT` / `ROLLBACK` | at most one explicit transaction per connection; `COMMIT`/`ROLLBACK` outside one are successful no-ops |
 
 Semantics: statements outside a transaction commit automatically and are
 `fsync`ed before the response; a transaction sees its own writes; a failed
 statement leaves no partial effect; filtered TopK is computed inside the filter
 and ties break on ascending primary key; vectors are stored as float32 and
 distances use the stored values; `NaN`, `Infinity`, dimension mismatches and
-float32 overflow are rejected. Unsupported syntax (`NULL`, `JOIN`, aggregation,
-subqueries, `ALTER`/`DROP`, nested transactions, primary-key updates) returns
-`unsupported_sql` instead of being silently reinterpreted.
+float32 overflow are rejected. Without `ORDER BY`, rows come back in primary-key
+insertion order — an `UPDATE` keeps a row's position, a delete followed by a
+re-insert moves it to the end — which is what the pinned `extra_row_order` case
+records, because the public results never compare a multi-row answer that lacks
+`ORDER BY`. Unsupported syntax (`NULL`, `JOIN`, aggregation, subqueries,
+`ALTER`/`DROP`, `<>`, parenthesised predicates, qualified column references,
+nested transactions, primary-key updates) returns `unsupported_sql` instead of
+being silently reinterpreted.
 
 Errors look like `{"id":3,"ok":false,"error":{"code":"duplicate_key","message":"..."}}`.
 Codes: `invalid_request`, `unsupported_sql`, `unknown_table`, `table_exists`,
 `unknown_column`, `duplicate_key`, `invalid_value`, `invalid_schema`,
-`index_exists`, `transaction_active`, `no_transaction`.
+`index_exists`, `transaction_active`.
 
 ## Example from an empty data directory
 
@@ -161,9 +166,10 @@ python3 protocol_check/run.py --command '["python3","minivectordb.py","--data-di
 python3 -m unittest discover -s tests -v
 ```
 
-- 20/20 public protocol cases pass with and without numpy, plus six extra cases
+- 20/20 public protocol cases pass with and without numpy, plus seven extra cases
   (range and AND predicates, restart with an index, a failed statement inside a
-  transaction, LIMIT 0, non-ASCII values, ann vs exact) through the same runner.
+  transaction, LIMIT 0, non-ASCII values, ann vs exact, and the row order of a
+  multi-row answer without ORDER BY) through the same runner.
 - 70 regression tests pass (matrix paths, numeric bounds, memory budget, chunked
   TopK, scalar filters, ann/exact equivalence, bitmap deletion, recovery
   truncation, real SIGKILL recovery, mixed-workload soak, query paths, scan

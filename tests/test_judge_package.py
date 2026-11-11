@@ -46,7 +46,7 @@ class JudgePackageTest(unittest.TestCase):
         failed = [case for case in report["cases"] if case["status"] != "PASS"]
         self.assertEqual(failed, [], f"failing cases: {failed}\n{text[-2000:]}")
         self.assertTrue(report["passed"])
-        self.assertEqual(len(report["cases"]), 6)
+        self.assertEqual(len(report["cases"]), 7)
 
 
 if __name__ == "__main__":

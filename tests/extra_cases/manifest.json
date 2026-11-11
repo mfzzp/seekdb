@@ -43,6 +43,13 @@
       "test": "cases/extra_ann_modes.test",
       "result": "cases/extra_ann_modes.result",
       "statements": 5
+    },
+    {
+      "id": "extra_row_order",
+      "group": "extra",
+      "test": "cases/extra_row_order.test",
+      "result": "cases/extra_row_order.result",
+      "statements": 8
     }
   ]
 }
