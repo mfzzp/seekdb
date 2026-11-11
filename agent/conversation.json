@@ -898,6 +898,24 @@
       "reading": "The equality path builds groups plus the matrix in 3.0 s; the first range query then builds the scalar index in 1.7 s and reuses the matrix. Warm costs are 3.1 ms (15k-row group) and 16.7 ms (30k-row range). The 358 MiB peak on an unlimited host shows the budget accounting is not inflating anything.",
       "changes": "README and VERIFICATION.md now carry the current figures, with the table living in VERIFICATION.md only.",
       "limitations": "Single run per path on a shared host; the 1.7 s range figure is incremental after the matrix already exists. DeepSeek executor experiment."
+    },
+    {
+      "id": "row-order-without-order-by",
+      "executor": "DeepSeek",
+      "source": "DeepSeek audit of the public package and measurement against ee7cdae",
+      "problem": "Reading all 103 statements of the twenty public cases showed that the 'unordered' comparison mode is never used, so every row comparison is ordered. At the same time no public case compares a multi-row answer that lacks ORDER BY - each such query there returns one row or none - leaving the order of a general unordered select unpinned by anything.",
+      "method": "scripts/probe_row_order.sh inserts three rows out of key order, selects without ORDER BY, updates one row, deletes and re-inserts another, and selects again at each step.",
+      "results": [
+        "INSERT (3),(1),(2) then SELECT id gives [3],[1],[2] - primary-key insertion order, not key order",
+        "UPDATE id=3 keeps the row in place: the scan iterates the key dictionary, so an update does not move it to the log tail",
+        "DELETE id=1 then INSERT (1) moves that row to the end: [3],[2],[1]"
+      ],
+      "consequence": "tests/extra_cases/extra_row_order pins this through the judges own runner, so all seven extra cases now assert it; README documents the rule next to the SQL scope.",
+      "doc_corrections": [
+        "the SQL scope table listed <> as supported, but the grammar rejects it and the implementation answers unsupported_sql",
+        "the error-code list still named no_transaction, which COMMIT and ROLLBACK no longer raise after they became no-ops"
+      ],
+      "limitations": "The order is a property of this implementation; MySQL gives no guarantee without ORDER BY either, so a hidden case that depends on a different order would be fragile for any implementation. DeepSeek executor experiment."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",
