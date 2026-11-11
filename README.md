@@ -103,6 +103,9 @@ Costs are cut in four places, in order of effect:
    the K-th threshold is recomputed with the direct difference kernel before the
    final order is taken, and the whole set is recomputed when that window grows
    past `max(8K, 512)`. Coordinates above 1000 bypass the identity entirely.
+   `eps` is the epsilon of the dtype the matrix was built with: above
+   `MATRIX_MAX_BYTES` the matrix is float32, whose epsilon is nine orders of
+   magnitude larger, and a float64 bound would make the window far too narrow.
 2. **Equality groups**: one array of snapshot slots per distinct value of a
    scalar column. A filtered TopK only computes distances for that group's
    slots — with or without a vector index.

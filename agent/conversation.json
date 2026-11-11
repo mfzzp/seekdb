@@ -979,6 +979,21 @@
       "reading": "The BLAS thread limit is a deployment requirement, not a tuning knob: OpenBLAS sizes its pool from the host core count, so a host with 128 or more cores could exceed the 127-pid limit before answering a single request. With the setting the process is one thread, and the two-CPU quota costs nothing measurable, so the published performance numbers hold in the judge's container shape.",
       "changes": "No code change; the Dockerfile comment now carries the measured thread counts and VERIFICATION.md records the table.",
       "limitations": "Thread counts were sampled on one host; the exact count OpenBLAS picks depends on its own heuristics, which is why the Dockerfile sets the variable explicitly rather than relying on the default. DeepSeek executor experiment."
+    },
+    {
+      "id": "float32-matrix-margin",
+      "executor": "DeepSeek",
+      "source": "DeepSeek investigation against d8cc77c, fix committed on top of it",
+      "problem": "matrix_top_k stores float64 until rows*width*8 exceeds MATRIX_MAX_BYTES, then switches to float32 - which happens above roughly 197k rows at 128 dimensions, i.e. at the 300k size already measured. The identity kernel then computes in float32, but the rerank window was derived from the float64 epsilon, which is 5.4e8 times smaller. A row one float32 rounding step above the threshold would never be recomputed even if it were truly nearer.",
+      "investigation": [
+        "a first probe forced the float32 path on a small near-tie cluster but MATRIX_MAX_BYTES also gates whether the matrix is used at all, so the matrix was never built and the probe measured the scan instead",
+        "a 250k-row ULP-cluster probe hit the float32 path and still matched the oracle, because every distance collapsed to zero, the window therefore covered the whole table and the full-recompute fallback produced the exact answer",
+        "a 200k-row probe with true squared distances on a 1.0000 + i*1e-4 grid also matched: one float32 rounding step of the intermediate norm is 0.0078, so thousands of rows shared the threshold's quantised value and the >512 candidate rule triggered a full recompute again"
+      ],
+      "conclusion": "The failure needs a narrow pool and a wrong neighbour, which these constructions did not produce. The bound was still wrong on principle, so the margin now takes the epsilon of the matrix dtype: identity_error_margin(norms_max, query_norm_sq, width, eps), with matrix_top_k and _subset_top_k passing float(numpy.finfo(values.dtype).eps).",
+      "tests": "tests/test_float32_margin.py pins the scale (wide/narrow ratio equals eps32/eps64), reproduces the exclusion directly on select_exact (a float64-sized window loses the true nearest row, a float32-sized one recovers it), checks the dtype decision at the cap, and spies on matrix_top_k to prove it asks for eps32 when the matrix is float32. The last two fail against the pre-fix source.",
+      "cost": "At 300k rows the equality path is unchanged (3.0 ms warm against 3.1 before) and the range path rises from 16.7 to 32.4 ms because the wider window recomputes more candidates; the answer stays exact.",
+      "limitations": "No construction reproduced a wrong answer from the old bound, so the fix is justified by the algebra rather than by an observed failure; the probe scripts stay next to the results for anyone who wants to keep hunting. DeepSeek executor experiment."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",

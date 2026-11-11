@@ -542,8 +542,9 @@ class Database(Store):
         return table.matrix
 
     @staticmethod
-    def identity_error_margin(norms_max, query_norm_sq, width):
-        """Absolute error bound of |v|^2 - 2 v.q + |q|^2 in float64.
+    def identity_error_margin(norms_max, query_norm_sq, width,
+                              eps=2.220446049250313e-16):
+        """Absolute error bound of |v|^2 - 2 v.q + |q|^2.
 
         Summing `width` squares and the BLAS dot each accumulate a small
         multiple of eps times the operated magnitudes, so the squared distance
@@ -551,8 +552,13 @@ class Database(Store):
         factor below multiplies the usual n*eps bound by 4 and the caller widens
         the window again by 2, because the cancellation is what turns a tiny
         relative error into a large absolute one when the vectors are close.
+
+        `eps` must be the epsilon of the dtype the matrix was built with: a
+        float32 matrix (used above MATRIX_MAX_BYTES) computes the identity in
+        float32, whose epsilon is 1.2e-7, and a float64 bound would make the
+        rerank window far too narrow for it.
         """
-        factor = 4.0 * width * 2.220446049250313e-16
+        factor = 4.0 * width * eps
         return factor * (math.sqrt(norms_max) + math.sqrt(query_norm_sq)) ** 2
 
     def select_exact(self, values, query, keys, squared, row_index, limit, margin):
@@ -661,7 +667,8 @@ class Database(Store):
             # an element-wise pass that allocates a matrix-sized temporary; the
             # ranking it produces is only used to choose candidates.
             squared = self._identity_squared(values, norms, query)
-            margin = self.identity_error_margin(norms_max, query_norm_sq, width)
+            margin = self.identity_error_margin(norms_max, query_norm_sq, width,
+                                                float(_numpy.finfo(values.dtype).eps))
         else:
             squared = self._direct_squared(values, query)
             margin = 0.0
@@ -738,7 +745,8 @@ class Database(Store):
                 squared = squared_all[subset]
             else:
                 squared = self._identity_squared(values, norms, query, subset)
-            margin = self.identity_error_margin(norms_max, query_norm_sq, width)
+            margin = self.identity_error_margin(norms_max, query_norm_sq, width,
+                                                float(_numpy.finfo(values.dtype).eps))
         else:
             squared = self._direct_squared(values, query, subset)
             margin = 0.0

@@ -121,7 +121,7 @@ the limit.
 
 ## 3. Correctness evidence
 
-- 72 regression tests, passing with and without numpy (26 skipped without it).
+- 76 regression tests, passing with and without numpy (30 skipped without it).
 - 20/20 public cases plus six extra cases through the judge's own runner
   (`protocol_check/run.py` with `tests/extra_cases`), in both modes, including
   against a pristine `git archive` export of the committed tree.
@@ -129,7 +129,10 @@ the limit.
   seeds; 1000-query `ids_digest` identical; 720/720 in an earlier six-seed run.
 - Numeric: a real mis-ranking was found and fixed (ULP cluster at magnitude 30,
   128 dimensions, where the identity kernel clamped a whole cluster to zero); the
-  regression test for it fails on the previous commit and passes now.
+  regression test for it fails on the previous commit and passes now. The rerank
+  window also uses the epsilon of the matrix dtype, so the float32 matrix used
+  above `MATRIX_MAX_BYTES` gets a float32-sized window instead of a float64 one
+  that would be 5.4e8 times too narrow.
 - Crash: six SIGKILL scenarios — between commits, inside a transaction, during a
   100k-row statement, a 10k-row transaction killed before COMMIT, a kill landing
   inside recovery of a 300k-row log (with the test asserting no ready line was
