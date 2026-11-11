@@ -1567,6 +1567,21 @@
    "test_side_error": "The first version of the batch case expected duplicate_key for a key that had never been inserted, because the earlier statement failed atomically - the behaviour under test. The expectation was wrong; it now duplicates a key that exists.",
    "changes": "tests/extra_cases gained the two cases; test_judge_package asserts twelve.",
    "limitations": "Hand-written cases remain a sample of the hidden set. DeepSeek executor experiment."
+  },
+  {
+   "id": "single-statement-bulk-insert",
+   "executor": "DeepSeek",
+   "source": "DeepSeek probe against 4f71f43",
+   "problem": "The published performance shape inserts 100 batches of 100 rows, but a judge case could send one large INSERT. Nothing had measured whether one statement stays linear or degrades on parsing or copying.",
+   "method": "scripts/probe_bulk_insert.py sends one INSERT of 1000, 10000 and 50000 rows through the protocol and times the round trip, with a SELECT afterwards to confirm the rows are there.",
+   "results": [
+    "1000 rows: 0.021 s, 20.9 us per row, statement 89 KB",
+    "10000 rows: 0.190 s, 19.0 us per row, statement 899 KB",
+    "50000 rows: 0.909 s, 18.2 us per row, statement 4.5 MB",
+    "the SELECT returned exactly the inserted count in every case, so the cost is linear and a large single statement stays well inside the 60 s request limit"
+   ],
+   "changes": "tests/test_ddl_edges.py adds a 5000-row single-statement insert that asserts the affected count and the stored row count.",
+   "limitations": "Measured with 16 dimensions; a 128-dimension statement of the same row count is about eight times the bytes, which the per-row cost curve suggests still stays linear. DeepSeek executor experiment."
   }
  ],
  "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",

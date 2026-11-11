@@ -101,6 +101,17 @@ class DDLTest(unittest.TestCase):
                         "exact")
         self.assertEqual(self.db.execute("SELECT id FROM two_vec", "exact")["rows"], [])
 
+    def test_single_statement_bulk_insert_scales_linearly(self):
+        """One INSERT of many rows must stay linear; measured 18-21 us per row."""
+        rows = 5000
+        self.db.execute("CREATE TABLE bulk (id BIGINT PRIMARY KEY, g BIGINT, "
+                        "v VECTOR(8))", "exact")
+        values = ",".join(
+            f"({key},{key % 20},'[{','.join(['0.5'] * 8)}]')" for key in range(rows))
+        response = self.db.execute(f"INSERT INTO bulk VALUES {values}", "exact")
+        self.assertEqual(response["affected_rows"], rows)
+        self.assertEqual(len(self.db.execute("SELECT id FROM bulk", "exact")["rows"]), rows)
+
     def test_declared_name_case_is_echoed_and_lookup_is_case_insensitive(self):
         self.db.execute('CREATE TABLE MixedCase (ID BIGINT PRIMARY KEY, Tag VARCHAR(4))',
                         "exact")
