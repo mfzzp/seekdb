@@ -141,15 +141,17 @@ class Store:
     def truncate(self, offset):
         self.writer.flush()
         self.writer.truncate(offset)
-        self.writer.seek(0, os.SEEK_END)
+        self.log_end = self.writer.seek(0, os.SEEK_END)
         # A buffered reader may retain bytes beyond the truncated position.
         self.reader.close()
         self.reader = self.path.open("rb", buffering=128 * 1024)
 
     def frame(self, payload):
-        offset = self.writer.tell()
+        # The buffered writer is append-only; truncate resets the logical end.
+        offset = self.log_end
         self.writer.write(LENGTH.pack(len(payload)))
         self.writer.write(payload)
+        self.log_end += LENGTH.size + len(payload)
         return offset
 
     def write(self, action, args):
@@ -163,7 +165,7 @@ class Store:
         return operation
 
     def mutate(self, operations):
-        start = self.writer.tell()
+        start = self.log_end
         updates = Transaction()
         count = 0
 
@@ -198,7 +200,7 @@ class Store:
         except OSError:
             self.truncate(abort_offset)
             raise
-        self.committed_end = self.writer.tell()
+        self.committed_end = self.log_end
         transaction.publish(self.tables)
 
     def begin(self):
@@ -207,7 +209,7 @@ class Store:
 
     def commit(self):
         require(self.pending is not None, "no_transaction", "no active transaction")
-        self.durable_commit(self.pending, self.writer.tell())
+        self.durable_commit(self.pending, self.log_end)
         self.pending = None
 
     def rollback(self):

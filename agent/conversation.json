@@ -62,6 +62,14 @@
       "method": "Three alternating process runs, same seeded 10000 rows of 128 dimensions, batches of 100, then 200 TopK queries. Compare complete query outputs. Also parse a fixed 100-row SQL batch 300 times with no storage work.",
       "output": "Write-phase seconds before [3.234867686, 2.938377720, 11.621469150], after [2.805967852, 2.690905519, 2.465986656]. Parse-only 1.3027 s before and 0.4636 s after. All three pairs returned identical 200 query results. 9841 short quote/space token inputs matched the prior pattern, escaped quotes parsed correctly, and 20 public cases plus two regression tests passed.",
       "limits": "Local timings include load on a shared server; write timings include data generation. No official score inferred."
+    },
+    {
+      "id": "log-append-offset",
+      "source": "Codex on the requested Linux server with Python 3.12.3",
+      "hypothesis": "Tracking the logical append offset avoids a file-position lookup per log frame.",
+      "method": "Three paired runs with 10000 rows, dimension 128, batches of 100, and 200 queries. Separately append 200000 buffered 64-byte payloads and verify every returned offset.",
+      "output": "Write-phase seconds before [2.8393,2.8441,2.6745], after [2.4640,2.5567,2.6318]. All paired query results matched. Frame probe seconds before [0.2044,0.2072,0.2025], after [0.1310,0.1315,0.1296]. All 20 public cases and both regressions passed. After reopening a log with an uncommitted suffix, the next committed row reused the correct offset and survived another reopen.",
+      "limits": "The frame probe excludes fsync. End-to-end local write timings include data generation. The alternative vector validation change was reverted after failing to improve the paired median."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed.",
