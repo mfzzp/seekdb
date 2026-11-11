@@ -768,6 +768,25 @@
         "The fallback is memory-bounded at 100k rows but ~50x slower per query than the numpy path, which makes the best-effort numpy install the single most valuable deployment property."
       ],
       "limitations": "The oracle compares against the same stored float32 values, so it validates ranking and plumbing rather than float behaviour (that is what the numeric-bounds tests do). Timings are single-host. DeepSeek executor experiment."
+    },
+    {
+      "id": "sigkill-recovery-on-linux",
+      "executor": "DeepSeek",
+      "source": "DeepSeek tests on the Linux server (/usr/bin/python3 3.12.3) against 1240352",
+      "problem": "Crash recovery had only been exercised with a synthetic write failure and with TerminateProcess on Windows. Neither is a SIGKILL: the judge may kill the container, which runs no shutdown path, flushes nothing and leaves whatever was in the page cache.",
+      "method": "tests/test_crash_recovery.py starts the real process, speaks the protocol, sends SIGKILL at four different moments, restarts and inspects the rows and the log file size",
+      "results": [
+        "six acknowledged batches then a kill: all 60 rows recovered and the log accepted new writes afterwards",
+        "BEGIN with four uncommitted inserts then a kill: only the row committed before BEGIN survived, and a new insert worked",
+        "one INSERT of 100,000 rows killed 200 ms in: the earlier three batches were recovered with no partial statement and no gap in the primary keys (the invariant is 'all or nothing', which the test asserts rather than assuming the kill lands mid-statement)",
+        "a partially written frame appended to a healthy log: recovery truncated the file back to its previous size exactly, the five committed rows were readable, and a following insert plus restart still worked"
+      ],
+      "note": "The first version of the bulk-load case asserted that the big statement never commits, and failed because the 2000-row statement had already completed within the 50 ms delay. The statement was wrong, not the database: the durability guarantee is all-or-nothing, so the test now asserts that invariant.",
+      "conclusions": [
+        "SIGKILL leaves no partial statement, no uncommitted transaction and no torn suffix after recovery.",
+        "The torn-suffix case is deterministic (the test writes the frame itself), so the truncation path stays covered even when kill timing varies."
+      ],
+      "limitations": "SIGKILL is delivered by the parent process, not by the container runtime; page-cache behaviour is the same, but a kernel-level OOM kill was not reproduced. DeepSeek executor experiment."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",

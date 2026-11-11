@@ -198,11 +198,11 @@ python3 -m unittest discover -s tests -v
 ```
 
 - 20/20 public protocol cases pass with and without numpy.
-- 61 regression tests pass (matrix paths, numeric bounds, memory budget, chunked
+- 65 regression tests pass (matrix paths, numeric bounds, memory budget, chunked
   TopK, scalar filters, ann/exact equivalence, bitmap deletion, recovery
-  truncation, query paths, scan cache, SQL surface, model fuzz, semantics audit,
-  startup diagnostics and the protocol-level shape/resilience/read-only suite);
-  26 are skipped when numpy is absent.
+  truncation, real SIGKILL recovery, query paths, scan cache, SQL surface, model
+  fuzz, semantics audit, startup diagnostics and the protocol-level
+  shape/resilience/read-only suite); 26 are skipped when numpy is absent.
 - Model fuzz: 220 random operations (multi-row inserts, predicate updates and
   deletes, transactions, restarts, TopK queries) match a Python model exactly.
 - Differential fuzz against the previous revision: 720/720 generated queries
