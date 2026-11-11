@@ -787,6 +787,28 @@
         "The torn-suffix case is deterministic (the test writes the frame itself), so the truncation path stays covered even when kill timing varies."
       ],
       "limitations": "SIGKILL is delivered by the parent process, not by the container runtime; page-cache behaviour is the same, but a kernel-level OOM kill was not reproduced. DeepSeek executor experiment."
+    },
+    {
+      "id": "mixed-workload-soak",
+      "executor": "DeepSeek",
+      "source": "DeepSeek scripts and tests on the Linux server (/usr/bin/python3 3.12.3) against c163710",
+      "problem": "Every check so far used a short-lived process or a single workload shape. A leak in the cache, the equality groups, the scalar index or the matrix invalidation - or a lost update, a resurrected rolled-back row, or a restart that loses rows - would only appear after many write/query cycles.",
+      "method": "scripts/soak.py drives the real process through repeated rounds of a 20-row insert, five updates, five deletes, an unfiltered TopK, an equality-filtered TopK and a range-filtered TopK, a rolled-back transaction every ten rounds and a restart every twenty-five. Every round is compared against a Python model; VmRSS is sampled from /proc and the row log size is tracked.",
+      "results_300_rounds": {
+        "operations": 3856, "rows": 4550,
+        "numpy": {"seconds": 12.2, "rss_mib": {"first": 30, "max": 36, "last": 31},
+                  "log_bytes": 1411057, "mismatches": 0},
+        "fallback": {"seconds": 10.4, "rss_mib": {"first": 15, "max": 24, "last": 16},
+                     "log_bytes": 1411057, "mismatches": 0}
+      },
+      "false_alarm": "The first run reported ten TopK mismatches. The model ranked the original float64 vectors while the store keeps float32, so near ties broke differently; rounding the model through float32 removed all ten. Nothing was wrong with the database, and the failure was in the oracle.",
+      "observations": [
+        "Resident memory is flat across 3,856 operations in both modes, so invalidation of the matrix, the groups, the scalar index and the axis does not accumulate.",
+        "The row log grows with writes (1.4 MB for 4,550 rows plus deletes) because deletes are tombstones and there is no compaction; that is by design and no requirement asks for compaction.",
+        "The fallback was marginally faster than the numpy path in this write-heavy shape (10.4 vs 12.2 s), because every round writes and therefore invalidates the matrix, so the numpy path pays a rebuild each time while the fallback never builds one. A judge workload with a load phase followed by a query phase is unaffected."
+      ],
+      "tests": "tests/test_soak.py keeps a forty-round version in the suite (row count every round, TopK every tenth round, one restart mid-run, tail-median RSS within 32 MiB of the warm-up median). 66 tests pass with numpy and 66 without (26 skipped); 20/20 public cases pass.",
+      "limitations": "The soak exercises one table and a synthetic access pattern; it cannot prove the absence of leaks, only that none appeared over 3,856 operations. DeepSeek executor experiment."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",
