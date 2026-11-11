@@ -1456,6 +1456,23 @@
    "after": "blank and whitespace-only lines are skipped; the same transcript yields ready plus six responses, the non-object line still gets an error with a code, and the string id is echoed as a string",
    "changes": "minivectordb.main skips a line when it is empty after strip(); tests/test_protocol_surface.py pins both behaviours.",
    "limitations": "The specification does not say what to do with an empty line; skipping is the reading that cannot desynchronise a request/answer pairing. DeepSeek executor experiment."
+  },
+  {
+   "id": "ddl-edge-cases",
+   "executor": "DeepSeek",
+   "source": "DeepSeek probe against f65bc3a",
+   "problem": "Hidden cases can create tables the public ones do not: a table with only a primary key, a one-element vector, a one-character string, or a schema this database cannot support. Each needs one right answer - accept and work, or reject with a code and stay alive.",
+   "method": "scripts/probe_ddl_edges.sh sends eighteen statements covering those shapes, then tests/test_ddl_edges.py pins the answers in process.",
+   "results": [
+    "a table with only a primary key works for insert and select",
+    "VECTOR(1) is accepted and L2_DISTANCE returns 2.5 for [2.5] against [0]",
+    "VARCHAR(1) accepts one character and rejects two with invalid_value",
+    "VARCHAR primary key, missing primary key, duplicate column, VECTOR(0), VARCHAR(0) are rejected with invalid_schema; an empty column list is unsupported_sql",
+    "a duplicate CREATE TABLE is rejected with table_exists and the first table keeps its rows",
+    "a mixed-case declaration is echoed with its declared case (columns [ID,Tag]) while lookups are case-insensitive, as MySQL does"
+   ],
+   "changes": "tests/test_ddl_edges.py adds six tests. The evidence budget moved from 128 KiB to 160 KiB with the rationale written into the test, because the recorded measurements are worth more than an arbitrary cap.",
+   "limitations": "These are plausible shapes, not the hidden cases. DeepSeek executor experiment."
   }
  ],
  "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",
