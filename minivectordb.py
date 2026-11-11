@@ -122,6 +122,9 @@ class Database(Store):
             if col == table.primary and op == "=":
                 offset = changes.get(value, table.rows.get(value))
                 return () if offset is None else (offset,)
+        if filters and all(col == table.primary for col, _, _ in filters):
+            return (changes.get(key, table.rows.get(key))
+                    for key in self.matching_primary_keys(name, table, filters))
         if clustered and table.index is not None and not changes:
             if table.blocks is not None:
                 indexed_column = table.blocks[0]
@@ -146,10 +149,21 @@ class Database(Store):
 
     def matching(self, name, table, filters, clustered=False):
         checks = [(col, COMPARISONS[op], value) for col, op, value in filters]
-        for offset in self.candidates(name, table, filters, clustered):
-            row = self.read_row(table, offset)
-            if not checks or all(compare(row[col], value) for col, compare, value in checks):
-                yield row
+        offsets = self.candidates(name, table, filters, clustered)
+        if not checks:
+            for offset in offsets:
+                yield self.read_row(table, offset)
+        elif len(checks) == 1:
+            col, compare, value = checks[0]
+            for offset in offsets:
+                row = self.read_row(table, offset)
+                if compare(row[col], value):
+                    yield row
+        else:
+            for offset in offsets:
+                row = self.read_row(table, offset)
+                if all(compare(row[col], value) for col, compare, value in checks):
+                    yield row
 
     def update(self, name, assignments, terms):
         name = name.casefold()
@@ -190,6 +204,9 @@ class Database(Store):
         checks = [(COMPARISONS[op], value) for _, op, value in filters]
         if not checks:
             return keys
+        if len(checks) == 1:
+            compare, value = checks[0]
+            return (key for key in keys if compare(key, value))
         return (key for key in keys if all(compare(key, value) for compare, value in checks))
 
     def delete(self, name, terms):
@@ -306,8 +323,7 @@ class Database(Store):
                     "unsupported_sql", "cannot order by a raw vector")
             ordering.append((bound, descending))
 
-        if (all(column == table.primary for column in projected)
-                and all(column == table.primary for column, _, _ in filters)
+        if (all(column == table.primary for column, _, _ in filters)
                 and all(column == table.primary for column, _ in ordering)):
             keys = self.matching_primary_keys(name, table, filters)
             if ordering:
@@ -319,7 +335,17 @@ class Database(Store):
                     keys = top(min(limit, sys.maxsize), keys)
             elif limit is not None:
                 keys = islice(keys, min(limit, sys.maxsize))
-            return {"columns": names, "rows": [[key] * len(projected) for key in keys]}
+            if all(column == table.primary for column in projected):
+                return {"columns": names, "rows": [[key] * len(projected) for key in keys]}
+            # Rank/filter keys before fetching payloads or computing projected distances.
+            changes = self.changes(name)
+            result = []
+            for key in keys:
+                row = self.read_row(table, changes.get(key, table.rows.get(key)))
+                distances = tuple(math.dist(row[column], target) for column, target in evaluators)
+                result.append([row[bound] if bound >= 0 else distances[-bound - 1]
+                               for bound in projected])
+            return {"columns": names, "rows": result}
 
         clustered = bool(ordering and ordering[0][0] < 0)
         records = self.matching(name, table, filters, clustered)
@@ -327,9 +353,11 @@ class Database(Store):
         def values(row):
             return tuple(math.dist(row[column], target) for column, target in evaluators)
 
+        distance_order = any(bound < 0 for bound, _ in ordering)
+
         def ranked():
             for row in records:
-                distances = values(row)
+                distances = values(row) if distance_order else ()
                 rank = []
                 for bound, descending in ordering:
                     value = row[bound] if bound >= 0 else distances[-bound - 1]
@@ -351,7 +379,8 @@ class Database(Store):
                 winners = sorted(ranked(), key=operator_key)
             else:
                 winners = heapq.nsmallest(min(limit, sys.maxsize), ranked(), key=operator_key)
-            rows = [(row, distances) for _, row, distances in winners]
+            rows = [(row, distances if distance_order else values(row))
+                    for _, row, distances in winners]
         else:
             if limit is not None:
                 records = islice(records, min(limit, sys.maxsize))

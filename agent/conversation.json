@@ -32,6 +32,11 @@
       "id": "bitmap-delete-proposal",
       "role": "user",
       "content": "这个删除可以搞假删除。就把他有效/无效标记改一下，不然磁盘block会经常随机删除，很麻烦。标记按位图的话，10亿条也就128m，能常驻内存。可以参考这两个论文在服务器进行修改提交"
+    },
+    {
+      "id": "continue-query-path-optimization",
+      "role": "user",
+      "content": "继续优化，消除所有性能瓶颈"
     }
   ],
   "experiments": [
@@ -111,6 +116,29 @@
       },
       "validation": "20 public protocol cases and 4 regression tests pass, including every truncated suffix across committed and uncommitted frames.",
       "limitations": "Local timing under variable shared server load, not an official score. Agent performed measurements; no claim of student-run experiments or guaranteed Agent Prompt marks."
+    },
+    {
+      "id": "query-path-late-materialization",
+      "source": "Codex implementation and measurements on /mnt/HDD2/zzp/minivectordb-round2, system Python 3.12, no dependency changes",
+      "baseline": "0b637886973595dc2f60dd7456791402e3dda971",
+      "reasoning": "Primary-key predicates and ordering can operate on the transaction-visible directory before fetching payloads. Scalar ordering does not need distances used only in output. Avoid per-row all(generator) for one predicate.",
+      "changes": [
+        "Fetch only selected payloads for primary-key ordering/range queries",
+        "Use key directory to prefilter primary-key-only mutation candidates",
+        "Compute projection-only distances after scalar top-K selection",
+        "Specialize zero/one predicate loops"
+      ],
+      "command": "/usr/bin/python3 tests/bench_query_paths.py <source-directory>",
+      "workload": "12000 rows, 128-dimensional vectors; 100 primary payload top-K, 100 primary-range distance projection, 60 scalar distance projection, 40 single-predicate filter, 15 full scan queries per run; three before/after pairs, order reversed in pair 2",
+      "evidence_file": "agent/query-path-benchmark.json",
+      "correctness": "All five workload result hashes equal across all six runs; 200 vector top-K query results byte-identical; 20 public cases and 7 regression tests pass. New tests cover transaction overlays, new tables, rollback, restart, aliases, multiple distances, extreme keys, and limited payload reads.",
+      "vector_smoke": {
+        "baseline_query_seconds": 1.7803528010884517,
+        "candidate_query_seconds": 1.4851733930408955,
+        "peak_rss_kib_both": 67836,
+        "note": "Single paired smoke run, not a statistically established speedup; insert time varied from 2.629s to 2.905s although insert path unchanged."
+      },
+      "limitations": "Shared server timing, warm-cache scalar workload, not official score. Large scans exceeding cache and high-dimensional exact distance computation remain potential bottlenecks. These are agent-run experiments; no claim of student execution or guaranteed Agent Prompt points."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed.",
