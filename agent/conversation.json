@@ -669,6 +669,47 @@
       "changes": [],
       "status": "measured; no code change, because no stage is large enough to justify one and delayed flushes were excluded by construction",
       "limitations": "Shared host with 10% run-to-run drift between processes, so the 50-60 us deltas are indicative; the client is Python, and the judge's driver will have its own serialisation cost that this decomposition cannot see. DeepSeek executor experiment."
+    },
+    {
+      "id": "delivery-readiness-audit",
+      "executor": "DeepSeek",
+      "source": "DeepSeek audit of the committed tree at d9aa5e7 and measurements under /mnt/HDD2/zzp/minivectordb-round2",
+      "baseline": "c2f6619",
+      "candidate": "d9aa5e7",
+      "problem": "Two claims from the earlier report were still unverified: the large-table behaviour of the scalar filter path, and whether the pinned numpy can actually be installed in the image. The deliverable tree itself had not been re-audited since the six changes.",
+      "work": [
+        {
+          "item": "100k rows with filters",
+          "method": "scripts/crosscheck_large.py builds 100k rows, runs every predicate twice - once with the scalar-first path and once with filter_slots patched off (the independent row scan) - and compares ids, distances and each returned distance against math.dist",
+          "result": "ids and distances identical to the scan in all eight queries; max |distance - math.dist| = 4.7e-8, which is the float32 storage rounding of the fixture, not a computation error",
+          "timings_ms_scalar_first_vs_scan": {"unfiltered": [11.1, 9.8], "0.1%": [0.595, 450.3], "1%": [0.674, 446.7],
+                                              "10%": [2.227, 454.6], "50%": [10.24, 309.5], "100%": [9.589, 498.1],
+                                              "equality": [1.886, 1.719], "AND chain": [2.315, 516.5]},
+          "fix_found": "The 0.1% case took 2.96 ms because a 100-row candidate set went to the chunked disk path even though a fresh matrix existed; _subset_top_k now prefers any fresh matrix and only reads candidates from the log when no matrix exists (commit d9aa5e7), which brings that case to 0.595 ms"
+        },
+        {
+          "item": "numpy deliverability",
+          "method": "query the PyPI JSON API for numpy==2.3.5, download the exact cp312 manylinux wheel the image would resolve, unpack it and import it with a CPython 3.12 interpreter",
+          "result": "numpy-2.3.5-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl exists, is not yanked, downloads (16.6 MB, 59.6 MB unpacked), imports as numpy 2.3.5 and runs a matvec; PyPI is reachable from the machine",
+          "still_unverified": "pip itself could not be exercised: the host has no pip and no ensurepip, so the venv route failed. The image build and its network policy remain unverified, which is why the Dockerfile keeps the install best-effort and the fallback path is fully tested."
+        },
+        {
+          "item": "adversarial re-run at HEAD",
+          "method": "scripts/run_fuzz.sh against the original baseline 716867c over seeds 1, 2, 3 and 7",
+          "result": "480/480 differential fuzz queries identical"
+        },
+        {
+          "item": "pristine tree audit",
+          "method": "scripts/audit_tree.sh exports git archive HEAD, checks the required files, compares the committed copies with the working tree, and runs the public cases and both test modes against that export",
+          "result": "Dockerfile, minivectordb.py, minivector_sql.py, minivector_store.py, README.md and agent/conversation.json all present and identical to the working tree; conversation.json 80,628 bytes, 27 experiments, synthetic=false; public 20/20 and 55 tests in both modes against the pristine copy"
+        }
+      ],
+      "conclusions": [
+        "The scalar filter path is exact at 100k rows and 40-600x faster than the scan there.",
+        "The pinned numpy artifact is real and usable by the image's interpreter; only the image build itself is still unverified.",
+        "No regression from the six changes: fuzz, public cases and the unit suite all agree with the baseline and with the committed tree."
+      ],
+      "limitations": "The 0.1%/50%/100% scan comparisons use a warm cache for the scan side, which flatters it; the guard rail for the 100<->1000 rows band is a measured constant, not a proof. DeepSeek executor experiment."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",
