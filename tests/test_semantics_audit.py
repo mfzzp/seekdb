@@ -66,6 +66,22 @@ class AffectedRowsTest(unittest.TestCase):
         self.assertEqual(self.db.execute("DELETE FROM t WHERE g = 99", "exact")["affected_rows"], 0)
         self.assertEqual(self.db.execute("DELETE FROM t WHERE id <= 2", "exact")["affected_rows"], 2)
 
+    def test_commit_and_rollback_outside_a_transaction_are_noops(self):
+        """MySQL semantics: a driver that always ends with COMMIT sees no error."""
+        self.assertIsNone(self.db.execute("COMMIT", "exact"))
+        self.assertIsNone(self.db.execute("ROLLBACK", "exact"))
+        self.assertEqual([row[0] for row in
+                          self.db.execute("SELECT id FROM t ORDER BY id", "exact")["rows"]],
+                         [1, 2, 3])
+        # the session keeps working and a real transaction still commits
+        self.db.execute("BEGIN", "exact")
+        self.assertEqual(self.db.execute("INSERT INTO t VALUES (4,4,'d','[1,1]')",
+                                         "exact")["affected_rows"], 1)
+        self.db.execute("COMMIT", "exact")
+        self.assertEqual([row[0] for row in
+                          self.db.execute("SELECT id FROM t ORDER BY id", "exact")["rows"]],
+                         [1, 2, 3, 4])
+
 
 class ShutdownFailureTest(unittest.TestCase):
     def test_cleanup_failure_keeps_committed_data(self):

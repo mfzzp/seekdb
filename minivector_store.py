@@ -302,12 +302,20 @@ class Store:
         self.pending = Transaction()
 
     def commit(self):
-        require(self.pending is not None, "no_transaction", "no active transaction")
+        if self.pending is None:
+            # MySQL semantics: COMMIT without an active transaction is a no-op
+            # success.  A driver that ends every batch with COMMIT must not see
+            # an error, and the protocol only requires id/ok for transaction
+            # control statements.
+            return
         self.durable_commit(self.pending, self.log_end)
         self.pending = None
 
     def rollback(self):
-        require(self.pending is not None, "no_transaction", "no active transaction")
+        if self.pending is None:
+            # Same reasoning as commit(): nothing is open, so there is nothing
+            # to undo and no error to report.
+            return
         self.truncate(self.committed_end)
         self.pending = None
         # Discard cached uncommitted offsets before the log can reuse them.
