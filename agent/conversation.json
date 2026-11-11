@@ -468,7 +468,7 @@
       "limitations": "The injected failure is a synthetic OSError; real disk errors were not reproduced. DeepSeek executor experiment."
     }
   ],
-  "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements.",
+  "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",
   "learning_cases": [
     {
       "id": "bitmap-proposal-to-verification",
@@ -485,6 +485,48 @@
         "scope": "Counts row accessor calls, including cache hits. Does not measure disk reads."
       },
       "agent_interpretation": "The bitmap keeps the prior snapshot usable for delete-heavy interleaving. One billion bits require 125000000 bytes (~119.2 MiB), excluding row and offset metadata. A snapshot is retired once at least half its slots are dead; the tests verify this transition but do not establish an optimal threshold."
+    },
+    {
+      "id": "optimisation-boundaries",
+      "student_contribution": {
+        "source": "participant message describing the current implementation and its limits",
+        "verbatim": "不能把缓存预算直接调大来宣称优化。\n- 不能为了速度取消 fsync、提交边界、回滚语义。",
+        "context": "Before handing over the code directory the participant listed four boundaries that an optimisation must not cross, including a warning against claiming a win by enlarging the cache budget and against trading durability for speed."
+      },
+      "agent_response": "Every change was checked against those boundaries: the dense matrix keeps exact results and the primary-key tie rule, the cache change only altered admission (bulk builds stop filling the LRU) without changing its size to buy a number, the log format is unchanged, and the ann path still returns exact results so recall cannot silently drop.",
+      "result_evidence": {
+        "method": "1000-query benchmark ids_digest compared with the baseline, 360 differential fuzz queries, 20 public protocol cases",
+        "output": "ids_digest identical in the indexed and no-index scenarios; 360/360 fuzz queries identical; PUBLIC passed=True cases=20 fails=[]"
+      },
+      "attribution": "The boundaries are the participant's; the implementations, measurements and their interpretation are Agent work. The participant did not run these checks."
+    },
+    {
+      "id": "measure-one-direction-at-a-time",
+      "student_contribution": {
+        "source": "participant message with six candidate directions",
+        "verbatim": "这些是候选方向，不是已证明有效的改进。每次只落实一项，先测量再保留。",
+        "context": "The participant supplied six candidate directions together with an observed regression (8000-row median 12.39 ms -> 12.75 ms) and required measurement before keeping any change."
+      },
+      "agent_response": "The agent profiled before touching code: an isolated kernel probe showed the 10k x 128 distance kernel at 1.514 ms of which 1.198 ms was a matrix-sized allocation, which is why direction 4 (high-dimensional TopK) was taken first and directions 1/5 largely dissolved once the matrix existed. Each kept change has paired before/after medians; the write-path probe that found no safe win was recorded as measured-but-not-changed instead of being converted into a claim.",
+      "result_evidence": {
+        "method": "three alternating paired rounds of tests/bench_competition.py plus scripts/probe_kernels.py",
+        "output": "unfiltered 15.855/16.436/17.369 ms -> 0.62-0.80 ms; filtered 1.226/1.326/1.476 ms -> 0.31-0.42 ms; query total 7.77-9.32 s -> 0.64-0.79 s; the write probe reported parse 0.95 ms, validation ~3 ms, log+fsync 2.96 ms and no code change"
+      },
+      "attribution": "The working rule is the participant's; all measurements were executed by the Agent and the participant did not reproduce them."
+    },
+    {
+      "id": "verify-from-result-json",
+      "student_contribution": {
+        "source": "participant message listing verification requirements",
+        "verbatim": "应查看检查器生成的 result.json，确认具体用例状态，不能只根据进程退出码判断。",
+        "context": "The participant required reading the checker's structured result rather than trusting a process exit code, and asked for coverage of transactions, failed statements, rollback, restart, truncated log, aliases, distance ties, empty results, LIMIT boundaries and cache offset reuse."
+      },
+      "agent_response": "The public runner now parses result.json and prints passed/cases/fails for every run, and every reported number in this material quotes that line rather than an exit status. The requested coverage exists as tests/test_model_fuzz.py (transactions, failed statements, rollback, restart), tests/test_recovery.py (truncated log suffix), tests/test_topk.py (aliases, ties, LIMIT 0/1/10/100, empty results) and the cache tests (offset reuse after rollback).",
+      "result_evidence": {
+        "method": "scripts/run_public.sh parses result.json; the unit suite is discovered from tests/",
+        "output": "PUBLIC passed=True cases=20 fails=[] for both the numpy and the pure-Python runs; 22 unit tests pass with numpy and 22 without (4 skipped)"
+      },
+      "attribution": "The verification requirement is the participant's; the harness and the runs are Agent work."
     }
   ]
 }
