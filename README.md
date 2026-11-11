@@ -159,9 +159,11 @@ dimensions with K=10 the headline results are:
   limit.
 - `<>`, parenthesised predicates, qualified column references, NULL literals and
   aggregates are rejected as unsupported, matching the SQL subset the task lists.
-- The matrix is rebuilt after any committed mutation; a write/query interleaving
-  pays that rebuild each time, which is why a write-heavy soak slightly favours
-  the pure-Python path.
+- Insert/update commits invalidate the query snapshot. Its next matrix rebuild
+  now copies unchanged vectors by immutable log offset and decodes only changed
+  rows. It still allocates/copies a matrix; this is not an in-place index update.
+  If old and new matrices cannot fit together, it discards the old copy and
+  rebuilds or uses bounded scanning. Delete-only commits keep the live bitmap.
 - Rows are decoded into Python objects; very large tables are bounded by the
   cache and the matrix cap (192 MiB) rather than by true streaming.
 
@@ -181,7 +183,7 @@ python3 -m unittest discover -s tests -v
   row inside a transaction and rolling it back, LIMIT 0, non-ASCII values, ann vs
   exact, the row order of a multi-row answer without ORDER BY, and vector
   distances after an update and a delete.
-- 124 regression tests pass: matrix paths, numeric bounds and float32 margins,
+- 130 regression tests pass: matrix paths, numeric bounds and float32 margins,
   memory budget, chunked TopK, scalar filters, ann/exact equivalence, bitmap
   deletion, recovery truncation, real SIGKILL recovery, mixed-workload soak, query
   paths, scan cache, SQL surface, model fuzz, semantics audit, startup
@@ -216,3 +218,16 @@ numpy runtime being loaded, not from the write path. These are local shared-host
 measurements, not the competition score. The agent material in
 `agent/conversation.json` records each experiment with its raw numbers and
 limitations.
+
+### Cache reuse and deletion correctness (2026-11-11)
+
+A new regression reproduced deleted rows appearing in vector results: the
+stored bitmap uses low-bit-first slots, but the NumPy masks decoded high
+bits first. Both masks now explicitly use little bit order. Rebuilding a
+matrix with deleted slots also initializes those slots to finite zeros.
+
+The paired HDD/SSD measurements, source hashes, commands and limitations
+are recorded in `tests/results/cache-reuse-20261111.json` and VERIFICATION.md.
+This change adds no approximate HNSW/IVF engine: `ann` still uses the existing
+exact execution paths. The performance gain is from reduced row decoding,
+not relaxed recall, omitted filters or delayed durable commits.

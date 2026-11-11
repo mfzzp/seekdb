@@ -145,7 +145,7 @@ boundary; the public cases never project a vector column at all.
 
 ## 3. Correctness evidence
 
-- 124 regression tests, passing with and without numpy (31 skipped without it).
+- 130 regression tests, passing with and without numpy (37 skipped without it).
 - 20/20 public cases plus twelve extra cases through the judge's own runner
   (`protocol_check/run.py` with `tests/extra_cases`), in both modes, including
   against a pristine `git archive` export of the committed tree.
@@ -314,3 +314,45 @@ commit, the merge is a fast-forward that adds 72 commits, the working tree is cl
 and the replayed tree passes 20/20 public cases and all 117 tests. The procedure is
 also in `scripts/dry_run_delivery.sh`.
 
+
+## Cache reuse candidate, 2026-11-11
+
+Baseline: `8f744ea8eb472d4d732f4f787b9cf05a543a9e32`. The older
+performance and delivery tables above describe prior recorded experiments.
+The JSON below identifies this candidate by SHA-256 of its source files.
+
+The unchanged new regression set fails on the baseline (deleted-row
+visibility and 3,000 packed reads after a one-row update) and passes here.
+The candidate copies still-valid matrix entries by log offset, invalidates
+scalar indexes on mutations, and falls back when two matrix allocations
+would exceed its shared budget. Group building no longer unpacks vectors
+to inspect a scalar column. Commit/fsync behavior is unchanged.
+
+| Data / disk | Scalar update then query, old/new ms | Vector update then query, old/new ms |
+|---|---:|---:|
+| uniform 20000 x 128 / HDD2 | 114.538 / 10.072 | 117.841 / 9.037 |
+| uniform 20000 x 128 / SSD1 | 68.752 / 13.257 | 66.189 / 10.073 |
+| clustered 30000 x 32 / HDD2 | 83.934 / 4.370 | 151.101 / 4.453 |
+| clustered 30000 x 32 / SSD1 | 151.006 / 3.641 | 149.592 / 3.571 |
+
+Each timing is the median of ten post-update queries, excluding the preceding
+SQL update. Warm query phases use twenty requests. Every answer digest
+matches the baseline. HDD runs execute baseline first; SSD runs execute
+candidate first. These are shared-host samples, not official scores or a
+guarantee of improvement for every query. Some first/warm-query samples
+regress; all samples are retained in the JSON. No system-wide page cache
+was flushed, and storage read_bytes was zero for these recently loaded
+datasets. The measurements demonstrate decoding/copy costs, not cold-disk
+throughput. Source and data are separated; benchmark data is placed on
+each named disk. Tests create their own data directories.
+
+Reproduce one sample (new directory required):
+
+`PYTHONPATH=/tmp/npydeps OPENBLAS_NUM_THREADS=1 python3 tests/bench_cache_reuse.py . /path/to/new/data --rows 20000 --width 128 --distribution uniform`
+
+Validation: 130 tests with NumPy; 93 executed and 37 skipped without NumPy;
+20 public cases in exact and all-ann modes with both dependency modes;
+12 extra protocol cases with both dependency modes. The final tree is also
+checked under a real 2 GiB cgroup and taskset CPUs 0,1.
+Docker/Podman are absent: an actual container build and --image test remain
+unverified. No official evaluation submission is performed by this script.

@@ -137,7 +137,7 @@ class Database(Store):
         budget = COMPONENT_BUDGET
         # Bulk index builds keep their own compact representation, so they must
         # not also fill the row cache with decoded vectors.
-        read_row = partial(self.read_row, cache=False)
+        read_row = partial(self.read_row, cache=False, packed=True)
         for slot, offset in table.index_snapshot().rows():
             field = read_row(table, offset)[component]
             slots = groups.get(field)
@@ -264,7 +264,7 @@ class Database(Store):
             return None
         if snapshot.deleted_count:
             bits = _numpy.unpackbits(_numpy.frombuffer(bytes(snapshot.deleted),
-                                                       dtype=_numpy.uint8))
+                                                       dtype=_numpy.uint8), bitorder="little")
             mask = mask & (bits[:rows] == 0)
         return _numpy.flatnonzero(mask)
 
@@ -458,6 +458,8 @@ class Database(Store):
             matrix = table.matrix
             if matrix is not None:
                 used += matrix[2].nbytes + matrix[3].nbytes + matrix[4].nbytes
+                if matrix[0] is not table.snapshot:
+                    used += len(matrix[0].offsets) * 8 + len(matrix[0].deleted)
             blocks = table.blocks
             if blocks is not None:
                 groups = blocks[1]
@@ -525,18 +527,58 @@ class Database(Store):
         dtype = _numpy.float64
         if rows * width * 8 > MATRIX_MAX_BYTES:
             dtype = _numpy.float32
-        if not self._reserve(rows * width * _numpy.dtype(dtype).itemsize, keep=table):
-            return None
-        values = _numpy.empty((rows, width), dtype=dtype)
-        keys = _numpy.empty(rows, dtype=_numpy.int64)
+        itemsize = _numpy.dtype(dtype).itemsize
+        # Include keys, norms, and the largest bounded copy/search temporary.
+        needed = rows * (width * itemsize + 16)
+        old_itemsize = table.matrix[2].dtype.itemsize if table.matrix is not None else itemsize
+        scratch = min(rows, MATRIX_CHUNK_ROWS) * (width * max(itemsize, old_itemsize) + 40)
+        if not self._reserve(needed + scratch, keep=table):
+            table.matrix = None
+            if not self._reserve(needed + scratch, keep=table):
+                return None
+        previous = table.matrix
+        if previous is not None and previous[1] != column:
+            previous = None
+        # Deleted slots must contain finite values as norms are calculated over
+        # the full allocation before the liveness mask is applied.
+        allocate = _numpy.zeros if snapshot.deleted_count else _numpy.empty
+        values = allocate((rows, width), dtype=dtype)
+        keys = allocate(rows, dtype=_numpy.int64)
         primary = table.primary
         read_row = partial(self.read_row, cache=False, packed=True)
-        for slot, offset in snapshot.rows():
-            row = read_row(table, offset)
-            values[slot] = _numpy.frombuffer(row[column], dtype="<f4")
-            keys[slot] = row[primary]
+        offsets = _numpy.frombuffer(snapshot.offsets, dtype=_numpy.uint64)
+        old_offsets = (_numpy.frombuffer(previous[0].offsets, dtype=_numpy.uint64)
+                       if previous is not None else None)
+        if previous is None:
+            for slot, offset in snapshot.rows():
+                row = read_row(table, offset)
+                values[slot] = _numpy.frombuffer(row[column], dtype="<f4")
+                keys[slot] = row[primary]
+        for start in range(0, rows if previous is not None else 0, MATRIX_CHUNK_ROWS):
+            end = min(rows, start + MATRIX_CHUNK_ROWS)
+            reused = _numpy.zeros(end - start, dtype=bool)
+            if old_offsets is not None and old_offsets.size:
+                positions = _numpy.searchsorted(old_offsets, offsets[start:end])
+                safe = _numpy.minimum(positions, old_offsets.size - 1)
+                reused = (positions < old_offsets.size) & (old_offsets[safe] == offsets[start:end])
+                if reused.all() and positions[-1] - positions[0] == end - start - 1:
+                    first = int(positions[0])
+                    values[start:end] = previous[2][first:first + end - start]
+                    keys[start:end] = previous[3][first:first + end - start]
+                    continue
+                selected = _numpy.flatnonzero(reused)
+                values[start + selected] = previous[2][positions[selected]]
+                keys[start + selected] = previous[3][positions[selected]]
+            for local_slot in _numpy.flatnonzero(~reused):
+                slot = start + int(local_slot)
+                if snapshot.deleted_count and not snapshot.is_live(slot):
+                    continue
+                row = read_row(table, snapshot.offsets[slot])
+                values[slot] = _numpy.frombuffer(row[column], dtype="<f4")
+                keys[slot] = row[primary]
         norms = _numpy.einsum("ij,ij->i", values, values)
-        maxabs = float(_numpy.max(_numpy.abs(values))) if rows else 0.0
+        maxabs = max((float(_numpy.max(_numpy.abs(values[start:start + MATRIX_CHUNK_ROWS])))
+                      for start in range(0, rows, MATRIX_CHUNK_ROWS)), default=0.0)
         norms_max = float(norms.max()) if rows else 0.0
         table.matrix = (snapshot, column, values, keys, norms, maxabs, norms_max)
         return table.matrix
@@ -655,6 +697,7 @@ class Database(Store):
         snapshot = table.index_snapshot()
         matrix = table.matrix
         if matrix is None or matrix[0] is not snapshot or matrix[1] != column:
+            matrix = None  # Allow the builder to evict the old allocation.
             matrix = self.build_matrix(table, snapshot, column)
             if matrix is None:
                 return self._chunked_top_k(table, snapshot, column, target, limit)
@@ -674,7 +717,7 @@ class Database(Store):
             margin = 0.0
         if snapshot.deleted_count:
             bits = _numpy.unpackbits(_numpy.frombuffer(bytes(snapshot.deleted),
-                                                       dtype=_numpy.uint8))
+                                                       dtype=_numpy.uint8), bitorder="little")
             # Bit set means the stable slot was invalidated by a delete.
             live = _numpy.flatnonzero(bits[:squared.size] == 0)
             ordered, row_index = squared[live], live
@@ -729,6 +772,7 @@ class Database(Store):
             return self._chunked_top_k(table, snapshot, column, target, limit,
                                        slots=subset)
         if not fresh:
+            matrix = None
             matrix = self.build_matrix(table, snapshot, column)
             if matrix is None:
                 return self._chunked_top_k(table, snapshot, column, target, limit,

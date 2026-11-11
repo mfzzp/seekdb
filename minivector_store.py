@@ -194,7 +194,9 @@ class Transaction:
         for name, changes in self.rows.items():
             table = tables[name]
             if table.snapshot is not None and any(offset is not None for offset in changes.values()):
-                table.blocks = table.axis = table.snapshot = table.matrix = None
+                # The old matrix is never query-visible with a new snapshot,
+                # but immutable log offsets let the next build reuse its rows.
+                table.blocks = table.axis = table.snapshot = None
                 table.scalar_cache = None
             for key, offset in changes.items():
                 if offset is None:

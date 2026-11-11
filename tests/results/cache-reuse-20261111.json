@@ -1,0 +1,464 @@
+{
+  "date": "2026-11-11",
+  "baseline_commit": "8f744ea8eb472d4d732f4f787b9cf05a543a9e32",
+  "candidate_source_sha256": {
+    "minivectordb.py": "e829de42cbfd480257d30e38b688d936b73b6b01faa077146e16e15525ff0f91",
+    "minivector_store.py": "a6efbe894b60cf47318fca2e69e2a4158d05f64ee2a544f69c3adf34ee243534",
+    "minivector_sql.py": "dcfeb31c678763229db15897f27a9b78a9d22b9ab8b76074ca32e634fb170d73",
+    "tests/test_incremental_matrix.py": "9c3deb2ba28da088ded0538244c2683d89e525bf123285823153d19f965286d4"
+  },
+  "final_checks": [
+    {
+      "label": "regressions-2GiB",
+      "command": [
+        "systemd-run",
+        "--user",
+        "--scope",
+        "--quiet",
+        "-p",
+        "MemoryMax=2G",
+        "-p",
+        "MemorySwapMax=0",
+        "taskset",
+        "-c",
+        "0,1",
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_*.py"
+      ],
+      "exit": 0,
+      "tail": ".................................................................................................................shutdown cleanup failed: boom\n.shutdown cleanup failed: simulated close failure\n....shutdown cleanup failed: simulated disk failure\n............\n----------------------------------------------------------------------\nRan 130 tests in 15.839s\n\nOK\n"
+    },
+    {
+      "label": "public",
+      "command": [
+        "python3",
+        "protocol_check/run.py",
+        "--package",
+        "/mnt/SSD1/zzp/minivectordb-general-20261111/mysqltest",
+        "--command",
+        "[\"python3\", \"/mnt/SSD1/zzp/minivectordb-general-20261111/minivectordb.py\", \"--data-dir\", \"{data_dir}\"]",
+        "--output",
+        "/mnt/SSD1/zzp/round2-general-20261111/final-public"
+      ],
+      "exit": 0,
+      "tail": "sql_crud: PASS \nsql_comparisons: PASS \nsql_ordering: PASS \nsql_empty: PASS \nsql_primary_key: PASS \nsql_unicode: PASS \nsql_bigint: PASS \nsql_unsupported: PASS \nstorage_restart: PASS \nvector_euclidean: PASS \ntransaction_commit: PASS \ntransaction_rollback: PASS \nstorage_mutations: PASS \nstorage_multiple_tables: PASS \nvector_ties_and_filter: PASS \nvector_float32: PASS \nvector_index_maintenance: PASS \ntransaction_failed_insert: PASS \ntransaction_autocommit_atomic: PASS \ntransaction_shutdown_rollback: PASS \nReport: /mnt/SSD1/zzp/round2-general-20261111/final-public/result.json\n"
+    },
+    {
+      "label": "public-ann",
+      "command": [
+        "python3",
+        "protocol_check/run.py",
+        "--package",
+        "/mnt/SSD1/zzp/round2-general-20261111/public-ann-package",
+        "--command",
+        "[\"python3\", \"/mnt/SSD1/zzp/minivectordb-general-20261111/minivectordb.py\", \"--data-dir\", \"{data_dir}\"]",
+        "--output",
+        "/mnt/SSD1/zzp/round2-general-20261111/final-public-ann"
+      ],
+      "exit": 0,
+      "tail": "sql_crud: PASS \nsql_comparisons: PASS \nsql_ordering: PASS \nsql_empty: PASS \nsql_primary_key: PASS \nsql_unicode: PASS \nsql_bigint: PASS \nsql_unsupported: PASS \nstorage_restart: PASS \nvector_euclidean: PASS \ntransaction_commit: PASS \ntransaction_rollback: PASS \nstorage_mutations: PASS \nstorage_multiple_tables: PASS \nvector_ties_and_filter: PASS \nvector_float32: PASS \nvector_index_maintenance: PASS \ntransaction_failed_insert: PASS \ntransaction_autocommit_atomic: PASS \ntransaction_shutdown_rollback: PASS \nReport: /mnt/SSD1/zzp/round2-general-20261111/final-public-ann/result.json\n"
+    }
+  ],
+  "earlier_acceptance": [
+    {
+      "label": "pure-regressions",
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_*.py"
+      ],
+      "exit": 0,
+      "tail": "...........sssss....................................ssssssssss.ssssss.ssssssss....ssssssss.......................shutdown cleanup failed: boom\n.shutdown cleanup failed: simulated close failure\n....shutdown cleanup failed: simulated disk failure\n............\n----------------------------------------------------------------------\nRan 130 tests in 6.138s\n\nOK (skipped=37)\n"
+    },
+    {
+      "label": "public-pure",
+      "command": [
+        "python3",
+        "protocol_check/run.py",
+        "--package",
+        "/mnt/SSD1/zzp/minivectordb-general-20261111/mysqltest",
+        "--command",
+        "[\"python3\", \"/mnt/SSD1/zzp/minivectordb-general-20261111/minivectordb.py\", \"--data-dir\", \"{data_dir}\"]",
+        "--output",
+        "/mnt/SSD1/zzp/round2-general-20261111/public-pure"
+      ],
+      "exit": 0,
+      "tail": "sql_crud: PASS \nsql_comparisons: PASS \nsql_ordering: PASS \nsql_empty: PASS \nsql_primary_key: PASS \nsql_unicode: PASS \nsql_bigint: PASS \nsql_unsupported: PASS \nstorage_restart: PASS \nvector_euclidean: PASS \ntransaction_commit: PASS \ntransaction_rollback: PASS \nstorage_mutations: PASS \nstorage_multiple_tables: PASS \nvector_ties_and_filter: PASS \nvector_float32: PASS \nvector_index_maintenance: PASS \ntransaction_failed_insert: PASS \ntransaction_autocommit_atomic: PASS \ntransaction_shutdown_rollback: PASS \nReport: /mnt/SSD1/zzp/round2-general-20261111/public-pure/result.json\n",
+      "passed": true,
+      "cases": 20
+    },
+    {
+      "label": "public-ann-pure",
+      "command": [
+        "python3",
+        "protocol_check/run.py",
+        "--package",
+        "/mnt/SSD1/zzp/round2-general-20261111/public-ann-package",
+        "--command",
+        "[\"python3\", \"/mnt/SSD1/zzp/minivectordb-general-20261111/minivectordb.py\", \"--data-dir\", \"{data_dir}\"]",
+        "--output",
+        "/mnt/SSD1/zzp/round2-general-20261111/public-ann-pure"
+      ],
+      "exit": 0,
+      "tail": "sql_crud: PASS \nsql_comparisons: PASS \nsql_ordering: PASS \nsql_empty: PASS \nsql_primary_key: PASS \nsql_unicode: PASS \nsql_bigint: PASS \nsql_unsupported: PASS \nstorage_restart: PASS \nvector_euclidean: PASS \ntransaction_commit: PASS \ntransaction_rollback: PASS \nstorage_mutations: PASS \nstorage_multiple_tables: PASS \nvector_ties_and_filter: PASS \nvector_float32: PASS \nvector_index_maintenance: PASS \ntransaction_failed_insert: PASS \ntransaction_autocommit_atomic: PASS \ntransaction_shutdown_rollback: PASS \nReport: /mnt/SSD1/zzp/round2-general-20261111/public-ann-pure/result.json\n",
+      "passed": true,
+      "cases": 20
+    },
+    {
+      "label": "extra-pure",
+      "command": [
+        "python3",
+        "protocol_check/run.py",
+        "--package",
+        "/mnt/SSD1/zzp/minivectordb-general-20261111/tests/extra_cases",
+        "--command",
+        "[\"python3\", \"/mnt/SSD1/zzp/minivectordb-general-20261111/minivectordb.py\", \"--data-dir\", \"{data_dir}\"]",
+        "--output",
+        "/mnt/SSD1/zzp/round2-general-20261111/extra-pure"
+      ],
+      "exit": 0,
+      "tail": "extra_range_and: PASS \nextra_restart_index: PASS \nextra_transaction_failure: PASS \nextra_limit_edge: PASS \nextra_unicode_values: PASS \nextra_ann_modes: PASS \nextra_row_order: PASS \nextra_multi_table_restart: PASS \nextra_transaction_delete_all: PASS \nextra_vector_mutation_paths: PASS \nextra_batch_atomic: PASS \nextra_update_rollback_restart: PASS \nReport: /mnt/SSD1/zzp/round2-general-20261111/extra-pure/result.json\n",
+      "passed": true,
+      "cases": 12
+    },
+    {
+      "label": "public-numpy",
+      "command": [
+        "python3",
+        "protocol_check/run.py",
+        "--package",
+        "/mnt/SSD1/zzp/minivectordb-general-20261111/mysqltest",
+        "--command",
+        "[\"python3\", \"/mnt/SSD1/zzp/minivectordb-general-20261111/minivectordb.py\", \"--data-dir\", \"{data_dir}\"]",
+        "--output",
+        "/mnt/SSD1/zzp/round2-general-20261111/public-numpy"
+      ],
+      "exit": 0,
+      "tail": "sql_crud: PASS \nsql_comparisons: PASS \nsql_ordering: PASS \nsql_empty: PASS \nsql_primary_key: PASS \nsql_unicode: PASS \nsql_bigint: PASS \nsql_unsupported: PASS \nstorage_restart: PASS \nvector_euclidean: PASS \ntransaction_commit: PASS \ntransaction_rollback: PASS \nstorage_mutations: PASS \nstorage_multiple_tables: PASS \nvector_ties_and_filter: PASS \nvector_float32: PASS \nvector_index_maintenance: PASS \ntransaction_failed_insert: PASS \ntransaction_autocommit_atomic: PASS \ntransaction_shutdown_rollback: PASS \nReport: /mnt/SSD1/zzp/round2-general-20261111/public-numpy/result.json\n",
+      "passed": true,
+      "cases": 20
+    },
+    {
+      "label": "public-ann-numpy",
+      "command": [
+        "python3",
+        "protocol_check/run.py",
+        "--package",
+        "/mnt/SSD1/zzp/round2-general-20261111/public-ann-package",
+        "--command",
+        "[\"python3\", \"/mnt/SSD1/zzp/minivectordb-general-20261111/minivectordb.py\", \"--data-dir\", \"{data_dir}\"]",
+        "--output",
+        "/mnt/SSD1/zzp/round2-general-20261111/public-ann-numpy"
+      ],
+      "exit": 0,
+      "tail": "sql_crud: PASS \nsql_comparisons: PASS \nsql_ordering: PASS \nsql_empty: PASS \nsql_primary_key: PASS \nsql_unicode: PASS \nsql_bigint: PASS \nsql_unsupported: PASS \nstorage_restart: PASS \nvector_euclidean: PASS \ntransaction_commit: PASS \ntransaction_rollback: PASS \nstorage_mutations: PASS \nstorage_multiple_tables: PASS \nvector_ties_and_filter: PASS \nvector_float32: PASS \nvector_index_maintenance: PASS \ntransaction_failed_insert: PASS \ntransaction_autocommit_atomic: PASS \ntransaction_shutdown_rollback: PASS \nReport: /mnt/SSD1/zzp/round2-general-20261111/public-ann-numpy/result.json\n",
+      "passed": true,
+      "cases": 20
+    },
+    {
+      "label": "extra-numpy",
+      "command": [
+        "python3",
+        "protocol_check/run.py",
+        "--package",
+        "/mnt/SSD1/zzp/minivectordb-general-20261111/tests/extra_cases",
+        "--command",
+        "[\"python3\", \"/mnt/SSD1/zzp/minivectordb-general-20261111/minivectordb.py\", \"--data-dir\", \"{data_dir}\"]",
+        "--output",
+        "/mnt/SSD1/zzp/round2-general-20261111/extra-numpy"
+      ],
+      "exit": 0,
+      "tail": "extra_range_and: PASS \nextra_restart_index: PASS \nextra_transaction_failure: PASS \nextra_limit_edge: PASS \nextra_unicode_values: PASS \nextra_ann_modes: PASS \nextra_row_order: PASS \nextra_multi_table_restart: PASS \nextra_transaction_delete_all: PASS \nextra_vector_mutation_paths: PASS \nextra_batch_atomic: PASS \nextra_update_rollback_restart: PASS \nReport: /mnt/SSD1/zzp/round2-general-20261111/extra-numpy/result.json\n",
+      "passed": true,
+      "cases": 12
+    },
+    {
+      "label": "limited-2GiB",
+      "command": [
+        "systemd-run",
+        "--user",
+        "--scope",
+        "--quiet",
+        "-p",
+        "MemoryMax=2G",
+        "-p",
+        "MemorySwapMax=0",
+        "taskset",
+        "-c",
+        "0,1",
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_*.py"
+      ],
+      "exit": 0,
+      "tail": ".................................................................................................................shutdown cleanup failed: boom\n.shutdown cleanup failed: simulated close failure\n....shutdown cleanup failed: simulated disk failure\n............\n----------------------------------------------------------------------\nRan 130 tests in 15.032s\n\nOK\n"
+    }
+  ],
+  "paired_measurements": [
+    {
+      "disk": "HDD2",
+      "distribution": "uniform",
+      "rows": 20000,
+      "width": 128,
+      "cases": [
+        {
+          "case": "first_query",
+          "baseline_ms": 75.23332186974585,
+          "candidate_ms": 65.31486683525145,
+          "speedup": 1.1518560094367558,
+          "same_answers": true,
+          "baseline_decodes": 20010,
+          "candidate_decodes": 20010
+        },
+        {
+          "case": "warm",
+          "baseline_ms": 0.9991169208660722,
+          "candidate_ms": 0.9494450641795993,
+          "speedup": 1.0523167253804133,
+          "same_answers": true,
+          "baseline_decodes": 0,
+          "candidate_decodes": 0
+        },
+        {
+          "case": "first_filtered",
+          "baseline_ms": 76.89781696535647,
+          "candidate_ms": 40.0393579620868,
+          "speedup": 1.9205556951780018,
+          "same_answers": true,
+          "baseline_decodes": 19998,
+          "candidate_decodes": 20008
+        },
+        {
+          "case": "warm_filtered",
+          "baseline_ms": 0.3543999046087265,
+          "candidate_ms": 0.3323295386508107,
+          "speedup": 1.0664110871622092,
+          "same_answers": true,
+          "baseline_decodes": 0,
+          "candidate_decodes": 0
+        },
+        {
+          "case": "write_query",
+          "baseline_ms": 114.53809461090714,
+          "candidate_ms": 10.072458535432816,
+          "speedup": 11.371413861669017,
+          "same_answers": true,
+          "baseline_decodes": 200010,
+          "candidate_decodes": 20
+        },
+        {
+          "case": "vector_write_query",
+          "baseline_ms": 117.84117063507438,
+          "candidate_ms": 9.037210023961961,
+          "speedup": 13.039552065584527,
+          "same_answers": true,
+          "baseline_decodes": 200020,
+          "candidate_decodes": 30
+        }
+      ]
+    },
+    {
+      "disk": "SSD1",
+      "distribution": "uniform",
+      "rows": 20000,
+      "width": 128,
+      "cases": [
+        {
+          "case": "first_query",
+          "baseline_ms": 65.72269182652235,
+          "candidate_ms": 78.76742002554238,
+          "speedup": 0.834389291984047,
+          "same_answers": true,
+          "baseline_decodes": 20010,
+          "candidate_decodes": 20010
+        },
+        {
+          "case": "warm",
+          "baseline_ms": 0.9449104545637965,
+          "candidate_ms": 1.2758094817399979,
+          "speedup": 0.740636018220441,
+          "same_answers": true,
+          "baseline_decodes": 0,
+          "candidate_decodes": 0
+        },
+        {
+          "case": "first_filtered",
+          "baseline_ms": 67.43627600371838,
+          "candidate_ms": 68.48000083118677,
+          "speedup": 0.9847586913726633,
+          "same_answers": true,
+          "baseline_decodes": 19998,
+          "candidate_decodes": 20008
+        },
+        {
+          "case": "warm_filtered",
+          "baseline_ms": 0.3297440707683563,
+          "candidate_ms": 0.465957447886467,
+          "speedup": 0.7076699219296527,
+          "same_answers": true,
+          "baseline_decodes": 0,
+          "candidate_decodes": 0
+        },
+        {
+          "case": "write_query",
+          "baseline_ms": 68.75220697838813,
+          "candidate_ms": 13.256905018351972,
+          "speedup": 5.186143136969917,
+          "same_answers": true,
+          "baseline_decodes": 200010,
+          "candidate_decodes": 20
+        },
+        {
+          "case": "vector_write_query",
+          "baseline_ms": 66.18885253556073,
+          "candidate_ms": 10.072826407849789,
+          "speedup": 6.571030796676842,
+          "same_answers": true,
+          "baseline_decodes": 200020,
+          "candidate_decodes": 30
+        }
+      ]
+    },
+    {
+      "disk": "HDD2",
+      "distribution": "clustered",
+      "rows": 30000,
+      "width": 32,
+      "cases": [
+        {
+          "case": "first_query",
+          "baseline_ms": 81.21719094924629,
+          "candidate_ms": 82.82556291669607,
+          "speedup": 0.9805812129635938,
+          "same_answers": true,
+          "baseline_decodes": 30010,
+          "candidate_decodes": 30010
+        },
+        {
+          "case": "warm",
+          "baseline_ms": 0.5170765798538923,
+          "candidate_ms": 0.5280084442347288,
+          "speedup": 0.9792960425156066,
+          "same_answers": true,
+          "baseline_decodes": 0,
+          "candidate_decodes": 0
+        },
+        {
+          "case": "first_filtered",
+          "baseline_ms": 71.03748503141105,
+          "candidate_ms": 56.026988895609975,
+          "speedup": 1.2679154534570611,
+          "same_answers": true,
+          "baseline_decodes": 29999,
+          "candidate_decodes": 30009
+        },
+        {
+          "case": "warm_filtered",
+          "baseline_ms": 0.17059198580682278,
+          "candidate_ms": 0.18057494889944792,
+          "speedup": 0.9447156809210335,
+          "same_answers": true,
+          "baseline_decodes": 0,
+          "candidate_decodes": 0
+        },
+        {
+          "case": "write_query",
+          "baseline_ms": 83.93358043394983,
+          "candidate_ms": 4.369514063000679,
+          "speedup": 19.208904977481655,
+          "same_answers": true,
+          "baseline_decodes": 300010,
+          "candidate_decodes": 20
+        },
+        {
+          "case": "vector_write_query",
+          "baseline_ms": 151.1006304062903,
+          "candidate_ms": 4.452858120203018,
+          "speedup": 33.93340329455662,
+          "same_answers": true,
+          "baseline_decodes": 300020,
+          "candidate_decodes": 30
+        }
+      ]
+    },
+    {
+      "disk": "SSD1",
+      "distribution": "clustered",
+      "rows": 30000,
+      "width": 32,
+      "cases": [
+        {
+          "case": "first_query",
+          "baseline_ms": 149.25620891153812,
+          "candidate_ms": 78.87055305764079,
+          "speedup": 1.8924199606215204,
+          "same_answers": true,
+          "baseline_decodes": 30010,
+          "candidate_decodes": 30010
+        },
+        {
+          "case": "warm",
+          "baseline_ms": 0.7431894773617387,
+          "candidate_ms": 0.5259020254015923,
+          "speedup": 1.413170973803001,
+          "same_answers": true,
+          "baseline_decodes": 0,
+          "candidate_decodes": 0
+        },
+        {
+          "case": "first_filtered",
+          "baseline_ms": 123.27772309072316,
+          "candidate_ms": 56.978740030899644,
+          "speedup": 2.163574045755829,
+          "same_answers": true,
+          "baseline_decodes": 29999,
+          "candidate_decodes": 30009
+        },
+        {
+          "case": "warm_filtered",
+          "baseline_ms": 0.27506647165864706,
+          "candidate_ms": 0.17952395137399435,
+          "speedup": 1.5321992945978176,
+          "same_answers": true,
+          "baseline_decodes": 0,
+          "candidate_decodes": 0
+        },
+        {
+          "case": "write_query",
+          "baseline_ms": 151.00631746463478,
+          "candidate_ms": 3.640552400611341,
+          "speedup": 41.478957270132135,
+          "same_answers": true,
+          "baseline_decodes": 300010,
+          "candidate_decodes": 20
+        },
+        {
+          "case": "vector_write_query",
+          "baseline_ms": 149.59221659228206,
+          "candidate_ms": 3.5710586234927177,
+          "speedup": 41.890159855726914,
+          "same_answers": true,
+          "baseline_decodes": 300020,
+          "candidate_decodes": 30
+        }
+      ]
+    }
+  ],
+  "limitations": "Shared host; recently loaded data, no page-cache flush; no container runtime; no official score. Query timings exclude the preceding update."
+}
