@@ -853,6 +853,27 @@
         "LIMIT 0 returns columns with no rows; an oversized LIMIT returns every row"
       ],
       "limitations": "A golden file locks whatever was captured, so a wrong expectation becomes a permanent test; the entries were reviewed by hand against STDIO_PROTOCOL.md and the second implementation before being committed. DeepSeek executor experiment."
+    },
+    {
+      "id": "judge-contract-analysis",
+      "executor": "DeepSeek",
+      "source": "DeepSeek reading of the tracked protocol_check/ and mysqltest/ directories at f81bfbf",
+      "problem": "All 20 public cases passing says nothing about how the judge compares results. Without reading the comparison code, an implementation could pass locally and still lose hidden cases on type, ordering or error-code grounds.",
+      "method": "Read protocol_check/_assertions.py, protocol_check/config.json and all 42 mysqltest/case files (20 .test plus 20 .result plus two extras) in the repository.",
+      "findings": [
+        "Floats compare with math.isclose(abs_tol=1e-5, rel_tol=1e-5); everything else requires type(actual) is type(expected) and ==, so a BIGINT must stay a JSON integer and a vector must be a JSON array",
+        "Queries marked unordered are compared as a multiset, so returning a deterministic order is always acceptable",
+        "An expected error only pins error.code when config.error_codes maps the name; the published config has an empty map, so today any non-empty code passes, while the .result files name duplicate_key, unsupported_sql and dimension_mismatch - exactly the codes this implementation emits",
+        "Limits: 16 MiB per response, 60 s per request, 600 s per case, 120 s startup, cpus=2, memory=2g, pids_limit=128",
+        "No public .result asserts a NULL value or a vector column projection; both implementations reject NULL input, and the specification only says that a NULL would be represented as JSON null"
+      ],
+      "consequences": [
+        "Confirmed the implementation is inside every published limit: worst request 4.1 s, startup 30 ms, largest realistic response well under 1 MiB, one BLAS thread under a 127 pid ceiling",
+        "Confirmed the three error names the public results use are produced verbatim, which is the only defence available if the hidden config adds an error_codes map",
+        "Recorded the residual risk that the hidden config could pin different code strings, which cannot be known from here"
+      ],
+      "artefact": "VERIFICATION.md at the repository root records the contract, the alignment per row, the measured performance tables and the verified/inferred/unverified split",
+      "limitations": "Only the public half of the judge is visible; the hidden config and the 29 cases are not. DeepSeek executor experiment."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",
