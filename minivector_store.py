@@ -325,8 +325,14 @@ class Store:
     def changes(self, name):
         return self.pending.rows.get(name, {}) if self.pending is not None else {}
 
-    def read_row(self, table, offset, scan=False, cache=True):
-        cached = self.cache.get(offset)
+    def read_row(self, table, offset, scan=False, cache=True, packed=False):
+        """Decode one row.  packed=True keeps vector columns as float32 bytes.
+
+        The bulk builders feed numpy directly, so unpacking 128 floats into a
+        Python tuple only to convert them back costs more than the whole scan;
+        with packed=True they can call numpy.frombuffer on the stored bytes.
+        """
+        cached = self.cache.get(offset) if not packed else None
         if cached is not None:
             if not scan:
                 self.cache.move_to_end(offset)
@@ -341,13 +347,14 @@ class Store:
         values = list(row)
         for i, (_, kind, width) in enumerate(table.columns):
             if kind == "vector":
-                values[i] = struct.unpack(f"<{width}f", values[i])
+                if not packed:
+                    values[i] = struct.unpack(f"<{width}f", values[i])
                 weight += 32 * width
         # Large scans may fill spare capacity, but must not evict cached rows.
         # cache=False is used by bulk index builds that keep their own compact
         # representation, so the same vectors are not stored twice.
         limit = self.cache_budget
-        if cache and weight <= limit and (
+        if cache and not packed and weight <= limit and (
                 not scan or self.cache_bytes + weight <= limit):
             while self.cache_bytes + weight > limit:
                 _, (removed, _) = self.cache.popitem(last=False)

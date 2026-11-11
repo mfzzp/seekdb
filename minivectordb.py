@@ -413,10 +413,10 @@ class Database(Store):
         values = _numpy.empty((rows, width), dtype=dtype)
         keys = _numpy.empty(rows, dtype=_numpy.int64)
         primary = table.primary
-        read_row = partial(self.read_row, cache=False)
+        read_row = partial(self.read_row, cache=False, packed=True)
         for slot, offset in snapshot.rows():
             row = read_row(table, offset)
-            values[slot] = row[column]
+            values[slot] = _numpy.frombuffer(row[column], dtype="<f4")
             keys[slot] = row[primary]
         norms = _numpy.einsum("ij,ij->i", values, values)
         maxabs = float(_numpy.max(_numpy.abs(values))) if rows else 0.0
@@ -470,6 +470,61 @@ class Database(Store):
         order = _numpy.lexsort((keys[rows], pool_sq))[:best]
         return rows[order], _numpy.sqrt(_numpy.maximum(pool_sq[order], 0.0))
 
+    def _chunked_top_k(self, table, snapshot, column, target, limit, slots=None,
+                       chunk_rows=None):
+        """Exact TopK without materialising the table.
+
+        Used when the shared memory budget refuses a dense matrix.  Rows are
+        decoded in chunks, each chunk is ranked exactly (identity candidates plus
+        the direct rerank from select_exact) and only the running best `limit`
+        results are carried between chunks, so the temporary is bounded by the
+        chunk size instead of the table size.
+        """
+        if not limit:
+            return []
+        numpy = _numpy
+        width = table.columns[column][2]
+        primary = table.primary
+        offsets = snapshot.offsets
+        if slots is None:
+            slot_list = [slot for slot, _ in snapshot.rows()]
+        else:
+            slot_list = [int(slot) for slot in slots]
+        if not slot_list:
+            return []
+        step = chunk_rows or (MATRIX_CHUNK_ROWS * 2)
+        query = numpy.asarray(target, dtype=numpy.float64)
+        query_norm_sq = float(query @ query)
+        best = []                       # (distance, primary key, slot)
+        read_row = partial(self.read_row, cache=False, packed=True)
+        for start in range(0, len(slot_list), step):
+            part = slot_list[start:start + step]
+            block = numpy.empty((len(part), width), dtype=numpy.float64)
+            keys = numpy.empty(len(part), dtype=numpy.int64)
+            for index, slot in enumerate(part):
+                row = read_row(table, offsets[slot])
+                block[index] = numpy.frombuffer(row[column], dtype="<f4")
+                keys[index] = row[primary]
+            norms = numpy.einsum("ij,ij->i", block, block)
+            maxabs = float(numpy.max(numpy.abs(block))) if norms.size else 0.0
+            if maxabs <= IDENTITY_MAX_ABS:
+                squared = norms - 2.0 * (block @ query) + query_norm_sq
+                numpy.maximum(squared, 0.0, out=squared)
+                margin = self.identity_error_margin(float(norms.max()),
+                                                   query_norm_sq, width)
+            else:
+                squared = self._direct_squared(block, query)
+                margin = 0.0
+            rows, distances = self.select_exact(block, query, keys, squared, None,
+                                                limit, margin)
+            for distance, row_index in zip(distances.tolist(), rows.tolist()):
+                best.append((distance, int(keys[row_index]), part[row_index]))
+            if len(best) > limit:
+                best.sort()
+                del best[limit:]
+        return [(self.read_row(table, offsets[slot]), (float(distance),))
+                for distance, _, slot in best]
+
     def matrix_top_k(self, table, column, target, limit):
         """Exact TopK over the dense matrix; ties still break on primary key."""
         if not limit:
@@ -479,7 +534,7 @@ class Database(Store):
         if matrix is None or matrix[0] is not snapshot or matrix[1] != column:
             matrix = self.build_matrix(table, snapshot, column)
             if matrix is None:
-                return None
+                return self._chunked_top_k(table, snapshot, column, target, limit)
         _, _, values, keys, norms, maxabs, norms_max = matrix
         query = _numpy.asarray(target, dtype=values.dtype)
         query_norm_sq = float(query @ query)
@@ -522,12 +577,6 @@ class Database(Store):
         if not slots:
             return []
         snapshot = table.index_snapshot()
-        matrix = table.matrix
-        if matrix is None or matrix[0] is not snapshot or matrix[1] != column:
-            matrix = self.build_matrix(table, snapshot, column)
-            if matrix is None:
-                return None
-        _, _, values, keys, norms, maxabs, norms_max = matrix
         subset = _numpy.frombuffer(slots, dtype=_numpy.uint32).astype(_numpy.int64)
         if snapshot.deleted_count:
             alive = _numpy.fromiter((snapshot.is_live(int(slot)) for slot in subset),
@@ -535,6 +584,13 @@ class Database(Store):
             subset = subset[alive]
             if not subset.size:
                 return []
+        matrix = table.matrix
+        if matrix is None or matrix[0] is not snapshot or matrix[1] != column:
+            matrix = self.build_matrix(table, snapshot, column)
+            if matrix is None:
+                return self._chunked_top_k(table, snapshot, column, target, limit,
+                                           slots=subset)
+        _, _, values, keys, norms, maxabs, norms_max = matrix
         query = _numpy.asarray(target, dtype=values.dtype)
         query_norm_sq = float(query @ query)
         width = values.shape[1]
