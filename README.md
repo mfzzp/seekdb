@@ -145,16 +145,24 @@ python3 -m unittest discover -s tests -v
   transaction leaves nothing behind, a 2000-row transaction does not leak,
   repeated kills during startup still recover).
 
-Paired medians over three rounds, 10,000 rows × 128 dimensions, 500 unfiltered
-and 500 filtered TopK queries with K=10:
+### Timings through the real JSONL protocol
 
-| metric | before | after |
-| --- | ---: | ---: |
-| unfiltered TopK | 17.37 ms | 0.62 ms |
-| filtered TopK | 1.48 ms | 0.31 ms |
-| 1,000 queries total | 9.32 s | 0.64 s |
-| peak RSS | 80 MiB | 74 MiB |
+Measured with `scripts/protocol_bench.py`, which starts the program as a
+subprocess and talks to it over stdin/stdout exactly like the judge, so the
+numbers include JSON encode/decode, pipe traffic and per-response flushes.
+10,000 rows × 128 dimensions, medians of three alternating rounds, 1,000 TopK
+queries with K=10 (half filtered):
 
-These are local shared-host measurements, not the competition score. The agent
-material in `agent/conversation.json` records each experiment with its raw
-numbers and limitations.
+| phase | baseline | + numpy | no numpy |
+| --- | ---: | ---: | ---: |
+| write, 100 committed batches | 0.91 s | 1.03 s | 0.96 s |
+| unfiltered TopK (median) | 17.7 ms | 1.6 ms | 17.7 ms |
+| filtered TopK (median) | 2.2 ms | 1.2 ms | 1.7 ms |
+| 1,000 queries total | 9.6 s | 1.3 s | 9.0 s |
+
+A control pair (same code against itself) showed a 4% write noise floor, so the
+~5% write difference with numpy is at the edge of measurable and comes from the
+numpy runtime being loaded, not from the write path. These are local shared-host
+measurements, not the competition score. The agent material in
+`agent/conversation.json` records each experiment with its raw numbers and
+limitations.

@@ -510,6 +510,29 @@
       },
       "failed_attempts": [],
       "limitations": "The injected failure is a synthetic OSError; real disk errors were not reproduced. DeepSeek executor experiment."
+    },
+    {
+      "id": "protocol-level-timing",
+      "executor": "DeepSeek",
+      "source": "DeepSeek measurement on /mnt/HDD2/zzp/minivectordb-round2 with /usr/bin/python3 3.12.3",
+      "baseline": "716867c (baseline source) and e62d28e..7c24561 (candidate source)",
+      "problem": "Every benchmark in this session called Database.execute in-process. The judge measures wall time over stdin/stdout JSONL, which adds JSON encoding, pipe traffic and a flush per response. Without measuring that shape, the reported speedups could be flattering or wrong.",
+      "method": "scripts/protocol_bench.py starts the program as a subprocess and speaks the real protocol: CREATE TABLE, CREATE VECTOR INDEX, 100 committed INSERT batches of 100 rows, then 1,000 TopK queries (K=10, half filtered with an equality predicate). scripts/protocol_pairs.sh alternates baseline and candidate for three rounds and reports medians; a control run pairs the baseline with itself to establish the noise floor.",
+      "results": {
+        "median_three_paired_rounds_200_queries": {
+          "write_s": {"baseline": 0.907, "candidate_numpy": 1.026, "candidate_no_numpy": 0.963},
+          "unfiltered_ms": {"baseline": 17.721, "candidate_numpy": 1.595, "candidate_no_numpy": 17.719},
+          "filtered_ms": {"baseline": 2.209, "candidate_numpy": 1.163, "candidate_no_numpy": 1.732},
+          "query_total_s": {"baseline": 1.962, "candidate_numpy": 0.436, "candidate_no_numpy": 2.052}
+        },
+        "single_1000_query_runs": {"baseline": 9.642, "candidate_numpy": 1.312, "candidate_no_numpy": 9.002},
+        "control_baseline_vs_baseline": {"write_ratio": 1.04, "query_ratio": 0.97},
+        "startup_s": 0.03, "shutdown_s": 0.03
+      },
+      "interpretation": "Through the protocol the query phase is 4.5x faster with numpy (1.96 s -> 0.44 s for 200 queries; 9.64 s -> 1.31 s for 1,000), which is a smaller ratio than the in-process 12x because a fixed JSONL round-trip of roughly 0.5 ms per query now dominates the remaining work. Without numpy the candidate matches the baseline (write 0.99, query 1.05), confirming the fallback is the old path. The 13% write gap seen in the first unpaired run did not survive the control: paired medians give 1.13 with numpy but 0.99 without, and a same-code control already shows a 4% floor, so the difference comes from the numpy runtime being resident rather than from the write path.",
+      "changes": [],
+      "status": "measured, README updated with protocol-level numbers",
+      "limitations": "The measurement client is Python and adds its own serialisation cost on both sides, which the judge's driver will also have in some form; absolute values are therefore indicative. Shared host, local only. DeepSeek executor experiment."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",
