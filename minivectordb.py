@@ -700,11 +700,33 @@ def send(response):
 
 
 def shutdown_quietly(db):
-    """Flush and close, but never let a cleanup failure swallow the response."""
+    """Flush and close, but never let a cleanup failure swallow the response.
+
+    In this design every commit has already been fsynced and uncommitted frames
+    are simply truncated at the next recovery, so a failure while closing cannot
+    lose acknowledged data; it is a resource-cleanup failure, not a durability
+    one, and must not change the protocol answer or the exit status.
+    """
     try:
         db.close()
     except Exception as exc:  # noqa: BLE001 - the protocol answer wins
         print(f"shutdown cleanup failed: {exc}", file=sys.stderr, flush=True)
+
+
+def startup_diagnostics(db):
+    """One stderr line describing the runtime; stdout stays protocol-only."""
+    parts = [f"python {sys.version.split()[0]}"]
+    if _numpy is None:
+        parts.append("numpy=absent (pure-Python distance path)")
+    else:
+        parts.append(f"numpy={_numpy.__version__}")
+    parts.append(f"matrix_cap={MATRIX_MAX_BYTES >> 20}MiB")
+    capacity = getattr(db, "budget", None)
+    if capacity is not None and capacity.capacity is not None:
+        parts.append(f"memory_budget={capacity.capacity >> 20}MiB")
+    else:
+        parts.append("memory_budget=unlimited")
+    print("minivectordb: " + ", ".join(parts), file=sys.stderr, flush=True)
 
 
 def main():
@@ -712,6 +734,7 @@ def main():
     parser.add_argument("--data-dir", default="/data")
     db = Database(parser.parse_args().data_dir)
     try:
+        startup_diagnostics(db)
         send({"type": "ready"})
         for line in sys.stdin.buffer:
             request = {}
