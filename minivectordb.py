@@ -26,6 +26,9 @@ MAX_BLOCK_ROWS = 1_000_000
 MAX_AXIS_ROWS = 50_000
 COMPONENT_BUDGET = adaptive_budget(memory_limit_bytes(), 64 * 1024 * 1024,
                                    8 * 1024 * 1024)
+# Rows per chunk when a kernel has to gather or subtract a slice of the matrix;
+# bounds the temporary to chunk*dimension*8 bytes instead of the whole table.
+MATRIX_CHUNK_ROWS = 4096
 # Dense distance matrix acceleration: only worth it for large tables, and capped
 # so a huge table cannot turn the cache into an unbounded allocation.
 MATRIX_MIN_ROWS = 2048
@@ -122,6 +125,8 @@ class Database(Store):
         if table.blocks is not None and table.blocks[0] == component:
             return table.blocks[1]
         if len(table.rows) > MAX_BLOCK_ROWS:
+            return None
+        if not self._reserve(4 * len(table.rows) + 72 * 32, keep=table):
             return None
         groups = {}
         budget = COMPONENT_BUDGET
@@ -329,17 +334,82 @@ class Database(Store):
                 replace(best, (-distance, -key, row))
         return [(row, (-distance,)) for distance, _, row in sorted(best, reverse=True)]
 
+    def _memory_used(self):
+        """Bytes currently held by rebuildable structures plus the row cache."""
+        used = self.cache_bytes
+        for table in self.tables.values():
+            matrix = table.matrix
+            if matrix is not None:
+                used += matrix[2].nbytes + matrix[3].nbytes + matrix[4].nbytes
+            blocks = table.blocks
+            if blocks is not None:
+                groups = blocks[1]
+                used += 72 * len(groups)
+                for slots in groups.values():
+                    used += 4 * len(slots)
+        return used
+
+    def _release_derived(self, keep=None):
+        """Drop rebuildable structures (all but `keep`) before giving up."""
+        for table in self.tables.values():
+            if table is keep:
+                continue
+            table.matrix = None
+            table.blocks = None
+            table.axis = None
+
+    def _reserve(self, size, keep=None):
+        """True when `size` more bytes fit, dropping other tables' caches first."""
+        budget = self.budget
+        if budget.capacity is None or budget.fits(self._memory_used(), size):
+            return True
+        self._release_derived(keep)
+        return budget.fits(self._memory_used(), size)
+
+    def _direct_squared(self, values, query, indices=None):
+        """|v-q|^2 with a bounded temporary: never copies the whole matrix."""
+        step = MATRIX_CHUNK_ROWS
+        count = values.shape[0] if indices is None else indices.size
+        out = _numpy.empty(count, dtype=_numpy.float64)
+        for start in range(0, count, step):
+            stop = min(start + step, count)
+            block = values[start:stop] if indices is None else values[indices[start:stop]]
+            diff = block - query
+            out[start:stop] = _numpy.einsum("ij,ij->i", diff, diff)
+        return out
+
+    def _identity_squared(self, values, norms, query, indices=None):
+        """Identity kernel; a subset is gathered in chunks to bound the copy."""
+        step = MATRIX_CHUNK_ROWS
+        query_norm_sq = float(query @ query)
+        if indices is None:
+            squared = norms - 2.0 * (values @ query) + query_norm_sq
+            _numpy.maximum(squared, 0.0, out=squared)
+            return squared
+        count = indices.size
+        out = _numpy.empty(count, dtype=_numpy.float64)
+        for start in range(0, count, step):
+            stop = min(start + step, count)
+            part = indices[start:stop]
+            out[start:stop] = norms[part] - 2.0 * (values[part] @ query) + query_norm_sq
+        _numpy.maximum(out, 0.0, out=out)
+        return out
+
     def build_matrix(self, table, snapshot, column):
         """Materialise live vectors once so TopK becomes one BLAS mat-vec.
 
         Values come from the same decoded float32 payloads the row cache uses,
-        so the matrix cannot drift from the stored representation.
+        so the matrix cannot drift from the stored representation.  Returns None
+        when the shared memory budget cannot fit the matrix, in which case the
+        caller falls back to a scan.
         """
         width = table.columns[column][2]
         rows = len(snapshot.offsets)
         dtype = _numpy.float64
         if rows * width * 8 > MATRIX_MAX_BYTES:
             dtype = _numpy.float32
+        if not self._reserve(rows * width * _numpy.dtype(dtype).itemsize, keep=table):
+            return None
         values = _numpy.empty((rows, width), dtype=dtype)
         keys = _numpy.empty(rows, dtype=_numpy.int64)
         primary = table.primary
@@ -394,8 +464,7 @@ class Database(Store):
             if pool.size > max(8 * best, 512):
                 rows = row_index if row_index is not None else _numpy.arange(total)
                 pool = _numpy.arange(total)
-            diff = values[rows] - query
-            pool_sq = _numpy.einsum("ij,ij->i", diff, diff)
+            pool_sq = self._direct_squared(values, query, rows)
         else:
             pool_sq = squared[pool]
         order = _numpy.lexsort((keys[rows], pool_sq))[:best]
@@ -409,6 +478,8 @@ class Database(Store):
         matrix = table.matrix
         if matrix is None or matrix[0] is not snapshot or matrix[1] != column:
             matrix = self.build_matrix(table, snapshot, column)
+            if matrix is None:
+                return None
         _, _, values, keys, norms, maxabs, norms_max = matrix
         query = _numpy.asarray(target, dtype=values.dtype)
         query_norm_sq = float(query @ query)
@@ -417,12 +488,10 @@ class Database(Store):
             # |v-q|^2 = |v|^2 - 2 v.q + |q|^2 costs one BLAS mat-vec instead of
             # an element-wise pass that allocates a matrix-sized temporary; the
             # ranking it produces is only used to choose candidates.
-            squared = norms - 2.0 * (values @ query) + query_norm_sq
-            _numpy.maximum(squared, 0.0, out=squared)
+            squared = self._identity_squared(values, norms, query)
             margin = self.identity_error_margin(norms_max, query_norm_sq, width)
         else:
-            diff = values - query
-            squared = _numpy.einsum("ij,ij->i", diff, diff)
+            squared = self._direct_squared(values, query)
             margin = 0.0
         if snapshot.deleted_count:
             bits = _numpy.unpackbits(_numpy.frombuffer(bytes(snapshot.deleted),
@@ -456,6 +525,8 @@ class Database(Store):
         matrix = table.matrix
         if matrix is None or matrix[0] is not snapshot or matrix[1] != column:
             matrix = self.build_matrix(table, snapshot, column)
+            if matrix is None:
+                return None
         _, _, values, keys, norms, maxabs, norms_max = matrix
         subset = _numpy.frombuffer(slots, dtype=_numpy.uint32).astype(_numpy.int64)
         if snapshot.deleted_count:
@@ -468,12 +539,10 @@ class Database(Store):
         query_norm_sq = float(query @ query)
         width = values.shape[1]
         if maxabs <= IDENTITY_MAX_ABS:
-            squared = norms[subset] - 2.0 * (values[subset] @ query) + query_norm_sq
-            _numpy.maximum(squared, 0.0, out=squared)
+            squared = self._identity_squared(values, norms, query, subset)
             margin = self.identity_error_margin(norms_max, query_norm_sq, width)
         else:
-            diff = values[subset] - query
-            squared = _numpy.einsum("ij,ij->i", diff, diff)
+            squared = self._direct_squared(values, query, subset)
             margin = 0.0
         rows, distances = self.select_exact(values, query, keys, squared, subset,
                                             limit, margin)

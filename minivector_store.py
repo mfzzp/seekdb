@@ -14,6 +14,11 @@ from minivector_sql import require
 LENGTH = struct.Struct("<Q")
 COMMIT = b"!"
 CACHE_BUDGET = 96 * 1024 * 1024
+# Interpreter, numpy and BLAS scratch that exist before any structure is built.
+BASELINE_BYTES = 96 * 1024 * 1024
+# The cgroup also charges page cache and our own allocator slack, so only this
+# fraction of the container limit is treated as available to the structures.
+USABLE_FRACTION = 0.75
 
 
 def memory_limit_bytes():
@@ -36,6 +41,31 @@ def adaptive_budget(limit, default, floor):
     if not limit:
         return default
     return max(floor, min(default, limit // 4))
+
+
+class MemoryBudget:
+    """One cap shared by the row cache, the dense matrices and the groups.
+
+    The row cache, every per-table matrix and every equality group are
+    rebuildable, so the executor asks this object before growing one of them and
+    drops the others when the answer would be no.  Used bytes are derived from
+    the live structures instead of being tracked incrementally, which keeps the
+    number correct when a table is invalidated or dropped.
+    """
+
+    def __init__(self, limit=None):
+        self.capacity = None
+        if limit:
+            usable = int(limit * USABLE_FRACTION) - BASELINE_BYTES
+            self.capacity = max(8 * 1024 * 1024, usable)
+
+    def fits(self, used, size):
+        return self.capacity is None or used + size <= self.capacity
+
+    def share(self, fraction, default, floor):
+        if self.capacity is None:
+            return default
+        return max(floor, min(default, int(self.capacity * fraction)))
 
 
 _MEMORY_LIMIT = memory_limit_bytes()
@@ -142,6 +172,11 @@ class Store:
         self.pending = None
         self.cache = OrderedDict()
         self.cache_bytes = 0
+        self.budget = MemoryBudget(memory_limit_bytes())
+        # The row cache keeps its historical default unless the container limit
+        # is small enough that it would crowd out the matrix and the groups.
+        self.cache_budget = min(CACHE_BUDGET, self.budget.share(
+            0.40, CACHE_BUDGET, 16 * 1024 * 1024))
         self.committed_end = self.recover()
         self.truncate(self.committed_end)
 
@@ -311,9 +346,10 @@ class Store:
         # Large scans may fill spare capacity, but must not evict cached rows.
         # cache=False is used by bulk index builds that keep their own compact
         # representation, so the same vectors are not stored twice.
-        if cache and weight <= CACHE_BUDGET and (
-                not scan or self.cache_bytes + weight <= CACHE_BUDGET):
-            while self.cache_bytes + weight > CACHE_BUDGET:
+        limit = self.cache_budget
+        if cache and weight <= limit and (
+                not scan or self.cache_bytes + weight <= limit):
+            while self.cache_bytes + weight > limit:
                 _, (removed, _) = self.cache.popitem(last=False)
                 self.cache_bytes -= removed
             self.cache[offset] = weight, values
