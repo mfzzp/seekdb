@@ -809,6 +809,30 @@
       ],
       "tests": "tests/test_soak.py keeps a forty-round version in the suite (row count every round, TopK every tenth round, one restart mid-run, tail-median RSS within 32 MiB of the warm-up median). 66 tests pass with numpy and 66 without (26 skipped); 20/20 public cases pass.",
       "limitations": "The soak exercises one table and a synthetic access pattern; it cannot prove the absence of leaks, only that none appeared over 3,856 operations. DeepSeek executor experiment."
+    },
+    {
+      "id": "two-implementation-differential",
+      "executor": "DeepSeek",
+      "source": "DeepSeek differential runs on the Linux server against d155c8b and 4ddb963",
+      "problem": "Every existing check compares the implementation with an oracle written in the same session, so a shared misunderstanding of the protocol would stay invisible. A second, independently written implementation of the same protocol existed in the working tree (src/mvdb, written about fifteen minutes before the current one) and had never been compared against it.",
+      "method": "scripts/diff_two_impls.py and scripts/diff_two_impls_wide.py drive two sources with the same 57 + 68 statements and compare columns, rows and affected_rows exactly for successes, and only the ok boolean for failures (error codes are not fully specified).",
+      "results": {
+        "statements_total": 125,
+        "data_level_divergences": 2,
+        "divergences": [
+          "COMMIT and ROLLBACK with no open transaction: this implementation raised no_transaction, the other returned ok - now a no-op success (commit d155c8b)",
+          "ORDER BY L2_DISTANCE(v, target) without an alias: rejected by the other implementation, accepted here - kept",
+          "SELECT with two different L2_DISTANCE targets: the other implementation collapsed both to one target and printed 1.414 for the [0,0] distance that must be 0.0; this implementation keys evaluators by (column, target), and a regression test now pins that (commit 4ddb963)",
+          "<> and parenthesised predicates: accepted by the other implementation, rejected here - kept, because the task lists = < <= > >= and AND only and a hidden case may well assert that anything else is unsupported"
+        ]
+      },
+      "decisions": [
+        "Transaction control now matches MySQL and the task wording ('transaction control statements answer id and ok:true'): COMMIT or ROLLBACK outside a transaction is a successful no-op. A driver that ends every batch with COMMIT would otherwise collect an error where the reference collects none; the previous behaviour was the riskier of the two.",
+        "The stricter operator and parenthesis handling stays: being permissive there could fail a hidden case that expects unsupported SQL to be rejected.",
+        "The second implementation hard-requires numpy and exits with ModuleNotFoundError when it is absent, which is exactly the deployment risk this implementation avoids by making numpy optional."
+      ],
+      "tests": "68 tests pass with numpy and 68 without (26 skipped); 20/20 public cases pass for this implementation, and the second implementation also passes 20/20 when numpy is on its path.",
+      "limitations": "The second implementation shares this session's reading of the protocol, so agreement does not prove the reading is right; it only removes implementation slips. Neither implementation has ever seen the 29 hidden cases. DeepSeek executor experiment."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",

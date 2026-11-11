@@ -198,7 +198,7 @@ python3 -m unittest discover -s tests -v
 ```
 
 - 20/20 public protocol cases pass with and without numpy.
-- 66 regression tests pass (matrix paths, numeric bounds, memory budget, chunked
+- 68 regression tests pass (matrix paths, numeric bounds, memory budget, chunked
   TopK, scalar filters, ann/exact equivalence, bitmap deletion, recovery
   truncation, real SIGKILL recovery, mixed-workload soak, query paths, scan
   cache, SQL surface, model fuzz, semantics audit, startup diagnostics and the
