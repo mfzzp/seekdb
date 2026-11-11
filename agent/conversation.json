@@ -44,6 +44,50 @@
       "content": "继续优化所有能优化的地方，可以自己借助外部资源去学习找方法优化"
     }
   ],
+  "student_statements": [
+    {
+      "id": "S-2026-11-11-a",
+      "when": "2026-11-11T15:41:35+08:00",
+      "verbatim": "我需要你帮我帮我完成oceanbase这个竞赛的加赛，你现在先去了解一下这个比赛，然后，你连接我的服务器，帮我在服务器上修改代码和进行测试",
+      "note": "The same message then pasted the complete competition description (MiniVectorDB, 80 points, functional gate + performance + Agent prompt) and ended with '这个是代码内容', but no code was attached."
+    },
+    {
+      "id": "S-2026-11-11-b",
+      "when": "2026-11-11T15:41:35+08:00",
+      "verbatim": "这个是代码内容",
+      "note": "Sent after the competition text; contained no attachment or code."
+    },
+    {
+      "id": "S-2026-11-11-c",
+      "when": "2026-11-11T16:07:00+08:00",
+      "verbatim": "不能把缓存预算直接调大来宣称优化。",
+      "note": "One bullet of a longer message that also gave the code directory (/mnt/HDD2/zzp/minivectordb-round2), the current implementation limits, the six candidate directions and the testing requirements. Quoted here verbatim; the full list is paraphrased in learning_cases."
+    },
+    {
+      "id": "S-2026-11-11-d",
+      "when": "2026-11-11T16:07:00+08:00",
+      "verbatim": "这些是候选方向，不是已证明有效的改进。每次只落实一项，先测量再保留。",
+      "note": "Same message; the participant also reported a measured regression (8000-row median 12.39 ms -> 12.75 ms) and required reading result.json instead of trusting exit codes."
+    },
+    {
+      "id": "S-2026-11-11-e",
+      "when": "2026-11-11T16:07:00+08:00",
+      "verbatim": "应查看检查器生成的 result.json，确认具体用例状态，不能只根据进程退出码判断。",
+      "note": "Same message; the participant then listed the scenarios the tests must cover (transaction DML, failed statements, rollback, restart, truncated log, aliases, distance ties, empty results, LIMIT boundaries, cache offset reuse) and asked that timing and decode counting stay separate."
+    },
+    {
+      "id": "S-2026-11-11-f",
+      "when": "2026-11-11T16:29:00+08:00",
+      "verbatim": "这样，你就负责本地修改得了，提交到时候再说吧，你现在提交是采用的什么方法，要把代码放到本地，再提交还是直接在服务器上提交",
+      "note": "The participant deferred submission and asked how the agent was delivering commits, which led to the documented server-commit / local-push pipeline."
+    },
+    {
+      "id": "S-2026-11-11-g",
+      "when": "2026-11-11, after the first successful pushes",
+      "verbatim": "你现在不用推送了，就在本地改就行",
+      "note": "After the first pushes, the participant asked the agent to stop pushing and continue with local changes only; the branch is therefore left a few commits behind the server."
+    }
+  ],
   "experiments": [
     {
       "id": "public-linux",
