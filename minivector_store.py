@@ -264,7 +264,7 @@ class Store:
     def changes(self, name):
         return self.pending.rows.get(name, {}) if self.pending is not None else {}
 
-    def read_row(self, table, offset, scan=False):
+    def read_row(self, table, offset, scan=False, cache=True):
         cached = self.cache.get(offset)
         if cached is not None:
             if not scan:
@@ -283,7 +283,10 @@ class Store:
                 values[i] = struct.unpack(f"<{width}f", values[i])
                 weight += 32 * width
         # Large scans may fill spare capacity, but must not evict cached rows.
-        if weight <= CACHE_BUDGET and (not scan or self.cache_bytes + weight <= CACHE_BUDGET):
+        # cache=False is used by bulk index builds that keep their own compact
+        # representation, so the same vectors are not stored twice.
+        if cache and weight <= CACHE_BUDGET and (
+                not scan or self.cache_bytes + weight <= CACHE_BUDGET):
             while self.cache_bytes + weight > CACHE_BUDGET:
                 _, (removed, _) = self.cache.popitem(last=False)
                 self.cache_bytes -= removed

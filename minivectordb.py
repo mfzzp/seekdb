@@ -114,7 +114,9 @@ class Database(Store):
             return None
         groups = {}
         budget = MAX_COMPONENT_BYTES
-        read_row = partial(self.read_row, scan=True) if table.large_scan() else self.read_row
+        # Bulk index builds keep their own compact representation, so they must
+        # not also fill the row cache with decoded vectors.
+        read_row = partial(self.read_row, cache=False)
         for slot, offset in table.index_snapshot().rows():
             field = read_row(table, offset)[component]
             budget -= 64 + (4 * len(field) if isinstance(field, str) else 0)
@@ -321,7 +323,7 @@ class Database(Store):
         values = _numpy.empty((rows, width), dtype=dtype)
         keys = _numpy.empty(rows, dtype=_numpy.int64)
         primary = table.primary
-        read_row = partial(self.read_row, scan=True)
+        read_row = partial(self.read_row, cache=False)
         for slot, offset in snapshot.rows():
             row = read_row(table, offset)
             values[slot] = row[column]
