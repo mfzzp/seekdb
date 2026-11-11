@@ -109,6 +109,9 @@ class Table:
         # Optional dense (snapshot, column, values, keys) acceleration built by
         # the executor; always invalidated together with the index snapshot.
         self.matrix = None
+        # Compact per-column arrays over stable slots, used to turn scalar
+        # predicates into candidate slots before any vector work.
+        self.scalar_cache = None
 
     def large_scan(self):
         return len(self.rows) * self.minimum_row_weight > CACHE_BUDGET
@@ -150,6 +153,7 @@ class Transaction:
             table = tables[name]
             if table.snapshot is not None and any(offset is not None for offset in changes.values()):
                 table.blocks = table.axis = table.snapshot = table.matrix = None
+                table.scalar_cache = None
             for key, offset in changes.items():
                 if offset is None:
                     previous = table.rows.pop(key, None)
@@ -159,6 +163,7 @@ class Transaction:
                     table.rows[key] = offset
             if table.snapshot is not None and table.snapshot.deleted_count >= len(table.rows):
                 table.blocks = table.axis = table.snapshot = table.matrix = None
+                table.scalar_cache = None
 
 
 class Store:

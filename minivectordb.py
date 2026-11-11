@@ -29,6 +29,11 @@ COMPONENT_BUDGET = adaptive_budget(memory_limit_bytes(), 64 * 1024 * 1024,
 # Rows per chunk when a kernel has to gather or subtract a slice of the matrix;
 # bounds the temporary to chunk*dimension*8 bytes instead of the whole table.
 MATRIX_CHUNK_ROWS = 4096
+# A filter that leaves at most this many rows is answered straight from the log
+# instead of building or gathering a dense matrix.  It is deliberately small:
+# reading rows from disk costs about 6 us each while a masked matrix query costs
+# under 1 ms, so the dense path wins as soon as the candidate set is not tiny.
+SMALL_SUBSET_ROWS = 256
 # Dense distance matrix acceleration: only worth it for large tables, and capped
 # so a huge table cannot turn the cache into an unbounded allocation.
 MATRIX_MIN_ROWS = 2048
@@ -158,6 +163,110 @@ class Database(Store):
         if snapshot.deleted_count:
             return (snapshot.offsets[slot] for slot in slots if snapshot.is_live(slot))
         return (snapshot.offsets[slot] for slot in slots)
+
+    def scalar_index(self, table, snapshot):
+        """Compact per-column arrays over stable slots for scalar predicates.
+
+        BIGINT columns stay int64 so comparisons above 2^53 remain exact;
+        VARCHAR columns are dictionary coded plus a rank array, so range
+        predicates keep the code-point ordering the SQL layer promises.
+        """
+        cached = table.scalar_cache
+        if cached is not None and cached[0] is snapshot:
+            return cached[1]
+        rows = len(snapshot.offsets)
+        scalar_columns = [(position, column) for position, column
+                          in enumerate(table.columns) if column[1] != "vector"]
+        if not scalar_columns:
+            return None
+        if not self._reserve(12 * rows * len(scalar_columns) + 4096, keep=table):
+            return None
+        entries = {}
+        for position, (name, kind, width) in scalar_columns:
+            if kind == "bigint":
+                entries[position] = {"kind": "bigint",
+                                     "array": _numpy.empty(rows, dtype=_numpy.int64)}
+            else:
+                entries[position] = {"kind": "varchar",
+                                     "codes": _numpy.empty(rows, dtype=_numpy.int32),
+                                     "mapping": {}, "values": []}
+        read_row = partial(self.read_row, cache=False)
+        for slot, offset in snapshot.rows():
+            row = read_row(table, offset)
+            for position, entry in entries.items():
+                if entry["kind"] == "bigint":
+                    entry["array"][slot] = row[position]
+                else:
+                    text = row[position]
+                    code = entry["mapping"].get(text)
+                    if code is None:
+                        code = len(entry["values"])
+                        entry["mapping"][text] = code
+                        entry["values"].append(text)
+                    entry["codes"][slot] = code
+        for entry in entries.values():
+            if entry["kind"] != "varchar":
+                continue
+            ordered = sorted(entry["values"])
+            rank_of_value = {text: rank for rank, text in enumerate(ordered)}
+            rank_of_code = _numpy.empty(len(entry["values"]), dtype=_numpy.int32)
+            for text, rank in rank_of_value.items():
+                rank_of_code[entry["mapping"][text]] = rank
+            entry["ranks"] = rank_of_code[entry["codes"]]
+            entry["rank_of"] = rank_of_value
+            entry["ordered"] = ordered
+        table.scalar_cache = (snapshot, entries)
+        return entries
+
+    @staticmethod
+    def _mask_for(array, operation, wanted):
+        if operation == "=":
+            return array == wanted
+        if operation in ("<>", "!="):
+            return array != wanted
+        if operation == "<":
+            return array < wanted
+        if operation == "<=":
+            return array <= wanted
+        if operation == ">":
+            return array > wanted
+        return array >= wanted
+
+    def filter_slots(self, table, snapshot, filters):
+        """Candidate slots for the whole WHERE clause, or None if unsupported."""
+        entries = self.scalar_index(table, snapshot)
+        if entries is None:
+            return None
+        rows = len(snapshot.offsets)
+        mask = None
+        for position, operation, value in filters:
+            entry = entries.get(position)
+            if entry is None:
+                return None
+            if entry["kind"] == "bigint":
+                current = self._mask_for(entry["array"], operation, int(value))
+            elif operation in ("=", "<>", "!="):
+                code = entry["mapping"].get(value)
+                if code is None:
+                    current = (_numpy.zeros(rows, dtype=bool) if operation == "="
+                               else _numpy.ones(rows, dtype=bool))
+                else:
+                    current = self._mask_for(entry["codes"], operation, code)
+            else:
+                # Ranks preserve code-point order; a value that is not stored
+                # compares against its insertion point in the sorted values.
+                rank = entry["rank_of"].get(value)
+                if rank is None:
+                    rank = bisect_left(entry["ordered"], value)
+                current = self._mask_for(entry["ranks"], operation, rank)
+            mask = current if mask is None else (mask & current)
+        if mask is None:
+            return None
+        if snapshot.deleted_count:
+            bits = _numpy.unpackbits(_numpy.frombuffer(bytes(snapshot.deleted),
+                                                       dtype=_numpy.uint8))
+            mask = mask & (bits[:rows] == 0)
+        return _numpy.flatnonzero(mask)
 
     def candidates(self, name, table, filters, clustered):
         changes = self.changes(name)
@@ -338,6 +447,14 @@ class Database(Store):
         """Bytes currently held by rebuildable structures plus the row cache."""
         used = self.cache_bytes
         for table in self.tables.values():
+            cache = table.scalar_cache
+            if cache is not None:
+                for entry in cache[1].values():
+                    if entry["kind"] == "bigint":
+                        used += entry["array"].nbytes
+                    else:
+                        used += entry["codes"].nbytes + entry["ranks"].nbytes
+                        used += sum(len(text) + 49 for text in entry["values"])
             matrix = table.matrix
             if matrix is not None:
                 used += matrix[2].nbytes + matrix[3].nbytes + matrix[4].nbytes
@@ -563,10 +680,10 @@ class Database(Store):
                 for slot, distance in zip(rows, distances)]
 
     def matrix_group_top_k(self, table, column, target, limit, filter_column, filter_value):
-        """Filtered TopK: distances only for the equality group's slots.
+        """Filtered TopK over one equality group.
 
-        Returns None when the equality groups cannot be built, so the caller can
-        fall back to the generic filter path unchanged.
+        Returns None when the groups cannot be built, so the caller can fall back
+        to the generic filter path unchanged.
         """
         if not limit:
             return []
@@ -584,6 +701,22 @@ class Database(Store):
             subset = subset[alive]
             if not subset.size:
                 return []
+        return self._subset_top_k(table, snapshot, column, target, limit, subset)
+
+    def _subset_top_k(self, table, snapshot, column, target, limit, subset):
+        """Exact TopK over an explicit set of stable slots.
+
+        Three shapes, chosen by how many candidates there are: a small set is
+        read straight from the log (no matrix at all), a large set reuses the
+        dense matrix and masks it, and anything in between gathers the subset in
+        chunks so the copy stays bounded.
+        """
+        if not limit or subset.size == 0:
+            return []
+        rows = len(snapshot.offsets)
+        if subset.size <= SMALL_SUBSET_ROWS:
+            return self._chunked_top_k(table, snapshot, column, target, limit,
+                                       slots=subset)
         matrix = table.matrix
         if matrix is None or matrix[0] is not snapshot or matrix[1] != column:
             matrix = self.build_matrix(table, snapshot, column)
@@ -595,16 +728,22 @@ class Database(Store):
         query_norm_sq = float(query @ query)
         width = values.shape[1]
         if maxabs <= IDENTITY_MAX_ABS:
-            squared = self._identity_squared(values, norms, query, subset)
+            if subset.size * 4 >= rows:
+                # Broad filter: one mat-vec over the whole matrix, then index
+                # the distance array instead of gathering vector blocks.
+                squared_all = self._identity_squared(values, norms, query)
+                squared = squared_all[subset]
+            else:
+                squared = self._identity_squared(values, norms, query, subset)
             margin = self.identity_error_margin(norms_max, query_norm_sq, width)
         else:
             squared = self._direct_squared(values, query, subset)
             margin = 0.0
-        rows, distances = self.select_exact(values, query, keys, squared, subset,
-                                            limit, margin)
+        chosen, distances = self.select_exact(values, query, keys, squared, subset,
+                                              limit, margin)
         offsets = snapshot.offsets
         return [(self.read_row(table, offsets[int(slot)]), (float(distance),))
-                for slot, distance in zip(rows, distances)]
+                for slot, distance in zip(chosen, distances)]
 
     def select(self, name, projections, terms, order, limit, mode):
         name = name.casefold()
@@ -712,6 +851,14 @@ class Database(Store):
                     and filters[0][0] != table.primary):
                 rows = self.matrix_group_top_k(table, evaluators[0][0], evaluators[0][1],
                                                limit, filters[0][0], filters[0][2])
+            elif not all(position == table.primary for position, _, _ in filters):
+                # Ranges, <>, AND chains and mixed predicates are resolved from
+                # the compact scalar columns before any vector work.
+                snapshot = table.index_snapshot()
+                subset = self.filter_slots(table, snapshot, filters)
+                if subset is not None:
+                    rows = self._subset_top_k(table, snapshot, evaluators[0][0],
+                                              evaluators[0][1], limit, subset)
         if rows is None:
             if (mode == "ann" and clustered and len(ordering) == len(evaluators) == 1
                     and not ordering[0][1] and limit is not None and not filters
