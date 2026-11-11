@@ -50,6 +50,27 @@
       "test": "cases/extra_row_order.test",
       "result": "cases/extra_row_order.result",
       "statements": 8
+    },
+    {
+      "id": "extra_multi_table_restart",
+      "group": "extra",
+      "test": "cases/extra_multi_table_restart.test",
+      "result": "cases/extra_multi_table_restart.result",
+      "statements": 11
+    },
+    {
+      "id": "extra_transaction_delete_all",
+      "group": "extra",
+      "test": "cases/extra_transaction_delete_all.test",
+      "result": "cases/extra_transaction_delete_all.result",
+      "statements": 13
+    },
+    {
+      "id": "extra_vector_mutation_paths",
+      "group": "extra",
+      "test": "cases/extra_vector_mutation_paths.test",
+      "result": "cases/extra_vector_mutation_paths.result",
+      "statements": 9
     }
   ]
 }

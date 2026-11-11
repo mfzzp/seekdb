@@ -166,10 +166,12 @@ python3 protocol_check/run.py --command '["python3","minivectordb.py","--data-di
 python3 -m unittest discover -s tests -v
 ```
 
-- 20/20 public protocol cases pass with and without numpy, plus seven extra cases
-  (range and AND predicates, restart with an index, a failed statement inside a
-  transaction, LIMIT 0, non-ASCII values, ann vs exact, and the row order of a
-  multi-row answer without ORDER BY) through the same runner.
+- 20/20 public protocol cases pass with and without numpy, plus ten extra cases
+  through the same runner: range and AND predicates, restart with an index, two
+  tables across a restart, a failed statement inside a transaction, deleting every
+  row inside a transaction and rolling it back, LIMIT 0, non-ASCII values, ann vs
+  exact, the row order of a multi-row answer without ORDER BY, and vector
+  distances after an update and a delete.
 - 70 regression tests pass (matrix paths, numeric bounds, memory budget, chunked
   TopK, scalar filters, ann/exact equivalence, bitmap deletion, recovery
   truncation, real SIGKILL recovery, mixed-workload soak, query paths, scan

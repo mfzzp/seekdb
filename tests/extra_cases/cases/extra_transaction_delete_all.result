@@ -1,0 +1,54 @@
+[
+  {},
+  {
+    "affected_rows": 2
+  },
+  {},
+  {
+    "affected_rows": 2
+  },
+  {
+    "columns": [
+      "id"
+    ],
+    "rows": []
+  },
+  {},
+  {
+    "columns": [
+      "id"
+    ],
+    "rows": [
+      [
+        1
+      ],
+      [
+        2
+      ]
+    ]
+  },
+  {},
+  {
+    "affected_rows": 2
+  },
+  {},
+  {
+    "columns": [
+      "id"
+    ],
+    "rows": []
+  },
+  {
+    "affected_rows": 1
+  },
+  {
+    "columns": [
+      "id"
+    ],
+    "rows": [
+      [
+        5
+      ]
+    ]
+  }
+]
