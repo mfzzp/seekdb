@@ -100,24 +100,34 @@ class Database(Store):
                 return None
             members = []
             budget = MAX_COMPONENT_BYTES
-            for key, offset in table.rows.items():
-                field = self.read_row(table, offset)[component]
+            for slot, offset in table.index_snapshot().rows():
+                row = self.read_row(table, offset)
+                field = row[component]
                 budget -= 64 + (4 * len(field) if isinstance(field, str) else 0)
                 if budget < 0:
                     return None
-                members.append((field, key, offset))
+                members.append((field, row[table.primary], slot))
             members.sort()
-            offsets = array("Q")
+            slots = array("I")
             ranges = {}
-            for field, _, offset in members:
+            for field, _, slot in members:
                 if field not in ranges:
-                    ranges[field] = [len(offsets), len(offsets)]
-                offsets.append(offset)
+                    ranges[field] = [len(slots), len(slots)]
+                slots.append(slot)
                 ranges[field][1] += 1
-            table.blocks = component, offsets, ranges
-        _, offsets, ranges = table.blocks
+            table.blocks = component, slots, ranges
+        _, slots, ranges = table.blocks
         start, stop = ranges.get(value, (0, 0))
-        return (offsets[i] for i in range(start, stop))
+        snapshot = table.snapshot
+        if snapshot.deleted_count:
+            def live_offsets():
+                for i in range(start, stop):
+                    slot = slots[i]
+                    if snapshot.is_live(slot):
+                        yield snapshot.offsets[slot]
+
+            return live_offsets()
+        return (snapshot.offsets[slots[i]] for i in range(start, stop))
 
     def candidates(self, name, table, filters, clustered):
         changes = self.changes(name)
@@ -185,11 +195,14 @@ class Database(Store):
         if not limit:
             return []
         column, target = bound
+        snapshot = table.index_snapshot()
         if table.axis is None:
-            table.axis = sorted(
-                (self.read_row(table, offset)[column][0], key, offset)
-                for key, offset in table.rows.items()
-            )
+            def entries():
+                for slot, offset in snapshot.rows():
+                    row = self.read_row(table, offset)
+                    yield row[column][0], row[table.primary], slot
+
+            table.axis = sorted(entries())
         axis = table.axis
         right = bisect_left(axis, (target[0],))
         left = right - 1
@@ -201,12 +214,14 @@ class Database(Store):
             if len(best) == limit and math.nextafter(lower_bound, -math.inf) > -best[0][0]:
                 break
             if low <= high:
-                _, key, offset = axis[left]
+                _, key, slot = axis[left]
                 left -= 1
             else:
-                _, key, offset = axis[right]
+                _, key, slot = axis[right]
                 right += 1
-            row = self.read_row(table, offset)
+            if snapshot.deleted_count and not snapshot.is_live(slot):
+                continue
+            row = self.read_row(table, snapshot.offsets[slot])
             distance = math.dist(row[column], target)
             entry = (-distance, -key, row)
             if len(best) < limit:

@@ -1,5 +1,7 @@
 """Disk-backed row log with transaction commit markers and bounded row caching."""
 
+from array import array
+from bisect import bisect_left
 from collections import OrderedDict
 import marshal
 import os
@@ -14,6 +16,27 @@ COMMIT = b"!"
 CACHE_BUDGET = 96 * 1024 * 1024
 
 
+class IndexSnapshot:
+    # Stable offset slots shared by the scalar blocks and vector axis.
+    def __init__(self, offsets):
+        self.offsets = array("Q", sorted(offsets))
+        self.deleted = bytearray((len(self.offsets) + 7) // 8)
+        self.deleted_count = 0
+
+    def discard(self, offset):
+        slot = bisect_left(self.offsets, offset)
+        self.deleted[slot >> 3] |= 1 << (slot & 7)
+        self.deleted_count += 1
+
+    def is_live(self, slot):
+        return not self.deleted[slot >> 3] & (1 << (slot & 7))
+
+    def rows(self):
+        for slot, offset in enumerate(self.offsets):
+            if not self.deleted_count or self.is_live(slot):
+                yield slot, offset
+
+
 class Table:
     def __init__(self, columns, primary):
         self.columns = columns
@@ -23,6 +46,12 @@ class Table:
         self.index = None
         self.blocks = None
         self.axis = None
+        self.snapshot = None
+
+    def index_snapshot(self):
+        if self.snapshot is None:
+            self.snapshot = IndexSnapshot(self.rows.values())
+        return self.snapshot
 
     def column(self, name):
         key = name.casefold()
@@ -54,13 +83,17 @@ class Transaction:
             tables[name].index = index
         for name, changes in self.rows.items():
             table = tables[name]
-            table.blocks = None
-            table.axis = None
+            if table.snapshot is not None and any(offset is not None for offset in changes.values()):
+                table.blocks = table.axis = table.snapshot = None
             for key, offset in changes.items():
                 if offset is None:
-                    table.rows.pop(key, None)
+                    previous = table.rows.pop(key, None)
+                    if previous is not None and table.snapshot is not None:
+                        table.snapshot.discard(previous)
                 else:
                     table.rows[key] = offset
+            if table.snapshot is not None and table.snapshot.deleted_count >= len(table.rows):
+                table.blocks = table.axis = table.snapshot = None
 
 
 class Store:

@@ -27,6 +27,11 @@
       "id": "server-constraint",
       "role": "user",
       "content": "但是必须是在该账号的HDD2/zzp的目录下拉取代码跑不要改动其他的环境依赖"
+    },
+    {
+      "id": "bitmap-delete-proposal",
+      "role": "user",
+      "content": "这个删除可以搞假删除。就把他有效/无效标记改一下，不然磁盘block会经常随机删除，很麻烦。标记按位图的话，10亿条也就128m，能常驻内存。可以参考这两个论文在服务器进行修改提交"
     }
   ],
   "experiments": [
@@ -44,6 +49,11 @@
       "id": "server-query-comparison",
       "source": "Codex on requested server under /mnt/HDD2/zzp using existing Python 3.12.3",
       "output": "Three alternating runs, 10000 rows x 128 dimensions, 200 TopK queries (half filtered), K=10. Baseline query seconds [2.3360056239180267, 2.417962485924363, 2.5066626481711864]. Optimized query seconds [1.6947015901096165, 1.4521808801218867, 1.3206721609458327]. All 200 complete query results identical. All 20 official public cases PASS. Independent-oracle TopK regression test passed for exact/ann, filters, ties, 2/128 dimensions, limits 0/1/10/100, and transaction visibility/rollback."
+    },
+    {
+      "id": "bitmap-delete-comparison",
+      "source": "Codex, server /mnt/HDD2/zzp, existing Python 3.12.3",
+      "output": "Three paired runs: 10000 rows x 2 dimensions, 100 committed deletes each followed by filtered and unfiltered TopK. Baseline seconds [2.6333, 2.4883, 2.8116]; bitmap seconds [2.1002, 1.7351, 2.0364]. All 200 results per run correct. 20 public cases passed. Regression confirmed log prefix unchanged, index reuse, rollback, reinsertion and restart."
     }
   ],
   "limitations": "测试和实现由 Codex 执行。本材料没有收录学生自行执行的实验、对结果的解释或赛方隐藏评测结果。"

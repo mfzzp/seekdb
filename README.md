@@ -61,3 +61,10 @@ All 200 complete results matched the baseline. All 20 official public cases pass
 ```sh
 python3 -m unittest discover -s tests -v
 ```
+
+
+A committed delete appends a tombstone to the existing row log, removes the key from the live directory, and marks its slot in the shared in-memory index bitmap. Existing scalar blocks and the vector axis skip deleted slots before loading payloads. Rebuilding the derived snapshot after writes or when at least half its slots are deleted bounds the cost of scanning tombstones. Recovery still replays the original log format. The bitmap uses one bit per snapshot slot, in addition to the existing row directory and the snapshot's offset array.
+
+The design draws on early candidate exclusion in *CertEx: Exact Visual Retrieval at Scale by Certified Exclusion* and attribute filtering in *Navigable Proximity Graph-Driven Native Hybrid Queries with Structured and Unstructured Constraints*. The deletion bitmap was proposed by the user.
+
+On the requested server, three alternating local runs over 10,000 two-dimensional vectors performed 100 single-row deletes, each followed by a filtered and an unfiltered TopK query. Baseline seconds were [2.6333, 2.4883, 2.8116] and bitmap seconds were [2.1002, 1.7351, 2.0364]. Median elapsed time fell from 2.6333 s to 2.0364 s. All 200 query results per run matched the expected IDs. All 20 public cases and both regression tests passed.
