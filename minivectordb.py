@@ -17,7 +17,7 @@ except Exception:  # pragma: no cover - exercised only when numpy is absent
     _numpy = None
 
 from minivector_sql import COMPARISONS, DISTANCE, Parser, SQLError, require, typed
-from minivector_store import Store
+from minivector_store import Store, adaptive_budget, memory_limit_bytes
 
 
 MAX_BLOCK_ROWS = 50_000
@@ -25,7 +25,8 @@ MAX_COMPONENT_BYTES = 4 * 1024 * 1024
 # Dense distance matrix acceleration: only worth it for large tables, and capped
 # so a huge table cannot turn the cache into an unbounded allocation.
 MATRIX_MIN_ROWS = 2048
-MATRIX_MAX_BYTES = 192 * 1024 * 1024
+MATRIX_MAX_BYTES = adaptive_budget(memory_limit_bytes(), 192 * 1024 * 1024,
+                                   32 * 1024 * 1024)
 # Above this coordinate magnitude the |v|^2 - 2v.q + |q|^2 identity can lose
 # significant digits to cancellation, so the direct difference kernel is used.
 IDENTITY_MAX_ABS = 1000.0

@@ -5,6 +5,19 @@ from minivectordb import Database
 import minivector_store
 
 
+class AdaptiveBudgetTest(unittest.TestCase):
+    def test_budget_scales_with_the_container_limit(self):
+        budget = minivector_store.adaptive_budget
+        self.assertEqual(budget(None, 96 << 20, 16 << 20), 96 << 20)
+        self.assertEqual(budget(2 << 30, 96 << 20, 16 << 20), 96 << 20)
+        self.assertEqual(budget(256 << 20, 96 << 20, 16 << 20), 64 << 20)
+        self.assertEqual(budget(32 << 20, 96 << 20, 16 << 20), 16 << 20)
+
+    def test_limit_probe_is_optional(self):
+        limit = minivector_store.memory_limit_bytes()
+        self.assertTrue(limit is None or (isinstance(limit, int) and limit > 0))
+
+
 class ScanCacheTest(unittest.TestCase):
     def test_large_scan_preserves_hot_rows_and_small_table_can_warm(self):
         with tempfile.TemporaryDirectory() as root, patch.object(minivector_store, 'CACHE_BUDGET', 6000):

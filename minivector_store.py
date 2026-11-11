@@ -16,6 +16,32 @@ COMMIT = b"!"
 CACHE_BUDGET = 96 * 1024 * 1024
 
 
+def memory_limit_bytes():
+    """Best-effort container memory limit (cgroup v2, then v1)."""
+    for path in ("/sys/fs/cgroup/memory.max",
+                 "/sys/fs/cgroup/memory/memory.limit_in_bytes"):
+        try:
+            with open(path, encoding="ascii") as handle:
+                text = handle.read().strip()
+        except OSError:
+            continue
+        if text.isdigit():
+            return int(text)
+        return None            # "max" means unlimited
+    return None
+
+
+def adaptive_budget(limit, default, floor):
+    """Keep a bounded structure at a quarter of the container budget."""
+    if not limit:
+        return default
+    return max(floor, min(default, limit // 4))
+
+
+_MEMORY_LIMIT = memory_limit_bytes()
+CACHE_BUDGET = adaptive_budget(_MEMORY_LIMIT, CACHE_BUDGET, 16 * 1024 * 1024)
+
+
 class IndexSnapshot:
     # Stable offset slots shared by the scalar blocks and vector axis.
     def __init__(self, offsets):
