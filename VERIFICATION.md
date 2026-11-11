@@ -50,22 +50,43 @@ Scalar predicates resolved before any vector work (10k rows, K=10, median of 7):
 At 100k rows the same queries take 0.6-10 ms against 310-517 ms for the scan, with
 ids identical to the scan in every case.
 
-Cold start (cumulative time, 10k rows): the dense matrix wins even for the first
-query (50 ms against 68 ms for the scan), so it is built immediately. At 100k rows
-a single query is 2x faster and 3.5x lighter with chunking (266 ms / 71 MiB against
-521 ms / 247 MiB), and the matrix takes over from the second query.
+Cold start: cumulative time to answer N TopK queries on identical data.
 
-Protocol overhead decomposition (per request, 10k rows): execution 645 us (89%),
-SQL parse 51 us (7%), JSON in and out 31 us (4%), pipe plus two context switches
-about 43 us.
+| rows | strategy | N=1 | N=2 | N=3 | N=10 | peak RSS |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| 10k | scan only | 67.6 ms | 78.7 | 89.6 | 164.2 | 88 MiB |
+| 10k | matrix | **50.3 ms** | **51.2** | **52.0** | **57.1** | 57 MiB |
+| 10k | chunk only | 58.5 ms | 114.3 | 169.9 | 555.0 | 54 MiB |
+| 100k | scan only | 579 ms | 1114 | 1656 | 5429 | 127 MiB |
+| 100k | matrix | 521 ms | **531** | **542** | **604** | 247 MiB |
+| 100k | chunk only | **266 ms** | 553 | 862 | 4294 | **71 MiB** |
+
+The matrix wins even for the first query at 10k rows, so it is built immediately;
+at 100k rows a single query is twice as fast and 3.5x lighter with chunking, and
+the matrix takes over from the second query.
+
+Protocol overhead, one process per variant, 300 samples after warm-up (µs):
+
+| request | decode | parse | execute | encode |
+| --- | ---: | ---: | ---: | ---: |
+| `SELECT id FROM t LIMIT 10` | 1.9 | 10.3 | 5.4 | 4.8 |
+| `SELECT id FROM t ORDER BY id LIMIT 10` | 2.3 | 14.5 | 118.8 | 5.3 |
+| TopK via alias | 7.3 | 51.1 | 645.0 | 23.9 |
+| TopK with the expression in `ORDER BY` | 8.8 | 62.6 | 703.4 | 24.9 |
+| TopK, distance projected twice | 8.5 | 69.0 | 695.6 | 32.4 |
+
+Execution owns 89% of the request, SQL parse 7% and JSON in both directions 4%;
+a blocking round trip takes 609 us against 557 us of server stages, so the pipe
+and the two context switches cost about 43 us.
 
 ## 3. Correctness evidence
 
-- 69 regression tests, passing with and without numpy (26 skipped without it).
+- 70 regression tests, passing with and without numpy (26 skipped without it).
+- 20/20 public cases plus six extra cases through the judge's own runner
+  (`protocol_check/run.py` with `tests/extra_cases`), in both modes, including
+  against a pristine `git archive` export of the committed tree.
 - 480/480 differential fuzz queries identical to the original baseline over four
   seeds; 1000-query `ids_digest` identical; 720/720 in an earlier six-seed run.
-- 20/20 public cases in both modes, including against a pristine `git archive`
-  export of the committed tree.
 - Numeric: a real mis-ranking was found and fixed (ULP cluster at magnitude 30,
   128 dimensions, where the identity kernel clamped a whole cluster to zero); the
   regression test for it fails on the previous commit and passes now.
@@ -79,7 +100,11 @@ about 43 us.
 - Protocol: 27-statement shape/resilience sweep, read-only application directory,
   UTF-8 round trip, and stdout carrying nothing but protocol lines.
 - 88-statement golden transcript that fails on any behavioural drift (verified by
-  mutating one expectation).
+  mutating one expectation), and the six extra judge cases (verified the same way).
+- Two implementations of the same protocol, written separately in this session,
+  agree on 125 statements apart from the four divergences that were reviewed and
+  decided one by one; the second one hard-requires numpy and dies without it,
+  which is the deployment failure this implementation avoids.
 
 ## 4. Verified, inferred, unverified
 

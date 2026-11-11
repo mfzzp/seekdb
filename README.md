@@ -120,58 +120,18 @@ Costs are cut in four places, in order of effect:
    the table is answered from the dense matrix with the distance array indexed,
    and the middle band gathers the subset in chunks.
 
-### Filtered TopK (10k rows, K=10, median of 7 runs)
+### Measured behaviour
 
-| predicate | selectivity | scalar-first | old scan |
-| --- | ---: | ---: | ---: |
-| `g < 1` | 0.1% | **0.29 ms** | 3.20 ms |
-| `g < 10` | 1% | **0.51 ms** | 3.29 ms |
-| `g < 100` | 10% | **0.28 ms** | 4.31 ms |
-| `g < 500` | 50% | **0.58 ms** | 9.58 ms |
-| `g < 1000` | 100% | **0.77 ms** | 16.86 ms |
-| `g >= 100 AND g < 200` | 10% | **0.42 ms** | 8.94 ms |
+The full tables are in [VERIFICATION.md](VERIFICATION.md). At 10k rows x 128
+dimensions with K=10 the headline results are:
 
-### Protocol overhead (measured, 10k rows, K=10)
-
-Per request, one process per variant, 300 samples after warm-up (µs):
-
-| request | decode | parse | execute | encode |
-| --- | ---: | ---: | ---: | ---: |
-| `SELECT id FROM t LIMIT 10` | 1.9 | 10.3 | 5.4 | 4.8 |
-| `SELECT id FROM t ORDER BY id LIMIT 10` | 2.3 | 14.5 | 118.8 | 5.3 |
-| TopK via alias | 7.3 | 51.1 | 645.0 | 23.9 |
-| TopK with the expression in `ORDER BY` | 8.8 | 62.6 | 703.4 | 24.9 |
-| TopK, distance projected twice | 8.5 | 69.0 | 695.6 | 32.4 |
-
-Execution owns the request (89%); parse is 7% and JSON in both directions 4%.
-A blocking round trip for the TopK query takes 609 µs against 557 µs of server
-stages, so the pipe and the two context switches cost about 43 µs — the earlier
-~1.4 ms per query came from the benchmark client's own reader thread and queue,
-not from the protocol. The distance expression is bound once (evaluators are
-keyed by column and target): repeating it costs 8–9%, where a second mat-vec
-would have cost about 100%.
-
-All paths return exact results, so `ann` and `exact` agree and ranking ties keep
-the primary-key rule.
-
-### Cold-start strategy (measured)
-
-Cumulative time to answer N TopK queries on identical data (K=10, 128 dims):
-
-| rows | strategy | N=1 | N=2 | N=3 | N=10 | peak RSS |
-| ---: | --- | ---: | ---: | ---: | ---: | ---: |
-| 10k | scan only | 67.6 ms | 78.7 | 89.6 | 164.2 | 88 MiB |
-| 10k | matrix | **50.3 ms** | **51.2** | **52.0** | **57.1** | 57 MiB |
-| 10k | chunk only | 58.5 ms | 114.3 | 169.9 | 555.0 | 54 MiB |
-| 100k | scan only | 579 ms | 1114 | 1656 | 5429 | 127 MiB |
-| 100k | matrix | 521 ms | **531** | **542** | **604** | 247 MiB |
-| 100k | chunk only | **266 ms** | 553 | 862 | 4294 | **71 MiB** |
-
-At the benchmark size the matrix wins even for the first query, so it is built
-immediately; on a large table a single query is twice as fast and 3.5x lighter
-with chunking, while the matrix overtakes from the second query and is ~7x ahead
-by ten. The memory-budget fallback therefore uses the chunked path, which is
-about twice as fast as the per-row scan it replaced.
+- Resolving scalar predicates before any vector work takes 0.29 ms at 0.1%
+  selectivity and 0.77 ms at 100%, against 3.2 ms and 16.9 ms for a plain scan.
+- A TopK request costs 645 us inside the server — 89% execution, 7% SQL parse and
+  4% JSON in both directions — plus about 43 us of pipe and scheduling.
+- The dense matrix is built on the first query because it already wins there
+  (50 ms against 68 ms for the scan). On 100k rows a single query is twice as fast
+  and 3.5x lighter with chunking, and the matrix takes over from the second query.
 
 ### Known limitations
 
@@ -179,11 +139,13 @@ about twice as fast as the per-row scan it replaced.
   of many updates grows the file and the recovery time.
 - The first filtered query on a large table pays a one-time group build
   (about 4 s at 300k rows) plus the dense matrix; later filtered queries are
-  ~1.5 ms. Memory grows with the matrix (358 MiB peak at 300k rows × 128 dims)
-  and is capped at a quarter of the detected container limit.
-- Non-equality scalar filters combined with distance ordering still scan.
+  ~1.5 ms. Memory is governed by one shared budget derived from the container
+  limit (a quarter of it for the matrix in the default configuration).
+- `<>`, parenthesised predicates, qualified column references, NULL literals and
+  aggregates are rejected as unsupported, matching the SQL subset the task lists.
 - The matrix is rebuilt after any committed mutation; a write/query interleaving
-  pays that rebuild each time.
+  pays that rebuild each time, which is why a write-heavy soak slightly favours
+  the pure-Python path.
 - Rows are decoded into Python objects; very large tables are bounded by the
   cache and the matrix cap (192 MiB) rather than by true streaming.
 
@@ -197,38 +159,34 @@ python3 protocol_check/run.py --command '["python3","minivectordb.py","--data-di
 python3 -m unittest discover -s tests -v
 ```
 
-- 20/20 public protocol cases pass with and without numpy.
+- 20/20 public protocol cases pass with and without numpy, plus six extra cases
+  (range and AND predicates, restart with an index, a failed statement inside a
+  transaction, LIMIT 0, non-ASCII values, ann vs exact) through the same runner.
 - 70 regression tests pass (matrix paths, numeric bounds, memory budget, chunked
   TopK, scalar filters, ann/exact equivalence, bitmap deletion, recovery
   truncation, real SIGKILL recovery, mixed-workload soak, query paths, scan
   cache, SQL surface, model fuzz, semantics audit, startup diagnostics, the
   protocol-level shape/resilience/read-only suite, a golden transcript of 88
-  statements and six extra cases run through the judge's own runner); 26 are
-  skipped when numpy is absent.
+  statements and the extra judge cases); 26 are skipped when numpy is absent.
 - Model fuzz: 220 random operations (multi-row inserts, predicate updates and
   deletes, transactions, restarts, TopK queries) match a Python model exactly.
-- Differential fuzz against the previous revision: 720/720 generated queries
-  identical over six seeds (ids exact, distances to 1e-9).
+- Differential fuzz against the original baseline: 480/480 generated queries
+  identical over four seeds at the current revision, and 720/720 over six seeds
+  in an earlier run.
 - SQL surface: ~75 statements × exact/ann all answer cleanly, and the connection
   survives every error.
-- Protocol-level SIGKILL suite: 11/11 checks (committed rows survive, an open
-  transaction leaves nothing behind, a 2000-row transaction does not leak,
-  repeated kills during startup still recover).
+- Crash recovery: four scenarios under a real SIGKILL — between commits, inside
+  an open transaction, during a 100k-row statement, and a torn log suffix — all
+  keep acknowledged rows, drop uncommitted ones and truncate the partial frame.
 
 ### Timings through the real JSONL protocol
 
-Measured with `scripts/protocol_bench.py`, which starts the program as a
-subprocess and talks to it over stdin/stdout exactly like the judge, so the
-numbers include JSON encode/decode, pipe traffic and per-response flushes.
-10,000 rows × 128 dimensions, medians of three alternating rounds, 1,000 TopK
-queries with K=10 (half filtered):
-
-| phase | baseline | + numpy | no numpy |
-| --- | ---: | ---: | ---: |
-| write, 100 committed batches | 0.91 s | 1.03 s | 0.96 s |
-| unfiltered TopK (median) | 17.7 ms | 1.6 ms | 17.7 ms |
-| filtered TopK (median) | 2.2 ms | 1.2 ms | 1.7 ms |
-| 1,000 queries total | 9.6 s | 1.3 s | 9.0 s |
+`scripts/protocol_bench.py` starts the program as a subprocess and talks to it
+over stdin/stdout exactly like the judge, so the numbers include JSON
+encode/decode, pipe traffic and per-response flushes. 10,000 rows × 128
+dimensions, 1,000 TopK queries with K=10 (half filtered): **9.6 s baseline,
+1.3 s with numpy and 9.0 s without** — the full phase-by-phase table is in
+[VERIFICATION.md](VERIFICATION.md).
 
 A control pair (same code against itself) showed a 4% write noise floor, so the
 ~5% write difference with numpy is at the edge of measurable and comes from the
