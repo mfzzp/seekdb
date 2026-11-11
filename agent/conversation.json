@@ -1551,6 +1551,22 @@
    ],
    "changes": "minivectordb.main catches OSError around Database() and returns 2; __main__ now exits with that code; tests/test_protocol_surface.py asserts a failed start exits non-zero, writes no handshake and mentions the data directory.",
    "limitations": "The absent /data case cannot be reproduced as writable here, because / is not writable on this host; in the container /data is a mount, so the successful path is the one the judge exercises. DeepSeek executor experiment."
+  },
+  {
+   "id": "two-more-judge-cases",
+   "executor": "DeepSeek",
+   "source": "DeepSeek work against aee2302",
+   "problem": "The public set asserts statement atomicity for a dimension mismatch inside a batch and for a failed insert inside a transaction, but neither shape was in the extra package, and no case checked that a rolled-back UPDATE survives a restart unchanged.",
+   "method": "Two cases added to tests/extra_cases and run through protocol_check/run.py: a three-row INSERT with a malformed third row, a batch that duplicates an existing key, and an UPDATE that is rolled back before a restart.",
+   "results": [
+    "a three-row INSERT whose third row has the wrong dimension stores nothing: the following SELECT is empty",
+    "a batch that duplicates an existing key is rejected and adds nothing",
+    "an UPDATE rolled back and restarted returns the original value and distance, so the rollback survives",
+    "twelve extra cases now pass through the judge's own runner in both modes"
+   ],
+   "test_side_error": "The first version of the batch case expected duplicate_key for a key that had never been inserted, because the earlier statement failed atomically - the behaviour under test. The expectation was wrong; it now duplicates a key that exists.",
+   "changes": "tests/extra_cases gained the two cases; test_judge_package asserts twelve.",
+   "limitations": "Hand-written cases remain a sample of the hidden set. DeepSeek executor experiment."
   }
  ],
  "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",
