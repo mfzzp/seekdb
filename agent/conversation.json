@@ -1582,6 +1582,42 @@
    ],
    "changes": "tests/test_ddl_edges.py adds a 5000-row single-statement insert that asserts the affected count and the stored row count.",
    "limitations": "Measured with 16 dimensions; a 128-dimension statement of the same row count is about eight times the bytes, which the per-row cost curve suggests still stays linear. DeepSeek executor experiment."
+  },
+  {
+   "id": "bulk-insert-128d-and-response-cap",
+   "executor": "DeepSeek",
+   "source": "DeepSeek measurement against 62c5dbb",
+   "problem": "The bulk-insert measurement used 16 dimensions and its limitations admitted that the 128-dimension case was inferred, not measured. The judge also caps a response at 16 MiB, and a SELECT * that projects vectors has no size guard, so the boundary was unknown.",
+   "method": "scripts/probe_bulk_insert.py was parameterised by dimension and re-run at 128; scripts/probe_response_size.py builds tables of increasing size and measures the exact response bytes against the 16 MiB cap from protocol_check/config.json.",
+   "results": {
+    "bulk_insert_128d": {
+     "1000_rows_s": 0.049,
+     "10000_rows_s": 0.388,
+     "50000_rows_s": 2.073,
+     "us_per_row": [
+      49.4,
+      38.8,
+      41.5
+     ],
+     "statement_bytes": [
+      639611,
+      6405911,
+      32073911
+     ]
+    },
+    "select_star_response": {
+     "1000_rows_mib": 2.58,
+     "3000_rows_mib": 7.73,
+     "5000_rows_mib": 12.88,
+     "8000_rows_mib": 20.61,
+     "cap_mib": 16.0,
+     "crossing_rows": "about 6200"
+    }
+   },
+   "reading": "Parsing and writing stay linear at 128 dimensions (38-49 us per row), so a single 50,000-row statement finishes in about two seconds. The response cap is a different matter: vectors are projected as JSON arrays, so the size grows with the table and 8,000 rows at 128 dimensions crosses 16 MiB.",
+   "decision": "Formatting was left unchanged. Responses already use compact separators, so the remaining size is the float text itself; shortening it would mean rounding the numbers, and the boundary is inherent to projecting vectors as arrays, which any reference implementation would share.",
+   "changes": "VERIFICATION.md records both tables so the boundary is documented instead of discovered.",
+   "limitations": "The crossing point is interpolated from four measurements rather than searched, and the judge may never send such a query: no public case projects a vector column. DeepSeek executor experiment."
   }
  ],
  "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",
