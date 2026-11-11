@@ -195,13 +195,15 @@ default `exact` mode, so a regression confined to `ann` could have stayed hidden
 package was copied with `--mode ann` prepended to all twenty cases, keeping the
 published `.result` files unchanged, and run twice:
 
-| dependency mode | result |
-| --- | --- |
-| numpy | 20/20 pass |
-| pure Python | 20/20 pass |
+| run | numpy | pure Python |
+| --- | --- | --- |
+| 20 public cases, all in `ann` | 20/20 pass | 20/20 pass |
+| 12 extra cases, all in `ann` | 12/12 pass | 12/12 pass |
 
 Every published expectation therefore holds under `ann` as well, which is what an
-implementation that resolves `ann` exactly should do.
+implementation that resolves `ann` exactly should do. Together that is 32
+judge-shaped cases run end to end through the judge's own runner in the mode the
+public corpus barely exercises.
 
 ## 4. Verified, inferred, unverified
 
