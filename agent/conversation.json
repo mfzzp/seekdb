@@ -364,6 +364,36 @@
       "changes": [],
       "status": "verified, no code change",
       "limitations": "Windows development host, so the kill is TerminateProcess rather than SIGKILL delivered by a Linux container; the in-process Linux recovery tests remain the authority for the Linux behaviour. DeepSeek executor experiment."
+    },
+    {
+      "id": "surface-smoke-and-adaptive-budgets",
+      "executor": "DeepSeek",
+      "source": "DeepSeek implementation and measurements under /mnt/HDD2/zzp/minivectordb-round2, /usr/bin/python3 3.12.3",
+      "baseline": "f32da4d",
+      "candidate": "801e07e",
+      "problem": "Two gaps remained. First, coverage was concentrated on the paths that had been optimised, not on the whole grammar surface; an unhandled exception anywhere in the parser or executor would zero the submission. Second, the 96 MiB row cache and the 192 MiB matrix cap were fixed constants chosen for a 2 GiB container, which could be wrong if the resource case runs with a tighter limit.",
+      "changes": [
+        "tests/test_sql_surface.py: about 75 statements executed twice (exact and ann) covering mixed-case and backtick identifiers, line/block comments, trailing semicolons, doubled and backslash escapes, BIGINT extremes, VARCHAR boundaries, vector literal forms (exponent, embedded spaces, unquoted array, NaN, Infinity, overflow, wrong dimension), unsupported statements and malformed input; every statement must answer ok:true or an error with a non-empty code that is not internal_error, and the connection must stay usable",
+        "memory_limit_bytes() reads /sys/fs/cgroup/memory.max (v2) then memory.limit_in_bytes (v1); adaptive_budget() caps the row cache and the matrix at a quarter of the detected limit with 16 MiB / 32 MiB floors; without a visible limit the previous 96 MiB / 192 MiB constants stand"
+      ],
+      "command": "cd tests && PYTHONPATH=<src> python3 -m unittest test_sql_surface test_scan_cache -v; python3 scripts/limits_probe.py <src>",
+      "results": {
+        "tests_with_numpy": "19 passed",
+        "tests_without_numpy": "19 passed, 4 skipped",
+        "public_cases": "20/20 in both modes",
+        "limits_on_server": {"detected_limit_mib": null, "cache_mib": 96, "matrix_mib": 192},
+        "large_table_300k_rows": {"numpy_query_ms": 16.5, "numpy_peak_rss_mib": 371,
+                                  "fallback_query_ms": 1700, "fallback_peak_rss_mib": 127}
+      },
+      "failed_attempts": [
+        "The surface test first asserted that every statement returns a dict; DDL and transaction control return None and the protocol layer wraps that into a bare {ok:true}. The test was wrong, not the engine.",
+        "An attempt to treat 'COMMIT without BEGIN' as a no-op was considered and rejected: current behaviour raises no_transaction, MySQL would accept it, and there is no evidence either way in the public package, so changing it would be a guess."
+      ],
+      "unresolved": [
+        "At 300k rows the float64 matrix dominates memory (371 MiB peak); the adaptive cap only helps when a cgroup limit is visible, which was not the case on the development server.",
+        "The 50k-row equality-group ceiling still sends filtered queries on very large tables to a full scan."
+      ],
+      "limitations": "The 300k-row measurement uses the existing scan benchmark (synthetic repeating vectors), so it characterises memory and scaling rather than realistic data. DeepSeek executor experiment; no participant-run measurement claimed."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements.",
