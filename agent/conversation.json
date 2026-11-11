@@ -1503,6 +1503,20 @@
    "decisions": "The PostgreSQL reading is kept and documented, because it is the one consistent with the atomicity the task does ask for: a rolled-back transaction leaves no trace, including a table it created. MySQL would commit the DDL implicitly and leave the table behind.",
    "changes": "tests/test_transaction_ddl.py pins the transaction DDL contract and the per-table index names; tests/test_text_integrity.py scans every delivered file for mojibake and checks the repaired typography; README records both rules.",
    "limitations": "The hidden cases may follow either reading of DDL-in-transaction; the sentence is a documented choice, not a derivation. DeepSeek executor experiment."
+  },
+  {
+   "id": "cjk-damage-in-english-docs",
+   "executor": "DeepSeek",
+   "source": "DeepSeek scan against 6914b4d",
+   "problem": "The earlier mojibake repair only removed sequences led by U+9225. The same GBK round-trip had also turned comparison and multiplication signs into valid CJK characters that no marker scan can see.",
+   "method": "scripts/scan_cjk.py flags every CJK code point in the English deliverables and in the three sources, which should contain none.",
+   "results": [
+    "five more README lines were damaged: the comparison sign in a table-size bound, the squared and minus signs in the identity formula, and three multiplication signs",
+    "all five were rewritten whole and the file is now free of CJK outside the Chinese quotes that belong in the evidence file",
+    "tests/test_text_integrity.py gained a range check so a valid-CJK corruption is caught in the suite, not only by a separate script"
+   ],
+   "changes": "README repaired; the integrity test now also rejects CJK in README, VERIFICATION, the Dockerfile and the three sources.",
+   "limitations": "The check assumes those files should stay in English, which is true today; a bilingual document would need an allow-list. DeepSeek executor experiment."
   }
  ],
  "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",

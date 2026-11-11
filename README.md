@@ -95,10 +95,10 @@ suffix, so a forced kill keeps committed data and drops partial transactions.
 
 Costs are cut in four places, in order of effect:
 
-1. **Dense matrix + BLAS** (numpy present, table 鈮?2048 rows, no pending
+1. **Dense matrix + BLAS** (numpy present, table ≥ 2048 rows, no pending
    transaction, LIMIT present): live float32 vectors are materialised once into
    a float64 matrix keyed by the stable snapshot; distances come from
-   `|v|虏 鈭?2v路q + |q|虏` in one mat-vec, and TopK is `argpartition` plus
+   `|v|² − 2v·q + |q|²` in one mat-vec, and TopK is `argpartition` plus
    boundary tie expansion, then `lexsort` on `(distance, primary key)`.
    The identity is only used to *propose* candidates: its absolute error is
    bounded by `4·width·eps·(‖v‖+‖q‖)²`, so every row within twice that bound of
@@ -151,7 +151,7 @@ dimensions with K=10 the headline results are:
 
 - The log keeps historical row versions; there is no compaction, so a workload
   of many updates grows the file and the recovery time.
-- The first filtered query on a large table pays one-time builds: at 300k rows 脳
+- The first filtered query on a large table pays one-time builds: at 300k rows ×
   128 dimensions the equality path costs 3.0 s (groups plus a 146 MiB matrix) and
   the first range query costs 1.7 s more (the scalar index); afterwards equality
   queries take 3.1 ms and range queries 16.7 ms. Peak resident memory for that
@@ -181,7 +181,7 @@ python3 -m unittest discover -s tests -v
   row inside a transaction and rolling it back, LIMIT 0, non-ASCII values, ann vs
   exact, the row order of a multi-row answer without ORDER BY, and vector
   distances after an update and a delete.
-- 113 regression tests pass: matrix paths, numeric bounds and float32 margins,
+- 114 regression tests pass: matrix paths, numeric bounds and float32 margins,
   memory budget, chunked TopK, scalar filters, ann/exact equivalence, bitmap
   deletion, recovery truncation, real SIGKILL recovery, mixed-workload soak, query
   paths, scan cache, SQL surface, model fuzz, semantics audit, startup
@@ -193,7 +193,7 @@ python3 -m unittest discover -s tests -v
 - Differential fuzz against the original baseline: 480/480 generated queries
   identical over four seeds at the current revision, and 720/720 over six seeds
   in an earlier run.
-- SQL surface: ~75 statements 脳 exact/ann all answer cleanly, and the connection
+- SQL surface: ~75 statements × exact/ann all answer cleanly, and the connection
   survives every error.
 - Crash recovery: six scenarios under a real SIGKILL — between commits, inside an
   open transaction, during a 100k-row statement, a 10k-row transaction killed
@@ -205,7 +205,7 @@ python3 -m unittest discover -s tests -v
 `scripts/protocol_bench.py` starts the program as a subprocess and talks to it
 over stdin/stdout exactly like the judge, so the numbers include JSON
 encode/decode, pipe traffic and per-response flushes. Measured again against the
-original baseline at the final commit: 10,000 rows 脳 128 dimensions, 1,000 TopK
+original baseline at the final commit: 10,000 rows × 128 dimensions, 1,000 TopK
 queries with K=10 (half filtered): **7.4 s baseline, 0.95 s with numpy and 7.2 s
 without** (unfiltered median 11.8 ms → 1.13 ms, filtered 1.74 ms → 0.58 ms) — the
 full phase-by-phase table is in [VERIFICATION.md](VERIFICATION.md).
