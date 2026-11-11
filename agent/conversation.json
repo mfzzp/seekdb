@@ -916,6 +916,20 @@
         "the error-code list still named no_transaction, which COMMIT and ROLLBACK no longer raise after they became no-ops"
       ],
       "limitations": "The order is a property of this implementation; MySQL gives no guarantee without ORDER BY either, so a hidden case that depends on a different order would be fragile for any implementation. DeepSeek executor experiment."
+    },
+    {
+      "id": "three-more-judge-cases",
+      "executor": "DeepSeek",
+      "source": "DeepSeek work against 748588e",
+      "problem": "The seven extra cases covered single-table shapes. The public set also never combines a restart with two tables where only one has a vector index, never deletes every row inside a transaction and rolls it back, and never checks distance ordering after a vector UPDATE, which is what exercises the matrix and axis invalidation through the judge's own assertions.",
+      "method": "Three more cases in tests/extra_cases, expectations derived by hand, run through protocol_check/run.py with the same transport and type-strict comparison.",
+      "results": [
+        "extra_multi_table_restart: both tables survive a restart, the indexed one keeps its index, later writes to both are visible, and distances come back in the expected order (0, sqrt2, sqrt8)",
+        "extra_transaction_delete_all: DELETE of every row inside a transaction leaves an empty result, ROLLBACK restores both rows in insertion order, then a real DELETE plus COMMIT leaves none and a following INSERT is visible",
+        "extra_vector_mutation_paths: ordering is correct before the UPDATE (id 1 at 0), after it (id 1 moves to 12.727922061357855) and after deleting a row, and filtering by the scalar column gives the same order"
+      ],
+      "consequence": "All ten extra cases pass through the official runner in both dependency modes, so the suite now asserts 10 extra judge cases plus the 20 public ones. All three expectations were derived by hand and passed first time, which is the evidence that the invalidation paths are correct rather than merely self-consistent.",
+      "limitations": "Ten hand-written cases are still a sample. DeepSeek executor experiment."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",
