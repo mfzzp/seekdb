@@ -252,6 +252,11 @@
       "command": "python3 scripts/probe_kernels.py; python3 tests/bench_competition.py <src> --tag t; OPENBLAS_NUM_THREADS=1 PYTHONPATH=/tmp/npydeps python3 tests/bench_competition.py <src> --no-index --tag t",
       "workload": "10000 rows x 128 dims, batches of 100, 500 unfiltered + 500 filtered TopK (K=10), with and without CREATE VECTOR INDEX; three alternating rounds, medians reported",
       "correctness": "20/20 public protocol cases pass with and without numpy. 14 regression tests pass with numpy (4 skipped without). New tests cover the magnitude guard at the float32 boundary (16777216 and 16777217 must both yield exact zero distance), filtered group selection including an empty group and LIMIT 0, and deletes after the group and matrix are built. Selected ids for the full 1000-query benchmark are byte-identical to the baseline in both the indexed and the no-index scenario.",
+      "differential_fuzz": {
+        "tool": "tests/fuzz_compare.py + tests/compare_fuzz.py",
+        "method": "3000-row table with duplicated vectors (distance ties), negative keys, four equality groups; 120 generated queries per seed covering exact/ann, eq/neq filters, LIMIT 0/1/3/10/50/400, ORDER BY id DESC, SELECT *, multiple distance projections; run against the baseline and the candidate source with the same seed, then compare ids exactly and distances to 1e-9",
+        "result": "360/360 queries identical across seeds 1, 2 and 3"
+      },
       "results": {
         "indexed": {"unfiltered_median_ms": [16.436, 0.712], "filtered_median_ms": [1.326, 0.319], "query_total_s": [8.299, 0.685]},
         "no_index": {"unfiltered_median_ms": [15.307, 0.693], "filtered_median_ms": [4.074, 0.308], "query_total_s": [8.864, 0.640]},
@@ -269,6 +274,7 @@
         "Non-equality scalar filters (>, <, BETWEEN-like ranges) still require a full row scan; only equality groups feed the matrix.",
         "Multiple AND predicates use only the single-term accelerated path and otherwise fall back.",
         "The matrix is invalidated on any committed mutation, so a write-heavy interleaving rebuilds it; no incremental update was attempted.",
+        "MAX_BLOCK_ROWS (50000) disables equality groups for larger tables; a 100k-row filtered query then falls back to a full scan at 474 ms in both the baseline and the candidate, so this is a pre-existing limit rather than a regression. Large-table unfiltered TopK still improved from 576 ms to 11.5 ms.",
         "numpy availability in the grading image is still unverified end to end because no Docker runtime is available on either machine."
       ],
       "limitations": "Shared-server paired timings only; the baseline column also moved between rounds (15.3-16.4 ms), which is why ratios rather than absolutes are emphasised. DeepSeek executor experiments; no participant-run measurement and no Agent Prompt credit claimed."
