@@ -1,0 +1,7 @@
+CREATE TABLE docs (id BIGINT PRIMARY KEY, v VECTOR(2));
+INSERT INTO docs VALUES (1,'[0,0]'),(2,'[1,1]'),(3,'[2,2]');
+CREATE VECTOR INDEX vi ON docs(v);
+--mode ann
+SELECT id, L2_DISTANCE(v,'[1,1]') AS d FROM docs ORDER BY d LIMIT 2;
+--mode exact
+SELECT id, L2_DISTANCE(v,'[1,1]') AS d FROM docs ORDER BY d LIMIT 2;

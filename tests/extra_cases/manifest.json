@@ -1,0 +1,48 @@
+{
+  "version": "minivectordb-extra-v1",
+  "scope": "extra-samples",
+  "cases": [
+    {
+      "id": "extra_range_and",
+      "group": "extra",
+      "test": "cases/extra_range_and.test",
+      "result": "cases/extra_range_and.result",
+      "statements": 5
+    },
+    {
+      "id": "extra_restart_index",
+      "group": "extra",
+      "test": "cases/extra_restart_index.test",
+      "result": "cases/extra_restart_index.result",
+      "statements": 6
+    },
+    {
+      "id": "extra_transaction_failure",
+      "group": "extra",
+      "test": "cases/extra_transaction_failure.test",
+      "result": "cases/extra_transaction_failure.result",
+      "statements": 7
+    },
+    {
+      "id": "extra_limit_edge",
+      "group": "extra",
+      "test": "cases/extra_limit_edge.test",
+      "result": "cases/extra_limit_edge.result",
+      "statements": 5
+    },
+    {
+      "id": "extra_unicode_values",
+      "group": "extra",
+      "test": "cases/extra_unicode_values.test",
+      "result": "cases/extra_unicode_values.result",
+      "statements": 4
+    },
+    {
+      "id": "extra_ann_modes",
+      "group": "extra",
+      "test": "cases/extra_ann_modes.test",
+      "result": "cases/extra_ann_modes.result",
+      "statements": 5
+    }
+  ]
+}

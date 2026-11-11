@@ -1,0 +1,31 @@
+[
+  {},
+  {
+    "affected_rows": 2
+  },
+  {
+    "columns": [
+      "id"
+    ],
+    "rows": []
+  },
+  {
+    "columns": [
+      "id"
+    ],
+    "rows": [
+      [
+        1
+      ],
+      [
+        2
+      ]
+    ]
+  },
+  {
+    "columns": [
+      "id"
+    ],
+    "rows": []
+  }
+]
