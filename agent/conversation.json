@@ -610,6 +610,36 @@
         "strategy_compare.py initially never enabled the chunk patch for the hybrid strategy, so the hybrid row was silently the matrix row until the patch handling was corrected."
       ],
       "limitations": "One run per strategy per size (shared host), so the crossover points are indicative rather than tight; the data are synthetic repeating vectors. DeepSeek executor experiment."
+    },
+    {
+      "id": "scalar-filter-pushdown",
+      "executor": "DeepSeek",
+      "source": "DeepSeek implementation and measurements under /mnt/HDD2/zzp/minivectordb-round2, /usr/bin/python3 3.12.3, numpy 2.3.5",
+      "baseline": "526c040",
+      "candidate": "c247c97",
+      "problem": "Only a single equality predicate on a non-primary column had a fast path (the equality groups). Ranges, AND chains and other comparisons fell back to a scan that computed a distance for every row, so a selective filter paid for the whole table.",
+      "changes": [
+        "Database.scalar_index() builds compact per-column arrays over the stable slots: BIGINT stays int64 so values above 2^53 compare exactly, VARCHAR is dictionary coded plus a rank array so range predicates keep code-point order",
+        "filter_slots() turns the whole WHERE clause into candidate slots and applies the delete bitmap; it is only used when no transaction is pending, so the overlay keeps going through the row-level path",
+        "_subset_top_k() chooses three shapes by candidate count: at most 256 rows read straight from the log with no matrix, a set covering at least a quarter of the table reuses the dense matrix and indexes the distance array, otherwise the subset is gathered in chunks"
+      ],
+      "results_ms_10k_rows_k10_median_of_7": {
+        "0.1% g<1": {"on": 0.285, "off": 3.199},
+        "1% g<10": {"on": 0.512, "off": 3.287},
+        "10% g<100": {"on": 0.281, "off": 4.309},
+        "50% g<500": {"on": 0.575, "off": 9.580},
+        "100% g<1000": {"on": 0.766, "off": 16.861},
+        "AND g>=100 AND g<200": {"on": 0.416, "off": 8.940},
+        "eq s=v7 (group path, unchanged)": {"on": 0.294, "off": 0.288}
+      },
+      "threshold_evidence": "The first version used 2048 rows as the cut-off for reading candidates from the log and made the 10% case slower than before (6.19 ms against 4.16 ms), because 1000 disk reads cost more than a masked matrix query. With the cut-off at 256 the same query takes 0.281 ms; the constant is documented with that measurement instead of being a guess.",
+      "benchmark_regression": "The unfiltered and equality-filtered benchmark paths do not use this code. Two paired runs against the previous commit gave query-total ratios of 0.815 and 1.029; the first moved the unfiltered number by 20% with no code path change, which sets the noise floor for this host, so no regression is claimed or observed.",
+      "correctness": "tests/test_filter_slots.py covers the 0.1/1/10/50/100% selectivity sweep, all five required operators on BIGINT, VARCHAR equality and ranges, AND chains, the 2^53 boundary (2^53+1 must remain distinct), filters after deletes, and a filter inside a transaction that is then rolled back. 55 tests pass with numpy and 55 without (26 skipped); 20/20 public cases pass in both modes.",
+      "failed_attempts": [
+        "The test suite initially used '<>' and '!=' which the grammar does not accept (the task list only requires = < <= > >=); the parser rejects them, and those cases were removed rather than added to the grammar.",
+        "The first cut-off choice (2048) was measurably worse at 10% selectivity and was corrected after the sweep."
+      ],
+      "limitations": "Shared-host timings with a warm row cache, which makes the old scan look better than it would on a table larger than the cache; the measured gains on a 100k table with range filters were not re-run. DeepSeek executor experiment."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",

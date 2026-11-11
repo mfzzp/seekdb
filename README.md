@@ -104,13 +104,32 @@ Costs are cut in four places, in order of effect:
 3. **Planned paths**: primary-key-only predicates and orderings answer from the
    key directory without fetching payloads; scalar ordering ranks before
    fetching rows.
-4. **Bounded cache**: a row cache with scan admission control; bulk index
+4. **Bounded memory**: a row cache with scan admission control; bulk index
    builds bypass it so vectors are not stored twice. A single `MemoryBudget`
-   derived from the cgroup limit bounds the cache, every table matrix and every
-   equality group together; when a growth does not fit, other tables' matrices
-   and groups are dropped first, and if it still does not fit the matrix is not
-   built and the query falls back to a scan. Kernels work in 4096-row chunks so
-   a gather or a difference never materialises a table-sized temporary.
+   derived from the cgroup limit bounds the cache, every table matrix, every
+   equality group and the scalar index together; when a growth does not fit,
+   other tables' structures are dropped first, and if it still does not fit the
+   matrix is not built and the query falls back to a chunked scan. Kernels work
+   in 4096-row chunks so a gather or a difference never materialises a
+   table-sized temporary.
+5. **Scalar-first filtering**: a compact per-column index over the stable slots
+   (int64 for BIGINT so comparisons above 2^53 stay exact, dictionary codes plus
+   ranks for VARCHAR so ranges keep code-point order) resolves `=`, `<`, `<=`,
+   `>`, `>=` and `AND` chains to candidate slots before any vector work. Up to
+   256 candidates are read straight from the log, a set covering a quarter of
+   the table is answered from the dense matrix with the distance array indexed,
+   and the middle band gathers the subset in chunks.
+
+### Filtered TopK (10k rows, K=10, median of 7 runs)
+
+| predicate | selectivity | scalar-first | old scan |
+| --- | ---: | ---: | ---: |
+| `g < 1` | 0.1% | **0.29 ms** | 3.20 ms |
+| `g < 10` | 1% | **0.51 ms** | 3.29 ms |
+| `g < 100` | 10% | **0.28 ms** | 4.31 ms |
+| `g < 500` | 50% | **0.58 ms** | 9.58 ms |
+| `g < 1000` | 100% | **0.77 ms** | 16.86 ms |
+| `g >= 100 AND g < 200` | 10% | **0.42 ms** | 8.94 ms |
 
 All paths return exact results, so `ann` and `exact` agree and ranking ties keep
 the primary-key rule.
