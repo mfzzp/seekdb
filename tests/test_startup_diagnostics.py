@@ -19,8 +19,11 @@ SOURCE = os.path.dirname(os.path.abspath(minivectordb.__file__))
 class StartupDiagnosticsTest(unittest.TestCase):
     def test_stdout_is_protocol_only_and_diagnostics_go_to_stderr(self):
         data_dir = tempfile.mkdtemp(prefix="diag-")
+        # "SELECT 1" is not in the grammar (a projection needs a column), so the
+        # probe uses a DDL statement and asserts the response really is a success.
         request = json.dumps({"id": 1, "op": "execute",
-                              "sql": "SELECT 1", "search_mode": "exact"}) + "\n"
+                              "sql": "CREATE TABLE probe (id BIGINT PRIMARY KEY)",
+                              "search_mode": "exact"}) + "\n"
         request += json.dumps({"id": 2, "op": "shutdown"}) + "\n"
         env = dict(os.environ)
         env["PYTHONPATH"] = os.pathsep.join(
@@ -37,7 +40,7 @@ class StartupDiagnosticsTest(unittest.TestCase):
         self.assertEqual(json.loads(stdout_lines[0]), {"type": "ready"})
         first = json.loads(stdout_lines[1])
         self.assertEqual(first["id"], 1)
-        self.assertIn("ok", first)
+        self.assertIs(first["ok"], True, "the probe statement must succeed")
         self.assertEqual(json.loads(stdout_lines[2]), {"id": 2, "ok": True})
         self.assertEqual(proc.returncode, 0)
 

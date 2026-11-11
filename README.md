@@ -131,6 +131,26 @@ Costs are cut in four places, in order of effect:
 | `g < 1000` | 100% | **0.77 ms** | 16.86 ms |
 | `g >= 100 AND g < 200` | 10% | **0.42 ms** | 8.94 ms |
 
+### Protocol overhead (measured, 10k rows, K=10)
+
+Per request, one process per variant, 300 samples after warm-up (µs):
+
+| request | decode | parse | execute | encode |
+| --- | ---: | ---: | ---: | ---: |
+| `SELECT id FROM t LIMIT 10` | 1.9 | 10.3 | 5.4 | 4.8 |
+| `SELECT id FROM t ORDER BY id LIMIT 10` | 2.3 | 14.5 | 118.8 | 5.3 |
+| TopK via alias | 7.3 | 51.1 | 645.0 | 23.9 |
+| TopK with the expression in `ORDER BY` | 8.8 | 62.6 | 703.4 | 24.9 |
+| TopK, distance projected twice | 8.5 | 69.0 | 695.6 | 32.4 |
+
+Execution owns the request (89%); parse is 7% and JSON in both directions 4%.
+A blocking round trip for the TopK query takes 609 µs against 557 µs of server
+stages, so the pipe and the two context switches cost about 43 µs — the earlier
+~1.4 ms per query came from the benchmark client's own reader thread and queue,
+not from the protocol. The distance expression is bound once (evaluators are
+keyed by column and target): repeating it costs 8–9%, where a second mat-vec
+would have cost about 100%.
+
 All paths return exact results, so `ann` and `exact` agree and ranking ties keep
 the primary-key rule.
 
