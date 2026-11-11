@@ -146,7 +146,7 @@ class Database(Store):
         checks = [(col, COMPARISONS[op], value) for col, op, value in filters]
         for offset in self.candidates(name, table, filters, clustered):
             row = self.read_row(table, offset)
-            if all(compare(row[col], value) for col, compare, value in checks):
+            if not checks or all(compare(row[col], value) for col, compare, value in checks):
                 yield row
 
     def update(self, name, assignments, terms):
@@ -215,6 +215,23 @@ class Database(Store):
                 heapq.heapreplace(best, entry)
         return [(row, (-distance,)) for distance, _, row in sorted(best, reverse=True)]
 
+    def distance_top_k(self, records, column, target, primary, limit):
+        """Retain only the K best rows and avoid ranking objects for rejected rows."""
+        if not limit:
+            return []
+        best = []
+        distance_to = math.dist
+        push = heapq.heappush
+        replace = heapq.heapreplace
+        for row in records:
+            distance = distance_to(row[column], target)
+            key = row[primary]
+            if len(best) < limit:
+                push(best, (-distance, -key, row))
+            elif distance < -best[0][0] or (distance == -best[0][0] and key < -best[0][1]):
+                replace(best, (-distance, -key, row))
+        return [(row, (-distance,)) for distance, _, row in sorted(best, reverse=True)]
+
     def select(self, name, projections, terms, order, limit, mode):
         name = name.casefold()
         table = self.table(name)
@@ -281,8 +298,12 @@ class Database(Store):
         if (mode == "ann" and clustered and len(ordering) == len(evaluators) == 1
                 and not ordering[0][1] and limit is not None and not filters
                 and table.index is not None and not self.changes(name)
-                and len(table.rows) <= MAX_BLOCK_ROWS):
+                and len(table.rows) <= MAX_BLOCK_ROWS and len(evaluators[0][1]) <= 8):
             rows = self.axis_top_k(table, evaluators[0], limit)
+        elif (clustered and len(ordering) == len(evaluators) == 1
+                and not ordering[0][1] and limit is not None):
+            column, target = evaluators[0]
+            rows = self.distance_top_k(records, column, target, table.primary, limit)
         elif ordering:
             if limit is None:
                 winners = sorted(ranked(), key=operator_key)

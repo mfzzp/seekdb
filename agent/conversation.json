@@ -17,6 +17,16 @@
       "id": "protocol-check",
       "role": "assistant",
       "content": "官方分支的协议文件明确要求 JSON Lines，语雀正文里的接口描述与它有出入。我已按官方检查器实现通信，存储层也已支持逐行落盘和提交标记。接下来会用公开用例验证过滤、排序和重启后的索引行为。"
+    },
+    {
+      "id": "optimization-request",
+      "role": "user",
+      "content": "请继续优化"
+    },
+    {
+      "id": "server-constraint",
+      "role": "user",
+      "content": "但是必须是在该账号的HDD2/zzp的目录下拉取代码跑不要改动其他的环境依赖"
     }
   ],
   "experiments": [
@@ -29,6 +39,11 @@
       "id": "index-and-crash",
       "source": "Codex 运行独立本地进程验证脚本",
       "output": "48 exact/ann comparisons passed (with and without scalar filters)\nForced termination retained committed data, dropped pending writes, and recovered again\nFailed multi-row insert preserved earlier successful writes in the same transaction"
+    },
+    {
+      "id": "server-query-comparison",
+      "source": "Codex on requested server under /mnt/HDD2/zzp using existing Python 3.12.3",
+      "output": "Three alternating runs, 10000 rows x 128 dimensions, 200 TopK queries (half filtered), K=10. Baseline query seconds [2.3360056239180267, 2.417962485924363, 2.5066626481711864]. Optimized query seconds [1.6947015901096165, 1.4521808801218867, 1.3206721609458327]. All 200 complete query results identical. All 20 official public cases PASS. Independent-oracle TopK regression test passed for exact/ann, filters, ties, 2/128 dimensions, limits 0/1/10/100, and transaction visibility/rollback."
     }
   ],
   "limitations": "测试和实现由 Codex 执行。本材料没有收录学生自行执行的实验、对结果的解释或赛方隐藏评测结果。"
