@@ -994,6 +994,15 @@
       "tests": "tests/test_float32_margin.py pins the scale (wide/narrow ratio equals eps32/eps64), reproduces the exclusion directly on select_exact (a float64-sized window loses the true nearest row, a float32-sized one recovers it), checks the dtype decision at the cap, and spies on matrix_top_k to prove it asks for eps32 when the matrix is float32. The last two fail against the pre-fix source.",
       "cost": "At 300k rows the equality path is unchanged (3.0 ms warm against 3.1 before) and the range path rises from 16.7 to 32.4 ms because the wider window recomputes more candidates; the answer stays exact.",
       "limitations": "No construction reproduced a wrong answer from the old bound, so the fix is justified by the algebra rather than by an observed failure; the probe scripts stay next to the results for anyone who wants to keep hunting. DeepSeek executor experiment."
+    },
+    {
+      "id": "evidence-document-checks",
+      "executor": "DeepSeek",
+      "source": "DeepSeek work against 8a215f9",
+      "problem": "This file is judged material, but nothing verified it: the audit printed a size and a key count and stopped there. It also reached 119 KiB against a self-imposed 128 KiB budget with no test to notice growth.",
+      "method": "tests/test_evidence_document.py asserts UTF-8 without a BOM, a trailing newline, the seven required sections, synthetic=false with a scope sentence, unique ids each carrying one non-empty content field, verbatim quotes wherever a statement or learning case claims one, absence of placeholder markers, and the size budget.",
+      "result": "The records span two schema generations, so the checks are invariants rather than one shape; one entry (recovery-logical-offset) legitimately carries change/baseline/median_seconds and no problem field, which the first version of the test rejected. Padding the file to 138 KiB on the server makes the budget check fail, and it passes again after git checkout.",
+      "limitations": "The 128 KiB budget is self-imposed; if it is ever too tight, trim or merge entries rather than raising it. DeepSeek executor experiment."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",
