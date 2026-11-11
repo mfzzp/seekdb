@@ -17,7 +17,7 @@ repository, which are the public half of the judge:
 | Vector projection | must be a JSON array | a `VECTOR` column is emitted as `[0.5,1.5,2.5]` |
 | Unordered results | multiset comparison | ordered results are a valid multiset and ties still break on the primary key |
 | Error responses | `ok:false`, non-empty `error.code`, and the code must equal `config.error_codes[name]` **only when the config defines that name** | codes are `duplicate_key`, `unsupported_sql`, `dimension_mismatch`, `unknown_table`, `invalid_value` — the three names the published `.result` files use are produced verbatim |
-| Response size | `max_response_bytes` 16 MiB | largest realistic answer (1000 rows x 128 floats) is ~0.6 MiB |
+| Response size | `max_response_bytes` 16 MiB | a 1000-row x 128-dimension `SELECT *` measures 2.57 MB, about 6x below the cap |
 | Time limits | 60 s per request, 600 s per case, 120 s startup | worst measured request is 4.1 s (first query over 300k rows), startup is 30 ms |
 | Container | 2 CPUs, 2 GiB, 127 pids, read-only root, no network | one BLAS thread, ~74 MiB resident at 10k rows, writes only under `/data`, no runtime network use |
 
