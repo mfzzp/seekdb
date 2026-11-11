@@ -21,6 +21,21 @@ repository, which are the public half of the judge:
 | Time limits | 60 s per request, 600 s per case, 120 s startup | worst measured request is 4.1 s (first query over 300k rows), startup is 30 ms |
 | Container | 2 CPUs, 2 GiB, 127 pids, read-only root, no network | one BLAS thread, ~74 MiB resident at 10k rows, writes only under `/data`, no runtime network use |
 
+Thread and CPU behaviour, measured on the 128-core host:
+
+| configuration | threads in the server process | query total, 400 queries |
+| --- | ---: | ---: |
+| numpy without `OPENBLAS_NUM_THREADS` | 64 | — |
+| numpy with the Dockerfile's `OPENBLAS_NUM_THREADS=1` | 1 | 0.664 s / 0.678 s |
+| pure Python (no numpy) | 1 | — |
+| same, pinned to two CPUs with `taskset -c 0,1` | 1 | 0.653 s / 0.687 s unpinned |
+
+The BLAS thread limit is not cosmetic: without it OpenBLAS sizes its pool from the
+host's core count, so a 128-core host gives 64 threads and a host with 128 or more
+cores could exceed the 127-pid container limit before serving a single request.
+Pinning to two CPUs changes nothing measurable, so the 2-CPU quota is not a
+constraint for this workload.
+
 ## 2. Performance (measured, paired, medians)
 
 Judge-shaped protocol measurement, 10k records x 128 dimensions, K=10:
