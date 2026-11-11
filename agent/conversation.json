@@ -1660,6 +1660,20 @@
    ],
    "changes": "VERIFICATION.md records the run; the script reruns it.",
    "limitations": "The public corpus is small, so this bounds ann equivalence over those twenty cases rather than over all possible queries; the golden transcript and the ann index check cover further shapes. DeepSeek executor experiment."
+  },
+  {
+   "id": "per-case-isolation",
+   "executor": "DeepSeek",
+   "source": "DeepSeek run against 3d6622d",
+   "problem": "The public suite always runs the same twenty cases in the same order, each in its own data directory. If the implementation kept any state outside that directory, or a case depended on another having run first, the suite would not show it - and hidden cases could break in a different order.",
+   "method": "scripts/run_public_isolated.sh runs every case on its own with --case, then runs all twenty in reverse order, through the judge's own runner.",
+   "results": [
+    "20/20 pass when each case is the only case in the process",
+    "20/20 pass in reverse order",
+    "the transport creates a fresh temporary data directory per session, so isolation is structural rather than incidental"
+   ],
+   "changes": "VERIFICATION.md records both runs.",
+   "limitations": "Twenty small cases cannot prove the absence of hidden global state; the scan-cache and matrix tests cover the shared caches directly. DeepSeek executor experiment."
   }
  ],
  "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",

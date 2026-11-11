@@ -176,6 +176,18 @@ boundary; the public cases never project a vector column at all.
   decided one by one; the second one hard-requires numpy and dies without it,
   which is the deployment failure this implementation avoids.
 
+### Cases do not depend on each other
+
+The harness starts a fresh session - and a fresh data directory - per case, so no
+case can see another's rows. That is structural, but it was checked anyway, because
+an implementation that kept state outside the data directory would still pass the
+suite in its published order:
+
+| run | result |
+| --- | --- |
+| every case alone, one process each | 20/20 pass |
+| all twenty cases in reverse order | 20/20 pass |
+
 ### The whole public suite in ann mode
 
 Only one public case selects `ann` (`vector_index_maintenance`); the rest run in the
