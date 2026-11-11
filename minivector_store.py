@@ -114,16 +114,17 @@ class Store:
         transaction = Transaction()
         end = 0
         size = os.fstat(self.reader.fileno()).st_size
-        while self.reader.tell() + LENGTH.size <= size:
-            offset = self.reader.tell()
+        offset = 0
+        while offset + LENGTH.size <= size:
             length, = LENGTH.unpack(self.reader.read(LENGTH.size))
-            if not 0 < length <= size - self.reader.tell():
+            if not 0 < length <= size - offset - LENGTH.size:
                 break
+            next_offset = offset + LENGTH.size + length
             tag = self.reader.read(1)
             if tag == COMMIT and length == 1:
                 transaction.publish(self.tables)
                 transaction = Transaction()
-                end = self.reader.tell()
+                end = next_offset
             elif tag == b"r":
                 # Only the table and primary key are needed to rebuild row offsets.
                 header_size, = LENGTH.unpack(self.reader.read(LENGTH.size))
@@ -131,11 +132,12 @@ class Store:
                     raise ValueError("invalid log row header")
                 name, key = marshal.loads(self.reader.read(header_size))
                 transaction.apply((("row", (name, key, offset)),))
-                self.reader.seek(offset + LENGTH.size + length)
+                self.reader.seek(next_offset)
             elif tag == b"m":
                 transaction.apply((marshal.loads(self.reader.read(length - 1)),))
             else:
                 raise ValueError("invalid log frame")
+            offset = next_offset
         return end
 
     def truncate(self, offset):

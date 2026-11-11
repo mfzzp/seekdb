@@ -95,6 +95,22 @@
       "method": "Three paired runs on 10000 rows of 128 dimensions. Reopen, time 500 random primary-key lookups, then 100 primary-key range queries with descending ORDER BY and LIMIT 10. Compare every response against expected keys.",
       "output": "Point query seconds before [0.01591,0.01988,0.02491], after [0.00753,0.01021,0.01304]. Range query seconds before [0.53812,0.48916,0.75986], after [0.22042,0.23374,0.36456]. Results matched. All 20 public cases and 3 regression tests passed. The regression covers aliases, duplicate key projections, LIMIT 0, pending inserts and updates, hidden deletes, and unchanged ordering without ORDER BY.",
       "limits": "This fast path applies only to primary-key-only queries. Timings are local and do not establish official scores."
+    },
+    {
+      "id": "recovery-logical-offset",
+      "source": "Codex actual server experiment under /mnt/HDD2/zzp, system Python 3.12; no dependency changes",
+      "change": "Advance recovery cursor using validated frame lengths instead of repeated buffered reader tell calls. Log format and commit boundaries unchanged.",
+      "baseline": "d715514ef979a60e5005f1968316560a189bb551",
+      "command": "python3 tests/bench_recovery.py <source-directory>",
+      "workload": "150000 scalar rows, 15000 deletes, 7 recovery runs per invocation; reversed order on second pair",
+      "median_seconds": {
+        "baseline_first": 0.48710558796301484,
+        "candidate_first": 0.19060160988010466,
+        "candidate_second": 0.17147331102751195,
+        "baseline_second": 0.29492259095422924
+      },
+      "validation": "20 public protocol cases and 4 regression tests pass, including every truncated suffix across committed and uncommitted frames.",
+      "limitations": "Local timing under variable shared server load, not an official score. Agent performed measurements; no claim of student-run experiments or guaranteed Agent Prompt marks."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed.",
