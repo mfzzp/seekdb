@@ -111,8 +111,10 @@ the primary-key rule.
 
 - The log keeps historical row versions; there is no compaction, so a workload
   of many updates grows the file and the recovery time.
-- Equality groups are capped at 50,000 rows; above that a filtered query falls
-  back to a full scan (474 ms per query at 100k rows in a local measurement).
+- The first filtered query on a large table pays a one-time group build
+  (about 4 s at 300k rows) plus the dense matrix; later filtered queries are
+  ~1.5 ms. Memory grows with the matrix (358 MiB peak at 300k rows × 128 dims)
+  and is capped at a quarter of the detected container limit.
 - Non-equality scalar filters combined with distance ordering still scan.
 - The matrix is rebuilt after any committed mutation; a write/query interleaving
   pays that rebuild each time.

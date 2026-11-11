@@ -394,6 +394,39 @@
         "The 50k-row equality-group ceiling still sends filtered queries on very large tables to a full scan."
       ],
       "limitations": "The 300k-row measurement uses the existing scan benchmark (synthetic repeating vectors), so it characterises memory and scaling rather than realistic data. DeepSeek executor experiment; no participant-run measurement claimed."
+    },
+    {
+      "id": "large-table-equality-groups",
+      "executor": "DeepSeek",
+      "source": "DeepSeek implementation and measurements under /mnt/HDD2/zzp/minivectordb-round2, /usr/bin/python3 3.12.3, numpy 2.3.5",
+      "baseline": "e62d28e",
+      "candidate": "ac7e7f5",
+      "problem": "Filtered TopK on a 300k-row table cost 1463.9 ms per query and never built equality groups. Two guards were sized for the pre-matrix design: MAX_BLOCK_ROWS = 50,000 and a component budget of 4 MiB charged at 64 bytes per row, which rejects any table beyond a few tens of thousands of rows even though the real footprint is about 4 bytes per slot.",
+      "measurement": "scripts/probe_large_filter.py: 300k rows x 128 dims inserted through the store API, then WHERE g = 7 ORDER BY distance LIMIT 10 timed once cold and ten times warm. Before: first 1.136 s, warm median 1463.9 ms, groups_built false, peak RSS 135 MiB.",
+      "changes": [
+        "ensure_groups charges 8 bytes per row plus 72 bytes per distinct value instead of 64 bytes per row",
+        "COMPONENT_BUDGET adapts to the container limit (64 MiB default, 8 MiB floor) and MAX_BLOCK_ROWS rises from 50,000 to 1,000,000",
+        "the first-coordinate axis keeps a separate MAX_AXIS_ROWS = 50,000 ceiling because it stores a tuple per row rather than a packed slot array",
+        "new test patches COMPONENT_BUDGET tiny and asserts the fallback still returns the correct rows and leaves blocks unbuilt"
+      ],
+      "results": {
+        "300k_rows_filtered": {"first_before_s": 1.136, "first_after_s": 4.131,
+                               "warm_before_ms": 1463.9, "warm_after_ms": 1.489,
+                               "groups_built_before": false, "groups_built_after": true,
+                               "peak_rss_before_mib": 135, "peak_rss_after_mib": 358},
+        "10k_benchmark_paired": {"unfiltered_ms": [15.922, 0.799],
+                                 "filtered_ms": [1.260, 0.423],
+                                 "query_total_s": [7.774, 0.791],
+                                 "peak_rss_mib": [80, 74]},
+        "tests": "20 passed with numpy and 20 without (4 skipped)",
+        "public_cases": "20/20 in both modes"
+      },
+      "trade_offs": "The first filtered query on a large table now pays the one-time build (4.1 s instead of 1.14 s) and the dense matrix raises peak RSS to 358 MiB; every subsequent filtered query is about 1000x faster and the break-even is three queries. The matrix cap and the group budget both shrink automatically when a cgroup limit is visible.",
+      "failed_attempts": [
+        "The first version of the probe inserted rows through SQL with a one-element vector literal and failed on dimension mismatch; switching to the store API with packed float32 payloads both fixed it and removed SQL-text overhead from the measurement.",
+        "Raising MAX_BLOCK_ROWS alone was not enough: the 4 MiB budget still rejected the table, which the probe showed as groups_built false after the first attempt."
+      ],
+      "limitations": "Synthetic repeating vectors (k % 997 / 997) rather than realistic data; shared-host timing. The 10k benchmark numbers moved inside their usual noise band, so this entry documents a no-regression check rather than a measured gain at 10k rows. DeepSeek executor experiment."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements.",
