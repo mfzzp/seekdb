@@ -38,8 +38,8 @@ statement leaves no partial effect; filtered TopK is computed inside the filter
 and ties break on ascending primary key; vectors are stored as float32 and
 distances use the stored values; `NaN`, `Infinity`, dimension mismatches and
 float32 overflow are rejected. Without `ORDER BY`, rows come back in primary-key
-insertion order — an `UPDATE` keeps a row's position, a delete followed by a
-re-insert moves it to the end — which is what the pinned `extra_row_order` case
+insertion order 鈥?an `UPDATE` keeps a row's position, a delete followed by a
+re-insert moves it to the end 鈥?which is what the pinned `extra_row_order` case
 records, because the public results never compare a multi-row answer that lacks
 `ORDER BY`. Unsupported syntax (`NULL`, `JOIN`, aggregation, subqueries,
 `ALTER`/`DROP`, `<>`, parenthesised predicates, qualified column references,
@@ -81,7 +81,7 @@ Start the container again against the same volume and query; the row is still
 | --- | --- | --- |
 | `r` | `(table, key)` header + marshalled row | one row version, addressable by its file offset |
 | `m` | marshalled operation | `CREATE TABLE`, `CREATE VECTOR INDEX`, or a delete tombstone |
-| `!` | — | commit marker |
+| `!` | 鈥?| commit marker |
 
 Primary keys map to row offsets in an in-memory directory. Every statement
 stages its writes; a failing statement truncates its own suffix. `COMMIT`
@@ -93,13 +93,13 @@ suffix, so a forced kill keeps committed data and drops partial transactions.
 
 Costs are cut in four places, in order of effect:
 
-1. **Dense matrix + BLAS** (numpy present, table ≥ 2048 rows, no pending
+1. **Dense matrix + BLAS** (numpy present, table 鈮?2048 rows, no pending
    transaction, LIMIT present): live float32 vectors are materialised once into
    a float64 matrix keyed by the stable snapshot; distances come from
-   `|v|² − 2v·q + |q|²` in one mat-vec, and TopK is `argpartition` plus
+   `|v|虏 鈭?2v路q + |q|虏` in one mat-vec, and TopK is `argpartition` plus
    boundary tie expansion, then `lexsort` on `(distance, primary key)`.
    The identity is only used to *propose* candidates: its absolute error is
-   bounded by `4·width·eps·(‖v‖+‖q‖)²`, so every row within twice that bound of
+   bounded by `4路width路eps路(鈥杤鈥?鈥杚鈥?虏`, so every row within twice that bound of
    the K-th threshold is recomputed with the direct difference kernel before the
    final order is taken, and the whole set is recomputed when that window grows
    past `max(8K, 512)`. Coordinates above 1000 bypass the identity entirely.
@@ -108,7 +108,7 @@ Costs are cut in four places, in order of effect:
    magnitude larger, and a float64 bound would make the window far too narrow.
 2. **Equality groups**: one array of snapshot slots per distinct value of a
    scalar column. A filtered TopK only computes distances for that group's
-   slots — with or without a vector index.
+   slots 鈥?with or without a vector index.
 3. **Planned paths**: primary-key-only predicates and orderings answer from the
    key directory without fetching payloads; scalar ordering ranks before
    fetching rows.
@@ -135,8 +135,8 @@ dimensions with K=10 the headline results are:
 
 - Resolving scalar predicates before any vector work takes 0.29 ms at 0.1%
   selectivity and 0.77 ms at 100%, against 3.2 ms and 16.9 ms for a plain scan.
-- A TopK request costs 645 us inside the server — 89% execution, 7% SQL parse and
-  4% JSON in both directions — plus about 43 us of pipe and scheduling.
+- A TopK request costs 645 us inside the server 鈥?89% execution, 7% SQL parse and
+  4% JSON in both directions 鈥?plus about 43 us of pipe and scheduling.
 - The dense matrix is built on the first query because it already wins there
   (50 ms against 68 ms for the scan). On 100k rows a single query is twice as fast
   and 3.5x lighter with chunking, and the matrix takes over from the second query.
@@ -149,7 +149,7 @@ dimensions with K=10 the headline results are:
 
 - The log keeps historical row versions; there is no compaction, so a workload
   of many updates grows the file and the recovery time.
-- The first filtered query on a large table pays one-time builds: at 300k rows ×
+- The first filtered query on a large table pays one-time builds: at 300k rows 脳
   128 dimensions the equality path costs 3.0 s (groups plus a 146 MiB matrix) and
   the first range query costs 1.7 s more (the scalar index); afterwards equality
   queries take 3.1 ms and range queries 16.7 ms. Peak resident memory for that
@@ -185,15 +185,15 @@ python3 -m unittest discover -s tests -v
   paths, scan cache, SQL surface, model fuzz, semantics audit, startup
   diagnostics, the protocol-level shape/resilience/read-only suite, a golden
   transcript of 88 statements, the ten extra judge cases, and the evidence
-  document's own schema and size budget. 30 are skipped when numpy is absent.
+  document's own schema and size budget. 31 are skipped when numpy is absent.
 - Model fuzz: 220 random operations (multi-row inserts, predicate updates and
   deletes, transactions, restarts, TopK queries) match a Python model exactly.
 - Differential fuzz against the original baseline: 480/480 generated queries
   identical over four seeds at the current revision, and 720/720 over six seeds
   in an earlier run.
-- SQL surface: ~75 statements × exact/ann all answer cleanly, and the connection
+- SQL surface: ~75 statements 脳 exact/ann all answer cleanly, and the connection
   survives every error.
-- Crash recovery: six scenarios under a real SIGKILL — between commits, inside an
+- Crash recovery: six scenarios under a real SIGKILL 鈥?between commits, inside an
   open transaction, during a 100k-row statement, a 10k-row transaction killed
   before COMMIT, a kill that lands inside recovery itself (a 300k-row log, with the
   test asserting no ready line was produced first), and a torn log suffix.
@@ -202,10 +202,11 @@ python3 -m unittest discover -s tests -v
 
 `scripts/protocol_bench.py` starts the program as a subprocess and talks to it
 over stdin/stdout exactly like the judge, so the numbers include JSON
-encode/decode, pipe traffic and per-response flushes. 10,000 rows × 128
-dimensions, 1,000 TopK queries with K=10 (half filtered): **9.6 s baseline,
-1.3 s with numpy and 9.0 s without** — the full phase-by-phase table is in
-[VERIFICATION.md](VERIFICATION.md).
+encode/decode, pipe traffic and per-response flushes. Measured again against the
+original baseline at the final commit: 10,000 rows 脳 128 dimensions, 1,000 TopK
+queries with K=10 (half filtered): **7.4 s baseline, 0.95 s with numpy and 7.2 s
+without** (unfiltered median 11.8 ms 鈫?1.13 ms, filtered 1.74 ms 鈫?0.58 ms) 鈥?the
+full phase-by-phase table is in [VERIFICATION.md](VERIFICATION.md).
 
 A control pair (same code against itself) showed a 4% write noise floor, so the
 ~5% write difference with numpy is at the edge of measurable and comes from the

@@ -25,10 +25,13 @@ EVIDENCE = os.path.join(ROOT, "agent", "conversation.json")
 # while VERIFICATION.md and the evidence file carry the exact median, so the table
 # records the spelling each document is allowed to use.
 SHARED_FIGURES = [
-    ("1000-query total, baseline", "9.6", "9.64", "9.64"),
-    ("1000-query total, numpy", "1.3", "1.31", "1.31"),
+    ("1000-query total, baseline", "7.4", "7.432", "7.432"),
+    ("1000-query total, numpy", "0.95", "0.947", "0.947"),
+    ("1000-query total, fallback", "7.2", "7.198", "7.198"),
+    ("unfiltered query, baseline", "11.8", "11.79", "11.787"),
+    ("unfiltered query, numpy", "1.13", "1.13", "1.132"),
+    ("filtered query, numpy", "0.58", "0.58", "0.582"),
     ("scalar filter at 0.1%", "0.29", "0.29", "0.29"),
-    ("scalar filter at 100%", "0.77", "0.77", "0.77"),
     ("matrix at 150k rows (MiB)", "146.5", "146.5", "146.5"),
     ("peak RSS at 2 GiB limit", "348", "348", "348"),
     ("peak RSS at 300k rows", "358", "358", "358"),

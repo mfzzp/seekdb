@@ -1385,6 +1385,66 @@
    "conclusions": "Matrix eviction across tables keeps every answer exact while staying under the capacity, and resident memory under a 256 MiB limit peaked at 154 MiB.",
    "tests": "tests/test_multi_table_budget.py pins the path: four 3000 x 128 tables under a limit whose capacity is the 8 MiB floor, every answer checked against an oracle recomputed on the fly, at least one matrix evicted, and _memory_used <= capacity after each attempt.",
    "limitations": "The limit is injected rather than a real cgroup. DeepSeek executor experiment."
+  },
+  {
+   "id": "final-performance-recheck",
+   "executor": "DeepSeek",
+   "source": "DeepSeek measurement against 1bfe98d on the Linux server",
+   "problem": "The headline performance claim compared the original baseline with an intermediate commit. Several kernels and the scalar index changed afterwards, so the promised numbers had to be re-measured against the final tree rather than carried forward.",
+   "method": "scripts/final_perf_verify.sh runs the judge-shaped protocol benchmark from the original baseline 716867c against the current HEAD: three paired rounds of 200 queries (baseline without numpy, candidate with it), one 1000-query run per side, a second 1000-query pair with numpy absent on both sides, and an in-process run to compare the selected ids.",
+   "results": {
+    "paired_200_queries": {
+     "write_s": [
+      0.889,
+      0.897
+     ],
+     "unfiltered_ms": [
+      11.787,
+      1.132
+     ],
+     "filtered_ms": [
+      1.735,
+      0.582
+     ],
+     "total_s": [
+      1.456,
+      0.256
+     ]
+    },
+    "single_1000_queries": {
+     "total_s": [
+      7.432,
+      0.947
+     ],
+     "unfiltered_ms": [
+      11.779,
+      1.132
+     ],
+     "filtered_ms": [
+      1.736,
+      0.578
+     ]
+    },
+    "fallback_1000_queries": {
+     "total_s": [
+      7.232,
+      7.198
+     ],
+     "unfiltered_ms": [
+      12.294,
+      12.29
+     ],
+     "filtered_ms": [
+      1.736,
+      1.737
+     ]
+    },
+    "ids_digest_equal": true,
+    "ids_digest": "38e0d1533d51ec4e"
+   },
+   "reading": "With numpy the final tree is 7.8x faster end to end and 10x on an unfiltered query; the pure-Python path is the baseline within noise, so the dependency adds the speed and the fallback costs nothing. The previous table (9.64 s and 1.31 s) was measured on a busier moment of the same host: absolute values move between rounds, the ratios do not.",
+   "changes": "README and VERIFICATION.md now carry the re-measured table, and the consistency test checks the new figures in all three documents.",
+   "limitations": "Single host, three paired rounds for the 200-query figures and one run for the 1000-query figures. DeepSeek executor experiment."
   }
  ],
  "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",
