@@ -136,6 +136,9 @@ python3 -m unittest discover -s tests -v
   deletes, transactions, restarts, TopK queries) match a Python model exactly.
 - Differential fuzz against the previous revision: 360/360 generated queries
   identical (ids exact, distances to 1e-9).
+- Protocol-level SIGKILL suite: 11/11 checks (committed rows survive, an open
+  transaction leaves nothing behind, a 2000-row transaction does not leak,
+  repeated kills during startup still recover).
 
 Paired medians over three rounds, 10,000 rows × 128 dimensions, 500 unfiltered
 and 500 filtered TopK queries with K=10:

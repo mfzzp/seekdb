@@ -351,6 +351,19 @@
       "regressions": "None measured: affected_rows only shrinks for no-op updates, and the benchmark write/query timings are unchanged because inserts do not go through UPDATE.",
       "risks": "Counting changed rows is a judgement call. If the formal reference counts matched rows, a no-op UPDATE case would expect the larger number. It was chosen because the task is described as a MySQL case suite and MySQL's affected_rows counts changed rows; the previous behaviour (matched rows) was the alternative.",
       "limitations": "The fuzz runs at small scale (240 rows, 3 dimensions) so it exercises semantics rather than performance; the matrix fast path is only reached by the dedicated matrix tests. DeepSeek executor experiment; no participant-run measurement claimed."
+    },
+    {
+      "id": "protocol-level-sigkill",
+      "executor": "DeepSeek",
+      "source": "DeepSeek harness run against the submission binary over the real JSONL protocol",
+      "baseline": "22d8717",
+      "candidate": "22d8717",
+      "problem": "tests/test_recovery.py verifies truncated log suffixes in-process, but the judge kills the process through the container. A real SIGKILL through stdin/stdout was not covered.",
+      "method": "Reused the protocol crash harness (same JSONL client as the public driver) against minivectordb.py started with --data-dir: create table, insert/update/delete, open a transaction with an uncommitted insert, hard-kill, reopen and compare; then commit-then-kill; then five kills 20 ms after spawn; then a 2000-row uncommitted transaction.",
+      "output": "11/11 checks passed: committed rows survive SIGKILL; the uncommitted row is gone; vector query consistent after recovery; autocommit insert durable; writable after recovery; second crash keeps all committed rows; recovery survives kills during startup; large transaction visible inside itself; large uncommitted transaction leaves nothing behind; commit after recovery is durable.",
+      "changes": [],
+      "status": "verified, no code change",
+      "limitations": "Windows development host, so the kill is TerminateProcess rather than SIGKILL delivered by a Linux container; the in-process Linux recovery tests remain the authority for the Linux behaviour. DeepSeek executor experiment."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements.",
