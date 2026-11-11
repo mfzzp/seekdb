@@ -1,0 +1,160 @@
+"""Protocol-level conformance: response shapes, failure resilience, read-only run.
+
+The judge sends statements that are expected to fail and runs the image with a
+read-only root filesystem, so the program is exercised here as a real subprocess:
+every response must carry an int id and a JSON boolean ok, a success must expose
+either columns/rows or an int affected_rows, a failure must expose a non-empty
+error code, and no failing statement may end the process.
+
+The read-only case is skipped on Windows, where directory permissions do not
+prevent writes.
+"""
+
+import json
+import os
+import shutil
+import stat
+import subprocess
+import sys
+import tempfile
+import unittest
+
+SOURCE = os.path.dirname(os.path.abspath(__file__))
+SOURCE = os.path.dirname(SOURCE)          # repository root holding minivectordb.py
+
+STATEMENTS = [
+    "CREATE TABLE docs (id BIGINT PRIMARY KEY, title VARCHAR(16), v VECTOR(3));",
+    "INSERT INTO docs VALUES (1,'a','[0,0,0]'),(2,'b','[1,0,0]');",
+    "CREATE VECTOR INDEX vi ON docs(v);",
+    "SELECT * FROM docs ORDER BY id;",
+    "SELECT id, L2_DISTANCE(v,'[0,0,0]') AS d FROM docs ORDER BY d LIMIT 1;",
+    "SELECT id FROM docs ORDER BY id LIMIT 0;",
+    "SELECT id FROM docs ORDER BY id LIMIT 100;",
+    "SELECT id FROM docs WHERE id = 999 ORDER BY id;",
+    "UPDATE docs SET title = 'z' WHERE id = 1;",
+    "UPDATE docs SET title = 'z' WHERE id = 4242;",
+    "DELETE FROM docs WHERE id = 4242;",
+    "INSERT INTO docs VALUES (1,'dup','[0,0,0]');",
+    "SELECT id FROM missing_table;",
+    "SELECT missing_column FROM docs;",
+    "SELECT id FROM docs WHERE id = 'not-an-int';",
+    "INSERT INTO docs VALUES (3,'c');",
+    "INSERT INTO docs VALUES (4,'way-too-long-title-value','[0,0,0]');",
+    "UPDATE docs SET v = '[9,9]' WHERE id = 1;",
+    "CREATE VECTOR INDEX vi ON docs(v);",
+    "CREATE TABLE docs (id BIGINT PRIMARY KEY);",
+    "COMMIT;",
+    "ROLLBACK;",
+    "BEGIN;",
+    "SELECT id FROM docs ORDER BY id;",
+    "COMMIT;",
+    "nonsense syntax here;",
+    "SELECT id FROM docs ORDER BY title LIMIT 1;",
+]
+
+
+def run_session(requests, data_dir, app_dir=None, env_extra=None):
+    env = dict(os.environ)
+    env.update(env_extra or {})
+    script = os.path.join(app_dir or SOURCE, "minivectordb.py")
+    process = subprocess.run(
+        [sys.executable, script, "--data-dir", data_dir],
+        input=b"".join((json.dumps(request) + "\n").encode() for request in requests),
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=180, env=env)
+    return process
+
+
+class ProtocolConformanceTest(unittest.TestCase):
+    def test_every_response_has_the_documented_shape(self):
+        data_dir = tempfile.mkdtemp(prefix="sweep-")
+        self.addCleanup(shutil.rmtree, data_dir, True)
+        requests = [{"id": index, "op": "execute", "sql": sql,
+                     "search_mode": "exact"}
+                    for index, sql in enumerate(STATEMENTS, 1)]
+        requests.append({"id": 999, "op": "shutdown"})
+        process = run_session(requests, data_dir)
+        lines = process.stdout.decode("utf-8").splitlines()
+        self.assertEqual(len(lines), len(requests) + 1, lines)
+        self.assertEqual(json.loads(lines[0]), {"type": "ready"})
+        for index, sql in enumerate(STATEMENTS, 1):
+            response = json.loads(lines[index])
+            self.assertEqual(response.get("id"), index, response)
+            self.assertIs(type(response.get("id")), int, response)
+            self.assertIs(type(response.get("ok")), bool, response)
+            if response["ok"]:
+                if "affected_rows" in response:
+                    self.assertIs(type(response["affected_rows"]), int, response)
+                elif "columns" in response or "rows" in response:
+                    self.assertIs(type(response.get("columns")), list, response)
+                    self.assertIs(type(response.get("rows")), list, response)
+                # DDL and transaction control legitimately answer with id/ok only.
+            else:
+                code = (response.get("error") or {}).get("code")
+                self.assertIs(type(code), str, response)
+                self.assertTrue(code, response)
+        self.assertEqual(json.loads(lines[-1]), {"id": 999, "ok": True})
+        self.assertEqual(process.returncode, 0)
+
+    def test_statement_results_are_semantically_right(self):
+        data_dir = tempfile.mkdtemp(prefix="semantics-")
+        self.addCleanup(shutil.rmtree, data_dir, True)
+        requests = [
+            {"id": 1, "op": "execute", "sql": STATEMENTS[0], "search_mode": "exact"},
+            {"id": 2, "op": "execute", "sql": STATEMENTS[1], "search_mode": "exact"},
+            {"id": 3, "op": "execute", "sql": "SELECT * FROM docs ORDER BY id;",
+             "search_mode": "exact"},
+            {"id": 4, "op": "execute", "sql": "SELECT id FROM docs ORDER BY id LIMIT 0;",
+             "search_mode": "exact"},
+            {"id": 5, "op": "execute", "sql": "SELECT id FROM docs WHERE id = 999 ORDER BY id;",
+             "search_mode": "exact"},
+            {"id": 6, "op": "shutdown"},
+        ]
+        process = run_session(requests, data_dir)
+        lines = [json.loads(line) for line in process.stdout.decode("utf-8").splitlines()]
+        # lines[0] is the ready handshake, so request N is at index N.
+        self.assertEqual(lines[3]["columns"], ["id", "title", "v"])
+        self.assertEqual(lines[3]["rows"], [[1, "a", [0.0, 0.0, 0.0]],
+                                            [2, "b", [1.0, 0.0, 0.0]]])
+        self.assertEqual(lines[4]["rows"], [])
+        self.assertEqual(lines[4]["columns"], ["id"])
+        self.assertEqual(lines[5]["rows"], [])
+        self.assertEqual(lines[5]["columns"], ["id"])
+
+    @unittest.skipIf(os.name == "nt", "directory permissions do not block writes on Windows")
+    def test_read_only_application_directory(self):
+        root = tempfile.mkdtemp(prefix="readonly-")
+        self.addCleanup(lambda: (shutil.rmtree(root, True)))
+        app = os.path.join(root, "app")
+        data = os.path.join(root, "data")
+        os.makedirs(app)
+        os.makedirs(data)
+        for name in ("minivectordb.py", "minivector_sql.py", "minivector_store.py"):
+            shutil.copy(os.path.join(SOURCE, name), os.path.join(app, name))
+            os.chmod(os.path.join(app, name), stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+        os.chmod(app, stat.S_IRUSR | stat.S_IXUSR | stat.S_IRGRP | stat.S_IXGRP)
+        self.addCleanup(os.chmod, app, stat.S_IRWXU)
+
+        requests = [
+            {"id": 1, "op": "execute",
+             "sql": "CREATE TABLE docs (id BIGINT PRIMARY KEY, content VARCHAR(16));",
+             "search_mode": "exact"},
+            {"id": 2, "op": "execute", "sql": "INSERT INTO docs VALUES (1, '你好');",
+             "search_mode": "exact"},
+            {"id": 3, "op": "execute", "sql": "SELECT id, content FROM docs ORDER BY id;",
+             "search_mode": "exact"},
+            {"id": 4, "op": "shutdown"},
+        ]
+        process = run_session(requests, data, app_dir=app,
+                              env_extra={"PYTHONDONTWRITEBYTECODE": "1"})
+        self.assertEqual(process.returncode, 0, process.stderr.decode("utf-8"))
+        lines = process.stdout.decode("utf-8").splitlines()
+        self.assertEqual(len(lines), 5, lines)
+        self.assertEqual(json.loads(lines[0]), {"type": "ready"})
+        self.assertEqual(json.loads(lines[3])["rows"], [[1, "你好"]])
+        for directory, _, files in os.walk(app):
+            self.assertNotIn("__pycache__", directory)
+            self.assertFalse([name for name in files if name.endswith(".pyc")])
+
+
+if __name__ == "__main__":
+    unittest.main()
