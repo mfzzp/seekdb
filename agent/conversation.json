@@ -874,6 +874,16 @@
       ],
       "artefact": "VERIFICATION.md at the repository root records the contract, the alignment per row, the measured performance tables and the verified/inferred/unverified split",
       "limitations": "Only the public half of the judge is visible; the hidden config and the 29 cases are not. DeepSeek executor experiment."
+    },
+    {
+      "id": "extra-cases-through-the-judge",
+      "executor": "DeepSeek",
+      "source": "DeepSeek work against d22c99c on /mnt/HDD2/zzp/minivectordb-round2",
+      "problem": "Every check so far either used an oracle written in this session or the twenty public cases. The judge's own comparison code had only ever been applied to those twenty, so a shape they do not contain was never validated against the real assertions.",
+      "method": "scripts/build_extra_package.py emits a judge package (manifest.json plus .test/.result pairs) for six shapes the public set lacks: range and AND predicates, a restart with a vector index, a failed statement inside a transaction followed by COMMIT, LIMIT 0 and an empty result set, non-ASCII values including astral characters, and ann versus exact on identical data. The expected values were derived by hand from the SQL semantics (float32 storage, Euclidean distance, primary-key tie order), not captured from the implementation.",
+      "result": "protocol_check/run.py - the public half of the judge, with its own transport and its type-strict comparison - passes all six cases in both dependency modes. The package now lives in tests/extra_cases and tests/test_judge_package.py runs it, so any future change that breaks one of these shapes fails the suite.",
+      "drift_proof": "one expected row set was mutated to [[7]] on the server; the runner reported the failing case, and the test passed again once restored",
+      "limitations": "Six cases are a sample, not the hidden set; the expectations encode this session's reading of the SQL semantics, which the two implementations share. DeepSeek executor experiment."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",
