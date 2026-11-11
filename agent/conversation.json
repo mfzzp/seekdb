@@ -298,6 +298,36 @@
       "command": "python3 scripts/probe_write.py <source-dir>",
       "status": "measured, intentionally not changed",
       "limitations": "Single measurement host with shared I/O; fsync cost depends on the storage device and the judge machine may differ substantially. This entry records a rejected optimisation, not a verified improvement."
+    },
+    {
+      "id": "bulk-build-cache-bypass",
+      "executor": "DeepSeek",
+      "source": "DeepSeek implementation and measurements under /mnt/HDD2/zzp/minivectordb-round2, /usr/bin/python3 3.12.3, numpy 2.3.5, OPENBLAS_NUM_THREADS=1",
+      "baseline": "a10fc11",
+      "candidate": "1a898a9",
+      "problem": "After the matrix and equality-group work, peak RSS rose from 80 MiB (baseline) to 114 MiB because the bulk build that fills the matrix also inserted every decoded row into the 96 MiB LRU row cache, storing the same vectors twice. Memory is 20% of the scoring formula, so this was a scored regression.",
+      "hypothesis": "The matrix and the equality groups are self-contained representations; the build pass does not need the LRU cache. Adding a cache=False mode to read_row for bulk builds should remove the duplicate storage without changing query cost, because only the K projected rows per query need caching.",
+      "changes": [
+        "read_row(table, offset, scan=False, cache=True) with cache=False skipping admission and eviction",
+        "build_matrix and ensure_groups read with cache=False",
+        "projection reads in matrix_top_k / matrix_group_top_k keep the default cache=True so result rows stay hot"
+      ],
+      "command": "python3 tests/bench_competition.py <src> --tag t; paired 3-round script over baseline and candidate",
+      "correctness": "14 regression tests pass with and without numpy; 20/20 public cases unchanged; the full 1000-query ids_digest is unchanged from the previous candidate (38e0d153...), so selection semantics are untouched.",
+      "results": {
+        "peak_rss_mib": {"before": 114, "after": 74, "baseline_reference": 80},
+        "query_total_s": {"before": 0.663, "after": 0.661, "paired_rounds": [0.636, 0.797, 0.593]},
+        "unfiltered_median_ms": {"before": 0.695, "after": 0.621},
+        "filtered_median_ms": {"before": 0.308, "after": 0.312},
+        "paired_baseline_query_total_s": 9.324,
+        "large_table_100k_rows_rss_mib": {"before": 399, "after": 316}
+      },
+      "regressions": "Projection rows are now read from the log instead of a pre-warmed cache on the first query after a build; the effect is inside the noise floor here (10 rows per query). Repeated queries on tables small enough to skip the matrix still use the normal cache path, so nothing regressed there.",
+      "failed_attempts": [
+        "Making every read uncached was rejected: small tables rely on the LRU cache for repeated point queries, so cache=False is limited to the two bulk builders.",
+        "Dropping the vector payload from cached rows (lazy decode) was considered as a follow-up but not attempted in this step; it would need consistent handling in UPDATE re-encoding and vector projection."
+      ],
+      "limitations": "Local shared-server measurement; peak RSS is process RSS, not the cgroup memory.peak the judge uses, so the absolute number is indicative only. DeepSeek executor experiment; no participant-run measurement claimed."
     }
   ],
   "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements.",
