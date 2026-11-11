@@ -1488,6 +1488,21 @@
    ],
    "changes": "tests/test_ddl_edges.py adds two tests; the README SQL scope now states that a column list may reorder values but must name every column once.",
    "limitations": "Whether a partial insert should instead default the missing columns is a semantic choice; with no NULL support it has no sensible answer here. DeepSeek executor experiment."
+  },
+  {
+   "id": "transaction-ddl-and-text-integrity",
+   "executor": "DeepSeek",
+   "source": "DeepSeek probe against db7a6a1",
+   "problem": "Two gaps: DDL inside a transaction had no defined contract, and a PowerShell round-trip had silently corrupted nine lines of README.md into CJK mojibake that looked fine in a terminal.",
+   "method": "scripts/probe_ddl_in_txn.sh runs a BEGIN/CREATE/INSERT/ROLLBACK transcript against both implementations; scripts/scan_mojibake.py scans every delivered text file for the marker code points U+9225 and U+FFFD.",
+   "results": [
+    "index names are scoped per table in both implementations: the same name on two tables is fine, twice on one table is index_exists",
+    "DDL inside a transaction differs: this implementation rolls the CREATE TABLE back with the transaction (the PostgreSQL reading), the second implementation keeps the table (the MySQL implicit-commit reading)",
+    "the scan found nine damaged README lines: em dashes, middle dots, norm bars and two arrows had become U+9225 sequences; all nine were rewritten and the file is now clean"
+   ],
+   "decisions": "The PostgreSQL reading is kept and documented, because it is the one consistent with the atomicity the task does ask for: a rolled-back transaction leaves no trace, including a table it created. MySQL would commit the DDL implicitly and leave the table behind.",
+   "changes": "tests/test_transaction_ddl.py pins the transaction DDL contract and the per-table index names; tests/test_text_integrity.py scans every delivered file for mojibake and checks the repaired typography; README records both rules.",
+   "limitations": "The hidden cases may follow either reading of DDL-in-transaction; the sentence is a documented choice, not a derivation. DeepSeek executor experiment."
   }
  ],
  "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",
