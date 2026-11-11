@@ -76,6 +76,21 @@ class EvidenceDocumentTest(unittest.TestCase):
             self.assertTrue(str(contribution.get("verbatim", "")).strip(),
                             f"{case.get('id')} learning case has no verbatim contribution")
 
+    def test_learning_cases_resolve_to_a_recorded_statement(self):
+        """A citation that points at nothing cannot be checked by a reviewer."""
+        statements = {statement["id"]: statement["verbatim"]
+                      for statement in self.data["student_statements"]}
+        for case in self.data["learning_cases"]:
+            contribution = case.get("student_contribution") or {}
+            source_id = contribution.get("source_id")
+            if not source_id:
+                continue
+            self.assertIn(source_id, statements,
+                          f"{case['id']} cites {source_id}, which is not in "
+                          f"student_statements")
+            self.assertEqual(contribution.get("verbatim"), statements[source_id],
+                             f"{case['id']} quotes different text than {source_id}")
+
     def test_no_placeholder_text(self):
         text = json.dumps(self.data, ensure_ascii=False)
         for marker in PLACEHOLDERS:

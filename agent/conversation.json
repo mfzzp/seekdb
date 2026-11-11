@@ -86,6 +86,12 @@
    "when": "2026-11-11, after the first successful pushes",
    "verbatim": "你现在不用推送了，就在本地改就行",
    "note": "After the first pushes, the participant asked the agent to stop pushing and continue with local changes only; the branch is therefore left a few commits behind the server."
+  },
+  {
+   "id": "bitmap-delete-proposal",
+   "when": "earlier in the session, before the compaction point",
+   "verbatim": "这个删除可以搞假删除。就把他有效/无效标记改一下，不然磁盘block会经常随机删除，很麻烦。标记按位图的话，10亿条也就128m，能常驻内存。可以参考这两个论文在服务器进行修改提交",
+   "note": "recorded here because the learning case cites it by this id; the same text appears in that case's student_contribution"
   }
  ],
  "experiments": [
@@ -1517,6 +1523,20 @@
    ],
    "changes": "README repaired; the integrity test now also rejects CJK in README, VERIFICATION, the Dockerfile and the three sources.",
    "limitations": "The check assumes those files should stay in English, which is true today; a bilingual document would need an allow-list. DeepSeek executor experiment."
+  },
+  {
+   "id": "quote-citation-integrity",
+   "executor": "DeepSeek",
+   "source": "DeepSeek check against 7c273a9",
+   "problem": "The learning cases cite participant statements by id, and one citation pointed at an id that was not in the catalogue, so a reviewer could not follow it. The quotes themselves were intact, but nothing checked that either.",
+   "method": "scripts/check_quotes.py and scripts/list_quotes.py print every quote with its CJK count and marker check, then resolve each learning case citation against student_statements.",
+   "results": [
+    "all quotes carry Chinese text and no mojibake markers",
+    "one citation was dangling: bitmap-proposal-to-verification cited bitmap-delete-proposal, which the catalogue did not contain; the quote was promoted into the catalogue so the reference resolves and the texts compare equal",
+    "the catalogue now holds eight statements and every citation resolves"
+   ],
+   "changes": "tests/test_evidence_document.py fails when a learning case cites an id that is not in the catalogue, or quotes different text than the statement it cites.",
+   "limitations": "This checks internal consistency; it cannot prove a quote matches the original conversation, which only the conversation log can settle. DeepSeek executor experiment."
   }
  ],
  "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",
