@@ -210,3 +210,22 @@ python3 protocol_check/run.py --command '["python3","<src>/minivectordb.py","--d
 #   stage_breakdown.py, roundtrip_breakdown.py, ann_index_check.py,
 #   diff_two_impls.py, make_golden.py
 ```
+
+## 6. Delivery dry run
+
+The commits are delivered as a bundle and replayed onto the published base, so the
+transfer can be checked without pushing anywhere:
+
+```
+git bundle create /tmp/round2-delivery.bundle e62d28e..HEAD
+git bundle verify /tmp/round2-delivery.bundle
+git clone --no-hardlinks <repo> /tmp/dryrun && cd /tmp/dryrun
+git checkout e62d28e && git fetch /tmp/round2-delivery.bundle HEAD
+git merge --ff-only FETCH_HEAD
+```
+
+Measured: the bundle is 218 KB, `git bundle verify` reports only the required base
+commit, the merge is a fast-forward that adds 72 commits, the working tree is clean,
+and the replayed tree passes 20/20 public cases and all 117 tests. The procedure is
+also in `scripts/dry_run_delivery.sh`.
+
