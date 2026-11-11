@@ -739,6 +739,7 @@
         "A failing statement never ends the process, and every response keeps the shape the spec fixes.",
         "The remaining Docker risk is the build itself (base image pull, pip network), not the program."
       ],
+      "follow_up": "Both checks are now permanent tests in tests/test_protocol_surface.py (27-statement shape sweep, semantic assertions for SELECT *, LIMIT 0 and an empty WHERE, and a read-only application directory run), so the suite is 58 tests in both modes.",
       "limitations": "Read-only and pid/memory limits were simulated with file permissions and not with a real cgroup; the 2 GB budget path is covered only by unit tests that inject a capacity. DeepSeek executor experiment."
     }
   ],
