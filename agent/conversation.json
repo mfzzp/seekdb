@@ -1632,6 +1632,20 @@
    ],
    "changes": "VERIFICATION.md records the procedure; scripts/dry_run_delivery.sh reproduces it.",
    "limitations": "This proves the commits replay onto the published base; it does not exercise the fork's credentials or hooks, which only a real push would. The push itself is deferred at the participant's request. DeepSeek executor experiment."
+  },
+  {
+   "id": "repository-gap-below-the-base",
+   "executor": "DeepSeek",
+   "source": "DeepSeek audit against e863637",
+   "problem": "A repository audit with git fsck reported a broken link below the published base, which matters only if it reaches the commits being delivered.",
+   "method": "git fsck, then a range walk from the base and from HEAD, plus the already-verified bundle and replay.",
+   "results": [
+    "commit f4d4e26 names a parent, 9f6df2b, that is absent, so a full history walk stops about 25 commits below e62d28e",
+    "the delivered range is unaffected: e62d28e..HEAD counts 73 commits, the bundle carries exactly that range and replays as a fast-forward onto the base",
+    "the gap predates this work; a fetch from origin with network access would fill it"
+   ],
+   "changes": "VERIFICATION.md records the state so the participant is not surprised by fsck noise at submission time.",
+   "limitations": "The gap could not be repaired here because the network proxy was unreachable during this round, so the fork's current tip could not be re-checked either. DeepSeek executor experiment."
   }
  ],
  "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",

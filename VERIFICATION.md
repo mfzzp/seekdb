@@ -211,6 +211,16 @@ python3 protocol_check/run.py --command '["python3","<src>/minivectordb.py","--d
 #   diff_two_impls.py, make_golden.py
 ```
 
+### Repository state in this working copy
+
+`git fsck` reports one broken link below the published base: commit `f4d4e26` names a
+parent (`9f6df2b`) that was never fetched, so a full `git rev-list HEAD` stops about
+25 commits below `e62d28e`. The hole predates this work and does not touch the
+delivered range: `git rev-list --count e62d28e..HEAD` counts all 73 commits, the bundle
+contains exactly that range, and the replay onto `e62d28e` produces a clean tree that
+passes the suite. A `git fetch origin` with network access fills the missing ancestor;
+nothing in the submission depends on it.
+
 ## 6. Delivery dry run
 
 The commits are delivered as a bundle and replayed onto the published base, so the
