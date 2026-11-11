@@ -1718,6 +1718,21 @@
    ],
    "changes": "minivector_store.memory_limit_bytes walks the process cgroup and takes the tightest limit; tests/test_cgroup_limit.py adds six tests; VERIFICATION.md records the measurements.",
    "limitations": "The systemd scopes here apply a memory limit but ignore AllowedCPUs, so CPUs were pinned with taskset instead; the judge's container also limits pids and drops capabilities, which cannot be reproduced without a container runtime. DeepSeek executor experiment."
+  },
+  {
+   "id": "specification-checklist-and-semicolons",
+   "executor": "DeepSeek",
+   "source": "DeepSeek review of STDIO_PROTOCOL.md against 9cd74c8",
+   "problem": "The specification warns that a semicolon may appear inside a SQL string literal, so a request must be split by JSON and never by semicolons. No test covered a semicolon, a doubled quote or a newline inside a string, and the document had no requirement-by-requirement checklist.",
+   "method": "scripts/probe_semicolon.sh sends 'a;b', 'x;y;z', a doubled-quote escape and a real newline inside string literals; the whole specification was re-read and each normative sentence was mapped to the evidence that covers it.",
+   "results": [
+    "semicolons inside strings round-trip and an equality filter on such a value works",
+    "the MySQL doubled-quote escape ('quote''semi;here' -> quote'semi;here) works",
+    "a newline inside a SQL string comes back JSON-escaped, so the response is still one physical line",
+    "every normative item in the specification now has a named test or measurement, recorded as a checklist in VERIFICATION.md"
+   ],
+   "changes": "tests/test_protocol_surface.py adds the semicolon and newline test; VERIFICATION.md gains the checklist table.",
+   "limitations": "The checklist maps sentences to evidence; it does not prove the hidden cases exercise those sentences. DeepSeek executor experiment."
   }
  ],
  "limitations": "The bitmap proposal and constraints are participant statements. Code analysis, experiments and explanations are Agent work. No participant-run experiment or independent interpretation is claimed. The dense-matrix-topk experiment was executed by DeepSeek on the participant's server under the participant's stated boundary constraints (no fsync/commit/rollback changes, no exact-result or float32 or tie-order changes); the participant supplied the direction list and constraints but did not run or interpret the measurements. The learning_cases entries quote participant statements verbatim (boundaries, the measure-one-direction-at-a-time rule, the result.json verification requirement, the delivery-pipeline question) together with what the Agent then did and measured; none of them is a participant-run experiment.",

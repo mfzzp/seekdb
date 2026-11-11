@@ -65,6 +65,43 @@ def run_session(requests, data_dir, app_dir=None, env_extra=None):
 
 
 class ProtocolConformanceTest(unittest.TestCase):
+    def test_semicolons_and_newlines_inside_sql_strings(self):
+        """The specification warns that a semicolon may sit inside a string literal.
+
+        A request must therefore be split by JSON, never by semicolons, and a newline
+        inside a SQL string has to come back JSON-escaped so the response stays one
+        physical line.
+        """
+        data_dir = tempfile.mkdtemp(prefix="semicolon-")
+        self.addCleanup(shutil.rmtree, data_dir, True)
+        requests = [
+            {"id": 1, "op": "execute", "search_mode": "exact",
+             "sql": "CREATE TABLE docs (id BIGINT PRIMARY KEY, content VARCHAR(32));"},
+            {"id": 2, "op": "execute", "search_mode": "exact",
+             "sql": "INSERT INTO docs VALUES (1, 'a;b'), (2, 'x;y;z');"},
+            {"id": 3, "op": "execute", "search_mode": "exact",
+             "sql": "INSERT INTO docs VALUES (3, 'quote''semi;here');"},
+            {"id": 4, "op": "execute", "search_mode": "exact",
+             "sql": "INSERT INTO docs VALUES (4, 'two\nlines');"},   # a real newline
+            {"id": 5, "op": "execute", "search_mode": "exact",
+             "sql": "SELECT id, content FROM docs ORDER BY id;"},
+            {"id": 6, "op": "execute", "search_mode": "exact",
+             "sql": "SELECT id FROM docs WHERE content = 'x;y;z';"},
+            {"id": 7, "op": "shutdown"},
+        ]
+        process = run_session(requests, data_dir)
+        lines = process.stdout.decode("utf-8").splitlines()
+        self.assertEqual(len(lines), 8, f"one ready line plus seven responses: {lines}")
+        responses = [json.loads(line) for line in lines]
+        self.assertEqual(responses[0], {"type": "ready"})
+        self.assertEqual(responses[5]["rows"], [
+            [1, "a;b"], [2, "x;y;z"], [3, "quote'semi;here"], [4, "two\nlines"]])
+        self.assertEqual(responses[6]["rows"], [[2]],
+                         "an equality filter on a value containing semicolons")
+        # The newline from row 4 must be escaped inside the response line, which is
+        # why splitting on newlines yields exactly one JSON object per request.
+        self.assertIn("two\\nlines", lines[5])
+
     def test_startup_failure_is_a_clean_exit_without_ready(self):
         """An unusable data directory must fail before the ready handshake.
 

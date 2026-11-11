@@ -145,7 +145,7 @@ boundary; the public cases never project a vector column at all.
 
 ## 3. Correctness evidence
 
-- 123 regression tests, passing with and without numpy (31 skipped without it).
+- 124 regression tests, passing with and without numpy (31 skipped without it).
 - 20/20 public cases plus twelve extra cases through the judge's own runner
   (`protocol_check/run.py` with `tests/extra_cases`), in both modes, including
   against a pristine `git archive` export of the committed tree.
@@ -196,7 +196,7 @@ falling back to the old paths. Measured inside real systemd scopes on this host:
 
 Those match the numbers previously obtained by injecting a limit into the budget, so
 the adaptive path is confirmed against the kernel rather than a mock. The whole suite
-also passes inside a real 2 GiB / 2 CPU scope (123 tests, with and without numpy) and
+also passes inside a real 2 GiB / 2 CPU scope (124 tests, with and without numpy) and
 the public cases pass at 2 GiB and at 512 MiB.
 
 ### Cases do not depend on each other
@@ -227,6 +227,27 @@ Every published expectation therefore holds under `ann` as well, which is what a
 implementation that resolves `ann` exactly should do. Together that is 32
 judge-shaped cases run end to end through the judge's own runner in the mode the
 public corpus barely exercises.
+
+### Specification checklist
+
+Every normative sentence in `STDIO_PROTOCOL.md` maps to something that was run:
+
+| requirement (section) | evidence |
+| --- | --- |
+| `{"type":"ready"}` exactly, before the first request, every start (§2) | handshake mode; `test_protocol_surface` |
+| one response per request, `id` echoed with its JSON type (§1.5) | `test_blank_lines_do_not_produce_responses`, string-id run |
+| newline-terminated, flushed per response (§1.1, §1.3) | every protocol run; the judge's own transport |
+| stdout carries protocol only (§1.4) | one write in `send()`, diagnostics to stderr |
+| no blank lines or extra lines (§1.6) | blank lines are skipped, `test_malformed_non_blank_line_is_answered` |
+| no NaN/Infinity, no duplicate keys (§1.7) | `json.dumps(allow_nan=False)`, insert-time rejection |
+| a semicolon can sit inside a string literal (§3) | `test_semicolons_and_newlines_inside_sql_strings` |
+| a newline inside a string stays escaped on one line (§1.2) | same test |
+| affected rows are integers, empty results keep their columns (§3) | public cases, golden transcript |
+| errors keep `ok` boolean and a non-empty code, process continues (§3) | golden transcript, fuzz |
+| shutdown answers then stays silent, exit 0 (§4) | `test_protocol_surface`, gate |
+| `/data` is reused, never wiped (§4) | restart cases, `test_text_integrity` of the data dir |
+| committed data survives a kill without shutdown (§4) | six SIGKILL scenarios |
+| the image defaults to stdio with no private arguments (§7) | Dockerfile guards, bare-environment run |
 
 ## 4. Verified, inferred, unverified
 
