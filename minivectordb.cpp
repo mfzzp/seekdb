@@ -130,28 +130,81 @@ struct Term { int col = -1; std::string op; Value value; };
 struct Projection { int col = -1; bool distance = false; std::string col_name; std::string alias; std::string target_text; std::vector<float> target; };
 struct Order { int col = -1; int projection = -1; bool distance = false; bool desc = false; };
 struct Engine {
-  State st; std::optional<State> tx; std::string dir;
+  State st; std::optional<State> tx; std::vector<std::string> tx_log; std::string dir;
   explicit Engine(std::string d) : dir(std::move(d)) { mkdir(dir.c_str(), 0755); load(); }
   std::string file() const { return dir + "/state.bin"; }
+  std::string journal() const { return dir + "/journal.log"; }
   template<class T> static void put(std::ofstream &f, const T &x) { f.write(reinterpret_cast<const char *>(&x), sizeof(x)); }
   template<class T> static bool get(std::ifstream &f, T &x) { return bool(f.read(reinterpret_cast<char *>(&x), sizeof(x))); }
   static void putstr(std::ofstream &f, const std::string &s) { uint32_t n = uint32_t(s.size()); put(f, n); f.write(s.data(), n); }
   static std::string getstr(std::ifstream &f) { uint32_t n; if (!get(f, n) || n > 1u << 24) throw std::runtime_error("bad state"); std::string s(n, '\0'); if (!f.read(s.data(), n)) throw std::runtime_error("bad state"); return s; }
+  static constexpr uint32_t JOURNAL_MAGIC = 0x4d564a31;
+  static void append_u32(std::string &out, uint32_t value) { out.append(reinterpret_cast<const char *>(&value), sizeof(value)); }
+  static bool read_u32(const std::string &buf, size_t &pos, uint32_t &value) {
+    if (pos + sizeof(value) > buf.size()) return false;
+    std::memcpy(&value, buf.data() + pos, sizeof(value)); pos += sizeof(value); return true;
+  }
+  static void write_all(int fd, const char *data, size_t size) {
+    while (size) { ssize_t n = ::write(fd, data, size); if (n <= 0) throw Error("storage_error", "cannot append journal"); data += n; size -= size_t(n); }
+  }
+  void append_journal(const std::vector<std::string> &statements) {
+    if (statements.empty()) return;
+    std::string payload; append_u32(payload, uint32_t(statements.size()));
+    for (const auto &sql : statements) { if (sql.size() > (1u << 28)) throw Error("storage_error", "statement too large"); append_u32(payload, uint32_t(sql.size())); payload.append(sql); }
+    uint32_t magic = JOURNAL_MAGIC, bytes = uint32_t(payload.size());
+    int fd = ::open(journal().c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
+    if (fd < 0) throw Error("storage_error", "cannot open journal");
+    try { write_all(fd, reinterpret_cast<const char *>(&magic), sizeof(magic)); write_all(fd, reinterpret_cast<const char *>(&bytes), sizeof(bytes)); write_all(fd, payload.data(), payload.size()); if (::fsync(fd) != 0) throw Error("storage_error", "cannot sync journal"); ::close(fd); }
+    catch (...) { ::close(fd); throw; }
+  }
+  void replay_sql(const std::string &sql) {
+    auto tok = lex_sql(sql); size_t p = 0; if (tok.empty()) return; std::string cmd = lower(tok[p++].text);
+    if (cmd == "create") { if (p < tok.size() && ieq(tok[p].text, "vector")) create_index(tok, p); else create_table(tok, p); }
+    else if (cmd == "insert") { insert(tok, p); }
+    else if (cmd == "update") { int64_t affected = 0; update(tok, p, affected); }
+    else if (cmd == "delete") { int64_t affected = 0; erase(tok, p, affected); }
+    else throw Error("storage_error", "invalid journal statement");
+    if (p != tok.size()) throw Error("storage_error", "trailing journal SQL");
+  }
+  void replay_journal() {
+    std::ifstream f(journal(), std::ios::binary); if (!f) return;
+    std::string data((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>()); size_t pos = 0;
+    while (pos + sizeof(uint32_t) * 2 <= data.size()) {
+      uint32_t magic = 0, bytes = 0; if (!read_u32(data, pos, magic) || !read_u32(data, pos, bytes)) break;
+      if (magic != JOURNAL_MAGIC || bytes > (1u << 30) || pos + bytes > data.size()) break;
+      size_t end = pos + bytes, q = pos; uint32_t count = 0; if (!read_u32(data, q, count) || count > 1000000) break;
+      std::vector<std::string> statements; statements.reserve(count); bool complete = true;
+      for (uint32_t i = 0; i < count; ++i) { uint32_t n = 0; if (!read_u32(data, q, n) || n > (1u << 28) || q + n > end) { complete = false; break; } statements.emplace_back(data.data() + q, n); q += n; }
+      if (!complete || q != end) break;
+      for (const auto &statement : statements) replay_sql(statement); pos = end;
+    }
+  }
   void save() {
     std::string tmp = file() + ".tmp"; std::ofstream f(tmp, std::ios::binary | std::ios::trunc); if (!f) throw Error("storage_error", "cannot open data directory"); uint32_t magic = 0x4d564332, nt = uint32_t(st.tables.size()); put(f, magic); put(f, nt);
     for (auto &kv : st.tables) { const Table &t = kv.second; putstr(f, t.name); uint32_t nc = uint32_t(t.cols.size()); put(f, nc); put(f, t.primary); put(f, t.vector_col); uint8_t ix = t.index; put(f, ix); for (auto &c : t.cols) { putstr(f, c.name); uint8_t k = uint8_t(c.kind); put(f, k); put(f, c.width); } uint64_t nr = t.rows.size(); put(f, nr); for (size_t r = 0; r < t.rows.size(); ++r) { uint8_t live = t.alive[r]; put(f, live); for (auto &v : t.rows[r]) { uint8_t k = uint8_t(v.kind); put(f, k); if (v.kind == VK_INT) put(f, v.i); else if (v.kind == VK_STRING) putstr(f, v.s); else { uint32_t n = uint32_t(v.v.size()); put(f, n); f.write(reinterpret_cast<const char *>(v.v.data()), sizeof(float) * n); } } } }
     f.flush(); f.close(); int fd = ::open(tmp.c_str(), O_RDONLY); if (fd >= 0) { ::fsync(fd); ::close(fd); } if (::rename(tmp.c_str(), file().c_str()) != 0) throw Error("storage_error", "cannot publish data");
   }
   void load() {
-    std::ifstream f(file(), std::ios::binary); if (!f) return; uint32_t magic = 0, nt = 0; if (!get(f, magic) || magic != 0x4d564332 || !get(f, nt)) throw Error("storage_error", "invalid data"); for (uint32_t z = 0; z < nt; ++z) { Table t; t.name = getstr(f); uint32_t nc; if (!get(f, nc) || nc > 1024 || !get(f, t.primary) || !get(f, t.vector_col)) throw Error("storage_error", "invalid schema"); uint8_t ix; if (!get(f, ix)) throw Error("storage_error", "invalid schema"); t.index = ix; for (uint32_t c = 0; c < nc; ++c) { Column col; col.name = getstr(f); uint8_t k; if (!get(f, k) || !get(f, col.width)) throw Error("storage_error", "invalid column"); col.kind = VKind(k); t.cols.push_back(std::move(col)); } uint64_t nr; if (!get(f, nr) || nr > 100000000) throw Error("storage_error", "invalid rows"); for (uint64_t r = 0; r < nr; ++r) { uint8_t live; if (!get(f, live)) throw Error("storage_error", "invalid row"); t.alive.push_back(live != 0); std::vector<Value> row; for (uint32_t c = 0; c < nc; ++c) { Value v; uint8_t k; if (!get(f, k)) throw Error("storage_error", "invalid value"); v.kind = VKind(k); if (v.kind == VK_INT) { if (!get(f, v.i)) throw Error("storage_error", "invalid value"); } else if (v.kind == VK_STRING) v.s = getstr(f); else { uint32_t n; if (!get(f, n) || n > 100000) throw Error("storage_error", "invalid vector"); v.v.resize(n); if (!f.read(reinterpret_cast<char *>(v.v.data()), sizeof(float) * n)) throw Error("storage_error", "invalid vector"); } row.push_back(std::move(v)); } t.rows.push_back(std::move(row)); } rebuild(t); st.tables.emplace(lower(t.name), std::move(t)); }
+    std::ifstream f(file(), std::ios::binary); if (!f) { replay_journal(); return; } uint32_t magic = 0, nt = 0; if (!get(f, magic) || magic != 0x4d564332 || !get(f, nt)) throw Error("storage_error", "invalid data"); for (uint32_t z = 0; z < nt; ++z) { Table t; t.name = getstr(f); uint32_t nc; if (!get(f, nc) || nc > 1024 || !get(f, t.primary) || !get(f, t.vector_col)) throw Error("storage_error", "invalid schema"); uint8_t ix; if (!get(f, ix)) throw Error("storage_error", "invalid schema"); t.index = ix; for (uint32_t c = 0; c < nc; ++c) { Column col; col.name = getstr(f); uint8_t k; if (!get(f, k) || !get(f, col.width)) throw Error("storage_error", "invalid column"); col.kind = VKind(k); t.cols.push_back(std::move(col)); } uint64_t nr; if (!get(f, nr) || nr > 100000000) throw Error("storage_error", "invalid rows"); for (uint64_t r = 0; r < nr; ++r) { uint8_t live; if (!get(f, live)) throw Error("storage_error", "invalid row"); t.alive.push_back(live != 0); std::vector<Value> row; for (uint32_t c = 0; c < nc; ++c) { Value v; uint8_t k; if (!get(f, k)) throw Error("storage_error", "invalid value"); v.kind = VKind(k); if (v.kind == VK_INT) { if (!get(f, v.i)) throw Error("storage_error", "invalid value"); } else if (v.kind == VK_STRING) v.s = getstr(f); else { uint32_t n; if (!get(f, n) || n > 100000) throw Error("storage_error", "invalid vector"); v.v.resize(n); if (!f.read(reinterpret_cast<char *>(v.v.data()), sizeof(float) * n)) throw Error("storage_error", "invalid vector"); } row.push_back(std::move(v)); } t.rows.push_back(std::move(row)); } rebuild(t); st.tables.emplace(lower(t.name), std::move(t)); }
+    replay_journal();
   }
   static void rebuild(Table &t) { t.keys.clear(); for (size_t r = 0; r < t.rows.size(); ++r) if (t.alive[r]) t.keys.emplace(t.rows[r][t.primary].i, r); }
   State &working() { return st; }
   const State &view() const { return st; }
-  void begin() { if (tx) throw Error("transaction_active", "transaction already active"); tx = st; }
-  void rollback() { if (tx) { st = *tx; tx.reset(); } }
-  void commit() { if (tx) { save(); tx.reset(); } }
-  void autocommit(bool changed, State before) { if (changed && !tx) { try { save(); } catch (...) { st = std::move(before); throw; } } }
+  void begin() { if (tx) throw Error("transaction_active", "transaction already active"); tx = st; tx_log.clear(); }
+  void rollback() { if (tx) { st = *tx; tx.reset(); tx_log.clear(); } }
+  void commit() {
+    if (!tx) return;
+    try { append_journal(tx_log); }
+    catch (...) { st = State{}; tx.reset(); tx_log.clear(); load(); throw; }
+    tx.reset(); tx_log.clear();
+  }
+  void autocommit(bool changed, const std::string &sql) {
+    if (!changed) return;
+    if (tx) { tx_log.push_back(sql); return; }
+    try { append_journal({sql}); }
+    catch (...) { st = State{}; tx.reset(); tx_log.clear(); load(); throw; }
+  }
 
   std::vector<Term> parse_where(std::vector<Token> &t, size_t &p, const Table &table) {
     std::vector<Term> out; if (p >= t.size() || !ieq(t[p].text, "where")) return out; ++p; while (true) { int c = column_of(table, take_name(t, p)); if (p >= t.size()) throw Error("unsupported_sql", "expected comparison"); std::string op = t[p++].text; if (op != "=" && op != "<" && op != "<=" && op != ">" && op != ">=") throw Error("unsupported_sql", "unsupported comparison"); if (p >= t.size()) throw Error("invalid_value", "missing value"); out.push_back({c, op, convert_value(t[p++], table.cols[c])}); if (p >= t.size() || !ieq(t[p].text, "and")) break; ++p; } return out;
@@ -287,7 +340,7 @@ int main(int argc, char **argv) {
         if (cmd == "begin") { db.begin(); body = mv::Json::object({{"ok", mv::Json::boolean(true)}}); }
         else if (cmd == "commit") { db.commit(); body = mv::Json::object({{"ok", mv::Json::boolean(true)}}); }
         else if (cmd == "rollback") { db.rollback(); body = mv::Json::object({{"ok", mv::Json::boolean(true)}}); }
-        else { mv::State before = db.st; int64_t affected = 0; if (cmd == "create") { if (p < tok.size() && mv::ieq(tok[p].text, "vector")) db.create_index(tok, p); else db.create_table(tok, p); affected = 0; } else if (cmd == "insert") affected = db.insert(tok, p); else if (cmd == "update") db.update(tok, p, affected); else if (cmd == "delete") db.erase(tok, p, affected); else if (cmd == "select") body = db.select(tok, p); else throw mv::Error("unsupported_sql", "unsupported statement"); if (cmd != "select") db.autocommit(true, std::move(before)); if (body.kind == mv::Json::NIL) body = mv::Json::object({{"ok", mv::Json::boolean(true)}}); else body.o["ok"] = mv::Json::boolean(true); if (cmd == "insert" || cmd == "update" || cmd == "delete") body.o["affected_rows"] = mv::Json::integer(affected); }
+        else { int64_t affected = 0; if (cmd == "create") { if (p < tok.size() && mv::ieq(tok[p].text, "vector")) db.create_index(tok, p); else db.create_table(tok, p); affected = 0; } else if (cmd == "insert") affected = db.insert(tok, p); else if (cmd == "update") db.update(tok, p, affected); else if (cmd == "delete") db.erase(tok, p, affected); else if (cmd == "select") body = db.select(tok, p); else throw mv::Error("unsupported_sql", "unsupported statement"); if (cmd != "select") db.autocommit(true, sql); if (body.kind == mv::Json::NIL) body = mv::Json::object({{"ok", mv::Json::boolean(true)}}); else body.o["ok"] = mv::Json::boolean(true); if (cmd == "insert" || cmd == "update" || cmd == "delete") body.o["affected_rows"] = mv::Json::integer(affected); }
         body.o["id"] = id; std::cout << mv::json_dump(body) << '\n' << std::flush;
       } catch (const mv::Error &e) { std::cout << mv::json_dump(mv::Json::object({{"id", id}, {"ok", mv::Json::boolean(false)}, {"error", mv::Json::object({{"code", mv::Json::string(e.code)}, {"message", mv::Json::string(e.what())}})}})) << '\n' << std::flush; }
       catch (const std::exception &e) { std::cout << mv::json_dump(mv::Json::object({{"id", id}, {"ok", mv::Json::boolean(false)}, {"error", mv::Json::object({{"code", mv::Json::string("internal_error")}, {"message", mv::Json::string(e.what())}})}})) << '\n' << std::flush; }
@@ -295,6 +348,13 @@ int main(int argc, char **argv) {
   } catch (const std::exception &e) { std::cerr << "startup failed: " << e.what() << '\n'; return 1; }
   return 0;
 }
+
+
+
+
+
+
+
 
 
 

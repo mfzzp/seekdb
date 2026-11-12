@@ -44,11 +44,14 @@ The implementation covers the competition protocol subset:
 - `BEGIN`, `COMMIT`, and `ROLLBACK`, including DDL in an explicit transaction.
 
 Writes are staged before mutation, so a malformed or duplicate row cannot leave
-half a statement visible. Autocommit publishes a new binary snapshot with a
-temporary file, flush, `fsync`, and atomic rename. A transaction sees its own
-writes and only publishes them at `COMMIT`; shutdown rolls back an open
-transaction. Deleted rows use an in-memory live bitmap and are not returned or
-resurrected by a restart.
+half a statement visible. New commits append length-framed SQL records to
+`/data/journal.log` and `fsync` the journal; a transaction appends its whole
+statement group once at `COMMIT`. Startup loads the compatible `state.bin`
+snapshot and replays complete journal records, ignoring a torn final record.
+This removes the old full-state rewrite on every insert while preserving
+acknowledged commit durability. Shutdown rolls back an open transaction.
+Deleted rows use an in-memory live bitmap and are not returned or resurrected
+by a restart.
 
 Vectors are converted to float32 at write time. Distance calculations use the
 stored float32 values in a native tight loop and return deterministic primary-key
@@ -87,3 +90,4 @@ database functionality.
 - `STDIO_PROTOCOL.md`: JSONL contract.
 - `protocol_check/`, `mysqltest/`, `tests/`: supplied protocol and regression
   corpus; they are not runtime dependencies.
+
