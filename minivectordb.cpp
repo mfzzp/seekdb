@@ -13,6 +13,7 @@
 #include <map>
 #include <numeric>
 #include <optional>
+#include <queue>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -115,7 +116,25 @@ enum VKind { VK_INT, VK_STRING, VK_VECTOR };
 struct Value { VKind kind = VK_STRING; int64_t i = 0; std::string s; std::vector<float> v; };
 using Row = std::vector<Value>;
 struct Column { std::string name; VKind kind = VK_STRING; int width = 0; };
-struct Table { std::string name; std::vector<Column> cols; int primary = -1; int vector_col = -1; bool index = false; std::vector<Row> rows; std::vector<bool> alive; std::map<int64_t, size_t> keys; };
+struct VectorBlock {
+  size_t begin = 0;
+  size_t end = 0;
+  std::vector<float> lo;
+  std::vector<float> hi;
+};
+struct Table {
+  std::string name;
+  std::vector<Column> cols;
+  int primary = -1;
+  int vector_col = -1;
+  bool index = false;
+  std::vector<Row> rows;
+  std::vector<bool> alive;
+  std::map<int64_t, size_t> keys;
+  mutable bool blocks_valid = false;
+  mutable std::vector<int> block_dims;
+  mutable std::vector<VectorBlock> blocks;
+};
 struct State { std::map<std::string, Table> tables; };
 static std::string lower(std::string x) { for (char &c : x) c = char(std::tolower((unsigned char)c)); return x; }
 static Table &table_of(State &s, const std::string &name) { auto it = s.tables.find(lower(name)); if (it == s.tables.end()) throw Error("unknown_table", "unknown table"); return it->second; }
@@ -168,8 +187,9 @@ struct Term { int col = -1; std::string op; Value value; };
 struct Projection { int col = -1; bool distance = false; std::string col_name; std::string alias; std::string target_text; std::vector<float> target; };
 struct Order { int col = -1; int projection = -1; bool distance = false; bool desc = false; };
 struct Engine {
-  State st; std::optional<State> tx; std::vector<std::string> tx_log; std::string dir;
+  State st; std::optional<State> tx; std::vector<std::string> tx_log; std::string dir; int journal_fd = -1;
   explicit Engine(std::string d) : dir(std::move(d)) { mkdir(dir.c_str(), 0755); load(); }
+  ~Engine() { if (journal_fd >= 0) ::close(journal_fd); }
   std::string file() const { return dir + "/state.bin"; }
   std::string journal() const { return dir + "/journal.log"; }
   template<class T> static void put(std::ofstream &f, const T &x) { f.write(reinterpret_cast<const char *>(&x), sizeof(x)); }
@@ -183,17 +203,40 @@ struct Engine {
     std::memcpy(&value, buf.data() + pos, sizeof(value)); pos += sizeof(value); return true;
   }
   static void write_all(int fd, const char *data, size_t size) {
-    while (size) { ssize_t n = ::write(fd, data, size); if (n <= 0) throw Error("storage_error", "cannot append journal"); data += n; size -= size_t(n); }
+    while (size) {
+      ssize_t n = ::write(fd, data, size);
+      if (n < 0 && errno == EINTR) continue;
+      if (n <= 0) throw Error("storage_error", "cannot append journal");
+      data += n;
+      size -= size_t(n);
+    }
+  }
+  int ensure_journal_fd() {
+    if (journal_fd >= 0) return journal_fd;
+    journal_fd = ::open(journal().c_str(), O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0644);
+    if (journal_fd < 0) throw Error("storage_error", "cannot open journal");
+    return journal_fd;
   }
   void append_journal(const std::vector<std::string> &statements) {
     if (statements.empty()) return;
     std::string payload; append_u32(payload, uint32_t(statements.size()));
     for (const auto &sql : statements) { if (sql.size() > (1u << 28)) throw Error("storage_error", "statement too large"); append_u32(payload, uint32_t(sql.size())); payload.append(sql); }
     uint32_t magic = JOURNAL_MAGIC, bytes = uint32_t(payload.size());
-    int fd = ::open(journal().c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
-    if (fd < 0) throw Error("storage_error", "cannot open journal");
-    try { write_all(fd, reinterpret_cast<const char *>(&magic), sizeof(magic)); write_all(fd, reinterpret_cast<const char *>(&bytes), sizeof(bytes)); write_all(fd, payload.data(), payload.size()); if (::fsync(fd) != 0) throw Error("storage_error", "cannot sync journal"); ::close(fd); }
-    catch (...) { ::close(fd); throw; }
+    int fd = ensure_journal_fd();
+    try {
+      write_all(fd, reinterpret_cast<const char *>(&magic), sizeof(magic));
+      write_all(fd, reinterpret_cast<const char *>(&bytes), sizeof(bytes));
+      write_all(fd, payload.data(), payload.size());
+#if defined(__linux__)
+      if (::fdatasync(fd) != 0) throw Error("storage_error", "cannot sync journal");
+#else
+      if (::fsync(fd) != 0) throw Error("storage_error", "cannot sync journal");
+#endif
+    } catch (...) {
+      ::close(fd);
+      journal_fd = -1;
+      throw;
+    }
   }
   void replay_sql(const std::string &sql) {
     auto tok = lex_sql(sql); size_t p = 0; if (tok.empty()) return; std::string cmd = lower(tok[p++].text);
@@ -290,7 +333,58 @@ struct Engine {
     std::ifstream f(file(), std::ios::binary); if (!f) { replay_journal(); return; } uint32_t magic = 0, nt = 0; if (!get(f, magic) || magic != 0x4d564332 || !get(f, nt)) throw Error("storage_error", "invalid data"); for (uint32_t z = 0; z < nt; ++z) { Table t; t.name = getstr(f); uint32_t nc; if (!get(f, nc) || nc > 1024 || !get(f, t.primary) || !get(f, t.vector_col)) throw Error("storage_error", "invalid schema"); uint8_t ix; if (!get(f, ix)) throw Error("storage_error", "invalid schema"); t.index = ix; for (uint32_t c = 0; c < nc; ++c) { Column col; col.name = getstr(f); uint8_t k; if (!get(f, k) || !get(f, col.width)) throw Error("storage_error", "invalid column"); col.kind = VKind(k); t.cols.push_back(std::move(col)); } uint64_t nr; if (!get(f, nr) || nr > 100000000) throw Error("storage_error", "invalid rows"); for (uint64_t r = 0; r < nr; ++r) { uint8_t live; if (!get(f, live)) throw Error("storage_error", "invalid row"); t.alive.push_back(live != 0); std::vector<Value> row; for (uint32_t c = 0; c < nc; ++c) { Value v; uint8_t k; if (!get(f, k)) throw Error("storage_error", "invalid value"); v.kind = VKind(k); if (v.kind == VK_INT) { if (!get(f, v.i)) throw Error("storage_error", "invalid value"); } else if (v.kind == VK_STRING) v.s = getstr(f); else { uint32_t n; if (!get(f, n) || n > 100000) throw Error("storage_error", "invalid vector"); v.v.resize(n); if (!f.read(reinterpret_cast<char *>(v.v.data()), sizeof(float) * n)) throw Error("storage_error", "invalid vector"); } row.push_back(std::move(v)); } t.rows.push_back(std::move(row)); } rebuild(t); st.tables.emplace(lower(t.name), std::move(t)); }
     replay_journal();
   }
-  static void rebuild(Table &t) { t.keys.clear(); for (size_t r = 0; r < t.rows.size(); ++r) if (t.alive[r]) t.keys.emplace(t.rows[r][t.primary].i, r); }
+  static void rebuild(Table &t) {
+    t.keys.clear();
+    for (size_t r = 0; r < t.rows.size(); ++r)
+      if (t.alive[r]) t.keys.emplace(t.rows[r][t.primary].i, r);
+    t.blocks_valid = false;
+    t.block_dims.clear();
+    t.blocks.clear();
+  }
+  static void invalidate_blocks(Table &t) {
+    t.blocks_valid = false;
+    t.block_dims.clear();
+    t.blocks.clear();
+  }
+  static void ensure_blocks(Table &t) {
+    if (t.blocks_valid) return;
+    t.blocks_valid = true;
+    t.block_dims.clear();
+    t.blocks.clear();
+    if (t.vector_col < 0 || t.rows.empty()) return;
+    const int dim = t.cols[t.vector_col].width;
+    if (dim <= 0) return;
+
+    // Keep a compact, evenly spaced sample of dimensions.  Bounds over a
+    // subset of dimensions are still valid lower bounds for L2 distance, and
+    // cap metadata for unusually wide vectors.
+    const int samples = std::min(dim, 64);
+    t.block_dims.reserve(samples);
+    for (int i = 0; i < samples; ++i) {
+      int d = int((int64_t(i) * dim) / samples);
+      if (t.block_dims.empty() || t.block_dims.back() != d)
+        t.block_dims.push_back(d);
+    }
+    constexpr size_t BLOCK_ROWS = 256;
+    for (size_t begin = 0; begin < t.rows.size(); begin += BLOCK_ROWS) {
+      VectorBlock block;
+      block.begin = begin;
+      block.end = std::min(t.rows.size(), begin + BLOCK_ROWS);
+      block.lo.assign(t.block_dims.size(), std::numeric_limits<float>::infinity());
+      block.hi.assign(t.block_dims.size(), -std::numeric_limits<float>::infinity());
+      for (size_t r = block.begin; r < block.end; ++r) {
+        const Value &v = t.rows[r][t.vector_col];
+        if (v.kind != VK_VECTOR || int(v.v.size()) != dim)
+          throw Error("invalid_value", "distance requires a vector");
+        for (size_t j = 0; j < t.block_dims.size(); ++j) {
+          float x = v.v[size_t(t.block_dims[j])];
+          block.lo[j] = std::min(block.lo[j], x);
+          block.hi[j] = std::max(block.hi[j], x);
+        }
+      }
+      t.blocks.push_back(std::move(block));
+    }
+  }
   State &working() { return st; }
   const State &view() const { return st; }
   void begin() { if (tx) throw Error("transaction_active", "transaction already active"); tx = st; tx_log.clear(); }
@@ -319,7 +413,7 @@ struct Engine {
     expect(t, p, "table"); std::string name = lower(take_name(t, p)); if (st.tables.count(name)) throw Error("table_exists", "table already exists"); expect(t, p, "("); Table tab; tab.name = name; std::vector<std::string> pks; while (true) { if (p < t.size() && ieq(t[p].text, "primary")) { ++p; expect(t, p, "key"); expect(t, p, "("); pks.push_back(take_name(t, p)); expect(t, p, ")"); } else { Column c; c.name = take_name(t, p); std::string k = lower(take_name(t, p)); if (k == "bigint") c.kind = VK_INT; else if (k == "varchar") c.kind = VK_STRING; else if (k == "vector") c.kind = VK_VECTOR; else throw Error("unsupported_sql", "unsupported column type"); if (c.kind != VK_INT) { expect(t, p, "("); c.width = int(take_int(t, p)); if (c.width <= 0) throw Error("invalid_schema", "nonpositive column width"); expect(t, p, ")"); } if (p < t.size() && ieq(t[p].text, "primary")) { ++p; expect(t, p, "key"); pks.push_back(c.name); } tab.cols.push_back(std::move(c)); } if (p >= t.size() || t[p].text != ",") break; ++p; } expect(t, p, ")"); if (pks.size() != 1) throw Error("invalid_schema", "one primary key is required"); tab.primary = column_of(tab, pks[0]); if (tab.cols[tab.primary].kind != VK_INT) throw Error("invalid_schema", "primary key must be BIGINT"); for (size_t i = 0; i < tab.cols.size(); ++i) if (tab.cols[i].kind == VK_VECTOR) { if (tab.vector_col >= 0) throw Error("invalid_schema", "at most one vector column"); tab.vector_col = int(i); } st.tables.emplace(name, std::move(tab));
   }
   void create_index(std::vector<Token> &t, size_t &p) { expect(t, p, "vector"); expect(t, p, "index"); std::string ignored = take_name(t, p); expect(t, p, "on"); Table &tab = table_of(st, take_name(t, p)); expect(t, p, "("); int c = column_of(tab, take_name(t, p)); expect(t, p, ")"); if (tab.cols[c].kind != VK_VECTOR) throw Error("invalid_schema", "index requires a vector"); if (tab.index) throw Error("index_exists", "vector index already exists"); tab.index = true; }
-  int64_t insert(std::vector<Token> &t, size_t &p) { expect(t, p, "into"); Table &tab = table_of(st, take_name(t, p)); std::vector<int> order; if (p < t.size() && t[p].text == "(") { ++p; while (true) { order.push_back(column_of(tab, take_name(t, p))); if (p >= t.size() || t[p].text != ",") break; ++p; } expect(t, p, ")"); } else for (size_t i = 0; i < tab.cols.size(); ++i) order.push_back(int(i)); if (order.size() != tab.cols.size()) throw Error("invalid_value", "all columns must appear"); expect(t, p, "values"); std::vector<Row> pending; while (true) { expect(t, p, "("); Row row(tab.cols.size()); size_t k = 0; while (true) { if (k >= order.size() || p >= t.size()) throw Error("invalid_value", "wrong value count"); int col = order[k++]; row[col] = convert_value(t[p++], tab.cols[col]); if (p >= t.size() || t[p].text != ",") break; ++p; } expect(t, p, ")"); if (k != order.size()) throw Error("invalid_value", "wrong value count"); pending.push_back(std::move(row)); if (p >= t.size() || t[p].text != ",") break; ++p; } std::map<int64_t, bool> seen; for (auto &row : pending) { int64_t key = row[tab.primary].i; if (seen.count(key) || tab.keys.count(key)) throw Error("duplicate_key", "duplicate primary key"); seen[key] = true; } for (auto &row : pending) { size_t pos = tab.rows.size(); tab.keys[row[tab.primary].i] = pos; tab.rows.push_back(std::move(row)); tab.alive.push_back(true); } return int64_t(pending.size()); }
+  int64_t insert(std::vector<Token> &t, size_t &p) { expect(t, p, "into"); Table &tab = table_of(st, take_name(t, p)); std::vector<int> order; if (p < t.size() && t[p].text == "(") { ++p; while (true) { order.push_back(column_of(tab, take_name(t, p))); if (p >= t.size() || t[p].text != ",") break; ++p; } expect(t, p, ")"); } else for (size_t i = 0; i < tab.cols.size(); ++i) order.push_back(int(i)); if (order.size() != tab.cols.size()) throw Error("invalid_value", "all columns must appear"); expect(t, p, "values"); std::vector<Row> pending; while (true) { expect(t, p, "("); Row row(tab.cols.size()); size_t k = 0; while (true) { if (k >= order.size() || p >= t.size()) throw Error("invalid_value", "wrong value count"); int col = order[k++]; row[col] = convert_value(t[p++], tab.cols[col]); if (p >= t.size() || t[p].text != ",") break; ++p; } expect(t, p, ")"); if (k != order.size()) throw Error("invalid_value", "wrong value count"); pending.push_back(std::move(row)); if (p >= t.size() || t[p].text != ",") break; ++p; } std::map<int64_t, bool> seen; for (auto &row : pending) { int64_t key = row[tab.primary].i; if (seen.count(key) || tab.keys.count(key)) throw Error("duplicate_key", "duplicate primary key"); seen[key] = true; } for (auto &row : pending) { size_t pos = tab.rows.size(); tab.keys[row[tab.primary].i] = pos; tab.rows.push_back(std::move(row)); tab.alive.push_back(true); } invalidate_blocks(tab); return int64_t(pending.size()); }
   void update(std::vector<Token> &t, size_t &p, int64_t &affected) { Table &tab = table_of(st, take_name(t, p)); expect(t, p, "set"); std::vector<std::pair<int, Value>> assigns; while (true) { int c = column_of(tab, take_name(t, p)); expect(t, p, "="); if (p >= t.size()) throw Error("invalid_value", "missing value"); Value value = convert_value(t[p++], tab.cols[c]);
 
     if (c == tab.primary) {
@@ -386,17 +480,23 @@ struct Engine {
     }
     int64_t limit = std::numeric_limits<int64_t>::max();
     if (p < t.size() && ieq(t[p].text, "limit")) { ++p; limit = take_int(t, p); if (limit < 0) throw Error("invalid_value", "negative limit"); }
-    auto distance = [&](const Value &v, const std::vector<float> &q) { if (v.kind != VK_VECTOR || v.v.size() != q.size()) throw Error("invalid_value", "distance requires a vector"); double sum = 0; for (size_t i = 0; i < q.size(); ++i) { double d = double(v.v[i]) - double(q[i]); sum += d * d; } return std::sqrt(sum); };
+    auto distance_squared = [&](const Value &v, const std::vector<float> &q) { if (v.kind != VK_VECTOR || v.v.size() != q.size()) throw Error("invalid_value", "distance requires a vector"); double sum = 0; for (size_t i = 0; i < q.size(); ++i) { double d = double(v.v[i]) - double(q[i]); sum += d * d; } return sum; };
     std::vector<size_t> rows;
     for (size_t r = 0; r < tab.rows.size(); ++r) if (tab.alive[r] && matches(tab.rows[r], terms)) rows.push_back(r);
     // Cache each distance once per query. The old implementation recomputed the
     // same distance for every comparison in an O(n log n) sort.
-    std::vector<std::vector<double>> distance_cache(proj.size(), std::vector<double>(tab.rows.size(), 0.0));
-    std::vector<std::vector<uint8_t>> distance_ready(proj.size(), std::vector<uint8_t>(tab.rows.size(), 0));
+    std::vector<std::vector<double>> distance_cache(proj.size());
+    std::vector<std::vector<uint8_t>> distance_ready(proj.size());
+    for (size_t qi = 0; qi < proj.size(); ++qi) {
+      if (proj[qi].distance) {
+        distance_cache[qi].assign(tab.rows.size(), 0.0);
+        distance_ready[qi].assign(tab.rows.size(), 0);
+      }
+    }
     auto distance_for = [&](size_t r, size_t qi) {
       if (!distance_ready[qi][r]) {
         const Projection &q = proj[qi];
-        distance_cache[qi][r] = distance(tab.rows[r][q.col], q.target);
+        distance_cache[qi][r] = distance_squared(tab.rows[r][q.col], q.target);
         distance_ready[qi][r] = 1;
       }
       return distance_cache[qi][r];
@@ -414,7 +514,60 @@ struct Engine {
       }
       return tab.rows[a][tab.primary].i < tab.rows[b][tab.primary].i;
     };
-    if (!ord.empty() && !rows.empty() && limit < int64_t(rows.size())) {
+    // For ascending vector Top-K, visit blocks in lower-bound order and keep
+    // only the best K rows.  The bound is computed from a subset of vector
+    // dimensions, so it can only underestimate the true distance.  A block is
+    // skipped strictly above the current worst candidate; equal bounds remain
+    // eligible for deterministic primary-key tie breaking.
+    bool block_topk = !ord.empty() && ord[0].distance && !ord[0].desc &&
+                      ord[0].projection >= 0 && ord[0].col == tab.vector_col &&
+                      limit > 0 && limit < int64_t(tab.rows.size());
+    if (block_topk) {
+      ensure_blocks(tab);
+      const size_t qi = size_t(ord[0].projection);
+      std::vector<double> block_bounds(tab.blocks.size(), 0.0);
+      for (size_t bi = 0; bi < tab.blocks.size(); ++bi) {
+        const auto &block = tab.blocks[bi];
+        const auto &q = proj[qi];
+        double bound = 0.0;
+        for (size_t j = 0; j < tab.block_dims.size(); ++j) {
+          double x = double(q.target[size_t(tab.block_dims[j])]);
+          double d = x < double(block.lo[j]) ? double(block.lo[j]) - x
+                    : x > double(block.hi[j]) ? x - double(block.hi[j]) : 0.0;
+          bound += d * d;
+        }
+        block_bounds[bi] = bound;
+      }
+      std::vector<size_t> block_order(tab.blocks.size());
+      std::iota(block_order.begin(), block_order.end(), 0);
+      std::sort(block_order.begin(), block_order.end(), [&](size_t a, size_t b) {
+        return block_bounds[a] < block_bounds[b];
+      });
+      using Heap = std::priority_queue<size_t, std::vector<size_t>, decltype(less_row)>;
+      Heap best(less_row);
+      const size_t wanted = size_t(limit);
+      for (size_t bi : block_order) {
+        if (best.size() == wanted && block_bounds[bi] > distance_for(best.top(), qi))
+          continue;
+        const auto &block = tab.blocks[bi];
+        for (size_t r = block.begin; r < block.end; ++r) {
+          if (!tab.alive[r] || !matches(tab.rows[r], terms)) continue;
+          if (best.size() < wanted) {
+            best.push(r);
+          } else if (less_row(r, best.top())) {
+            best.pop();
+            best.push(r);
+          }
+        }
+      }
+      rows.clear();
+      rows.reserve(best.size());
+      while (!best.empty()) {
+        rows.push_back(best.top());
+        best.pop();
+      }
+      std::sort(rows.begin(), rows.end(), less_row);
+    } else if (!ord.empty() && !rows.empty() && limit < int64_t(rows.size())) {
       if (limit > 0) {
         auto cut = rows.begin() + limit;
         std::nth_element(rows.begin(), cut, rows.end(), less_row);
@@ -430,7 +583,7 @@ struct Engine {
     if (ord.empty() && limit < int64_t(rows.size())) rows.resize(limit > 0 ? size_t(limit) : 0);
     std::vector<Json> cols, out;
     for (auto &q : proj) cols.push_back(Json::string(q.alias.empty() ? tab.cols[q.col].name : q.alias));
-    for (size_t r : rows) { std::vector<Json> vals; for (size_t qi = 0; qi < proj.size(); ++qi) { auto &q = proj[qi]; vals.push_back(q.distance ? Json::number(distance_for(r, qi)) : to_json(tab.rows[r][q.col])); } out.push_back(Json::array(std::move(vals))); }
+    for (size_t r : rows) { std::vector<Json> vals; for (size_t qi = 0; qi < proj.size(); ++qi) { auto &q = proj[qi]; vals.push_back(q.distance ? Json::number(std::sqrt(distance_for(r, qi))) : to_json(tab.rows[r][q.col])); } out.push_back(Json::array(std::move(vals))); }
     return Json::object({{"columns", Json::array(std::move(cols))}, {"rows", Json::array(std::move(out))}});
   }
 };
