@@ -121,7 +121,46 @@ static std::string lower(std::string x) { for (char &c : x) c = char(std::tolowe
 static Table &table_of(State &s, const std::string &name) { auto it = s.tables.find(lower(name)); if (it == s.tables.end()) throw Error("unknown_table", "unknown table"); return it->second; }
 static int column_of(const Table &t, const std::string &name) { std::string n = lower(name); for (size_t i = 0; i < t.cols.size(); ++i) if (lower(t.cols[i].name) == n) return int(i); throw Error("unknown_column", "unknown column"); }
 static std::vector<float> parse_vector(const std::string &x, int dim) { std::string y = x; size_t a = y.find('['), b = y.rfind(']'); if (a == std::string::npos || b <= a) throw Error("invalid_vector", "expected vector array"); std::vector<float> out; std::string body = y.substr(a + 1, b - a - 1); std::stringstream ss(body); std::string item; while (std::getline(ss, item, ',')) { if (item.empty()) continue; char *end = nullptr; double d = std::strtod(item.c_str(), &end); if (!end || *end || !std::isfinite(d) || d > std::numeric_limits<float>::max() || d < -std::numeric_limits<float>::max()) throw Error("invalid_vector", "expected finite float32 array"); out.push_back(float(d)); } if (int(out.size()) != dim) throw Error("dimension_mismatch", "wrong vector dimension"); return out; }
-static Value convert_value(const Token &tok, const Column &c) { if (c.kind == VK_INT) { if (tok.quoted) throw Error("invalid_value", "BIGINT requires an integer"); Value v; v.kind = VK_INT; v.i = [&] { size_t n = 0; try { int64_t x = std::stoll(tok.text, &n); if (n != tok.text.size()) throw std::exception(); return x; } catch (...) { throw Error("invalid_value", "invalid integer"); } }(); return v; } if (c.kind == VK_VECTOR) { Value v; v.kind = VK_VECTOR; v.v = parse_vector(tok.text, c.width); return v; } if (!tok.quoted || tok.text.size() > size_t(c.width)) throw Error("invalid_value", "invalid VARCHAR"); Value v; v.kind = VK_STRING; v.s = tok.text; return v; }
+static size_t utf8_length(const std::string &s)
+{
+  size_t count = 0;
+
+  for (size_t i = 0; i < s.size();) {
+    unsigned char c = static_cast<unsigned char>(s[i]);
+    size_t width = 0;
+
+    if (c < 0x80) {
+      width = 1;
+    } else if ((c & 0xe0) == 0xc0) {
+      width = 2;
+    } else if ((c & 0xf0) == 0xe0) {
+      width = 3;
+    } else if ((c & 0xf8) == 0xf0) {
+      width = 4;
+    } else {
+      throw Error("invalid_value", "invalid UTF-8 string");
+    }
+
+    if (i + width > s.size()) {
+      throw Error("invalid_value", "invalid UTF-8 string");
+    }
+
+    for (size_t j = 1; j < width; ++j) {
+      unsigned char continuation =
+          static_cast<unsigned char>(s[i + j]);
+      if ((continuation & 0xc0) != 0x80) {
+        throw Error("invalid_value", "invalid UTF-8 string");
+      }
+    }
+
+    i += width;
+    ++count;
+  }
+
+  return count;
+}
+
+static Value convert_value(const Token &tok, const Column &c) { if (c.kind == VK_INT) { if (tok.quoted) throw Error("invalid_value", "BIGINT requires an integer"); Value v; v.kind = VK_INT; v.i = [&] { size_t n = 0; try { int64_t x = std::stoll(tok.text, &n); if (n != tok.text.size()) throw std::exception(); return x; } catch (...) { throw Error("invalid_value", "invalid integer"); } }(); return v; } if (c.kind == VK_VECTOR) { Value v; v.kind = VK_VECTOR; v.v = parse_vector(tok.text, c.width); return v; } if (!tok.quoted || utf8_length(tok.text) > size_t(c.width)) throw Error("invalid_value", "invalid VARCHAR"); Value v; v.kind = VK_STRING; v.s = tok.text; return v; }
 static bool value_equal(const Value &a, const Value &b) { if (a.kind != b.kind) return false; if (a.kind == VK_INT) return a.i == b.i; if (a.kind == VK_STRING) return a.s == b.s; return a.v == b.v; }
 static Json to_json(const Value &v) { if (v.kind == VK_INT) return Json::integer(v.i); if (v.kind == VK_STRING) return Json::string(v.s); std::vector<Json> a; for (float x : v.v) a.push_back(Json::number(x)); return Json::array(std::move(a)); }
 
@@ -281,7 +320,15 @@ struct Engine {
   }
   void create_index(std::vector<Token> &t, size_t &p) { expect(t, p, "vector"); expect(t, p, "index"); std::string ignored = take_name(t, p); expect(t, p, "on"); Table &tab = table_of(st, take_name(t, p)); expect(t, p, "("); int c = column_of(tab, take_name(t, p)); expect(t, p, ")"); if (tab.cols[c].kind != VK_VECTOR) throw Error("invalid_schema", "index requires a vector"); if (tab.index) throw Error("index_exists", "vector index already exists"); tab.index = true; }
   int64_t insert(std::vector<Token> &t, size_t &p) { expect(t, p, "into"); Table &tab = table_of(st, take_name(t, p)); std::vector<int> order; if (p < t.size() && t[p].text == "(") { ++p; while (true) { order.push_back(column_of(tab, take_name(t, p))); if (p >= t.size() || t[p].text != ",") break; ++p; } expect(t, p, ")"); } else for (size_t i = 0; i < tab.cols.size(); ++i) order.push_back(int(i)); if (order.size() != tab.cols.size()) throw Error("invalid_value", "all columns must appear"); expect(t, p, "values"); std::vector<Row> pending; while (true) { expect(t, p, "("); Row row(tab.cols.size()); size_t k = 0; while (true) { if (k >= order.size() || p >= t.size()) throw Error("invalid_value", "wrong value count"); int col = order[k++]; row[col] = convert_value(t[p++], tab.cols[col]); if (p >= t.size() || t[p].text != ",") break; ++p; } expect(t, p, ")"); if (k != order.size()) throw Error("invalid_value", "wrong value count"); pending.push_back(std::move(row)); if (p >= t.size() || t[p].text != ",") break; ++p; } std::map<int64_t, bool> seen; for (auto &row : pending) { int64_t key = row[tab.primary].i; if (seen.count(key) || tab.keys.count(key)) throw Error("duplicate_key", "duplicate primary key"); seen[key] = true; } for (auto &row : pending) { size_t pos = tab.rows.size(); tab.keys[row[tab.primary].i] = pos; tab.rows.push_back(std::move(row)); tab.alive.push_back(true); } return int64_t(pending.size()); }
-  void update(std::vector<Token> &t, size_t &p, int64_t &affected) { Table &tab = table_of(st, take_name(t, p)); expect(t, p, "set"); std::vector<std::pair<int, Value>> assigns; while (true) { int c = column_of(tab, take_name(t, p)); expect(t, p, "="); if (p >= t.size()) throw Error("invalid_value", "missing value"); assigns.emplace_back(c, convert_value(t[p++], tab.cols[c])); if (p >= t.size() || t[p].text != ",") break; ++p; } auto terms = parse_where(t, p, tab); for (size_t r = 0; r < tab.rows.size(); ++r) if (tab.alive[r] && matches(tab.rows[r], terms)) { std::vector<Value> next = tab.rows[r]; for (auto &a : assigns) next[a.first] = a.second; bool changed = false; for (size_t i = 0; i < next.size(); ++i) changed |= !value_equal(next[i], tab.rows[r][i]); if (changed) { tab.rows[r] = std::move(next); ++affected; } } rebuild(tab); }
+  void update(std::vector<Token> &t, size_t &p, int64_t &affected) { Table &tab = table_of(st, take_name(t, p)); expect(t, p, "set"); std::vector<std::pair<int, Value>> assigns; while (true) { int c = column_of(tab, take_name(t, p)); expect(t, p, "="); if (p >= t.size()) throw Error("invalid_value", "missing value"); Value value = convert_value(t[p++], tab.cols[c]);
+
+    if (c == tab.primary) {
+      throw Error(
+          "unsupported_sql",
+          "updating primary key is unsupported");
+    }
+
+    assigns.emplace_back(c, std::move(value)); if (p >= t.size() || t[p].text != ",") break; ++p; } auto terms = parse_where(t, p, tab); for (size_t r = 0; r < tab.rows.size(); ++r) if (tab.alive[r] && matches(tab.rows[r], terms)) { std::vector<Value> next = tab.rows[r]; for (auto &a : assigns) next[a.first] = a.second; bool changed = false; for (size_t i = 0; i < next.size(); ++i) changed |= !value_equal(next[i], tab.rows[r][i]); if (changed) { tab.rows[r] = std::move(next); ++affected; } } rebuild(tab); }
   void erase(std::vector<Token> &t, size_t &p, int64_t &affected) { expect(t, p, "from"); Table &tab = table_of(st, take_name(t, p)); auto terms = parse_where(t, p, tab); for (size_t r = 0; r < tab.rows.size(); ++r) if (tab.alive[r] && matches(tab.rows[r], terms)) { tab.alive[r] = false; ++affected; } rebuild(tab); }
 
   Json select(std::vector<Token> &t, size_t &p) {

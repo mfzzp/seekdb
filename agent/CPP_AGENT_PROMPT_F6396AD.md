@@ -307,3 +307,72 @@ git push origin HEAD:2026-competition-round2-cpp
 - force push、改写历史、覆盖他人工作树；
 - 提交 `minivectordb.cpp`、`Dockerfile`、`state.bin`、`journal.log`、构建产物或测试数据；
 - 收集、保存或提交任何 GitHub token / 密码。
+
+## P0：SQL 兼容性回归
+
+当前版本必须额外验证两项 C++ 与参考实现不一致的问题。
+
+### 1. VARCHAR 长度按 UTF-8 字符数计算
+
+VARCHAR(N) 的 N 表示字符数，不表示 UTF-8 字节数。
+
+必须验证：
+
+CREATE TABLE t (id BIGINT PRIMARY KEY, s VARCHAR(3));
+INSERT INTO t VALUES (1, '中文中');
+
+该 INSERT 必须成功。
+
+以下语句必须失败：
+
+INSERT INTO t VALUES (2, '中文中字');
+
+失败错误码必须为 invalid_value。
+
+测试不得只使用 ASCII 字符，必须覆盖：
+
+- ASCII；
+- 中文；
+- 4 字节 UTF-8 字符；
+- 混合 ASCII 和中文；
+- 非法 UTF-8；
+- 截断 UTF-8 字节序列。
+
+### 2. UPDATE 不允许修改主键
+
+参考实现不支持 UPDATE 主键。
+
+必须验证：
+
+CREATE TABLE t (id BIGINT PRIMARY KEY, s VARCHAR(16));
+INSERT INTO t VALUES (1, 'a');
+UPDATE t SET id = 2 WHERE id = 1;
+
+UPDATE 必须返回：
+
+unsupported_sql
+
+并且满足：
+
+- 原主键 id=1 仍存在；
+- id=2 不存在；
+- 主键索引没有变化；
+- 重启恢复后结果一致；
+- 不允许部分修改；
+- 事务回滚后状态不变。
+
+### 完成条件
+
+只有以下全部满足，才能把本轮标记为通过：
+
+- C++17 编译成功；
+- `-Wall -Wextra` 无新增 warning；
+- VARCHAR Unicode 测试通过；
+- UPDATE 主键测试通过；
+- journal recovery 测试全部通过；
+- 公开用例 20/20；
+- 额外用例 12/12；
+- 没有 database exited before response；
+- `git diff --check` 通过；
+- 所有性能数字都有原始日志；
+- 没有把未执行的测试写成通过。
