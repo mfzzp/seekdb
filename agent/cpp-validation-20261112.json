@@ -1,9 +1,9 @@
 {
   "date_utc": "2026-11-12",
   "implementation": "C++17 native engine",
-  "source_sha256": "28617890abaf7958bcca12abf98206140f1055dca4a597316849dc7d0f6fe0c3",
+  "source_sha256": "054e19235feae14bcbdebe33167c21e17cd458a0a3216563c2477a998c76ada4",
   "docker_image": "minivectordb:cpp-20261112",
-  "docker_image_id": "sha256:19194e0ca8878eb3a061c22d9451364c5d70bc08e43a31859edfa23ce32db167",
+  "docker_image_id": "sha256:de6e34c778a0be2e7c49b6ae9ebd6369834506996c82385336f23d43903f892a",
   "build": {
     "command": "g++ -O3 -DNDEBUG -std=c++17 -Wall -Wextra -o minivectordb minivectordb.cpp",
     "result": "pass"
@@ -17,6 +17,7 @@
   "benchmark": {"dataset": "10000 rows x 16 dimensions, 200 TopK queries", "cpp_seconds": 0.686, "previous_python_image_seconds": 0.849, "speedup": 1.24},
   "scope": "The protocol checker is Python test infrastructure; the database process in the image is native C++."
 }
+
 
 
 

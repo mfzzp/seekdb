@@ -128,7 +128,7 @@ static Json to_json(const Value &v) { if (v.kind == VK_INT) return Json::integer
 
 struct Term { int col = -1; std::string op; Value value; };
 struct Projection { int col = -1; bool distance = false; std::string col_name; std::string alias; std::string target_text; std::vector<float> target; };
-struct Order { int col = -1; bool distance = false; bool desc = false; };
+struct Order { int col = -1; int projection = -1; bool distance = false; bool desc = false; };
 struct Engine {
   State st; std::optional<State> tx; std::string dir;
   explicit Engine(std::string d) : dir(std::move(d)) { mkdir(dir.c_str(), 0755); load(); }
@@ -210,8 +210,13 @@ struct Engine {
       ++p; expect(t, p, "by");
       while (true) {
         std::string x = t[p++].text; Order o; o.col = -1;
-        for (auto &q : proj) if (ieq(q.alias, x) || (q.distance && ieq(x, "distance"))) { o.col = q.col; o.distance = q.distance; }
-        if (o.col < 0) { o.col = column_of(tab, x); o.distance = false; }
+        for (size_t qi = 0; qi < proj.size(); ++qi) {
+          auto &q = proj[qi];
+          if (ieq(q.alias, x) || (q.distance && ieq(x, "distance"))) {
+            o.col = q.col; o.projection = int(qi); o.distance = q.distance;
+          }
+        }
+        if (o.col < 0) { o.col = column_of(tab, x); o.projection = -1; o.distance = false; }
         if (p < t.size() && (ieq(t[p].text, "desc") || ieq(t[p].text, "asc"))) { o.desc = ieq(t[p].text, "desc"); ++p; }
         ord.push_back(o); if (p >= t.size() || t[p].text != ",") break; ++p;
       }
@@ -223,22 +228,20 @@ struct Engine {
     for (size_t r = 0; r < tab.rows.size(); ++r) if (tab.alive[r] && matches(tab.rows[r], terms)) rows.push_back(r);
     // Cache each distance once per query. The old implementation recomputed the
     // same distance for every comparison in an O(n log n) sort.
-    std::vector<double> distance_cache(tab.rows.size(), 0.0);
-    std::vector<uint8_t> distance_ready(tab.rows.size(), 0);
-    auto row_distance = [&](size_t r, int col) {
-      if (!distance_ready[r]) {
-        for (auto &q : proj) if (q.distance && q.col == col) {
-          distance_cache[r] = distance(tab.rows[r][col], q.target);
-          distance_ready[r] = 1;
-          break;
-        }
+    std::vector<std::vector<double>> distance_cache(proj.size(), std::vector<double>(tab.rows.size(), 0.0));
+    std::vector<std::vector<uint8_t>> distance_ready(proj.size(), std::vector<uint8_t>(tab.rows.size(), 0));
+    auto distance_for = [&](size_t r, size_t qi) {
+      if (!distance_ready[qi][r]) {
+        const Projection &q = proj[qi];
+        distance_cache[qi][r] = distance(tab.rows[r][q.col], q.target);
+        distance_ready[qi][r] = 1;
       }
-      return distance_cache[r];
+      return distance_cache[qi][r];
     };
     auto less_row = [&](size_t a, size_t b) {
       for (auto &o : ord) {
         if (o.distance) {
-          double da = row_distance(a, o.col), db = row_distance(b, o.col);
+          double da = distance_for(a, size_t(o.projection)), db = distance_for(b, size_t(o.projection));
           if (da != db) return o.desc ? da > db : da < db;
         } else if (!value_equal(tab.rows[a][o.col], tab.rows[b][o.col])) {
           const Value &x = tab.rows[a][o.col], &y = tab.rows[b][o.col];
@@ -264,7 +267,7 @@ struct Engine {
     if (ord.empty() && limit < int64_t(rows.size())) rows.resize(limit > 0 ? size_t(limit) : 0);
     std::vector<Json> cols, out;
     for (auto &q : proj) cols.push_back(Json::string(q.alias.empty() ? tab.cols[q.col].name : q.alias));
-    for (size_t r : rows) { std::vector<Json> vals; for (auto &q : proj) vals.push_back(q.distance ? Json::number(row_distance(r, q.col)) : to_json(tab.rows[r][q.col])); out.push_back(Json::array(std::move(vals))); }
+    for (size_t r : rows) { std::vector<Json> vals; for (size_t qi = 0; qi < proj.size(); ++qi) { auto &q = proj[qi]; vals.push_back(q.distance ? Json::number(distance_for(r, qi)) : to_json(tab.rows[r][q.col])); } out.push_back(Json::array(std::move(vals))); }
     return Json::object({{"columns", Json::array(std::move(cols))}, {"rows", Json::array(std::move(out))}});
   }
 };
@@ -292,6 +295,9 @@ int main(int argc, char **argv) {
   } catch (const std::exception &e) { std::cerr << "startup failed: " << e.what() << '\n'; return 1; }
   return 0;
 }
+
+
+
 
 
 
