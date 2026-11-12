@@ -167,42 +167,65 @@ struct Engine {
   }
   void replay_journal() {
     std::ifstream f(journal(), std::ios::binary); if (!f) return;
-    std::string data((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>()); size_t pos = 0;
-    size_t valid_end = 0;
+    f.seekg(0, std::ios::end); std::streamoff end_offset = f.tellg();
+    if (end_offset < 0) return;
+    size_t file_size = size_t(end_offset), pos = 0, valid_end = 0;
     bool torn_tail = false;
-    while (pos < data.size()) {
-      if (data.size() - pos < sizeof(uint32_t) * 2) {
-        // A partial frame header is a torn tail too: the writer died after
-        // writing 1..7 bytes of magic/length, so nothing after it is a record.
+    std::string payload;
+    std::vector<std::string> statements;
+    f.seekg(0, std::ios::beg);
+    while (pos < file_size) {
+      if (file_size - pos < sizeof(uint32_t) * 2) {
+        // A partial frame header is a torn tail: the writer died after writing
+        // 1..7 bytes of magic/length, so nothing after it is a record.
         torn_tail = true;
         break;
       }
       uint32_t magic = 0, bytes = 0;
-      if (!read_u32(data, pos, magic) || !read_u32(data, pos, bytes)) {
+      if (!f.read(reinterpret_cast<char *>(&magic), sizeof(magic)) ||
+          !f.read(reinterpret_cast<char *>(&bytes), sizeof(bytes))) {
         torn_tail = true;
         break;
       }
       if (magic != JOURNAL_MAGIC) throw Error("storage_error", "invalid journal magic");
       if (bytes > (1u << 30)) throw Error("storage_error", "invalid journal frame");
-      if (pos + bytes > data.size()) {
+      const size_t frame_end = pos + sizeof(uint32_t) * 2 + size_t(bytes);
+      if (frame_end > file_size) {
+        // The declared payload runs past EOF: the writer died mid-frame.
         torn_tail = true;
         break;
       }
-      size_t end = pos + bytes, q = pos; uint32_t count = 0;
-      // A complete frame whose payload header is unreadable or absurd is
-      // corruption, not a torn tail: fail loudly instead of silently stopping.
-      if (!read_u32(data, q, count) || count > 1000000) throw Error("storage_error", "invalid journal frame");
-      std::vector<std::string> statements; statements.reserve(count); bool complete = true;
-      for (uint32_t i = 0; i < count; ++i) { uint32_t n = 0; if (!read_u32(data, q, n) || n > (1u << 28) || q + n > end) { complete = false; break; } statements.emplace_back(data.data() + q, n); q += n; }
-      if (!complete || q != end) {
+      payload.resize(bytes);
+      if (bytes && !f.read(&payload[0], std::streamsize(bytes))) {
         torn_tail = true;
         break;
       }
+      // The frame is fully present.  Any inconsistency inside it is corruption,
+      // not a torn tail, so it must fail loudly instead of being truncated.
+      size_t q = 0;
+      uint32_t count = 0;
+      auto take_u32 = [&](uint32_t &value) {
+        if (q + sizeof(value) > payload.size()) return false;
+        std::memcpy(&value, payload.data() + q, sizeof(value));
+        q += sizeof(value);
+        return true;
+      };
+      if (!take_u32(count) || count > 1000000) throw Error("storage_error", "invalid journal frame");
+      if (count > statements.capacity()) statements.reserve(count);
+      statements.clear();
+      for (uint32_t i = 0; i < count; ++i) {
+        uint32_t n = 0;
+        if (!take_u32(n) || n > (1u << 28) || q + n > payload.size())
+          throw Error("storage_error", "invalid journal frame");
+        statements.emplace_back(payload.data() + q, n);
+        q += n;
+      }
+      if (q != payload.size()) throw Error("storage_error", "invalid journal frame");
       for (const auto &statement : statements) replay_sql(statement);
-      pos = end;
+      pos = frame_end;
       valid_end = pos;
     }
-    if (torn_tail && valid_end < data.size()) {
+    if (torn_tail && valid_end < file_size) {
       int fd = ::open(journal().c_str(), O_WRONLY);
       if (fd >= 0) {
         if (::ftruncate(fd, off_t(valid_end)) != 0) {

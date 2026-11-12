@@ -1,4 +1,4 @@
-﻿"""Journal recovery tests for the native C++ engine.
+"""Journal recovery tests for the native C++ engine.
 
 The engine appends SQL records to ``journal.log`` and truncates a torn tail at
 startup.  These tests build the real binary with g++ and drive it over
@@ -142,14 +142,28 @@ class JournalRecoveryTest(unittest.TestCase):
 
     def test_incomplete_count_field_is_a_torn_tail(self):
         self.create_with_two_rows()
-        data = bytearray(self.journal_bytes())
-        start, _ = frame_offsets(bytes(data))[-1]
-        # Claim a 4-byte payload: the count field cannot be read in full.
-        struct.pack_into("<I", data, start + 4, 4)
-        self.rewrite_journal(bytes(data))
+        data = self.journal_bytes()
+        start, _ = frame_offsets(data)[-1]
+        # Keep the header and two bytes of the count field: the declared payload
+        # is longer than the file, so this is a torn tail.
+        self.rewrite_journal(data[:start + 10])
         self.assertEqual(self.rows(), [1])
         self.insert(3)
         self.assertEqual(self.rows(), [1, 3])
+
+    def test_length_field_corruption_in_middle_fails_loudly(self):
+        self.create_with_two_rows()
+        data = bytearray(self.journal_bytes())
+        start, _ = frame_offsets(bytes(data))[-1]
+        # Claim a 4-byte payload although the rest of the frame is still there:
+        # the frame is fully present but inconsistent, which is corruption.
+        struct.pack_into("<I", data, start + 4, 4)
+        self.rewrite_journal(bytes(data))
+        code, replies, err = self.run_jsonl(["select id from t"])
+        self.assertNotEqual(code, 0, "a corrupt frame length must abort startup")
+        self.assertEqual(replies, [])
+        self.assertIn("startup failed", err)
+        self.assertIn("invalid journal frame", err)
 
     def test_tail_damage_with_a_later_valid_record(self):
         self.create_with_two_rows()
