@@ -119,7 +119,6 @@ struct Table { std::string name; std::vector<Column> cols; int primary = -1; int
 struct State { std::map<std::string, Table> tables; };
 static std::string lower(std::string x) { for (char &c : x) c = char(std::tolower((unsigned char)c)); return x; }
 static Table &table_of(State &s, const std::string &name) { auto it = s.tables.find(lower(name)); if (it == s.tables.end()) throw Error("unknown_table", "unknown table"); return it->second; }
-static const Table &table_of(const State &s, const std::string &name) { auto it = s.tables.find(lower(name)); if (it == s.tables.end()) throw Error("unknown_table", "unknown table"); return it->second; }
 static int column_of(const Table &t, const std::string &name) { std::string n = lower(name); for (size_t i = 0; i < t.cols.size(); ++i) if (lower(t.cols[i].name) == n) return int(i); throw Error("unknown_column", "unknown column"); }
 static std::vector<float> parse_vector(const std::string &x, int dim) { std::string y = x; size_t a = y.find('['), b = y.rfind(']'); if (a == std::string::npos || b <= a) throw Error("invalid_vector", "expected vector array"); std::vector<float> out; std::string body = y.substr(a + 1, b - a - 1); std::stringstream ss(body); std::string item; while (std::getline(ss, item, ',')) { if (item.empty()) continue; char *end = nullptr; double d = std::strtod(item.c_str(), &end); if (!end || *end || !std::isfinite(d) || d > std::numeric_limits<float>::max() || d < -std::numeric_limits<float>::max()) throw Error("invalid_vector", "expected finite float32 array"); out.push_back(float(d)); } if (int(out.size()) != dim) throw Error("dimension_mismatch", "wrong vector dimension"); return out; }
 static Value convert_value(const Token &tok, const Column &c) { if (c.kind == VK_INT) { if (tok.quoted) throw Error("invalid_value", "BIGINT requires an integer"); Value v; v.kind = VK_INT; v.i = [&] { size_t n = 0; try { int64_t x = std::stoll(tok.text, &n); if (n != tok.text.size()) throw std::exception(); return x; } catch (...) { throw Error("invalid_value", "invalid integer"); } }(); return v; } if (c.kind == VK_VECTOR) { Value v; v.kind = VK_VECTOR; v.v = parse_vector(tok.text, c.width); return v; } if (!tok.quoted || tok.text.size() > size_t(c.width)) throw Error("invalid_value", "invalid VARCHAR"); Value v; v.kind = VK_STRING; v.s = tok.text; return v; }
@@ -373,7 +372,8 @@ int main(int argc, char **argv) {
   try {
     mv::Engine db(dir); std::cout << "{\"type\":\"ready\"}\n" << std::flush; std::string line;
     while (std::getline(std::cin, line)) {
-      if (line.empty()) continue; mv::Json req; mv::Json id = mv::Json::nil(); try {
+      if (line.empty()) { continue; }
+      mv::Json req; mv::Json id = mv::Json::nil(); try {
         req = mv::json_parse(line); if (req.kind != mv::Json::OBJECT) throw mv::Error("invalid_request", "request must be an object"); if (req.o.count("id")) id = req.o.at("id"); std::string op = req.o.count("op") && req.o.at("op").kind == mv::Json::STRING ? req.o.at("op").s : "";
         if (op == "shutdown") { db.rollback(); std::cout << mv::json_dump(mv::Json::object({{"id", id}, {"ok", mv::Json::boolean(true)}})) << '\n' << std::flush; break; }
         if (op != "execute" || !req.o.count("sql") || req.o.at("sql").kind != mv::Json::STRING) throw mv::Error("invalid_request", "execute requires sql");
