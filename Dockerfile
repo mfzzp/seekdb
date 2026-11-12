@@ -1,21 +1,12 @@
 FROM python:3.12.10-slim-bookworm
 WORKDIR /app
-COPY minivectordb.py minivector_sql.py minivector_store.py ./
-# Optional acceleration: with numpy present, exact TopK becomes one BLAS
-# mat-vec. The install is best-effort on purpose - minivectordb.py falls back to
-# the pure-Python distance path, so a build without PyPI access stays correct.
-# pip's own --timeout/--retries bound the network wait instead of relying on
-# coreutils' timeout being present in the base image.
-RUN python -m pip install --no-cache-dir --disable-pip-version-check \
-        --timeout 30 --retries 1 "numpy==2.3.5" \
-    || echo "numpy unavailable; pure-Python distance path active"
-# One BLAS thread: the mat-vec is small, and an unconstrained OpenBLAS would
-# spawn threads up to the host CPU count, which risks the container pid limit.
-# Measured on a 128-core host: 64 threads without this setting, 1 with it.
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    OPENBLAS_NUM_THREADS=1 \
-    OMP_NUM_THREADS=1 \
-    MKL_NUM_THREADS=1
-RUN python -m py_compile minivectordb.py minivector_sql.py minivector_store.py
+# The database itself is a standalone C++17 binary. Python remains in the base
+# only because the repository's protocol checker is Python; it is not used by
+# the database entrypoint.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends g++ \
+    && rm -rf /var/lib/apt/lists/*
+COPY minivectordb.cpp ./
+RUN g++ -O3 -DNDEBUG -std=c++17 -Wall -Wextra -o minivectordb minivectordb.cpp
 VOLUME ["/data"]
-ENTRYPOINT ["python", "/app/minivectordb.py"]
+ENTRYPOINT ["/app/minivectordb", "--data-dir", "/data"]

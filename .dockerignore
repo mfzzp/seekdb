@@ -1,5 +1,3 @@
 *
 !Dockerfile
-!minivectordb.py
-!minivector_sql.py
-!minivector_store.py
+!minivectordb.cpp

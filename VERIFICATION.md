@@ -1,3 +1,22 @@
+# C++17 candidate validation
+
+This branch replaces the database runtime with `minivectordb.cpp`. The historical
+Python benchmark notes below belong to the earlier implementation and are kept
+only as background; they are not runtime dependencies for this branch.
+
+Current native checks (2026-11-12):
+
+- Docker build: `minivectordb:cpp-20261112` completed successfully.
+- Public protocol: 20/20 exact cases passed in the container.
+- Additional protocol: 12/12 cases passed in the container, including ANN-mode
+  equivalence, restart, transactions, deletes, updates, filtering, ordering,
+  Unicode and batch atomicity.
+- Native smoke build: `g++ -O2 -std=c++17` completed successfully on Linux.
+- A 10,000-row x 16-dimension workload with 200 TopK requests completed in
+  0.686 s in the C++ image versus 0.849 s for the previous Python image under
+  the same Docker limits. This is a local diagnostic, not a platform score.
+
+The machine-readable record is `agent/cpp-validation-20261112.json`.
 # Verification record
 
 What was checked, how, and what remains unverified. Every number below was

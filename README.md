@@ -1,255 +1,89 @@
-# MiniVectorDB
+# MiniVectorDB C++17
 
-Single-process vector database for the `2026-competition-round2` task. It speaks
-one-line JSON on stdin/stdout (see [STDIO_PROTOCOL.md](STDIO_PROTOCOL.md)) and
-keeps all data under `/data`.
+This branch is the native C++17 implementation for the `2026-competition-round2`
+task. The database process is `/app/minivectordb`; it speaks one JSON object per
+line on stdin and writes one response per line on stdout. The only persistent
+state is kept under `/data`.
 
-- Language: Python 3.12, standard library only.
-- Optional acceleration: `numpy` is installed best-effort in the image; without
-  it the pure-Python distance path runs and results are unchanged.
+The previous Python database implementation is removed from this branch. The
+container uses Python only as the base image because the supplied protocol
+checker is written in Python; the runtime entrypoint and all SQL execution are
+native C++.
 
 ## Build and run
 
 ```sh
-docker build -t minivectordb .
+docker build -t minivectordb:cpp .
 docker run --rm -i --network=none --cpus=2 --memory=2g \
-  -v minivectordb-data:/data minivectordb
+  -v minivectordb-data:/data minivectordb:cpp
 ```
 
-The container stays in the foreground, prints `{"type":"ready"}` after recovery,
-then answers one response per request. `stderr` is diagnostics only.
-Locally: `python3 minivectordb.py --data-dir /tmp/mvdb`.
+The process prints `{"type":"ready"}` after loading `/data/state.bin`. It then
+accepts JSONL requests until a `shutdown` request or EOF. Diagnostics go to
+stderr and never mix with the protocol stream.
 
-## SQL scope
+For a local native build:
 
-| Statement | Notes |
-| --- | --- |
-| `CREATE TABLE t (id BIGINT PRIMARY KEY, c VARCHAR(n), v VECTOR(d))` | one signed BIGINT primary key, at most one vector column; column or table level `PRIMARY KEY` |
-| `CREATE VECTOR INDEX name ON t(v)` | records index metadata; queries stay exact in both modes |
-| `INSERT INTO t VALUES (...), (...)` | optional column list that may reorder the values but must name every column exactly once (no NULL or DEFAULT to fall back on); the whole statement is atomic |
-| `SELECT ... FROM t [WHERE ...] [ORDER BY ...] [LIMIT n]` | projection, `*`, `= < <= > >=`, `AND`, `L2_DISTANCE(col,'[...]') AS alias` |
-| `UPDATE t SET c = ... [WHERE ...]` | returns the number of rows whose value actually changed (MySQL semantics) |
-| `DELETE FROM t [WHERE ...]` | returns the number of deleted rows |
-| `BEGIN` / `COMMIT` / `ROLLBACK` | at most one explicit transaction per connection; `COMMIT`/`ROLLBACK` outside one are successful no-ops |
+```sh
+g++ -O3 -DNDEBUG -std=c++17 -Wall -Wextra -o minivectordb minivectordb.cpp
+./minivectordb --data-dir /tmp/minivectordb
+```
 
-Semantics: statements outside a transaction commit automatically and are
-`fsync`ed before the response; a transaction sees its own writes; a failed
-statement leaves no partial effect; filtered TopK is computed inside the filter
-and ties break on ascending primary key; vectors are stored as float32 and
-distances use the stored values; `NaN`, `Infinity`, dimension mismatches and
-float32 overflow are rejected. Without `ORDER BY`, rows come back in primary-key
-insertion order — an `UPDATE` keeps a row's position, a delete followed by a
-re-insert moves it to the end — which is what the pinned `extra_row_order` case
-records, because the public results never compare a multi-row answer that lacks
-`ORDER BY`. DDL inside a transaction joins it (the PostgreSQL reading): a
-ROLLBACK also removes a table created in that transaction, where MySQL would
-have committed it implicitly. Unsupported syntax (`NULL`, `JOIN`, aggregation,
-subqueries, `ALTER`/`DROP`, `<>`, parenthesised predicates, qualified column
-references, nested transactions, primary-key updates) returns `unsupported_sql`
-instead of being silently reinterpreted.
+## SQL surface
 
-Errors look like `{"id":3,"ok":false,"error":{"code":"duplicate_key","message":"..."}}`.
-Codes: `invalid_request`, `unsupported_sql`, `unknown_table`, `table_exists`,
-`unknown_column`, `duplicate_key`, `invalid_value`, `invalid_schema`,
-`index_exists`, `transaction_active`.
+The implementation covers the competition protocol subset:
 
-## Example from an empty data directory
+- `CREATE TABLE` with `BIGINT`, bounded `VARCHAR`, one `VECTOR`, and one
+  `PRIMARY KEY` (inline or table-level).
+- `CREATE VECTOR INDEX name ON table(vector)`; index metadata survives restart
+  and exact semantics are retained in both `exact` and `ann` request modes.
+- Multi-row `INSERT`, optional complete column lists, duplicate-key checking,
+  `UPDATE`, and `DELETE`.
+- `SELECT` projections and `*`, scalar comparisons joined by `AND`,
+  `L2_DISTANCE(vector,'[...]') AS alias`, `ORDER BY`, and `LIMIT`.
+- `BEGIN`, `COMMIT`, and `ROLLBACK`, including DDL in an explicit transaction.
+
+Writes are staged before mutation, so a malformed or duplicate row cannot leave
+half a statement visible. Autocommit publishes a new binary snapshot with a
+temporary file, flush, `fsync`, and atomic rename. A transaction sees its own
+writes and only publishes them at `COMMIT`; shutdown rolls back an open
+transaction. Deleted rows use an in-memory live bitmap and are not returned or
+resurrected by a restart.
+
+Vectors are converted to float32 at write time. Distance calculations use the
+stored float32 values in a native tight loop and return deterministic primary-key
+tie ordering. Non-finite values, dimension mismatches, overflow, invalid SQL,
+and unsupported constructs produce structured errors and keep the process alive.
+
+## Protocol example
 
 ```jsonl
 {"id":1,"op":"execute","sql":"CREATE TABLE docs (id BIGINT PRIMARY KEY, category VARCHAR(32), embedding VECTOR(2));"}
 {"id":2,"op":"execute","sql":"INSERT INTO docs VALUES (1,'db','[3,4]'),(2,'sql','[0,0]');"}
-{"id":3,"op":"execute","sql":"SELECT id, category FROM docs ORDER BY id;"}
-{"id":4,"op":"execute","sql":"CREATE VECTOR INDEX docs_vec ON docs(embedding);"}
-{"id":5,"op":"execute","sql":"SELECT id,L2_DISTANCE(embedding,'[0,0]') AS d FROM docs WHERE category='db' ORDER BY d LIMIT 1;"}
-{"id":6,"op":"execute","sql":"BEGIN;"}
-{"id":7,"op":"execute","sql":"UPDATE docs SET category='updated' WHERE id=1;"}
-{"id":8,"op":"execute","sql":"COMMIT;"}
-{"id":9,"op":"execute","sql":"BEGIN;"}
-{"id":10,"op":"execute","sql":"DELETE FROM docs WHERE id=1;"}
-{"id":11,"op":"execute","sql":"ROLLBACK;"}
-{"id":12,"op":"shutdown"}
+{"id":3,"op":"execute","sql":"CREATE VECTOR INDEX docs_vec ON docs(embedding);"}
+{"id":4,"op":"execute","sql":"SELECT id,L2_DISTANCE(embedding,'[0,0]') AS d FROM docs ORDER BY d LIMIT 1;"}
+{"id":5,"op":"shutdown"}
 ```
 
-Start the container again against the same volume and query; the row is still
-`[1,"updated"]` because the rollback discarded only the delete.
+## Validation
 
-## Design
+The native binary was compiled with `g++ -O2 -std=c++17` on the Linux test
+host and with `g++ -O3 -DNDEBUG` inside the Docker image. The image
+`minivectordb:cpp-20261112` passed all 20 public protocol cases and all 12
+additional cases, including restart, rollback, batch atomicity, index metadata,
+ANN-mode equivalence, deletes, updates, filtering, ordering, Unicode, and
+vector mutation paths. The exact commands and result summaries are recorded in
+[`agent/cpp-validation-20261112.json`](agent/cpp-validation-20261112.json).
 
-### Row log
+The protocol checker remains Python because it is supplied test infrastructure;
+it invokes the C++ process or the C++ Docker image and does not provide any
+database functionality.
 
-`/data/rows.log` is an append-only file of length-prefixed frames:
+## Files
 
-| tag | payload | meaning |
-| --- | --- | --- |
-| `r` | `(table, key)` header + marshalled row | one row version, addressable by its file offset |
-| `m` | marshalled operation | `CREATE TABLE`, `CREATE VECTOR INDEX`, or a delete tombstone |
-| `!` | — | commit marker |
-
-Primary keys map to row offsets in an in-memory directory. Every statement
-stages its writes; a failing statement truncates its own suffix. `COMMIT`
-appends the commit marker, flushes, `fsync`s and only then answers. Recovery
-replays frames up to the last commit marker and truncates the unfinished
-suffix, so a forced kill keeps committed data and drops partial transactions.
-Small autocommit statements now buffer row frames together with the commit
-marker before one flush. The final `fsync` is retained. Explicit transactions
-still flush each statement for read-your-own-writes and sync at COMMIT.
-
-### Queries
-
-The query engine uses the following paths:
-
-1. **Dense matrix + BLAS** (numpy present, table ≥ 2048 rows, no pending
-   transaction, LIMIT present): live float32 vectors are materialised once into
-   a float64 matrix keyed by the stable snapshot; distances come from
-   `|v|² − 2v·q + |q|²` in one mat-vec, and TopK is `argpartition` plus
-   boundary tie expansion, then `lexsort` on `(distance, primary key)`.
-   The identity is only used to *propose* candidates: its absolute error is
-   bounded by `4·width·eps·(‖v‖+‖q‖)²`, so every row within twice that bound of
-   the K-th threshold is recomputed with the direct difference kernel before the
-   final order is taken, and the whole set is recomputed when that window grows
-   past `max(8K, 512)`. Coordinates above 1000 bypass the identity entirely.
-   `eps` is the epsilon of the dtype the matrix was built with: above
-   `MATRIX_MAX_BYTES` the matrix is float32, whose epsilon is nine orders of
-   magnitude larger, and a float64 bound would make the window far too narrow.
-   An absolute underflow allowance supplements that relative bound. Direct
-   distance refinement always uses float64, including compact float32 caches.
-   Large query coordinates also bypass the identity kernel.
-2. **Equality groups**: one array of snapshot slots per distinct value of a
-   scalar column. A filtered TopK only computes distances for that group's
-   slots — with or without a vector index.
-3. **Planned paths**: primary-key-only predicates and orderings answer from the
-   key directory without fetching payloads; scalar ordering ranks before
-   fetching rows.
-4. **Bounded memory**: a row cache with scan admission control; bulk index
-   builds bypass it so vectors are not stored twice. A single `MemoryBudget`
-   derived from the cgroup limit bounds the cache, every table matrix, every
-   equality group and the scalar index together; when a growth does not fit,
-   other tables' structures are dropped first, and if it still does not fit the
-   matrix is not built and the query falls back to a chunked scan. Kernels work
-   in 4096-row chunks so a gather or a difference never materialises a
-   table-sized temporary.
-5. **Scalar-first filtering**: a compact per-column index over the stable slots
-   (int64 for BIGINT so comparisons above 2^53 stay exact, dictionary codes plus
-   ranks for VARCHAR so ranges keep code-point order) resolves `=`, `<`, `<=`,
-   `>`, `>=` and `AND` chains to candidate slots before any vector work. Up to
-   256 candidates are read straight from the log, a set covering a quarter of
-   the table is answered from the dense matrix with the distance array indexed,
-   and the middle band gathers the subset in chunks.
-6. **Conservative metric blocks**: sufficiently large, repeatedly queried
-   candidate sets can use a snapshot-local permutation and per-block coordinate
-   bounds. A sample rejects unpromising high-dimensional layouts. Distances to
-   the boxes give conservative L2 lower bounds; K live, filter-matching anchors
-   give an upper bound. All surviving slots are processed in one vectorized
-   batch, followed by full-precision refinement and primary-key tie ordering.
-   Small workloads, weak bounds and memory pressure retain the original paths.
-   Updates invalidate the bounds; deleted slots remain excluded by the bitmap.
-   This is an in-memory derived index, not a physical log reordering or an LSM
-   format. Both `exact` and `ann` modes preserve exact filtered TopK semantics.
-
-### Measured behaviour
-
-The full tables are in [VERIFICATION.md](VERIFICATION.md). At 10k rows x 128
-dimensions with K=10 the headline results are:
-
-- Resolving scalar predicates before any vector work takes 0.29 ms at 0.1%
-  selectivity and 0.77 ms at 100%, against 3.2 ms and 16.9 ms for a plain scan.
-- A TopK request costs 645 us inside the server — 89% execution, 7% SQL parse and
-  4% JSON in both directions — plus about 43 us of pipe and scheduling.
-- The dense matrix is built on the first query because it already wins there
-  (50 ms against 68 ms for the scan). On 100k rows a single query is twice as fast
-  and 3.5x lighter with chunking, and the matrix takes over from the second query.
-- Under a 2 GiB container limit the matrix (146.5 MiB at 150k rows) is allowed and
-  peak resident memory is 348 MiB; at 256 MiB and below the budget refuses it, the
-  query falls back to the chunked path (32.8 ms against 2.1 ms warm, still exact)
-  and peak memory drops to about 70 MiB.
-
-### Known limitations
-
-- The log keeps historical row versions; there is no compaction, so a workload
-  of many updates grows the file and the recovery time.
-- The first filtered query on a large table pays one-time builds: at 300k rows ×
-  128 dimensions the equality path costs 3.0 s (groups plus a 146 MiB matrix) and
-  the first range query costs 1.7 s more (the scalar index); afterwards equality
-  queries take 3.1 ms and range queries 16.7 ms. Peak resident memory for that
-  table is 358 MiB, governed by the shared budget derived from the container
-  limit.
-- `<>`, parenthesised predicates, qualified column references, NULL literals and
-  aggregates are rejected as unsupported, matching the SQL subset the task lists.
-- Insert/update commits invalidate the query snapshot. Its next matrix rebuild
-  now copies unchanged vectors by immutable log offset and decodes only changed
-  rows. It still allocates/copies a matrix; this is not an in-place index update.
-  If old and new matrices cannot fit together, it discards the old copy and
-  rebuilds or uses bounded scanning. Delete-only commits keep the live bitmap.
-- Rows are decoded into Python objects; very large tables are bounded by the
-  cache and the matrix cap (192 MiB) rather than by true streaming.
-
-## Verification
-
-Local Linux server (`/usr/bin/python3` 3.12.3, shared 128-core host):
-
-```sh
-python3 protocol_check/run.py --command '["python3","minivectordb.py","--data-dir","{data_dir}"]' \
-    --output /tmp/public
-python3 -m unittest discover -s tests -v
-```
-
-- 20/20 public protocol cases pass with and without numpy, plus twelve extra cases
-  through the same runner: range and AND predicates, restart with an index, two
-  tables across a restart, a failed statement inside a transaction, deleting every
-  row inside a transaction and rolling it back, LIMIT 0, non-ASCII values, ann vs
-  exact, the row order of a multi-row answer without ORDER BY, and vector
-  distances after an update and a delete.
-- The current suite contains 153 regression tests: matrix paths, numeric bounds and float32 margins,
-  memory budget, chunked TopK, scalar filters, ann/exact equivalence, bitmap
-  deletion, recovery truncation, real SIGKILL recovery, mixed-workload soak, query
-  paths, scan cache, SQL surface, model fuzz, semantics audit, startup
-  diagnostics, the protocol-level shape/resilience/read-only suite, a golden
-  transcript of 88 statements, the twelve extra judge cases, and the evidence
-  document's own schema and size budget. See the dated validation record below
-  for executed and skipped counts in each dependency mode.
-- Model fuzz: 220 random operations (multi-row inserts, predicate updates and
-  deletes, transactions, restarts, TopK queries) match a Python model exactly.
-- Differential fuzz against the original baseline: 480/480 generated queries
-  identical over four seeds at the current revision, and 720/720 over six seeds
-  in an earlier run.
-- SQL surface: ~75 statements × exact/ann all answer cleanly, and the connection
-  survives every error.
-- Crash recovery: six scenarios under a real SIGKILL — between commits, inside an
-  open transaction, during a 100k-row statement, a 10k-row transaction killed
-  before COMMIT, a kill that lands inside recovery itself (a 300k-row log, with the
-  test asserting no ready line was produced first), and a torn log suffix.
-
-The latest Linux candidate validation, including exact source hashes, resource
-limits, benchmark commands and limitations, is recorded in
-`agent/block-optimization-20261112.json`. It records both improvements and
-fallback cases; the measurements are not a promise of a platform score.
-
-### Timings through the real JSONL protocol
-
-`scripts/protocol_bench.py` starts the program as a subprocess and talks to it
-over stdin/stdout exactly like the judge, so the numbers include JSON
-encode/decode, pipe traffic and per-response flushes. Measured again against the
-original baseline at the final commit: 10,000 rows × 128 dimensions, 1,000 TopK
-queries with K=10 (half filtered): **7.4 s baseline, 0.95 s with numpy and 7.2 s
-without** (unfiltered median 11.8 ms → 1.13 ms, filtered 1.74 ms → 0.58 ms) — the
-full phase-by-phase table is in [VERIFICATION.md](VERIFICATION.md).
-
-A control pair (same code against itself) showed a 4% write noise floor, so the
-~5% write difference with numpy is at the edge of measurable and comes from the
-numpy runtime being loaded, not from the write path. These are local shared-host
-measurements, not the competition score. The agent material in
-`agent/conversation.json` records each experiment with its raw numbers and
-limitations.
-
-### Cache reuse and deletion correctness (2026-11-11)
-
-A new regression reproduced deleted rows appearing in vector results: the
-stored bitmap uses low-bit-first slots, but the NumPy masks decoded high
-bits first. Both masks now explicitly use little bit order. Rebuilding a
-matrix with deleted slots also initializes those slots to finite zeros.
-
-The paired HDD/SSD measurements, source hashes, commands and limitations
-are recorded in `tests/results/cache-reuse-20261111.json` and VERIFICATION.md.
-This change adds no approximate HNSW/IVF engine: `ann` still uses the existing
-exact execution paths. The performance gain is from reduced row decoding,
-not relaxed recall, omitted filters or delayed durable commits.
+- `minivectordb.cpp`: JSON parser, SQL lexer/parser, transactional engine,
+  float32 vector distance path, and binary persistence.
+- `Dockerfile`: compiles and runs the native binary.
+- `STDIO_PROTOCOL.md`: JSONL contract.
+- `protocol_check/`, `mysqltest/`, `tests/`: supplied protocol and regression
+  corpus; they are not runtime dependencies.
