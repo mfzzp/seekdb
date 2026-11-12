@@ -89,7 +89,7 @@ git rev-parse HEAD:minivectordb.cpp    # 必须等于 e2ee8384...
 | 12 | `SELECT` 的距离缓存是 `投影数 × 表行数` 的 `double` 矩阵 + 同尺寸的 ready 字节矩阵，按全表行数分配而非候选数 | `select()` |
 | 13 | TopK：`limit < 候选数` 时 `nth_element` + `resize` + `sort`；比较器依次是 ORDER BY 各项、主键升序 | `select()` |
 | 14 | `ORDER BY` 解析遍历投影列表，命中即覆盖（最后一个匹配获胜）；`ORDER BY distance` 只匹配距离投影 | `select()` |
-| 15 | `g++ 13.3.0` 编译成功，2 条警告：`main()` 的 `-Wmisleading-indentation`、`table_of(const State&)` 未使用 | 本次构建 |
+| 15 | `g++ 13.3.0` 编译成功，**0 条警告**（`-Wmisleading-indentation` 与未使用的 `table_of(const State&)` 已清理） | 本次构建 |
 
 仍然**未验证**、不得写成结论的：journal 中间帧损坏后的行为（按设计会拒绝启动）、SIGKILL 落在 write/fsync 精确阶段的行为、journal 增长对启动的影响、`state.bin` 与 journal 的叠加语义。公开用例与额外用例已在修复后实测通过，见 §4.1。
 
@@ -122,6 +122,28 @@ git rev-parse HEAD:minivectordb.cpp    # 必须等于 e2ee8384...
 | SIGKILL 于 2 万行 INSERT 期间 | 重启成功，之后可继续写入 |
 | 公开 20 例 / 额外 12 例 | 20/20、12/12 PASS |
 
+**尾部损坏 vs 中间损坏**（必须分开判断，不能把中间损坏当成尾部截断）：
+
+| 位置 | 判据 | 行为 |
+| --- | --- | --- |
+| 文件末尾 | 帧头只剩 1..7 字节、payload 长度超过文件剩余、statement 越界、count 字段读不全 | 视为 torn tail：截断到 `valid_end`，继续启动 |
+| 文件中间（后续还有记录） | 完整帧的 `magic` 错误、`bytes > 2^30`、完整帧内 count 不可读或 >10^6、`replay_sql` 解析失败 | 抛 `storage_error`，拒绝启动；**不得**静默截断丢数据 |
+
+**仓库回归测试**：`tests/test_journal_recovery.py`（用 g++ 构建真实二进制，走 stdin/stdout），覆盖：
+
+- 末尾截断 1..7 字节 → 重启 → 追加 → 再重启；
+- 只剩 1..7 字节帧头；
+- 只剩部分 payload；count 字段不完整；
+- 尾部损坏后存在下一条合法记录（旧崩溃场景）；
+- 中间帧 magic / 荒谬 count / SQL 损坏 → 明确 `storage_error`、无 ready 行。
+
+运行：
+
+```bash
+cd /mnt/HDD2/zzp/seekdb-cpp-integrated
+python3 -m unittest tests.test_journal_recovery -v
+```
+
 **持久性边界（必须区分，不能混为一谈）**：
 
 - 正常提交顺序是 `append_journal()`（write + `fsync`）→ 返回 → `main()` 写响应，因此**收到 `ok` 的写入一定已有完整帧**；
@@ -151,17 +173,33 @@ git rev-parse HEAD:minivectordb.cpp    # 必须等于 e2ee8384...
 
 ### 4.4 P1：journal 无压缩、无 checkpoint
 
-journal 只追加，`UPDATE`/`DELETE` 也各留一条历史 SQL。审计：
+journal 只追加，`UPDATE`/`DELETE` 也各留一条历史 SQL；没有大小上限，也没有快照。长期写入后文件与重放时间都会线性增长。要求（作为后续实现项，不在本轮完成）：
 
-- 10k / 100k 次写入后 `journal.log` 的大小与启动重放时间；
-- 大量删除后再插入，重放成本是否按历史条数增长；
-- 是否有可接受的 checkpoint/压缩方案，代价是什么（崩溃一致性、实现复杂度）。
+- 定义 journal 大小上限（例如 64 MiB 或按行数/字节数触发）；
+- 达到上限时生成快照：把当前 `State` 序列化为 `state.bin.tmp`，`fsync`，`rename` 原子替换 `state.bin`；
+- 快照 `fsync` 成功后再截断 journal，只保留快照之后的记录（顺序不能反，否则崩溃会丢已确认写入）；
+- 恢复时先加载 `state.bin`，再重放它之后的 journal；
+- 必须测试崩溃发生在 checkpoint 前、序列化中、rename 前、rename 后、journal 截断前的行为；
+- 记录 10k / 100k 次写入后 `journal.log` 大小、启动重放时间、checkpoint 前后峰值 RSS。
 
-### 4.5 P2：写入放大与 no-op 提交
+### 4.5 P1：journal 校验和（建议）
+
+当前格式是 `magic(4) + payload_length(4) + payload`，没有 CRC，无法区分"真实截断"和"磁盘内容被改写"。建议后续升级为：
+
+```text
+magic(4) + version(2) + flags(2) + payload_length(4) + crc32(4) + payload
+```
+
+- 写入端计算 CRC32，`fsync` 前完成；
+- 恢复端先校验 CRC：不匹配时按"损坏"抛 `storage_error`，而不是截断；
+- 需要版本迁移：旧 journal 没有 CRC，必须定义"只读兼容"或一次性转换；
+- 测试：翻转 payload 任意字节、翻转 CRC 自身、截断到任意偏移，分别验证"损坏"与"截断"被正确区分。
+
+### 4.6 P2：写入放大与 no-op 提交
 
 `main()` 对非 SELECT 一律 `autocommit(true, sql)`，即使 `UPDATE`/`DELETE` 影响 0 行也会追加一条记录。审计：0 行 UPDATE/DELETE 是否产生 journal 记录、重复执行 1 万次后的文件大小与启动时间。这是事实核对，不是必须修的问题。
 
-### 4.6 P2：事务复制、rebuild 与距离缓存
+### 4.7 P2：事务复制、rebuild 与距离缓存
 
 - `BEGIN` 复制整个 `State` 的内存峰值：10k/100k 行、128 维时是多少？
 - `UPDATE`/`DELETE` 后 `rebuild()` 的复杂度与实测耗时；
@@ -171,6 +209,7 @@ journal 只追加，`UPDATE`/`DELETE` 也各留一条历史 SQL。审计：
 ## 5. 正确性与协议检查
 
 - 公开 20 例 + 12 个额外用例（`protocol_check/run.py`，可加 `--package tests/extra_cases`，以仓库实际参数为准）；
+- journal 恢复：`python3 -m unittest tests.test_journal_recovery -v`（8 个用例：尾部 1..7 字节、部分帧头、部分 payload、count 不完整、追加后连续重启、中间 magic/count/SQL 损坏）；
 - `exact` 与 `ann` 两种 `search_mode` 结果一致；
 - 多距离投影、别名、`ORDER BY distance`、同名歧义；
 - 并列距离按主键升序；`LIMIT 0`、超行数 LIMIT、无 `ORDER BY` 的行序；
@@ -201,20 +240,34 @@ journal 只追加，`UPDATE`/`DELETE` 也各留一条历史 SQL。审计：
 
 ## 8. 交付与提交
 
-只提交 Prompt 或学习材料；运行时代码必须保持 `f6396ad` 的内容：
+运行时代码默认不改；确需修改时必须获得单独授权，并满足：
+
+- 只改 `minivectordb.cpp`（或用户明确指定的文件），单独一个 commit，不与 Prompt/证据混在一起；
+- 修改前后都记录 `sha1sum minivectordb.cpp`、`git diff --stat`、构建命令与 `-Wall -Wextra` 警告数；
+- 运行 `tests/test_journal_recovery.py`、公开 20 例、额外 12 例，记录原始 stdout/stderr；
+- 失败或未执行的测试写"未测"，不得写成通过。
+
+提交前检查：
 
 ```bash
-git diff f6396ad -- minivectordb.cpp Dockerfile    # 必须为空
 git diff --check
 git status --short
 git diff --stat
+g++ -O3 -DNDEBUG -std=c++17 -Wall -Wextra -o /tmp/mvdb-check minivectordb.cpp
+python3 -m unittest tests.test_journal_recovery -v
 ```
 
-提交信息示例：
+**完成条件（全部满足才算完成）**：
 
-```text
-docs(agent): sharpen the f6396ad audit prompt
-```
+- 公开用例 20/20；
+- 额外用例 12/12；
+- 尾部截断 1..7 字节均可恢复；
+- 截断后追加写入并连续重启成功；
+- 中间帧损坏明确返回 `storage_error`，不得静默丢数据；
+- 没有 `database exited before response`；
+- `git diff --check` 通过；
+- 运行时代码、Prompt、测试文件的变更范围清晰（`git show --stat`）；
+- 每个结论都有原始日志，或明确标记为未验证。
 
 推送（由有凭据的人执行，服务器上没有凭据）：
 
@@ -222,13 +275,15 @@ docs(agent): sharpen the f6396ad audit prompt
 git push origin HEAD:2026-competition-round2-cpp
 ```
 
+**实验辅助文件**：`journal-tail-fix.patch` 是 Codex 生成的实验补丁，已移到 `/mnt/HDD2/zzp/seekdb-cpp-integrated-experiments/`，不属于正式交付内容；正式代码以 `git commit` 中的 `minivectordb.cpp` 为准。
+
 最终报告必须给出：
 
-1. 目标代码 commit 与分支 HEAD；
-2. 修改的材料文件；
-3. `minivectordb.cpp` 未变的证明（`git diff` 为空 + blob hash）；
+1. 当前 HEAD 与目标 commit；
+2. 修改文件与 `git show --stat`；
+3. 运行时是否修改、修改内容与授权来源；
 4. 实际执行的构建/测试命令与原始输出；
-5. 每个 P0/P1 假设的结论：确认 / 未复现 / 未测；
+5. 每个 P0/P1 项的结论：确认 / 未复现 / 未测；
 6. 未验证项与风险；
 7. 最终提交 commit id 与远程分支 HEAD。
 
