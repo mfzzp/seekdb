@@ -81,6 +81,7 @@ git rev-parse HEAD:minivectordb.cpp    # 必须等于 e2ee8384...
 | 6a | 修复前实测：只截断最后 1 字节、不追加新记录时，重启成功但最后一条 INSERT 被静默丢弃（表为空，退出码 0） | §4.1 的修复前记录 |
 | 6b | 修复前实测：截断后先提交一条新记录，**下一次启动直接失败**（`startup failed: trailing journal SQL`，退出码 1） | §4.1 |
 | 6c | 修复后实测：截断 1 字节 → 重启 → 追加 → 再重启，启动成功；截断的 INSERT 丢失，后续写入保留 | §4.1 的修复后记录 |
+| 6d | 重放已改为**逐帧流式读取**（复用 payload 缓冲），1M 帧 / 42.9 MiB 的 journal 恢复峰值 RSS 从 64.9 MiB 降到 3.1 MiB，耗时 1.20 s → 1.29 s | `replay_journal()` / §4.1 基准表 |
 | 7 | `load()`：无 `state.bin` → 直接重放 journal；有 `state.bin` → 先加载快照，再**从头重放整个 journal** | `load()` |
 | 8 | `save()` 仍保留，但全文件没有任何调用点（死代码，只剩 `load()` 的兼容读取） | `grep -n "save()" minivectordb.cpp` |
 | 9 | 事务：`BEGIN` 复制整个 `State`；语句进 `tx_log`；`COMMIT` 一次 `append_journal(tx_log)`；`ROLLBACK` 恢复副本 | `begin()` / `commit()` / `rollback()` |
@@ -107,9 +108,11 @@ git rev-parse HEAD:minivectordb.cpp    # 必须等于 e2ee8384...
 **修复内容**（`replay_journal()`）：
 
 - 记录 `valid_end` = 最后一个完整帧的结束偏移；
-- 帧头不足 8 字节、payload 长度超过文件剩余、statement 越界、帧内字段不完整 → 视为 torn tail；启动时 `ftruncate(valid_end)` + `fsync`，失败则抛 `storage_error`；
-- `magic` 错误、`bytes > 2^30`、完整帧内 `count` 不可读或 >10^6 → 抛 `storage_error`，不静默吞掉；
+- 帧头不足 8 字节、声明的 payload 越过 EOF、payload 实际读不全 → 视为 torn tail；启动时 `ftruncate(valid_end)` + `fsync`，失败则抛 `storage_error`；
+- **帧本身完整但内部不一致**（`count` 不可读或 >10^6、statement 长度越界、字节数对不上）→ 抛 `storage_error`，不再当作尾部截断；
+- `magic` 错误、`bytes > 2^30` → 抛 `storage_error`，不静默吞掉；
 - `replay_sql` 解析失败仍抛 `storage_error`（`trailing journal SQL`），不会被当成正常结束；
+- 重放改为逐帧读取：只保留一个 payload 缓冲，RSS 不随 journal 大小线性增长；
 - 截断后继续写入正常。
 
 **修复后实测**（2026-11-12，`g++ 13.3.0`）：
@@ -121,6 +124,15 @@ git rev-parse HEAD:minivectordb.cpp    # 必须等于 e2ee8384...
 | 截断 1..7 字节各跑一遍 | 两次重启均成功，无 `startup failed` |
 | SIGKILL 于 2 万行 INSERT 期间 | 重启成功，之后可继续写入 |
 | 公开 20 例 / 额外 12 例 | 20/20、12/12 PASS |
+
+**恢复基准**（1M 帧 no-op UPDATE，`/usr/bin/time -v`，`g++ 13.3.0`；改前 = 一次性读入整个 journal，改后 = 逐帧流式）：
+
+| journal | 改前峰值 / 耗时 | 改后峰值 / 耗时 |
+| --- | --- | --- |
+| 100k 帧 / 4.3 MiB | 10.5 MiB / 0.12 s | **3.1 MiB / 0.11 s** |
+| 1M 帧 / 42.9 MiB | 64.9 MiB / 1.20 s | **3.1 MiB / 1.29 s** |
+
+结论：恢复的**峰值内存与 journal 大小解耦**，耗时基本不变（解析 SQL 仍是主要成本）。复现脚本见实验目录（`bench_recovery.py`），不是仓库测试。
 
 **尾部损坏 vs 中间损坏**（必须分开判断，不能把中间损坏当成尾部截断）：
 
@@ -209,7 +221,7 @@ magic(4) + version(2) + flags(2) + payload_length(4) + crc32(4) + payload
 ## 5. 正确性与协议检查
 
 - 公开 20 例 + 12 个额外用例（`protocol_check/run.py`，可加 `--package tests/extra_cases`，以仓库实际参数为准）；
-- journal 恢复：`python3 -m unittest tests.test_journal_recovery -v`（8 个用例：尾部 1..7 字节、部分帧头、部分 payload、count 不完整、追加后连续重启、中间 magic/count/SQL 损坏）；
+- journal 恢复：`python3 -m unittest tests.test_journal_recovery -v`（9 个用例：尾部 1..7 字节、部分帧头、部分 payload、count 不完整、追加后连续重启、中间 magic/count/长度字段/SQL 损坏）；
 - `exact` 与 `ann` 两种 `search_mode` 结果一致；
 - 多距离投影、别名、`ORDER BY distance`、同名歧义；
 - 并列距离按主键升序；`LIMIT 0`、超行数 LIMIT、无 `ORDER BY` 的行序；
