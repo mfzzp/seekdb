@@ -30,7 +30,7 @@ python3 protocol_check/run.py \
   --command '["/tmp/mvdb-f6396ad","--data-dir","{data_dir}"]' \
   --output /tmp/public-f6396ad
 
-# 4) torn tail 实验（本次已复现两种后果，先重跑确认，见 §4.1）
+# 4) torn tail 回归（已修复，按 §4.1 重跑修复后用例）
 # 5) SIGKILL 实验（§4.2）
 # 6) 启动重放耗时（§4.3）
 ```
@@ -76,10 +76,11 @@ git rev-parse HEAD:minivectordb.cpp    # 必须等于 e2ee8384...
 | 2 | 旧路径：`commit()` / `autocommit()` 调用 `save()`，整份 `state.bin` 写临时文件后 `rename` | `git show f6396ad -- minivectordb.cpp` 删除行 |
 | 3 | 新路径：每次提交把 SQL 追加到 `/data/journal.log`，`open(O_APPEND)` + 3 次 `write` + `fsync` | `append_journal()` |
 | 4 | 记录格式：`u32 magic(0x4d564a31)`、`u32 payload 字节数`；payload = `u32 语句数` + 每条 `u32 长度 + SQL` | `append_journal()` / `replay_journal()` |
-| 5 | 上限：单条语句 2^28 字节，单条记录 2^30 字节，语句数 10^6；超限在写入时抛 `storage_error`，重放时 `break` | 同上 |
-| 6 | 重放遇到 torn tail / magic 不符 / 长度越界时**静默 break**，不报错、不截断文件 | `replay_journal()` |
-| 6a | 本次实测：只截断最后 1 字节、不追加新记录时，重启成功但最后一条 INSERT 被静默丢弃（表为空，退出码 0） | 见 §4.1 的复现记录 |
-| 6b | 本次实测：截断后先提交一条新记录，**下一次启动直接失败**（`startup failed: trailing journal SQL`，退出码 1）：坏帧声明的长度延伸进下一条记录，拼出的 SQL 多一个字节，`replay_sql()` 抛错 | 见 §4.1 |
+| 5 | 上限：单条语句 2^28 字节，单条记录 2^30 字节，语句数 10^6；写入超限抛 `storage_error`，重放时完整帧内 count 不可读或超限抛 `storage_error` | 同上 |
+| 6 | 重放：torn tail（帧头不足 8 字节、payload 超出文件、statement 越界）截断到最后一个完整帧；magic 错误或完整帧内损坏抛 `storage_error` | `replay_journal()`（本次已修复） |
+| 6a | 修复前实测：只截断最后 1 字节、不追加新记录时，重启成功但最后一条 INSERT 被静默丢弃（表为空，退出码 0） | §4.1 的修复前记录 |
+| 6b | 修复前实测：截断后先提交一条新记录，**下一次启动直接失败**（`startup failed: trailing journal SQL`，退出码 1） | §4.1 |
+| 6c | 修复后实测：截断 1 字节 → 重启 → 追加 → 再重启，启动成功；截断的 INSERT 丢失，后续写入保留 | §4.1 的修复后记录 |
 | 7 | `load()`：无 `state.bin` → 直接重放 journal；有 `state.bin` → 先加载快照，再**从头重放整个 journal** | `load()` |
 | 8 | `save()` 仍保留，但全文件没有任何调用点（死代码，只剩 `load()` 的兼容读取） | `grep -n "save()" minivectordb.cpp` |
 | 9 | 事务：`BEGIN` 复制整个 `State`；语句进 `tx_log`；`COMMIT` 一次 `append_journal(tx_log)`；`ROLLBACK` 恢复副本 | `begin()` / `commit()` / `rollback()` |
@@ -88,53 +89,46 @@ git rev-parse HEAD:minivectordb.cpp    # 必须等于 e2ee8384...
 | 12 | `SELECT` 的距离缓存是 `投影数 × 表行数` 的 `double` 矩阵 + 同尺寸的 ready 字节矩阵，按全表行数分配而非候选数 | `select()` |
 | 13 | TopK：`limit < 候选数` 时 `nth_element` + `resize` + `sort`；比较器依次是 ORDER BY 各项、主键升序 | `select()` |
 | 14 | `ORDER BY` 解析遍历投影列表，命中即覆盖（最后一个匹配获胜）；`ORDER BY distance` 只匹配距离投影 | `select()` |
-| 15 | `g++ 13.3.0` 编译成功，仅 `replay_journal()` 与 `main()` 两处 `-Wmisleading-indentation` | 本次构建，需你重跑确认 |
+| 15 | `g++ 13.3.0` 编译成功，2 条警告：`main()` 的 `-Wmisleading-indentation`、`table_of(const State&)` 未使用 | 本次构建 |
 
-仍然**未验证**、不得写成结论的：`f6396ad` 上重新跑公开用例的结果、SIGKILL 行为、torn tail 行为、journal 增长对启动的影响、真实崩溃后的数据可见性。
+仍然**未验证**、不得写成结论的：journal 中间帧损坏后的行为（按设计会拒绝启动）、SIGKILL 落在 write/fsync 精确阶段的行为、journal 增长对启动的影响、`state.bin` 与 journal 的叠加语义。公开用例与额外用例已在修复后实测通过，见 §4.1。
 
-## 4. 优先审计项（4.1 已复现，其余为待验证假设）
+## 4. 优先审计项（4.1 已修复，其余为待验证假设）
 
 每条都要"可证伪 + 可复现"。先做 P0，再 P1，最后 P2；失败的尝试同样写进报告。
 
-### 4.1 P0：torn journal 会让数据库丢掉最后一条提交，甚至拒绝启动
+### 4.1 P0：torn journal（已修复：`fix(storage): recover torn journal tails safely`）
 
-重放遇到坏帧直接 `break`，且**不截断**；而 `append_journal` 用 `O_APPEND` 继续往文件尾追加。本次已在 `f6396ad` 上复现两种后果：
+**修复前**（`f6396ad`）实测两种后果：
 
 - **只截断、不追加**：启动成功，最后一条记录被静默跳过，已返回 `ok` 的 INSERT 不可见（退出码 0）；
-- **截断后再提交一条**：下一次启动直接失败，`startup failed: trailing journal SQL`，退出码 1。原因是坏帧头里声明的长度现在覆盖到后一条记录的开头，重放拼出的 SQL 多了一个字节，`replay_sql()` 以"trailing journal SQL"抛错，`main()` 捕获后拒绝启动。
+- **截断后再提交一条**：下一次启动直接失败，`startup failed: trailing journal SQL`，退出码 1。原因是坏帧头里声明的长度现在覆盖到后一条记录的开头，重放拼出的 SQL 多了一个字节，`replay_sql()` 抛错，`main()` 捕获后拒绝启动。
 
-复现（2026-11-12 实测，`g++ 13.3.0`，`CREATE TABLE` + 一条 INSERT 后 `journal.log` 为 116 字节）：
+**修复内容**（`replay_journal()`）：
 
-```bash
-BIN=/tmp/mvdb-f6396ad
-DATA=/tmp/audit-torn
-rm -rf "$DATA"
-cat <<'JSONL' | "$BIN" --data-dir "$DATA"
-{"id":1,"op":"execute","sql":"CREATE TABLE t (id BIGINT PRIMARY KEY,v VECTOR(2));"}
-{"id":2,"op":"execute","sql":"INSERT INTO t VALUES (1,'[0,0]');"}
-{"id":3,"op":"shutdown"}
-JSONL
-wc -c "$DATA/journal.log"          # 116
-truncate -s -1 "$DATA/journal.log" # 模拟半条记录
-# 情形 A：直接重启并查询，最后一条 INSERT 消失，但进程正常
-cat <<'JSONL' | "$BIN" --data-dir "$DATA"
-{"id":4,"op":"execute","sql":"SELECT id FROM t ORDER BY id;"}
-{"id":5,"op":"shutdown"}
-JSONL
-# 情形 B：先提交一条新记录，再重启
-cat <<'JSONL' | "$BIN" --data-dir "$DATA"
-{"id":6,"op":"execute","sql":"INSERT INTO t VALUES (2,'[1,1]');"}
-{"id":7,"op":"shutdown"}
-JSONL
-cat <<'JSONL' | "$BIN" --data-dir "$DATA"
-{"id":8,"op":"execute","sql":"SELECT id FROM t ORDER BY id;"}
-{"id":9,"op":"shutdown"}
-JSONL
-```
+- 记录 `valid_end` = 最后一个完整帧的结束偏移；
+- 帧头不足 8 字节、payload 长度超过文件剩余、statement 越界、帧内字段不完整 → 视为 torn tail；启动时 `ftruncate(valid_end)` + `fsync`，失败则抛 `storage_error`；
+- `magic` 错误、`bytes > 2^30`、完整帧内 `count` 不可读或 >10^6 → 抛 `storage_error`，不静默吞掉；
+- `replay_sql` 解析失败仍抛 `storage_error`（`trailing journal SQL`），不会被当成正常结束；
+- 截断后继续写入正常。
 
-审计要求：重跑并记录两种情形的完整 stdout/stderr、退出码、`journal.log` 字节数与坏帧偏移；判断"静默丢最后一条"是否已经违反题面的持久化承诺；给出修复方向（启动时截断到最后一个完整记录、或追加前检测尾部完整性、或引入 checkpoint），但**不要在本任务中改运行时代码**（除非用户书面授权并单独记录 commit）。
+**修复后实测**（2026-11-12，`g++ 13.3.0`）：
 
-同时检查：`SIGKILL` 落在 `write()` 的哪个阶段会产生半条记录；`fsync` 成功但进程在返回响应前被杀时，客户端看到的失败与磁盘上的记录是否一致。
+| 场景 | 结果 |
+| --- | --- |
+| 截断 1 字节 → 重启 → 追加 → 再重启 | 启动成功；截断的 INSERT 丢失，后续 INSERT 保留 |
+| 追加 4 字节半帧头 → 重启 | 启动时截断回 115 字节，启动成功 |
+| 截断 1..7 字节各跑一遍 | 两次重启均成功，无 `startup failed` |
+| SIGKILL 于 2 万行 INSERT 期间 | 重启成功，之后可继续写入 |
+| 公开 20 例 / 额外 12 例 | 20/20、12/12 PASS |
+
+**持久性边界（必须区分，不能混为一谈）**：
+
+- 正常提交顺序是 `append_journal()`（write + `fsync`）→ 返回 → `main()` 写响应，因此**收到 `ok` 的写入一定已有完整帧**；
+- 启动截断只会落在"没有返回 ok"的半条记录上；"clean shutdown 后人为 `truncate` 掉一条已确认记录"是**数据损坏**，不是崩溃一致性场景，丢数据是预期的，不能用它证明线上会丢已确认写入；
+- 仍未实现：帧校验和、commit marker、checkpoint/压缩；journal 中间帧损坏仍会拒绝启动（这是"不静默吞掉"的刻意选择）。
+
+**仍需验证**：SIGKILL 落在 `write`/`fsync` 精确阶段的字节级行为（fault injection 或 strace）、崩溃后 journal 的实际内容、长时间写入后的重放耗时。
 
 ### 4.2 P0/P1：追加失败后的状态恢复
 

@@ -169,14 +169,55 @@ struct Engine {
   void replay_journal() {
     std::ifstream f(journal(), std::ios::binary); if (!f) return;
     std::string data((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>()); size_t pos = 0;
-    while (pos + sizeof(uint32_t) * 2 <= data.size()) {
-      uint32_t magic = 0, bytes = 0; if (!read_u32(data, pos, magic) || !read_u32(data, pos, bytes)) break;
-      if (magic != JOURNAL_MAGIC || bytes > (1u << 30) || pos + bytes > data.size()) break;
-      size_t end = pos + bytes, q = pos; uint32_t count = 0; if (!read_u32(data, q, count) || count > 1000000) break;
+    size_t valid_end = 0;
+    bool torn_tail = false;
+    while (pos < data.size()) {
+      if (data.size() - pos < sizeof(uint32_t) * 2) {
+        // A partial frame header is a torn tail too: the writer died after
+        // writing 1..7 bytes of magic/length, so nothing after it is a record.
+        torn_tail = true;
+        break;
+      }
+      uint32_t magic = 0, bytes = 0;
+      if (!read_u32(data, pos, magic) || !read_u32(data, pos, bytes)) {
+        torn_tail = true;
+        break;
+      }
+      if (magic != JOURNAL_MAGIC) throw Error("storage_error", "invalid journal magic");
+      if (bytes > (1u << 30)) throw Error("storage_error", "invalid journal frame");
+      if (pos + bytes > data.size()) {
+        torn_tail = true;
+        break;
+      }
+      size_t end = pos + bytes, q = pos; uint32_t count = 0;
+      // A complete frame whose payload header is unreadable or absurd is
+      // corruption, not a torn tail: fail loudly instead of silently stopping.
+      if (!read_u32(data, q, count) || count > 1000000) throw Error("storage_error", "invalid journal frame");
       std::vector<std::string> statements; statements.reserve(count); bool complete = true;
       for (uint32_t i = 0; i < count; ++i) { uint32_t n = 0; if (!read_u32(data, q, n) || n > (1u << 28) || q + n > end) { complete = false; break; } statements.emplace_back(data.data() + q, n); q += n; }
-      if (!complete || q != end) break;
-      for (const auto &statement : statements) replay_sql(statement); pos = end;
+      if (!complete || q != end) {
+        torn_tail = true;
+        break;
+      }
+      for (const auto &statement : statements) replay_sql(statement);
+      pos = end;
+      valid_end = pos;
+    }
+    if (torn_tail && valid_end < data.size()) {
+      int fd = ::open(journal().c_str(), O_WRONLY);
+      if (fd >= 0) {
+        if (::ftruncate(fd, off_t(valid_end)) != 0) {
+          ::close(fd);
+          throw Error("storage_error", "cannot truncate torn journal");
+        }
+        if (::fsync(fd) != 0) {
+          ::close(fd);
+          throw Error("storage_error", "cannot sync truncated journal");
+        }
+        ::close(fd);
+      } else {
+        throw Error("storage_error", "cannot open journal for truncation");
+      }
     }
   }
   void save() {
