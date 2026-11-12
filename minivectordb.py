@@ -39,6 +39,12 @@ SMALL_SUBSET_ROWS = 256
 MATRIX_MIN_ROWS = 2048
 MATRIX_MAX_BYTES = adaptive_budget(memory_limit_bytes(), 192 * 1024 * 1024,
                                    32 * 1024 * 1024)
+METRIC_BLOCK_ROWS = 256
+METRIC_MIN_ROWS = 4096
+# The box index pays a fixed gather and bound-building cost.  Four million
+# coordinates is the measured crossover on the constrained two-core runner;
+# smaller tables and selective subsets retain the dense BLAS path.
+METRIC_MIN_COORDINATES = 4 << 20
 # Above this coordinate magnitude the |v|^2 - 2v.q + |q|^2 identity can lose
 # significant digits to cancellation, so the direct difference kernel is used.
 IDENTITY_MAX_ABS = 1000.0
@@ -466,6 +472,8 @@ class Database(Store):
                 used += 72 * len(groups)
                 for slots in groups.values():
                     used += 4 * len(slots)
+            if isinstance(table.metric_blocks, dict):
+                used += table.metric_blocks["nbytes"]
         return used
 
     def _release_derived(self, keep=None):
@@ -476,6 +484,8 @@ class Database(Store):
             table.matrix = None
             table.blocks = None
             table.axis = None
+            table.metric_blocks = None
+            table.metric_queries = 0
 
     def _reserve(self, size, keep=None):
         """True when `size` more bytes fit, dropping other tables' caches first."""
@@ -487,6 +497,9 @@ class Database(Store):
 
     def _direct_squared(self, values, query, indices=None):
         """|v-q|^2 with a bounded temporary: never copies the whole matrix."""
+        # Even a compact float32 cache must rerank in float64: float32 squares
+        # can underflow to zero or overflow despite valid finite input vectors.
+        query = _numpy.asarray(query, dtype=_numpy.float64)
         step = MATRIX_CHUNK_ROWS
         count = values.shape[0] if indices is None else indices.size
         out = _numpy.empty(count, dtype=_numpy.float64)
@@ -495,6 +508,7 @@ class Database(Store):
             block = values[start:stop] if indices is None else values[indices[start:stop]]
             diff = block - query
             out[start:stop] = _numpy.einsum("ij,ij->i", diff, diff)
+            del diff, block
         return out
 
     def _identity_squared(self, values, norms, query, indices=None):
@@ -522,6 +536,8 @@ class Database(Store):
         when the shared memory budget cannot fit the matrix, in which case the
         caller falls back to a scan.
         """
+        # Bounds refer to this snapshot's vectors, never to a reused allocation.
+        table.metric_blocks = None
         width = table.columns[column][2]
         rows = len(snapshot.offsets)
         dtype = _numpy.float64
@@ -531,7 +547,7 @@ class Database(Store):
         # Include keys, norms, and the largest bounded copy/search temporary.
         needed = rows * (width * itemsize + 16)
         old_itemsize = table.matrix[2].dtype.itemsize if table.matrix is not None else itemsize
-        scratch = min(rows, MATRIX_CHUNK_ROWS) * (width * max(itemsize, old_itemsize) + 40)
+        scratch = min(rows, MATRIX_CHUNK_ROWS) * (width * (max(itemsize, old_itemsize) + 8) + 40)
         if not self._reserve(needed + scratch, keep=table):
             table.matrix = None
             if not self._reserve(needed + scratch, keep=table):
@@ -601,7 +617,12 @@ class Database(Store):
         rerank window far too narrow for it.
         """
         factor = 4.0 * width * eps
-        return factor * (math.sqrt(norms_max) + math.sqrt(query_norm_sq)) ** 2
+        # A relative error model alone does not cover underflow (including BLAS
+        # flush-to-zero). Bound each small intermediate by the dtype's smallest
+        # normal, overestimating the number of products/additions in the identity.
+        tiny = 1.1754943508222875e-38 if eps > 1e-10 else 2.2250738585072014e-308
+        return (factor * (math.sqrt(norms_max) + math.sqrt(query_norm_sq)) ** 2
+                + (8 * width + 32) * tiny)
 
     def select_exact(self, values, query, keys, squared, row_index, limit, margin):
         """Exact TopK: the approximate ranking only proposes candidates.
@@ -690,6 +711,172 @@ class Database(Store):
         return [(self.read_row(table, offsets[slot]), (float(distance),))
                 for distance, _, slot in best]
 
+    def _build_metric_blocks(self, table, matrix):
+        """Logical contiguous blocks in a data-selected axis order.
+
+        No persistent row layout changes: the permutation addresses immutable
+        snapshot slots. A small sample rejects high-dimensional data without
+        separated groups, where bounding boxes would add work to a BLAS scan.
+        """
+        numpy = _numpy
+        snapshot, column, values = matrix[:3]
+        rows, width = values.shape
+        count = (rows + METRIC_BLOCK_ROWS - 1) // METRIC_BLOCK_ROWS
+        stored = rows * 8 + count * width * 16 + 1024
+        # Sorting keys/permutation, sample+centering, one gathered data block,
+        # and query box subtraction buffers are all bounded and reserved.
+        scratch = (rows * 24 + min(rows, 1024) * width * 24
+                   + METRIC_BLOCK_ROWS * width * 24 + count * width * 16)
+        if rows < METRIC_MIN_ROWS or not self._reserve(stored + scratch, keep=table):
+            return False
+        sample_slots = numpy.random.default_rng(0).integers(0, rows, min(rows, 1024))
+        sample = values[sample_slots].astype(numpy.float64)
+        variance = numpy.var(sample, axis=0)
+        axes = numpy.argsort(variance)[-min(width, 8):]
+        axis, separation = int(axes[-1]), 0.0
+        for candidate in axes:
+            scale = math.sqrt(float(variance[candidate]))
+            if not scale:
+                continue
+            ordered = numpy.sort(sample[:, candidate])
+            trim = ordered.size // 20
+            gap = float(numpy.diff(ordered)[trim:-trim].max())
+            score = gap / scale
+            if score > separation:
+                axis, separation = int(candidate), score
+        if not variance[axis] or (width > 8 and separation < 0.15):
+            return False
+        del sample
+        order = numpy.argsort(values[:, axis], kind="stable")
+        lower = numpy.empty((count, width), dtype=numpy.float64)
+        upper = numpy.empty_like(lower)
+        for block in range(count):
+            part = values[order[block * METRIC_BLOCK_ROWS:(block + 1) * METRIC_BLOCK_ROWS]]
+            lower[block] = part.min(axis=0)
+            upper[block] = part.max(axis=0)
+        return {"snapshot": snapshot, "column": column, "order": order,
+                "lower": lower, "upper": upper, "nbytes": stored,
+                "last_scanned_rows": None, "last_pruned_blocks": None,
+                "fallback_reason": None}
+
+    def _metric_top_k(self, table, matrix, target, limit, subset=None):
+        """Exact block screening; None asks the existing vectorized path to run.
+
+        L-infinity distance to a box is a lower bound on every enclosed L2
+        distance. Min/max coordinates are exact stored float32 values represented
+        in float64. Each positive box gap has only one rounded subtraction;
+        nextafter toward -infinity encloses that error without an assumed epsilon.
+        Equal-bound blocks are retained, including primary-key ties.
+        """
+        numpy = _numpy
+        snapshot, column, values, keys = matrix[:4]
+        rows, width = values.shape
+        total = len(table.rows) if subset is None else subset.size
+        table.metric_queries += 1
+        index = table.metric_blocks
+        if isinstance(index, dict):
+            index.update(last_scanned_rows=None, seed_scanned_rows=None,
+                         last_pruned_blocks=None, fallback_reason="workload_gate")
+        if (total < 1024 or rows < METRIC_MIN_ROWS
+                or total * width < METRIC_MIN_COORDINATES or limit * 32 > total
+                or table.metric_queries < 3):
+            return None
+        if index is False:
+            return None
+        if index is None or index["snapshot"] is not snapshot or index["column"] != column:
+            index = table.metric_blocks = self._build_metric_blocks(table, matrix)
+            if index is False:
+                return None
+        index.update(last_scanned_rows=0, seed_scanned_rows=0,
+                     last_pruned_blocks=0, fallback_reason=None)
+        count = index["lower"].shape[0]
+        # Slot/filter/distance arrays plus a bounded gather and FP64 rerank.
+        # No survivor operation materialises an entire N-by-D matrix copy.
+        scratch = (rows * 40 + count * width * 24
+                   + min(rows, MATRIX_CHUNK_ROWS) * width * (values.itemsize + 8)
+                   + limit * 256)
+        if not self._reserve(scratch, keep=table):
+            index["fallback_reason"] = "memory"
+            return None
+        query = numpy.asarray(target, dtype=numpy.float64)
+        gaps = numpy.maximum(index["lower"] - query, query - index["upper"])
+        bounds = numpy.nextafter(numpy.maximum(gaps.max(axis=1), 0.0), -numpy.inf)
+        del gaps
+        eligible = numpy.ones(rows, dtype=bool) if subset is None else numpy.zeros(rows, dtype=bool)
+        if subset is not None:
+            eligible[subset] = True
+        if snapshot.deleted_count:
+            deleted = numpy.unpackbits(numpy.frombuffer(snapshot.deleted, dtype=numpy.uint8), bitorder="little")
+            eligible &= deleted[:rows] == 0
+        order = index["order"]
+        ordered_eligible = eligible[order]
+        starts = numpy.arange(0, rows, METRIC_BLOCK_ROWS)
+        sizes = numpy.add.reduceat(ordered_eligible, starts)
+        block_order = numpy.argsort(bounds)
+        best = []
+        # Positive squared-distance sums: each difference/product plus at most
+        # width additions is covered by gamma_(4*width+16). Stored float32
+        # coordinates cannot overflow/underflow these float64 operations.
+        nu = (4 * width + 16) * numpy.finfo(numpy.float64).eps
+        gamma = nu / (1.0 - nu)
+        ratio = (1.0 + gamma) / (1.0 - gamma)
+        # Only seed blocks use Python distance evaluation. Once K admissible
+        # anchors exist their K-th distance bounds the true filtered TopK;
+        # process all remaining box survivors in one vectorised batch.
+        for block in block_order:
+            if not sizes[block]:
+                continue
+            start = int(starts[block])
+            stop = min(rows, start + METRIC_BLOCK_ROWS)
+            part = order[start:stop][ordered_eligible[start:stop]]
+            squared = self._direct_squared(values, query, part)
+            index["seed_scanned_rows"] += int(part.size)
+            index["last_scanned_rows"] = index["seed_scanned_rows"]
+            kth = min(limit, part.size) - 1
+            boundary = float(numpy.partition(squared, kth)[kth])
+            pool = part[squared <= math.nextafter(boundary * ratio, math.inf)]
+            if pool.size > max(8 * limit, 128):
+                index["fallback_reason"] = "wide_tie_window"
+                return None
+            for slot in pool:
+                slot = int(slot)
+                best.append((math.dist(values[slot], query), int(keys[slot]), slot))
+            best.sort()
+            del best[limit:]
+            if len(best) == limit:
+                # math.dist has <1 ulp error; two upward steps safely cover it.
+                threshold = math.nextafter(math.nextafter(best[-1][0], math.inf), math.inf)
+                break
+        if len(best) < limit:
+            index["fallback_reason"] = "insufficient_anchors"
+            return None
+        keep = bounds <= threshold
+        potential = int(sizes[keep].sum())
+        if potential * 4 > total * 3:
+            index["fallback_reason"] = "weak_query_bounds"
+            return None
+        index["last_pruned_blocks"] = int(numpy.count_nonzero((bounds > threshold) & (sizes > 0)))
+        survivors = order[ordered_eligible & numpy.repeat(keep, METRIC_BLOCK_ROWS)[:rows]]
+        index["last_scanned_rows"] = int(survivors.size)
+        native_query = numpy.asarray(target, dtype=values.dtype)
+        if matrix[5] <= IDENTITY_MAX_ABS and float(numpy.max(numpy.abs(query))) <= IDENTITY_MAX_ABS:
+            squared = self._identity_squared(values, matrix[4], native_query, survivors)
+            margin = self.identity_error_margin(matrix[6], float(native_query @ native_query),
+                                                width, numpy.finfo(values.dtype).eps)
+            boundary = float(numpy.partition(squared, limit - 1)[limit - 1])
+            survivors = survivors[squared <= boundary + 2.0 * margin]
+        squared = self._direct_squared(values, query, survivors)
+        boundary = float(numpy.partition(squared, limit - 1)[limit - 1])
+        pool = survivors[squared <= math.nextafter(boundary * ratio, math.inf)]
+        if pool.size > max(8 * limit, 128):
+            index["fallback_reason"] = "wide_tie_window"
+            return None
+        best = heapq.nsmallest(limit, ((math.dist(values[int(slot)], query),
+                                       int(keys[int(slot)]), int(slot)) for slot in pool))
+        offsets = snapshot.offsets
+        return [(self.read_row(table, offsets[slot]), (distance,))
+                for distance, _, slot in best]
+
     def matrix_top_k(self, table, column, target, limit):
         """Exact TopK over the dense matrix; ties still break on primary key."""
         if not limit:
@@ -702,10 +889,13 @@ class Database(Store):
             if matrix is None:
                 return self._chunked_top_k(table, snapshot, column, target, limit)
         _, _, values, keys, norms, maxabs, norms_max = matrix
+        screened = self._metric_top_k(table, matrix, target, limit)
+        if screened is not None:
+            return screened
         query = _numpy.asarray(target, dtype=values.dtype)
-        query_norm_sq = float(query @ query)
         width = values.shape[1]
-        if maxabs <= IDENTITY_MAX_ABS:
+        if maxabs <= IDENTITY_MAX_ABS and float(_numpy.max(_numpy.abs(query))) <= IDENTITY_MAX_ABS:
+            query_norm_sq = float(query @ query)
             # |v-q|^2 = |v|^2 - 2 v.q + |q|^2 costs one BLAS mat-vec instead of
             # an element-wise pass that allocates a matrix-sized temporary; the
             # ranking it produces is only used to choose candidates.
@@ -778,10 +968,13 @@ class Database(Store):
                 return self._chunked_top_k(table, snapshot, column, target, limit,
                                            slots=subset)
         _, _, values, keys, norms, maxabs, norms_max = matrix
+        screened = self._metric_top_k(table, matrix, target, limit, subset)
+        if screened is not None:
+            return screened
         query = _numpy.asarray(target, dtype=values.dtype)
-        query_norm_sq = float(query @ query)
         width = values.shape[1]
-        if maxabs <= IDENTITY_MAX_ABS:
+        if maxabs <= IDENTITY_MAX_ABS and float(_numpy.max(_numpy.abs(query))) <= IDENTITY_MAX_ABS:
+            query_norm_sq = float(query @ query)
             if subset.size * 4 >= rows:
                 # Broad filter: one mat-vec over the whole matrix, then index
                 # the distance array instead of gathering vector blocks.

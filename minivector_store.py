@@ -154,6 +154,9 @@ class Table:
         # Compact per-column arrays over stable slots, used to turn scalar
         # predicates into candidate slots before any vector work.
         self.scalar_cache = None
+        # Query-derived metric bounds refer to the current stable slot snapshot.
+        self.metric_blocks = None
+        self.metric_queries = 0
 
     def large_scan(self):
         return len(self.rows) * self.minimum_row_weight > CACHE_BUDGET
@@ -198,6 +201,8 @@ class Transaction:
                 # but immutable log offsets let the next build reuse its rows.
                 table.blocks = table.axis = table.snapshot = None
                 table.scalar_cache = None
+                table.metric_blocks = None
+                table.metric_queries = 0
             for key, offset in changes.items():
                 if offset is None:
                     previous = table.rows.pop(key, None)
@@ -208,6 +213,8 @@ class Transaction:
             if table.snapshot is not None and table.snapshot.deleted_count >= len(table.rows):
                 table.blocks = table.axis = table.snapshot = table.matrix = None
                 table.scalar_cache = None
+                table.metric_blocks = None
+                table.metric_queries = 0
 
 
 class Store:
@@ -298,7 +305,11 @@ class Store:
 
         try:
             updates.apply(logged_operations())
-            self.writer.flush()
+            if self.pending is not None:
+                # The separate reader must see this transaction's new rows.
+                # Autocommit instead flushes data and its COMMIT marker together
+                # in durable_commit(), before fsync and publishing any changes.
+                self.writer.flush()
         except Exception:
             self.truncate(start)
             raise

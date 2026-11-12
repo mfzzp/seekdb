@@ -145,7 +145,9 @@ boundary; the public cases never project a vector column at all.
 
 ## 3. Correctness evidence
 
-- 130 regression tests, passing with and without numpy (37 skipped without it).
+- The current suite contains 153 regression tests. The dated validation record
+  below distinguishes executed tests from dependency-specific skips. The older
+  130-test run passed with NumPy; 37 tests were skipped without it.
 - 20/20 public cases plus twelve extra cases through the judge's own runner
   (`protocol_check/run.py` with `tests/extra_cases`), in both modes, including
   against a pristine `git archive` export of the committed tree.
@@ -356,3 +358,41 @@ Validation: 130 tests with NumPy; 93 executed and 37 skipped without NumPy;
 checked under a real 2 GiB cgroup and taskset CPUs 0,1.
 Docker/Podman are absent: an actual container build and --image test remain
 unverified. No official evaluation submission is performed by this script.
+
+## 7. Current block and commit candidate (2026-11-12)
+
+The current candidate adds conservative, snapshot-local logical metric blocks and
+keeps the append-log format unchanged. Autocommit row frames and their commit
+marker are flushed together, while the durability `fsync` remains. The metric
+path is gated at 4,194,304 candidate coordinates and falls back to the existing
+vectorized or chunked path for smaller or weakly selective workloads.
+
+On the Linux SSD runner, with 2 CPU quota, 2 GiB memory, no swap and pids 128,
+the full 153-test suite passed in NumPy mode and passed with 50 dependency skips
+without NumPy. The same candidate also passed the independent oracle in every
+recorded metric benchmark. Representative warm-query results were 3.131 to
+1.801 ms for clustered 32,768 x 128 data, 3.166 to 1.819 ms for correlated
+filters, 3.612 to 2.211 ms on the HDD runner, and 13.863 to 5.527 ms for
+clustered 131,072 x 128 data. Uniform 32,768 x 128 data stayed on the fallback
+path and measured 3.079 to 3.459 ms; the small 10,000-row sample also stayed on
+the fallback path. Result rankings and distances matched the independent FP64
+oracle in all these comparisons.
+
+The write probe produced identical persisted log hashes and restart results on
+both disks. For 1,000 single-row statements, raw `write` calls fell from 2,002
+to 1,001 while `fsync` remained 1,001; for batch sizes 100 and 1,000 the counts
+were 22 to 11 and 8 to 6 respectively, with the same fsync counts. These counts
+reduce syscall overhead but do not remove serial fsync latency.
+
+These are controlled synthetic measurements on a shared server. They do not
+flush the system page cache, so a first query is process-cold derived state rather
+than a cold physical-disk measurement. The block structure is an in-memory
+derived index; physical row clustering, LSM compaction, HNSW and GPU execution
+are outside this candidate. The exact source hashes, commands, artifacts and
+known limitations are recorded in `agent/block-optimization-20261112.json`.
+
+The same final working tree was built and exercised in the installed rootless
+Docker runtime. The acceptance record
+`/mnt/SSD1/zzp/docker-block-acceptance-20261112T014700Z-b651a3d089/acceptance.json`
+reports a passing image build, NumPy probe, cgroup limits, read-only application
+files, handshake, 20 public exact cases, 12 extra cases and 20 public ANN cases.

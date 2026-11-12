@@ -90,10 +90,13 @@ stages its writes; a failing statement truncates its own suffix. `COMMIT`
 appends the commit marker, flushes, `fsync`s and only then answers. Recovery
 replays frames up to the last commit marker and truncates the unfinished
 suffix, so a forced kill keeps committed data and drops partial transactions.
+Small autocommit statements now buffer row frames together with the commit
+marker before one flush. The final `fsync` is retained. Explicit transactions
+still flush each statement for read-your-own-writes and sync at COMMIT.
 
 ### Queries
 
-Costs are cut in four places, in order of effect:
+The query engine uses the following paths:
 
 1. **Dense matrix + BLAS** (numpy present, table ≥ 2048 rows, no pending
    transaction, LIMIT present): live float32 vectors are materialised once into
@@ -108,6 +111,9 @@ Costs are cut in four places, in order of effect:
    `eps` is the epsilon of the dtype the matrix was built with: above
    `MATRIX_MAX_BYTES` the matrix is float32, whose epsilon is nine orders of
    magnitude larger, and a float64 bound would make the window far too narrow.
+   An absolute underflow allowance supplements that relative bound. Direct
+   distance refinement always uses float64, including compact float32 caches.
+   Large query coordinates also bypass the identity kernel.
 2. **Equality groups**: one array of snapshot slots per distinct value of a
    scalar column. A filtered TopK only computes distances for that group's
    slots — with or without a vector index.
@@ -129,6 +135,16 @@ Costs are cut in four places, in order of effect:
    256 candidates are read straight from the log, a set covering a quarter of
    the table is answered from the dense matrix with the distance array indexed,
    and the middle band gathers the subset in chunks.
+6. **Conservative metric blocks**: sufficiently large, repeatedly queried
+   candidate sets can use a snapshot-local permutation and per-block coordinate
+   bounds. A sample rejects unpromising high-dimensional layouts. Distances to
+   the boxes give conservative L2 lower bounds; K live, filter-matching anchors
+   give an upper bound. All surviving slots are processed in one vectorized
+   batch, followed by full-precision refinement and primary-key tie ordering.
+   Small workloads, weak bounds and memory pressure retain the original paths.
+   Updates invalidate the bounds; deleted slots remain excluded by the bitmap.
+   This is an in-memory derived index, not a physical log reordering or an LSM
+   format. Both `exact` and `ann` modes preserve exact filtered TopK semantics.
 
 ### Measured behaviour
 
@@ -183,13 +199,14 @@ python3 -m unittest discover -s tests -v
   row inside a transaction and rolling it back, LIMIT 0, non-ASCII values, ann vs
   exact, the row order of a multi-row answer without ORDER BY, and vector
   distances after an update and a delete.
-- 130 regression tests pass: matrix paths, numeric bounds and float32 margins,
+- The current suite contains 153 regression tests: matrix paths, numeric bounds and float32 margins,
   memory budget, chunked TopK, scalar filters, ann/exact equivalence, bitmap
   deletion, recovery truncation, real SIGKILL recovery, mixed-workload soak, query
   paths, scan cache, SQL surface, model fuzz, semantics audit, startup
   diagnostics, the protocol-level shape/resilience/read-only suite, a golden
   transcript of 88 statements, the twelve extra judge cases, and the evidence
-  document's own schema and size budget. 31 are skipped when numpy is absent.
+  document's own schema and size budget. See the dated validation record below
+  for executed and skipped counts in each dependency mode.
 - Model fuzz: 220 random operations (multi-row inserts, predicate updates and
   deletes, transactions, restarts, TopK queries) match a Python model exactly.
 - Differential fuzz against the original baseline: 480/480 generated queries
@@ -201,6 +218,11 @@ python3 -m unittest discover -s tests -v
   open transaction, during a 100k-row statement, a 10k-row transaction killed
   before COMMIT, a kill that lands inside recovery itself (a 300k-row log, with the
   test asserting no ready line was produced first), and a torn log suffix.
+
+The latest Linux candidate validation, including exact source hashes, resource
+limits, benchmark commands and limitations, is recorded in
+`agent/block-optimization-20261112.json`. It records both improvements and
+fallback cases; the measurements are not a promise of a platform score.
 
 ### Timings through the real JSONL protocol
 

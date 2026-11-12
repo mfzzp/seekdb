@@ -1,0 +1,179 @@
+{
+  "source": "D:/oceanbase-competition/minivectordb/review-20261111/paper-study",
+  "linux_worktree": "/mnt/SSD1/zzp/minivectordb-block-20261111",
+  "linux_regression_artifact": "/mnt/SSD1/zzp/block-experiments-20261111/regression-20261112T013534Z-32d8e7",
+  "commit_io_artifact": "/mnt/SSD1/zzp/block-experiments-20261111/writes-20261111T160543Z-ef2a90/result.json",
+  "commands": [
+    "systemd-run --user --scope -p MemoryMax=2G -p MemorySwapMax=0 -p CPUQuota=200% -p TasksMax=128 taskset -c 0,1 python3 -B -m unittest discover -s tests -v",
+    "python3 tests/bench_metric_blocks.py --source <baseline-or-candidate> --rows 32768 --dimensions 128 --repeats 12 --distribution all --data-root <new-dir> --output <new-json>",
+    "python3 tests/bench_commit_io.py --source-root <baseline-or-candidate> --data-root <new-dir> --batch <1-or-100-or-1000>"
+  ],
+  "linux_regression": {
+    "numpy": {
+      "tests": 153,
+      "failed": 0,
+      "skipped": 0,
+      "seconds": 19.345
+    },
+    "without_numpy": {
+      "tests": 153,
+      "failed": 0,
+      "skipped": 50,
+      "seconds": 6.987
+    },
+    "limits": "2 GiB memory, swap 0, CPU quota 2 cores, pids 128, taskset CPUs 0,1"
+  },
+  "write_io": {
+    "SSD1": {
+      "batch_1": {
+        "baseline_write": 2002,
+        "candidate_write": 1001,
+        "fsync": 1001
+      },
+      "batch_100": {
+        "baseline_write": 22,
+        "candidate_write": 11,
+        "fsync": 11
+      },
+      "batch_1000": {
+        "baseline_write": 8,
+        "candidate_write": 6,
+        "fsync": 2
+      }
+    },
+    "HDD2": {
+      "batch_1": {
+        "baseline_write": 2002,
+        "candidate_write": 1001,
+        "fsync": 1001
+      },
+      "batch_100": {
+        "baseline_write": 22,
+        "candidate_write": 11,
+        "fsync": 11
+      },
+      "batch_1000": {
+        "baseline_write": 8,
+        "candidate_write": 6,
+        "fsync": 2
+      }
+    },
+    "log_sha256_equal_after_restart": true
+  },
+  "query_samples": [
+    {
+      "device": "SSD1",
+      "rows": 32768,
+      "dimensions": 128,
+      "distribution": "clustered",
+      "warm_baseline_ms": 3.131,
+      "warm_candidate_ms": 1.801,
+      "speedup": 1.738,
+      "hash_equal": true
+    },
+    {
+      "device": "SSD1",
+      "rows": 32768,
+      "dimensions": 128,
+      "distribution": "correlated_filters",
+      "warm_baseline_ms": 3.166,
+      "warm_candidate_ms": 1.819,
+      "speedup": 1.74,
+      "hash_equal": true
+    },
+    {
+      "device": "HDD2",
+      "rows": 32768,
+      "dimensions": 128,
+      "distribution": "clustered",
+      "warm_baseline_ms": 3.612,
+      "warm_candidate_ms": 2.211,
+      "speedup": 1.633,
+      "hash_equal": true
+    },
+    {
+      "device": "SSD1",
+      "rows": 131072,
+      "dimensions": 128,
+      "distribution": "clustered",
+      "warm_baseline_ms": 13.863,
+      "warm_candidate_ms": 5.527,
+      "speedup": 2.508,
+      "hash_equal": true
+    },
+    {
+      "device": "SSD1",
+      "rows": 32768,
+      "dimensions": 128,
+      "distribution": "uniform",
+      "warm_baseline_ms": 3.079,
+      "warm_candidate_ms": 3.459,
+      "speedup": 0.89,
+      "hash_equal": true,
+      "index_used": false
+    },
+    {
+      "device": "SSD1",
+      "rows": 10000,
+      "dimensions": 128,
+      "distribution": "clustered",
+      "warm_baseline_ms": 0.709,
+      "warm_candidate_ms": 1.039,
+      "speedup": 0.683,
+      "hash_equal": true,
+      "index_used": false
+    },
+    {
+      "device": "SSD1",
+      "rows": 32768,
+      "dimensions": 128,
+      "distribution": "clustered",
+      "warm_baseline_ms": 3.897,
+      "warm_candidate_ms": 1.654,
+      "speedup": 2.356,
+      "hash_equal": true,
+      "final_gate": "4M"
+    },
+    {
+      "device": "SSD1",
+      "rows": 131072,
+      "dimensions": 128,
+      "distribution": "clustered",
+      "warm_baseline_ms": 13.139,
+      "warm_candidate_ms": 5.259,
+      "speedup": 2.498,
+      "hash_equal": true,
+      "final_gate": "4M"
+    }
+  ],
+  "limitations": [
+    "Measurements use synthetic distributions and a shared server; they are evidence of behavior, not a guaranteed contest score.",
+    "No system-wide page-cache flush was performed; first query is process-cold derived state, not cold physical storage.",
+    "The index is an in-memory snapshot-derived logical block index. It does not claim physical clustering, LSM compaction, HNSW, or GPU execution.",
+    "The 4M-coordinate gate intentionally falls back for small tables and selective filters where fixed gather cost is not worthwhile.",
+    "Serial autocommit durability still pays fsync latency; the write optimization reduces write syscalls while retaining synchronization."
+  ],
+  "docker_acceptance": {
+    "artifact": "/mnt/SSD1/zzp/docker-block-acceptance-20261112T014700Z-b651a3d089/acceptance.json",
+    "result": "PASS",
+    "checks": [
+      "Docker build",
+      "NumPy 2.3.5 matvec",
+      "2 GiB memory",
+      "swap 0",
+      "2 CPU quota",
+      "pids 128",
+      "read-only app",
+      "handshake",
+      "20 public exact",
+      "12 extra exact",
+      "20 public ann"
+    ],
+    "first_attempt": "The first invocation lacked the user Docker wrapper in PATH and was recorded as an environment preflight failure; it did not build or test an image."
+  },
+  "final_source_sha256": {
+    "minivectordb.py": "10300c3d7cc99dc1e8ed2a5310c79a9ea80f430e32bf9e8cdf2281da66776f59",
+    "minivector_store.py": "6411da81d89ab868c89b4b1ead8c8c3170065888843ff3f8106fba717bfdf078",
+    "minivector_sql.py": "0a14dd3d0abef5ff3bd6dc121888877cb2b566d07422b082f1252e9122ce184a"
+  }
+}
