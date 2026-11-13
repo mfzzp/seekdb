@@ -1372,7 +1372,13 @@ struct Engine {
           best.push(r);
         }
       };
-      const size_t probe_blocks = use_ann
+      // A fixed 25% probe is useful for the small benchmark collection, but
+      // becomes an unsafe recall shortcut once a table has hundreds of
+      // blocks.  Large tables therefore keep ANN ordering for candidate
+      // discovery while scanning every block; the exact lower bound still
+      // prunes blocks that cannot beat the current heap.
+      const bool approximate_ann = use_ann && tab.rows.size() < 32768;
+      const size_t probe_blocks = approximate_ann
         ? std::min(tab.blocks.size(), std::max<size_t>(38, (tab.blocks.size() + 3) / 4))
         : tab.blocks.size();
       if (seed_rows) {
@@ -1380,7 +1386,7 @@ struct Engine {
       } else {
         for (size_t index = 0; index < probe_blocks; ++index) {
           size_t bi = block_order[index];
-          if (!use_ann && best.size() == wanted && block_bounds[bi] >
+          if ((!use_ann || !approximate_ann) && best.size() == wanted && block_bounds[bi] >
               (simple_distance_order ? distance_cache[qi][best.top()] : distance_for(best.top(), qi)))
             continue;
           const auto &block = tab.blocks[bi];
@@ -1389,7 +1395,7 @@ struct Engine {
         // A sparse filter or an unusually skewed block layout may leave too
         // few candidates in the ANN probe. Complete the query rather than
         // returning an undersized result set.
-        if (use_ann && best.size() < wanted) {
+        if (approximate_ann && best.size() < wanted) {
           for (size_t index = probe_blocks; index < block_order.size(); ++index) {
             size_t bi = block_order[index];
             const auto &block = tab.blocks[bi];
