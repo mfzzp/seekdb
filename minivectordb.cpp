@@ -172,6 +172,12 @@ struct VectorBlock {
   std::vector<float> center_full;
   double radius2 = 0.0;
 };
+struct VectorBlockGroup {
+  size_t begin_block = 0;
+  size_t end_block = 0;
+  std::vector<float> lo;
+  std::vector<float> hi;
+};
 struct Table {
   std::string name;
   std::vector<Column> cols;
@@ -184,10 +190,13 @@ struct Table {
   mutable bool blocks_valid = false;
   mutable size_t blocks_row_count = 0;
   mutable bool vector_matrix_valid = false;
+  mutable bool vector_matrix_disabled = false;
   mutable int vector_matrix_dim = 0;
   mutable std::vector<float> vector_matrix;
   mutable std::vector<int> block_dims;
   mutable std::vector<VectorBlock> blocks;
+  mutable bool block_groups_valid = false;
+  mutable std::vector<VectorBlockGroup> block_groups;
   mutable std::vector<std::unordered_map<std::string, std::vector<size_t>>> equality_index;
   mutable std::vector<uint8_t> equality_index_valid;
   mutable std::vector<uint8_t> equality_index_disabled;
@@ -583,7 +592,11 @@ struct Engine {
     std::string tmp = path + ".tmp";
     std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
     if (!f) throw Error("storage_error", "cannot open data directory");
-    uint32_t magic = 0x4d564332, nt = uint32_t(st.tables.size());
+    // Version 3 keeps the row format byte-for-byte compatible with v2 and
+    // appends an optional, validated Block metadata section per table.  The
+    // metadata is only a query cache: rows remain the source of truth and a
+    // stale/absent section is rebuilt normally after loading.
+    uint32_t magic = 0x4d564333, nt = uint32_t(st.tables.size());
     put(f, magic); put(f, nt);
     for (auto &kv : st.tables) {
       const Table &t = kv.second;
@@ -605,6 +618,33 @@ struct Engine {
             uint32_t n = uint32_t(v.v.size()); put(f, n);
             f.write(reinterpret_cast<const char *>(v.v.data()), sizeof(float) * n);
           }
+        }
+      }
+      const bool metadata_valid = t.blocks_valid && t.blocks_row_count == t.rows.size();
+      uint8_t has_metadata = metadata_valid ? 1 : 0;
+      put(f, has_metadata);
+      if (metadata_valid) {
+        const uint64_t block_rows = uint64_t(t.blocks_row_count);
+        const uint32_t nd = uint32_t(t.block_dims.size());
+        const uint64_t nb = uint64_t(t.blocks.size());
+        put(f, block_rows); put(f, nd);
+        for (int dim : t.block_dims) put(f, dim);
+        put(f, nb);
+        for (const VectorBlock &block : t.blocks) {
+          const uint64_t begin = uint64_t(block.begin), end = uint64_t(block.end);
+          const uint32_t nlo = uint32_t(block.lo.size());
+          const uint32_t nhi = uint32_t(block.hi.size());
+          const uint32_t ncenter = uint32_t(block.center.size());
+          const uint32_t nfull = uint32_t(block.center_full.size());
+          put(f, begin); put(f, end); put(f, nlo);
+          if (nlo) f.write(reinterpret_cast<const char *>(block.lo.data()), sizeof(float) * nlo);
+          put(f, nhi);
+          if (nhi) f.write(reinterpret_cast<const char *>(block.hi.data()), sizeof(float) * nhi);
+          put(f, ncenter);
+          if (ncenter) f.write(reinterpret_cast<const char *>(block.center.data()), sizeof(float) * ncenter);
+          put(f, nfull);
+          if (nfull) f.write(reinterpret_cast<const char *>(block.center_full.data()), sizeof(float) * nfull);
+          put(f, block.radius2);
         }
       }
     }
@@ -681,8 +721,9 @@ struct Engine {
     std::ifstream f(path, std::ios::binary);
     if (!f) throw Error("storage_error", "checkpoint snapshot is missing");
     uint32_t magic = 0, nt = 0;
-    if (!get(f, magic) || magic != 0x4d564332 || !get(f, nt))
+    if (!get(f, magic) || (magic != 0x4d564332 && magic != 0x4d564333) || !get(f, nt))
       throw Error("storage_error", "invalid data");
+    const bool has_block_metadata = magic == 0x4d564333;
     for (uint32_t z = 0; z < nt; ++z) {
       Table t; t.name = getstr(f); uint32_t nc;
       if (!get(f, nc) || nc > 1024 || !get(f, t.primary) || !get(f, t.vector_col))
@@ -710,7 +751,92 @@ struct Engine {
         }
         t.rows.push_back(std::move(row));
       }
-      rebuild(t); st.tables.emplace(lower(t.name), std::move(t));
+      bool metadata_valid = false;
+      uint64_t metadata_rows = 0;
+      std::vector<int> metadata_dims;
+      std::vector<VectorBlock> metadata_blocks;
+      if (has_block_metadata) {
+        uint8_t has_metadata = 0;
+        if (!get(f, has_metadata)) throw Error("storage_error", "invalid block metadata");
+        if (has_metadata > 1) throw Error("storage_error", "invalid block metadata");
+        metadata_valid = has_metadata != 0;
+        if (metadata_valid) {
+          uint32_t nd = 0;
+          uint64_t nb = 0;
+          if (!get(f, metadata_rows) || !get(f, nd) || nd > 1024)
+            throw Error("storage_error", "invalid block metadata");
+          metadata_dims.resize(nd);
+          for (uint32_t i = 0; i < nd; ++i)
+            if (!get(f, metadata_dims[i])) throw Error("storage_error", "invalid block metadata");
+          const uint64_t max_blocks = (nr + 255u) / 256u;
+          if (!get(f, nb) || nb > max_blocks) throw Error("storage_error", "invalid block metadata");
+          metadata_blocks.reserve(size_t(nb));
+          for (uint64_t i = 0; i < nb; ++i) {
+            VectorBlock block;
+            uint64_t begin = 0, end = 0;
+            uint32_t nlo = 0, nhi = 0, ncenter = 0, nfull = 0;
+            if (!get(f, begin) || !get(f, end) || begin > end || end > nr)
+              throw Error("storage_error", "invalid block metadata");
+            if (!get(f, nlo) || nlo > 1024) throw Error("storage_error", "invalid block metadata");
+            block.lo.resize(nlo);
+            if (nlo && !f.read(reinterpret_cast<char *>(block.lo.data()), sizeof(float) * nlo))
+              throw Error("storage_error", "invalid block metadata");
+            if (!get(f, nhi) || nhi > 1024) throw Error("storage_error", "invalid block metadata");
+            block.hi.resize(nhi);
+            if (nhi && !f.read(reinterpret_cast<char *>(block.hi.data()), sizeof(float) * nhi))
+              throw Error("storage_error", "invalid block metadata");
+            if (!get(f, ncenter) || ncenter > 1024) throw Error("storage_error", "invalid block metadata");
+            block.center.resize(ncenter);
+            if (ncenter && !f.read(reinterpret_cast<char *>(block.center.data()), sizeof(float) * ncenter))
+              throw Error("storage_error", "invalid block metadata");
+            if (!get(f, nfull) || nfull > 100000) throw Error("storage_error", "invalid block metadata");
+            block.center_full.resize(nfull);
+            if (nfull && !f.read(reinterpret_cast<char *>(block.center_full.data()), sizeof(float) * nfull))
+              throw Error("storage_error", "invalid block metadata");
+            if (!get(f, block.radius2) || !std::isfinite(block.radius2))
+              throw Error("storage_error", "invalid block metadata");
+            block.begin = size_t(begin);
+            block.end = size_t(end);
+            metadata_blocks.push_back(std::move(block));
+          }
+        }
+      }
+      rebuild(t);
+      if (metadata_valid) {
+        const int dim = t.vector_col >= 0 && t.vector_col < int(t.cols.size())
+                            ? t.cols[t.vector_col].width : 0;
+        bool valid = metadata_rows == nr;
+        if (valid && metadata_blocks.empty()) valid = nr == 0;
+        if (valid && !metadata_blocks.empty()) {
+          valid = metadata_blocks.front().begin == 0 &&
+                  metadata_blocks.back().end == nr;
+          size_t previous_end = 0;
+          for (const VectorBlock &block : metadata_blocks) {
+            if (block.begin != previous_end || block.end <= block.begin ||
+                block.end - block.begin > 256 ||
+                block.lo.size() != metadata_dims.size() ||
+                block.hi.size() != metadata_dims.size() ||
+                block.center.size() != metadata_dims.size() ||
+                (!block.center_full.empty() && block.center_full.size() != size_t(std::max(dim, 0)))) {
+              valid = false;
+              break;
+            }
+            previous_end = block.end;
+          }
+          valid = valid && previous_end == nr;
+        }
+        if (valid) {
+          for (int sampled_dim : metadata_dims)
+            if (sampled_dim < 0 || sampled_dim >= dim) { valid = false; break; }
+        }
+        if (valid) {
+          t.block_dims = std::move(metadata_dims);
+          t.blocks = std::move(metadata_blocks);
+          t.blocks_row_count = size_t(metadata_rows);
+          t.blocks_valid = true;
+        }
+      }
+      st.tables.emplace(lower(t.name), std::move(t));
     }
   }
   void load() {
@@ -740,30 +866,60 @@ struct Engine {
     t.blocks_valid = false;
     t.blocks_row_count = 0;
     t.vector_matrix_valid = false;
+    t.vector_matrix_disabled = false;
     t.vector_matrix_dim = 0;
-    t.vector_matrix.clear();
-    t.block_dims.clear();
-    t.blocks.clear();
+    std::vector<float>().swap(t.vector_matrix);
+    std::vector<int>().swap(t.block_dims);
+    std::vector<VectorBlock>().swap(t.blocks);
+    t.block_groups_valid = false;
+    std::vector<VectorBlockGroup>().swap(t.block_groups);
     t.equality_index.clear();
     t.equality_index_valid.clear();
     t.equality_index_disabled.clear();
   }
   static void invalidate_blocks(Table &t) {
     t.blocks_valid = false;
+    t.block_groups_valid = false;
     // INSERT only appends to the MemTable.  Keep complete immutable blocks
     // and the packed vector prefix; ensure_blocks() will rebuild at most the
     // previous partial block plus the new tail.
     t.vector_matrix_valid = false;
+    // An append can move a table across the adaptive matrix budget. Recheck
+    // the decision on the next vector query rather than permanently pinning
+    // the old choice for the lifetime of the table.
+    t.vector_matrix_disabled = false;
     t.equality_index_valid.clear();
     t.equality_index_disabled.clear();
     for (auto &index : t.equality_index) index.clear();
   }
+  static size_t vector_matrix_budget_bytes() {
+    static const size_t budget = []() -> size_t {
+      constexpr size_t DEFAULT_BUDGET = 448ull * 1024ull * 1024ull;
+      const char *text = std::getenv("MINIVECTORDB_MATRIX_BUDGET_MB");
+      if (!text || !*text) return DEFAULT_BUDGET;
+      char *end = nullptr;
+      const unsigned long long mb = std::strtoull(text, &end, 10);
+      if (end == text || *end != '\0' || mb == 0 || mb > (std::numeric_limits<size_t>::max() / (1024ull * 1024ull)))
+        return DEFAULT_BUDGET;
+      return size_t(mb) * 1024ull * 1024ull;
+    }();
+    return budget;
+  }
+  static const float *vector_data(const Table &t, size_t row, int dim) {
+    if (t.vector_matrix_valid && t.vector_matrix_dim == dim)
+      return t.vector_matrix.data() + row * size_t(dim);
+    if (t.vector_col < 0 || row >= t.rows.size()) throw Error("invalid_value", "distance requires a vector");
+    const Value &v = t.rows[row][size_t(t.vector_col)];
+    if (v.kind != VK_VECTOR || int(v.v.size()) != dim)
+      throw Error("invalid_value", "distance requires a vector");
+    return v.v.data();
+  }
   static void ensure_vector_matrix(Table &t) {
-    if (t.vector_matrix_valid) return;
+    if (t.vector_matrix_valid || t.vector_matrix_disabled) return;
     if (t.vector_col < 0 || t.rows.empty()) {
       t.vector_matrix_valid = true;
       t.vector_matrix_dim = 0;
-      t.vector_matrix.clear();
+      std::vector<float>().swap(t.vector_matrix);
       return;
     }
     const int dim = t.cols[t.vector_col].width;
@@ -775,6 +931,19 @@ struct Engine {
     }
     if (t.rows.size() > std::numeric_limits<size_t>::max() / size_t(dim))
       throw Error("storage_error", "vector matrix too large");
+    const size_t vector_count = t.rows.size() * size_t(dim);
+    if (vector_count > std::numeric_limits<size_t>::max() / sizeof(float) ||
+        vector_count * sizeof(float) > vector_matrix_budget_bytes()) {
+      // Keep the row vectors as the canonical representation for very large
+      // tables. This avoids a second O(rows*dim) allocation while preserving
+      // exact distance semantics; ensure_blocks() uses vector_data() and the
+      // query path falls back to the same float32 values.
+      std::vector<float>().swap(t.vector_matrix);
+      t.vector_matrix_dim = dim;
+      t.vector_matrix_valid = false;
+      t.vector_matrix_disabled = true;
+      return;
+    }
     size_t cached_rows = 0;
     if (t.vector_matrix_dim == dim && t.vector_matrix.size() % size_t(dim) == 0 &&
         t.vector_matrix.size() / size_t(dim) <= t.rows.size()) {
@@ -833,6 +1002,8 @@ struct Engine {
     if (t.vector_col < 0 || t.rows.empty()) {
       t.blocks.clear();
       t.block_dims.clear();
+      t.block_groups.clear();
+      t.block_groups_valid = true;
       t.blocks_row_count = t.rows.size();
       t.blocks_valid = true;
       return;
@@ -841,6 +1012,8 @@ struct Engine {
     if (dim <= 0) {
       t.blocks.clear();
       t.block_dims.clear();
+      t.block_groups.clear();
+      t.block_groups_valid = true;
       t.blocks_row_count = t.rows.size();
       t.blocks_valid = true;
       return;
@@ -871,7 +1044,15 @@ struct Engine {
     // and is usually tighter than the geometric ball. Keep the full bound
     // for ordinary dimensions, but avoid paying that cold-build cost for
     // high-dimensional tables.
-    const bool build_full_center = dim <= 256;
+    // A full-width center/radius is valuable for ordinary tables, but it is
+    // another O(rows*dim) float array when materialized per block.  Once the
+    // table itself is large, the sampled-coordinate envelope is the safer
+    // memory/performance trade-off and remains an exact lower bound.
+    const size_t vector_elements = t.rows.size() <= std::numeric_limits<size_t>::max() / size_t(dim)
+                                     ? t.rows.size() * size_t(dim) : std::numeric_limits<size_t>::max();
+    const size_t vector_bytes = vector_elements <= std::numeric_limits<size_t>::max() / sizeof(float)
+                                  ? vector_elements * sizeof(float) : std::numeric_limits<size_t>::max();
+    const bool build_full_center = dim <= 256 && vector_bytes <= 192ull * 1024ull * 1024ull;
     // A partial tail block is mutable in the append-only MemTable. Rebuild
     // only that tail; complete earlier blocks remain reusable.
     if (!t.blocks.empty() && t.blocks_row_count < t.rows.size() &&
@@ -889,7 +1070,7 @@ struct Engine {
       block.center.assign(t.block_dims.size(), 0.0f);
       if (build_full_center) block.center_full.assign(size_t(dim), 0.0f);
       for (size_t r = block.begin; r < block.end; ++r) {
-        const float *data = t.vector_matrix.data() + r * size_t(dim);
+        const float *data = vector_data(t, r, dim);
         for (size_t j = 0; j < t.block_dims.size(); ++j) {
           float x = data[size_t(t.block_dims[j])];
           block.lo[j] = std::min(block.lo[j], x);
@@ -905,7 +1086,7 @@ struct Engine {
       if (build_full_center) {
         for (float &x : block.center_full) x /= count;
         for (size_t r = block.begin; r < block.end; ++r) {
-          const float *data = t.vector_matrix.data() + r * size_t(dim);
+          const float *data = vector_data(t, r, dim);
           block.radius2 = std::max(block.radius2,
                                    distance_fast(data, block.center_full.data(), size_t(dim)));
         }
@@ -914,6 +1095,35 @@ struct Engine {
     }
     t.blocks_row_count = t.rows.size();
     t.blocks_valid = true;
+    t.block_groups_valid = false;
+    t.block_groups.clear();
+  }
+  static void ensure_block_groups(Table &t) {
+    if (t.block_groups_valid) return;
+    t.block_groups.clear();
+    if (!t.blocks_valid || t.blocks.empty()) {
+      t.block_groups_valid = true;
+      return;
+    }
+    constexpr size_t GROUP_BLOCKS = 16;
+    const size_t groups = (t.blocks.size() + GROUP_BLOCKS - 1) / GROUP_BLOCKS;
+    t.block_groups.reserve(groups);
+    for (size_t begin = 0; begin < t.blocks.size(); begin += GROUP_BLOCKS) {
+      VectorBlockGroup group;
+      group.begin_block = begin;
+      group.end_block = std::min(t.blocks.size(), begin + GROUP_BLOCKS);
+      group.lo.assign(t.block_dims.size(), std::numeric_limits<float>::infinity());
+      group.hi.assign(t.block_dims.size(), -std::numeric_limits<float>::infinity());
+      for (size_t bi = group.begin_block; bi < group.end_block; ++bi) {
+        const VectorBlock &block = t.blocks[bi];
+        for (size_t j = 0; j < t.block_dims.size(); ++j) {
+          group.lo[j] = std::min(group.lo[j], block.lo[j]);
+          group.hi[j] = std::max(group.hi[j], block.hi[j]);
+        }
+      }
+      t.block_groups.push_back(std::move(group));
+    }
+    t.block_groups_valid = true;
   }
   State &working() { return st; }
   const State &view() const { return st; }
@@ -1344,18 +1554,23 @@ struct Engine {
       const size_t qi = size_t(ord[0].projection);
       std::vector<double> block_bounds(tab.blocks.size(), 0.0);
       std::vector<double> block_scores(tab.blocks.size(), 0.0);
-      for (size_t bi = 0; bi < tab.blocks.size(); ++bi) {
-        const auto &block = tab.blocks[bi];
-        const auto &q = proj[qi];
+      const auto &query_projection = proj[qi];
+      auto sampled_bound = [&](const std::vector<float> &lo,
+                               const std::vector<float> &hi) {
         double bound = 0.0;
         for (size_t j = 0; j < tab.block_dims.size(); ++j) {
-          double x = double(q.target[size_t(tab.block_dims[j])]);
-          double d = x < double(block.lo[j]) ? double(block.lo[j]) - x
-                    : x > double(block.hi[j]) ? x - double(block.hi[j]) : 0.0;
+          const double x = double(query_projection.target[size_t(tab.block_dims[j])]);
+          const double d = x < double(lo[j]) ? double(lo[j]) - x
+                           : x > double(hi[j]) ? x - double(hi[j]) : 0.0;
           bound += d * d;
         }
+        return bound;
+      };
+      for (size_t bi = 0; bi < tab.blocks.size(); ++bi) {
+        const auto &block = tab.blocks[bi];
+        double bound = sampled_bound(block.lo, block.hi);
         if (!block.center_full.empty()) {
-          const double center_distance = distance_fast(block.center_full.data(), q.target.data(),
+          const double center_distance = distance_fast(block.center_full.data(), query_projection.target.data(),
                                                        block.center_full.size());
           const double gap = std::sqrt(center_distance) - std::sqrt(block.radius2);
           if (gap > 0.0) {
@@ -1370,7 +1585,7 @@ struct Engine {
         if (use_ann) {
           block_scores[bi] = block.center_full.empty()
             ? bound
-            : distance_fast(block.center_full.data(), q.target.data(), block.center_full.size());
+            : distance_fast(block.center_full.data(), query_projection.target.data(), block.center_full.size());
         } else {
           block_scores[bi] = bound;
         }
@@ -1380,6 +1595,46 @@ struct Engine {
       std::sort(block_order.begin(), block_order.end(), [&](size_t a, size_t b) {
         return block_scores[a] < block_scores[b];
       });
+      // A second, coarse level groups adjacent blocks.  Its min/max envelope
+      // is another conservative lower bound, so a whole group can be rejected
+      // before touching its child blocks once the Top-K heap has a cutoff.
+      // Keep the original flat order for small tables where the extra vectors
+      // cost more than they save.
+      ensure_block_groups(tab);
+      // The full center/radius bound is available for ordinary dimensions and
+      // makes group cutoffs useful. Wide vectors intentionally use only the
+      // sampled-coordinate bound; keep their globally sorted block order,
+      // which is tighter than a coarse group order for that case.
+      const bool use_hierarchy = tab.blocks.size() >= 64 && tab.block_groups.size() >= 4 &&
+                                 tab.cols[tab.vector_col].width <= 256;
+      std::vector<double> group_bounds;
+      std::vector<size_t> group_order;
+      std::vector<std::pair<size_t, size_t>> group_ranges;
+      if (use_hierarchy) {
+        group_bounds.resize(tab.block_groups.size(), 0.0);
+        group_order.resize(tab.block_groups.size());
+        std::iota(group_order.begin(), group_order.end(), 0);
+        for (size_t gi = 0; gi < tab.block_groups.size(); ++gi)
+          group_bounds[gi] = sampled_bound(tab.block_groups[gi].lo, tab.block_groups[gi].hi);
+        std::sort(group_order.begin(), group_order.end(), [&](size_t a, size_t b) {
+          return group_bounds[a] < group_bounds[b];
+        });
+        block_order.clear();
+        block_order.reserve(tab.blocks.size());
+        group_ranges.reserve(group_order.size());
+        for (size_t gi : group_order) {
+          const VectorBlockGroup &group = tab.block_groups[gi];
+          const size_t begin = block_order.size();
+          std::vector<size_t> children;
+          children.reserve(group.end_block - group.begin_block);
+          for (size_t bi = group.begin_block; bi < group.end_block; ++bi) children.push_back(bi);
+          std::sort(children.begin(), children.end(), [&](size_t a, size_t b) {
+            return block_scores[a] < block_scores[b];
+          });
+          block_order.insert(block_order.end(), children.begin(), children.end());
+          group_ranges.emplace_back(begin, block_order.size());
+        }
+      }
       const bool simple_distance_order = ord.size() == 1 && ord[0].distance;
       auto heap_less = [&](size_t a, size_t b) {
         if (simple_distance_order) {
@@ -1414,6 +1669,20 @@ struct Engine {
         : tab.blocks.size();
       if (seed_rows) {
         for (size_t r : *seed_rows) consider(r);
+      } else if (use_hierarchy && !approximate_ann) {
+        for (size_t gi = 0; gi < group_ranges.size(); ++gi) {
+          if (best.size() == wanted && group_bounds[group_order[gi]] >
+              (simple_distance_order ? distance_cache[qi][best.top()] : distance_for(best.top(), qi)))
+            break;
+          for (size_t index = group_ranges[gi].first; index < group_ranges[gi].second; ++index) {
+            const size_t bi = block_order[index];
+            if (best.size() == wanted && block_bounds[bi] >
+                (simple_distance_order ? distance_cache[qi][best.top()] : distance_for(best.top(), qi)))
+              continue;
+            const auto &block = tab.blocks[bi];
+            for (size_t r = block.begin; r < block.end; ++r) consider(r);
+          }
+        }
       } else {
         for (size_t index = 0; index < probe_blocks; ++index) {
           size_t bi = block_order[index];

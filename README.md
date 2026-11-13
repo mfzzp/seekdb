@@ -63,6 +63,17 @@ scalar fallback on other CPUs. Results return deterministic primary-key tie
 ordering. Non-finite values, dimension mismatches, overflow, invalid SQL,
 and unsupported constructs produce structured errors and keep the process alive.
 
+Vector Top-K uses exact sampled-coordinate lower bounds, a full center/radius
+bound for ordinary-sized tables, and a conservative second-level Block-group
+envelope. The group path only rejects a group when its lower bound is already
+above the current Top-K cutoff, so it does not change exact results. Checkpoint
+snapshots use a v3 format that stores validated Block metadata and remain
+backward-compatible with v2 snapshots. For very large tables the dense matrix
+and full-width per-Block centers are disabled adaptively to avoid a second
+`rows*dim` allocation; set `MINIVECTORDB_MATRIX_BUDGET_MB` to override the
+default 448 MiB matrix budget when the deployment has a different memory
+limit.
+
 ## Protocol example
 
 ```jsonl
