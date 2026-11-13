@@ -169,6 +169,8 @@ struct VectorBlock {
   std::vector<float> lo;
   std::vector<float> hi;
   std::vector<float> center;
+  std::vector<float> center_full;
+  double radius2 = 0.0;
 };
 struct Table {
   std::string name;
@@ -819,19 +821,25 @@ struct Engine {
       block.lo.assign(t.block_dims.size(), std::numeric_limits<float>::infinity());
       block.hi.assign(t.block_dims.size(), -std::numeric_limits<float>::infinity());
       block.center.assign(t.block_dims.size(), 0.0f);
+      block.center_full.assign(size_t(dim), 0.0f);
       for (size_t r = block.begin; r < block.end; ++r) {
-        const Value &v = t.rows[r][t.vector_col];
-        if (v.kind != VK_VECTOR || int(v.v.size()) != dim)
-          throw Error("invalid_value", "distance requires a vector");
+        const float *data = t.vector_matrix.data() + r * size_t(dim);
         for (size_t j = 0; j < t.block_dims.size(); ++j) {
-          float x = v.v[size_t(t.block_dims[j])];
+          float x = data[size_t(t.block_dims[j])];
           block.lo[j] = std::min(block.lo[j], x);
           block.hi[j] = std::max(block.hi[j], x);
           block.center[j] += x;
         }
+        for (int d = 0; d < dim; ++d) block.center_full[size_t(d)] += data[size_t(d)];
       }
       const float count = float(block.end - block.begin);
       for (float &x : block.center) x /= count;
+      for (float &x : block.center_full) x /= count;
+      for (size_t r = block.begin; r < block.end; ++r) {
+        const float *data = t.vector_matrix.data() + r * size_t(dim);
+        block.radius2 = std::max(block.radius2,
+                                 distance_fast(data, block.center_full.data(), size_t(dim)));
+      }
       t.blocks.push_back(std::move(block));
     }
   }
@@ -1214,18 +1222,16 @@ struct Engine {
     // Cache each distance once per query. The old implementation recomputed the
     // same distance for every comparison in an O(n log n) sort.
     std::vector<std::vector<double>> distance_cache(proj.size());
-    std::vector<std::vector<uint8_t>> distance_ready(proj.size());
     bool has_vector_distance = false;
     for (size_t qi = 0; qi < proj.size(); ++qi) {
       if (proj[qi].distance) {
         has_vector_distance = true;
-        distance_cache[qi].assign(tab.rows.size(), 0.0);
-        distance_ready[qi].assign(tab.rows.size(), 0);
+        distance_cache[qi].assign(tab.rows.size(), std::numeric_limits<double>::quiet_NaN());
       }
     }
     if (has_vector_distance) ensure_vector_matrix(tab);
     auto distance_for = [&](size_t r, size_t qi) {
-      if (!distance_ready[qi][r]) {
+      if (std::isnan(distance_cache[qi][r])) {
         const Projection &q = proj[qi];
         if (q.col == tab.vector_col && tab.vector_matrix_valid) {
           const size_t dim = size_t(tab.vector_matrix_dim);
@@ -1234,7 +1240,6 @@ struct Engine {
         } else {
           distance_cache[qi][r] = distance_squared(tab.rows[r][q.col], q.target);
         }
-        distance_ready[qi][r] = 1;
       }
       return distance_cache[qi][r];
     };
@@ -1273,14 +1278,23 @@ struct Engine {
                     : x > double(block.hi[j]) ? x - double(block.hi[j]) : 0.0;
           bound += d * d;
         }
+        if (!block.center_full.empty()) {
+          const double center_distance = distance_fast(block.center_full.data(), q.target.data(),
+                                                       block.center_full.size());
+          const double gap = std::sqrt(center_distance) - std::sqrt(block.radius2);
+          if (gap > 0.0) {
+            // Round the geometric bound down by one representable value.  The
+            // radius is computed from the same float32 center as the query,
+            // but keeping the bound conservative protects exact Top-K ties
+            // from a final-bit rounding difference.
+            bound = std::max(bound, std::nextafter(gap * gap, 0.0));
+          }
+        }
         block_bounds[bi] = bound;
         if (use_ann) {
-          double score = 0.0;
-          for (size_t j = 0; j < tab.block_dims.size(); ++j) {
-            double d = double(block.center[j]) - double(q.target[size_t(tab.block_dims[j])]);
-            score += d * d;
-          }
-          block_scores[bi] = score;
+          block_scores[bi] = block.center_full.empty()
+            ? bound
+            : distance_fast(block.center_full.data(), q.target.data(), block.center_full.size());
         } else {
           block_scores[bi] = bound;
         }
