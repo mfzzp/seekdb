@@ -7,20 +7,20 @@ The official local public harness ran all 20 cases with zero failures (95 SQL as
 
 The fixed configuration used 1024-dimensional float32 vectors, 256-row INSERT requests, the eight benchmark attributes, and `category='c1'`. Every row below is a three-run wall-clock average from the same Python driver and request count.
 
-The short comparison uses five exact queries, matching the earlier quick checkpoint:
+The short table is a five-query smoke comparison retained for quick regression checks; those five queries use the same deterministic query vector:
 
 | rows | lite insert | lite five-query | lite total | vector file | lite WAL | baseline insert | baseline five-query | baseline total |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | 100000 | 36.933 s | 0.438 s | 37.371 s | 409,600,000 B | 4,341,486 B | 33.769 s | 0.282 s | 34.052 s |
 | 300000 | 214.665 s | 1.412 s | 216.077 s | 1,228,800,000 B | 13,468,441 B | 93.511 s | 0.156 s | 93.667 s |
 
-The plan's full 1024-query measurement is:
+The formal 1024-query measurement uses 1024 distinct deterministic query vectors, so the baseline cannot reuse one repeated query result:
 
 | rows | lite insert | lite 1024-query | lite total | baseline insert | baseline 1024-query | baseline total |
 |---:|---:|---:|---:|---:|---:|---:|
-| 100000 | 36.570 s | 93.904 s | 130.474 s | 31.907 s | 0.396 s | 32.302 s |
-| 300000 | 206.201 s | 366.114 s | 572.315 s | 91.729 s | 0.276 s | 92.005 s |
+| 100000 | 34.299 s | 98.303 s | 132.601 s | 31.017 s | 0.867 s | 31.883 s |
+| 300000 | 199.762 s | 325.666 s | 525.428 s | 87.299 s | 1.618 s | 88.917 s |
 
-The baseline is the inherited C++ executable built separately under `baseline-build`; the new runtime does not link to or call it. The new implementation keeps vectors in an independent float32 file with mmap-on-demand reads, durable framed WAL, batched MemTable-to-SST flushing, buffered vector writes, incremental indexed ANN candidates, and a clean-shutdown STATE fallback when the WAL is unavailable. The current exact path is slower than this baseline's in-memory vector path, so the measured result is recorded rather than presented as a claimed 2x win.
+The baseline is the inherited C++ executable built separately under `baseline-build`; the new runtime does not link to or call it. The new implementation keeps vectors in an independent float32 file with mmap-on-demand reads, durable framed WAL, batched MemTable-to-SST flushing, buffered vector writes, incremental indexed ANN candidates, and a clean-shutdown STATE fallback when the WAL is unavailable. The exact path remains slower than the baseline's in-memory vector matrix; these measurements are recorded without claiming a 2x win.
 
 The runtime source audit reports 71 physical lines, below the 2000-line budget. Data generation and verification scripts are outside that runtime count.
