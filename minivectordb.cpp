@@ -19,6 +19,7 @@
 #include <string>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <unordered_map>
 #include <unistd.h>
 #include <utility>
 #include <variant>
@@ -134,6 +135,9 @@ struct Table {
   mutable bool blocks_valid = false;
   mutable std::vector<int> block_dims;
   mutable std::vector<VectorBlock> blocks;
+  mutable std::vector<std::unordered_map<std::string, std::vector<size_t>>> equality_index;
+  mutable std::vector<uint8_t> equality_index_valid;
+  mutable std::vector<uint8_t> equality_index_disabled;
 };
 struct State { std::map<std::string, Table> tables; };
 static std::string lower(std::string x) { for (char &c : x) c = char(std::tolower((unsigned char)c)); return x; }
@@ -340,11 +344,52 @@ struct Engine {
     t.blocks_valid = false;
     t.block_dims.clear();
     t.blocks.clear();
+    t.equality_index.clear();
+    t.equality_index_valid.clear();
+    t.equality_index_disabled.clear();
   }
   static void invalidate_blocks(Table &t) {
     t.blocks_valid = false;
     t.block_dims.clear();
     t.blocks.clear();
+    t.equality_index_valid.clear();
+    t.equality_index_disabled.clear();
+    for (auto &index : t.equality_index) index.clear();
+  }
+  static std::string equality_key(const Value &value) {
+    if (value.kind == VK_INT) return "I:" + std::to_string(value.i);
+    if (value.kind == VK_STRING) return "S:" + value.s;
+    return {};
+  }
+  static void ensure_equality_index(Table &t, int col) {
+    if (col < 0 || col >= int(t.cols.size()) || t.cols[col].kind == VK_VECTOR) return;
+    const size_t ncols = t.cols.size();
+    if (t.equality_index.size() != ncols) t.equality_index.resize(ncols);
+    if (t.equality_index_valid.size() != ncols) t.equality_index_valid.assign(ncols, 0);
+    if (t.equality_index_disabled.size() != ncols) t.equality_index_disabled.assign(ncols, 0);
+    if (t.equality_index_valid[size_t(col)] || t.equality_index_disabled[size_t(col)]) return;
+
+    // Do not turn high-cardinality document columns into a memory sink.  The
+    // index is intended for bounded attributes such as category/status; when
+    // the cap is exceeded the query falls back to the exact scan.
+    constexpr size_t MAX_DISTINCT_VALUES = 65536;
+    auto &index = t.equality_index[size_t(col)];
+    index.reserve(std::min(MAX_DISTINCT_VALUES, t.rows.size()));
+    for (size_t r = 0; r < t.rows.size(); ++r) {
+      if (!t.alive[r]) continue;
+      std::string key = equality_key(t.rows[r][col]);
+      auto it = index.find(key);
+      if (it == index.end()) {
+        if (index.size() >= MAX_DISTINCT_VALUES) {
+          index.clear();
+          t.equality_index_disabled[size_t(col)] = 1;
+          return;
+        }
+        it = index.emplace(std::move(key), std::vector<size_t>{}).first;
+      }
+      it->second.push_back(r);
+    }
+    t.equality_index_valid[size_t(col)] = 1;
   }
   static void ensure_blocks(Table &t) {
     if (t.blocks_valid) return;
@@ -484,10 +529,37 @@ struct Engine {
                       ord[0].projection >= 0 && ord[0].col == tab.vector_col &&
                       limit > 0 && limit < int64_t(tab.rows.size());
     auto distance_squared = [&](const Value &v, const std::vector<float> &q) { if (v.kind != VK_VECTOR || v.v.size() != q.size()) throw Error("invalid_value", "distance requires a vector"); double sum = 0; for (size_t i = 0; i < q.size(); ++i) { double d = double(v.v[i]) - double(q[i]); sum += d * d; } return sum; };
+    std::vector<size_t> empty_seed;
+    const std::vector<size_t> *seed_rows = nullptr;
+    size_t seed_size = std::numeric_limits<size_t>::max();
+    for (const auto &term : terms) {
+      if (term.op != "=" || tab.cols[term.col].kind == VK_VECTOR) continue;
+      ensure_equality_index(tab, term.col);
+      if (term.col >= int(tab.equality_index_valid.size()) ||
+          !tab.equality_index_valid[size_t(term.col)]) continue;
+      const auto &index = tab.equality_index[size_t(term.col)];
+      auto it = index.find(equality_key(term.value));
+      if (it == index.end()) {
+        seed_rows = &empty_seed;
+        seed_size = 0;
+        break;
+      }
+      if (it->second.size() < seed_size) {
+        seed_rows = &it->second;
+        seed_size = it->second.size();
+      }
+    }
     std::vector<size_t> rows;
-    if (!block_topk)
-      for (size_t r = 0; r < tab.rows.size(); ++r)
-        if (tab.alive[r] && matches(tab.rows[r], terms)) rows.push_back(r);
+    if (!block_topk) {
+      if (seed_rows) {
+        rows.reserve(seed_rows->size());
+        for (size_t r : *seed_rows)
+          if (tab.alive[r] && matches(tab.rows[r], terms)) rows.push_back(r);
+      } else {
+        for (size_t r = 0; r < tab.rows.size(); ++r)
+          if (tab.alive[r] && matches(tab.rows[r], terms)) rows.push_back(r);
+      }
+    }
     // Cache each distance once per query. The old implementation recomputed the
     // same distance for every comparison in an O(n log n) sort.
     std::vector<std::vector<double>> distance_cache(proj.size());
@@ -548,18 +620,23 @@ struct Engine {
       using Heap = std::priority_queue<size_t, std::vector<size_t>, decltype(less_row)>;
       Heap best(less_row);
       const size_t wanted = size_t(limit);
-      for (size_t bi : block_order) {
-        if (best.size() == wanted && block_bounds[bi] > distance_for(best.top(), qi))
-          continue;
-        const auto &block = tab.blocks[bi];
-        for (size_t r = block.begin; r < block.end; ++r) {
-          if (!tab.alive[r] || !matches(tab.rows[r], terms)) continue;
-          if (best.size() < wanted) {
-            best.push(r);
-          } else if (less_row(r, best.top())) {
-            best.pop();
-            best.push(r);
-          }
+      auto consider = [&](size_t r) {
+        if (!tab.alive[r] || !matches(tab.rows[r], terms)) return;
+        if (best.size() < wanted) {
+          best.push(r);
+        } else if (less_row(r, best.top())) {
+          best.pop();
+          best.push(r);
+        }
+      };
+      if (seed_rows) {
+        for (size_t r : *seed_rows) consider(r);
+      } else {
+        for (size_t bi : block_order) {
+          if (best.size() == wanted && block_bounds[bi] > distance_for(best.top(), qi))
+            continue;
+          const auto &block = tab.blocks[bi];
+          for (size_t r = block.begin; r < block.end; ++r) consider(r);
         }
       }
       rows.clear();
