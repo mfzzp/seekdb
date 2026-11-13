@@ -657,9 +657,25 @@ struct Engine {
       if (errno == ENOENT) return;
       throw Error("storage_error", "cannot stat journal");
     }
-    constexpr uint64_t CHECKPOINT_THRESHOLD = 64ull * 1024ull * 1024ull;
+    constexpr uint64_t MIN_CHECKPOINT_THRESHOLD = 64ull * 1024ull * 1024ull;
+    constexpr uint64_t MAX_CHECKPOINT_THRESHOLD = 1ull * 1024ull * 1024ull * 1024ull;
+    uint64_t checkpoint_threshold = MIN_CHECKPOINT_THRESHOLD;
+    if (!checkpoint_snapshot.empty()) {
+      struct stat snapshot_stat {};
+      if (::stat(snapshot_path(checkpoint_snapshot).c_str(), &snapshot_stat) == 0) {
+        const uint64_t snapshot_size = uint64_t(snapshot_stat.st_size);
+        if (snapshot_size > 0) {
+          const uint64_t scaled = snapshot_size > MAX_CHECKPOINT_THRESHOLD / 4
+                                      ? MAX_CHECKPOINT_THRESHOLD
+                                      : snapshot_size * 4;
+          checkpoint_threshold = std::min(MAX_CHECKPOINT_THRESHOLD,
+                                          std::max(MIN_CHECKPOINT_THRESHOLD, scaled));
+        }
+      }
+    }
     const uint64_t size = uint64_t(stbuf.st_size);
-    if (size >= CHECKPOINT_THRESHOLD && size > checkpoint_offset) checkpoint();
+    if (size > checkpoint_offset && size - checkpoint_offset >= checkpoint_threshold)
+      checkpoint();
   }
   void load_snapshot(const std::string &path) {
     std::ifstream f(path, std::ios::binary);
@@ -935,7 +951,10 @@ struct Engine {
       if (seen.count(key) || tab.keys.count(key)) throw Error("duplicate_key", "duplicate primary key");
       seen[key] = true;
     }
-    tab.keys.reserve(tab.keys.size() + pending.size());
+    const size_t target_keys = tab.keys.size() + pending.size();
+    const size_t key_capacity = static_cast<size_t>(
+        static_cast<double>(tab.keys.bucket_count()) * tab.keys.max_load_factor());
+    if (target_keys > key_capacity) tab.keys.reserve(target_keys);
     for (auto &row : pending) {
       size_t pos = tab.rows.size();
       tab.keys[row[size_t(tab.primary)].i] = pos;
