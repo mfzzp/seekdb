@@ -180,6 +180,9 @@ struct Table {
   std::vector<bool> alive;
   std::map<int64_t, size_t> keys;
   mutable bool blocks_valid = false;
+  mutable bool vector_matrix_valid = false;
+  mutable int vector_matrix_dim = 0;
+  mutable std::vector<float> vector_matrix;
   mutable std::vector<int> block_dims;
   mutable std::vector<VectorBlock> blocks;
   mutable std::vector<std::unordered_map<std::string, std::vector<size_t>>> equality_index;
@@ -275,10 +278,15 @@ struct JournalEntry {
 };
 struct Engine {
   State st; std::optional<State> tx; std::vector<JournalEntry> tx_log; std::string dir; int journal_fd = -1;
+  uint64_t checkpoint_generation = 0;
+  uint64_t checkpoint_offset = 0;
+  std::string checkpoint_snapshot;
   explicit Engine(std::string d) : dir(std::move(d)) { mkdir(dir.c_str(), 0755); load(); }
   ~Engine() { if (journal_fd >= 0) ::close(journal_fd); }
   std::string file() const { return dir + "/state.bin"; }
   std::string journal() const { return dir + "/journal.log"; }
+  std::string manifest() const { return dir + "/MANIFEST"; }
+  std::string snapshot_path(const std::string &name) const { return dir + "/" + name; }
   template<class T> static void put(std::ofstream &f, const T &x) { f.write(reinterpret_cast<const char *>(&x), sizeof(x)); }
   template<class T> static bool get(std::ifstream &f, T &x) { return bool(f.read(reinterpret_cast<char *>(&x), sizeof(x))); }
   static void putstr(std::ofstream &f, const std::string &s) { uint32_t n = uint32_t(s.size()); put(f, n); f.write(s.data(), n); }
@@ -403,15 +411,22 @@ struct Engine {
     else throw Error("storage_error", "invalid journal statement");
     if (p != tok.size()) throw Error("storage_error", "trailing journal SQL");
   }
-  void replay_journal() {
-    std::ifstream f(journal(), std::ios::binary); if (!f) return;
+  void replay_journal(uint64_t start_offset = 0) {
+    std::ifstream f(journal(), std::ios::binary);
+    if (!f) {
+      if (start_offset != 0) throw Error("storage_error", "checkpoint journal is missing");
+      return;
+    }
     f.seekg(0, std::ios::end); std::streamoff end_offset = f.tellg();
     if (end_offset < 0) return;
-    size_t file_size = size_t(end_offset), pos = 0, valid_end = 0;
+    const uint64_t file_size_u64 = uint64_t(end_offset);
+    if (start_offset > file_size_u64)
+      throw Error("storage_error", "checkpoint offset exceeds journal");
+    size_t file_size = size_t(file_size_u64), pos = size_t(start_offset), valid_end = size_t(start_offset);
     bool torn_tail = false;
     std::string payload;
     std::vector<std::string> statements;
-    f.seekg(0, std::ios::beg);
+    f.seekg(std::streamoff(start_offset), std::ios::beg);
     while (pos < file_size) {
       if (file_size - pos < sizeof(uint32_t) * 2) {
         // A partial frame header is a torn tail: the writer died after writing
@@ -501,20 +516,179 @@ struct Engine {
       }
     }
   }
-  void save() {
-    std::string tmp = file() + ".tmp"; std::ofstream f(tmp, std::ios::binary | std::ios::trunc); if (!f) throw Error("storage_error", "cannot open data directory"); uint32_t magic = 0x4d564332, nt = uint32_t(st.tables.size()); put(f, magic); put(f, nt);
-    for (auto &kv : st.tables) { const Table &t = kv.second; putstr(f, t.name); uint32_t nc = uint32_t(t.cols.size()); put(f, nc); put(f, t.primary); put(f, t.vector_col); uint8_t ix = t.index; put(f, ix); for (auto &c : t.cols) { putstr(f, c.name); uint8_t k = uint8_t(c.kind); put(f, k); put(f, c.width); } uint64_t nr = t.rows.size(); put(f, nr); for (size_t r = 0; r < t.rows.size(); ++r) { uint8_t live = t.alive[r]; put(f, live); for (auto &v : t.rows[r]) { uint8_t k = uint8_t(v.kind); put(f, k); if (v.kind == VK_INT) put(f, v.i); else if (v.kind == VK_STRING) putstr(f, v.s); else { uint32_t n = uint32_t(v.v.size()); put(f, n); f.write(reinterpret_cast<const char *>(v.v.data()), sizeof(float) * n); } } } }
-    f.flush(); f.close(); int fd = ::open(tmp.c_str(), O_RDONLY); if (fd >= 0) { ::fsync(fd); ::close(fd); } if (::rename(tmp.c_str(), file().c_str()) != 0) throw Error("storage_error", "cannot publish data");
+  static void sync_file(const std::string &path) {
+    int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);
+    if (fd < 0 || ::fsync(fd) != 0) {
+      if (fd >= 0) ::close(fd);
+      throw Error("storage_error", "cannot sync checkpoint file");
+    }
+    ::close(fd);
+  }
+  void sync_directory() const {
+#if defined(__linux__)
+    int fd = ::open(dir.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    if (fd < 0 || ::fsync(fd) != 0) {
+      if (fd >= 0) ::close(fd);
+      throw Error("storage_error", "cannot sync data directory");
+    }
+    ::close(fd);
+#endif
+  }
+  bool read_manifest(std::string &snapshot, uint64_t &generation, uint64_t &offset) {
+    std::ifstream f(manifest(), std::ios::binary);
+    if (!f) return false;
+    uint32_t magic = 0, version = 0;
+    if (!get(f, magic) || magic != 0x4d564d31 || !get(f, version) || version != 1 ||
+        !get(f, generation) || !get(f, offset))
+      throw Error("storage_error", "invalid checkpoint manifest");
+    snapshot = getstr(f);
+    if (snapshot.empty() || snapshot.size() > 255 || snapshot.find('/') != std::string::npos ||
+        snapshot.find('\\') != std::string::npos)
+      throw Error("storage_error", "invalid checkpoint snapshot");
+    return true;
+  }
+  void write_manifest(const std::string &snapshot, uint64_t generation, uint64_t offset) {
+    std::string tmp = manifest() + ".tmp";
+    std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
+    if (!f) throw Error("storage_error", "cannot open checkpoint manifest");
+    uint32_t magic = 0x4d564d31, version = 1;
+    put(f, magic); put(f, version); put(f, generation); put(f, offset); putstr(f, snapshot);
+    f.flush();
+    if (!f.good()) throw Error("storage_error", "cannot write checkpoint manifest");
+    f.close();
+    sync_file(tmp);
+    if (::rename(tmp.c_str(), manifest().c_str()) != 0)
+      throw Error("storage_error", "cannot publish checkpoint manifest");
+    sync_directory();
+  }
+  void save_snapshot(const std::string &path) {
+    std::string tmp = path + ".tmp";
+    std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
+    if (!f) throw Error("storage_error", "cannot open data directory");
+    uint32_t magic = 0x4d564332, nt = uint32_t(st.tables.size());
+    put(f, magic); put(f, nt);
+    for (auto &kv : st.tables) {
+      const Table &t = kv.second;
+      putstr(f, t.name);
+      uint32_t nc = uint32_t(t.cols.size());
+      put(f, nc); put(f, t.primary); put(f, t.vector_col);
+      uint8_t ix = t.index; put(f, ix);
+      for (auto &c : t.cols) {
+        putstr(f, c.name); uint8_t k = uint8_t(c.kind); put(f, k); put(f, c.width);
+      }
+      uint64_t nr = t.rows.size(); put(f, nr);
+      for (size_t r = 0; r < t.rows.size(); ++r) {
+        uint8_t live = t.alive[r]; put(f, live);
+        for (auto &v : t.rows[r]) {
+          uint8_t k = uint8_t(v.kind); put(f, k);
+          if (v.kind == VK_INT) put(f, v.i);
+          else if (v.kind == VK_STRING) putstr(f, v.s);
+          else {
+            uint32_t n = uint32_t(v.v.size()); put(f, n);
+            f.write(reinterpret_cast<const char *>(v.v.data()), sizeof(float) * n);
+          }
+        }
+      }
+    }
+    f.flush();
+    if (!f.good()) throw Error("storage_error", "cannot write checkpoint snapshot");
+    f.close();
+    sync_file(tmp);
+    if (::rename(tmp.c_str(), path.c_str()) != 0)
+      throw Error("storage_error", "cannot publish checkpoint snapshot");
+    sync_directory();
+  }
+  void save() { save_snapshot(file()); }
+  void checkpoint() {
+    if (tx) return;
+    struct stat stbuf {};
+    uint64_t offset = 0;
+    if (::stat(journal().c_str(), &stbuf) == 0) offset = uint64_t(stbuf.st_size);
+    else if (errno != ENOENT) throw Error("storage_error", "cannot stat journal");
+    const uint64_t generation = checkpoint_generation + 1;
+    const std::string name = "checkpoint-" + std::to_string(generation) + ".sst";
+    save_snapshot(snapshot_path(name));
+    write_manifest(name, generation, offset);
+    const std::string previous = checkpoint_snapshot;
+    checkpoint_generation = generation;
+    checkpoint_offset = offset;
+    checkpoint_snapshot = name;
+    if (!previous.empty() && previous != name) ::unlink(snapshot_path(previous).c_str());
+  }
+  void maybe_checkpoint() {
+    if (tx) return;
+    struct stat stbuf {};
+    if (::stat(journal().c_str(), &stbuf) != 0) {
+      if (errno == ENOENT) return;
+      throw Error("storage_error", "cannot stat journal");
+    }
+    constexpr uint64_t CHECKPOINT_THRESHOLD = 64ull * 1024ull * 1024ull;
+    const uint64_t size = uint64_t(stbuf.st_size);
+    if (size >= CHECKPOINT_THRESHOLD && size > checkpoint_offset) checkpoint();
+  }
+  void load_snapshot(const std::string &path) {
+    std::ifstream f(path, std::ios::binary);
+    if (!f) throw Error("storage_error", "checkpoint snapshot is missing");
+    uint32_t magic = 0, nt = 0;
+    if (!get(f, magic) || magic != 0x4d564332 || !get(f, nt))
+      throw Error("storage_error", "invalid data");
+    for (uint32_t z = 0; z < nt; ++z) {
+      Table t; t.name = getstr(f); uint32_t nc;
+      if (!get(f, nc) || nc > 1024 || !get(f, t.primary) || !get(f, t.vector_col))
+        throw Error("storage_error", "invalid schema");
+      uint8_t ix; if (!get(f, ix)) throw Error("storage_error", "invalid schema"); t.index = ix;
+      for (uint32_t c = 0; c < nc; ++c) {
+        Column col; col.name = getstr(f); uint8_t k;
+        if (!get(f, k) || !get(f, col.width)) throw Error("storage_error", "invalid column");
+        col.kind = VKind(k); t.cols.push_back(std::move(col));
+      }
+      uint64_t nr; if (!get(f, nr) || nr > 100000000) throw Error("storage_error", "invalid rows");
+      for (uint64_t r = 0; r < nr; ++r) {
+        uint8_t live; if (!get(f, live)) throw Error("storage_error", "invalid row"); t.alive.push_back(live != 0);
+        std::vector<Value> row;
+        for (uint32_t c = 0; c < nc; ++c) {
+          Value v; uint8_t k; if (!get(f, k)) throw Error("storage_error", "invalid value"); v.kind = VKind(k);
+          if (v.kind == VK_INT) { if (!get(f, v.i)) throw Error("storage_error", "invalid value"); }
+          else if (v.kind == VK_STRING) v.s = getstr(f);
+          else {
+            uint32_t n; if (!get(f, n) || n > 100000) throw Error("storage_error", "invalid vector");
+            v.v.resize(n);
+            if (!f.read(reinterpret_cast<char *>(v.v.data()), sizeof(float) * n)) throw Error("storage_error", "invalid vector");
+          }
+          row.push_back(std::move(v));
+        }
+        t.rows.push_back(std::move(row));
+      }
+      rebuild(t); st.tables.emplace(lower(t.name), std::move(t));
+    }
   }
   void load() {
-    std::ifstream f(file(), std::ios::binary); if (!f) { replay_journal(); return; } uint32_t magic = 0, nt = 0; if (!get(f, magic) || magic != 0x4d564332 || !get(f, nt)) throw Error("storage_error", "invalid data"); for (uint32_t z = 0; z < nt; ++z) { Table t; t.name = getstr(f); uint32_t nc; if (!get(f, nc) || nc > 1024 || !get(f, t.primary) || !get(f, t.vector_col)) throw Error("storage_error", "invalid schema"); uint8_t ix; if (!get(f, ix)) throw Error("storage_error", "invalid schema"); t.index = ix; for (uint32_t c = 0; c < nc; ++c) { Column col; col.name = getstr(f); uint8_t k; if (!get(f, k) || !get(f, col.width)) throw Error("storage_error", "invalid column"); col.kind = VKind(k); t.cols.push_back(std::move(col)); } uint64_t nr; if (!get(f, nr) || nr > 100000000) throw Error("storage_error", "invalid rows"); for (uint64_t r = 0; r < nr; ++r) { uint8_t live; if (!get(f, live)) throw Error("storage_error", "invalid row"); t.alive.push_back(live != 0); std::vector<Value> row; for (uint32_t c = 0; c < nc; ++c) { Value v; uint8_t k; if (!get(f, k)) throw Error("storage_error", "invalid value"); v.kind = VKind(k); if (v.kind == VK_INT) { if (!get(f, v.i)) throw Error("storage_error", "invalid value"); } else if (v.kind == VK_STRING) v.s = getstr(f); else { uint32_t n; if (!get(f, n) || n > 100000) throw Error("storage_error", "invalid vector"); v.v.resize(n); if (!f.read(reinterpret_cast<char *>(v.v.data()), sizeof(float) * n)) throw Error("storage_error", "invalid vector"); } row.push_back(std::move(v)); } t.rows.push_back(std::move(row)); } rebuild(t); st.tables.emplace(lower(t.name), std::move(t)); }
-    replay_journal();
+    std::string snapshot = file(); uint64_t generation = 0, offset = 0;
+    const bool has_manifest = read_manifest(snapshot, generation, offset);
+    if (has_manifest) {
+      checkpoint_generation = generation;
+      checkpoint_offset = offset;
+      checkpoint_snapshot = snapshot;
+      snapshot = snapshot_path(snapshot);
+    }
+    std::ifstream probe(snapshot, std::ios::binary);
+    if (!probe) {
+      if (has_manifest) throw Error("storage_error", "checkpoint snapshot is missing");
+      replay_journal();
+      return;
+    }
+    probe.close();
+    load_snapshot(snapshot);
+    replay_journal(offset);
   }
   static void rebuild(Table &t) {
     t.keys.clear();
     for (size_t r = 0; r < t.rows.size(); ++r)
       if (t.alive[r]) t.keys.emplace(t.rows[r][t.primary].i, r);
     t.blocks_valid = false;
+    t.vector_matrix_valid = false;
+    t.vector_matrix_dim = 0;
+    t.vector_matrix.clear();
     t.block_dims.clear();
     t.blocks.clear();
     t.equality_index.clear();
@@ -523,11 +697,33 @@ struct Engine {
   }
   static void invalidate_blocks(Table &t) {
     t.blocks_valid = false;
+    t.vector_matrix_valid = false;
+    t.vector_matrix_dim = 0;
+    t.vector_matrix.clear();
     t.block_dims.clear();
     t.blocks.clear();
     t.equality_index_valid.clear();
     t.equality_index_disabled.clear();
     for (auto &index : t.equality_index) index.clear();
+  }
+  static void ensure_vector_matrix(Table &t) {
+    if (t.vector_matrix_valid) return;
+    t.vector_matrix_valid = true;
+    t.vector_matrix_dim = 0;
+    t.vector_matrix.clear();
+    if (t.vector_col < 0 || t.rows.empty()) return;
+    const int dim = t.cols[t.vector_col].width;
+    if (dim <= 0) return;
+    if (t.rows.size() > std::numeric_limits<size_t>::max() / size_t(dim))
+      throw Error("storage_error", "vector matrix too large");
+    t.vector_matrix.resize(t.rows.size() * size_t(dim));
+    for (size_t r = 0; r < t.rows.size(); ++r) {
+      const Value &v = t.rows[r][t.vector_col];
+      if (v.kind != VK_VECTOR || int(v.v.size()) != dim)
+        throw Error("invalid_value", "distance requires a vector");
+      std::memcpy(t.vector_matrix.data() + r * size_t(dim), v.v.data(), sizeof(float) * size_t(dim));
+    }
+    t.vector_matrix_dim = dim;
   }
   static std::string equality_key(const Value &value) {
     if (value.kind == VK_INT) return "I:" + std::to_string(value.i);
@@ -572,6 +768,7 @@ struct Engine {
     if (t.vector_col < 0 || t.rows.empty()) return;
     const int dim = t.cols[t.vector_col].width;
     if (dim <= 0) return;
+    ensure_vector_matrix(t);
 
     // Keep a compact, evenly spaced sample of dimensions.  Bounds over a
     // subset of dimensions are still valid lower bounds for L2 distance, and
@@ -616,6 +813,8 @@ struct Engine {
     try { append_journal(tx_log); }
     catch (...) { st = State{}; tx.reset(); tx_log.clear(); load(); throw; }
     tx.reset(); tx_log.clear();
+    try { maybe_checkpoint(); }
+    catch (...) { st = State{}; tx.reset(); tx_log.clear(); load(); throw; }
   }
   void autocommit(bool changed, const std::string &sql, const std::string *binary_payload = nullptr) {
     if (!changed) return;
@@ -627,6 +826,8 @@ struct Engine {
     }
     if (tx) { tx_log.push_back(std::move(entry)); return; }
     try { append_journal({std::move(entry)}); }
+    catch (...) { st = State{}; tx.reset(); tx_log.clear(); load(); throw; }
+    try { maybe_checkpoint(); }
     catch (...) { st = State{}; tx.reset(); tx_log.clear(); load(); throw; }
   }
 
@@ -983,16 +1184,25 @@ struct Engine {
     // same distance for every comparison in an O(n log n) sort.
     std::vector<std::vector<double>> distance_cache(proj.size());
     std::vector<std::vector<uint8_t>> distance_ready(proj.size());
+    bool has_vector_distance = false;
     for (size_t qi = 0; qi < proj.size(); ++qi) {
       if (proj[qi].distance) {
+        has_vector_distance = true;
         distance_cache[qi].assign(tab.rows.size(), 0.0);
         distance_ready[qi].assign(tab.rows.size(), 0);
       }
     }
+    if (has_vector_distance) ensure_vector_matrix(tab);
     auto distance_for = [&](size_t r, size_t qi) {
       if (!distance_ready[qi][r]) {
         const Projection &q = proj[qi];
-        distance_cache[qi][r] = distance_squared(tab.rows[r][q.col], q.target);
+        if (q.col == tab.vector_col && tab.vector_matrix_valid) {
+          const size_t dim = size_t(tab.vector_matrix_dim);
+          distance_cache[qi][r] = distance_fast(tab.vector_matrix.data() + r * dim,
+                                                 q.target.data(), dim);
+        } else {
+          distance_cache[qi][r] = distance_squared(tab.rows[r][q.col], q.target);
+        }
         distance_ready[qi][r] = 1;
       }
       return distance_cache[qi][r];
@@ -1123,7 +1333,7 @@ int main(int argc, char **argv) {
       if (line.empty()) { continue; }
       mv::Json req; mv::Json id = mv::Json::nil(); try {
         req = mv::json_parse(line); if (req.kind != mv::Json::OBJECT) throw mv::Error("invalid_request", "request must be an object"); if (req.o.count("id")) id = req.o.at("id"); std::string op = req.o.count("op") && req.o.at("op").kind == mv::Json::STRING ? req.o.at("op").s : "";
-        if (op == "shutdown") { db.rollback(); std::cout << mv::json_dump(mv::Json::object({{"id", id}, {"ok", mv::Json::boolean(true)}})) << '\n' << std::flush; break; }
+        if (op == "shutdown") { db.rollback(); db.checkpoint(); std::cout << mv::json_dump(mv::Json::object({{"id", id}, {"ok", mv::Json::boolean(true)}})) << '\n' << std::flush; break; }
         if (op != "execute" || !req.o.count("sql") || req.o.at("sql").kind != mv::Json::STRING) throw mv::Error("invalid_request", "execute requires sql");
         bool ann_mode = false;
         if (req.o.count("search_mode")) {
