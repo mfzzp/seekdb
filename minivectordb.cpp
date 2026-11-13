@@ -122,6 +122,7 @@ struct VectorBlock {
   size_t end = 0;
   std::vector<float> lo;
   std::vector<float> hi;
+  std::vector<float> center;
 };
 struct Table {
   std::string name;
@@ -417,6 +418,7 @@ struct Engine {
       block.end = std::min(t.rows.size(), begin + BLOCK_ROWS);
       block.lo.assign(t.block_dims.size(), std::numeric_limits<float>::infinity());
       block.hi.assign(t.block_dims.size(), -std::numeric_limits<float>::infinity());
+      block.center.assign(t.block_dims.size(), 0.0f);
       for (size_t r = block.begin; r < block.end; ++r) {
         const Value &v = t.rows[r][t.vector_col];
         if (v.kind != VK_VECTOR || int(v.v.size()) != dim)
@@ -425,8 +427,11 @@ struct Engine {
           float x = v.v[size_t(t.block_dims[j])];
           block.lo[j] = std::min(block.lo[j], x);
           block.hi[j] = std::max(block.hi[j], x);
+          block.center[j] += x;
         }
       }
+      const float count = float(block.end - block.begin);
+      for (float &x : block.center) x /= count;
       t.blocks.push_back(std::move(block));
     }
   }
@@ -470,7 +475,7 @@ struct Engine {
     assigns.emplace_back(c, std::move(value)); if (p >= t.size() || t[p].text != ",") break; ++p; } auto terms = parse_where(t, p, tab); for (size_t r = 0; r < tab.rows.size(); ++r) if (tab.alive[r] && matches(tab.rows[r], terms)) { std::vector<Value> next = tab.rows[r]; for (auto &a : assigns) next[a.first] = a.second; bool changed = false; for (size_t i = 0; i < next.size(); ++i) changed |= !value_equal(next[i], tab.rows[r][i]); if (changed) { tab.rows[r] = std::move(next); ++affected; } } rebuild(tab); }
   void erase(std::vector<Token> &t, size_t &p, int64_t &affected) { expect(t, p, "from"); Table &tab = table_of(st, take_name(t, p)); auto terms = parse_where(t, p, tab); for (size_t r = 0; r < tab.rows.size(); ++r) if (tab.alive[r] && matches(tab.rows[r], terms)) { tab.alive[r] = false; ++affected; } rebuild(tab); }
 
-  Json select(std::vector<Token> &t, size_t &p) {
+  Json select(std::vector<Token> &t, size_t &p, bool ann_mode = false) {
     std::vector<Projection> proj;
     bool star = p < t.size() && t[p].text == "*";
     if (star) {
@@ -596,10 +601,13 @@ struct Engine {
     // dimensions, so it can only underestimate the true distance.  A block is
     // skipped strictly above the current worst candidate; equal bounds remain
     // eligible for deterministic primary-key tie breaking.
+    const bool use_ann = ann_mode && tab.index && block_topk &&
+                         tab.rows.size() >= 8192 && seed_rows == nullptr;
     if (block_topk) {
       ensure_blocks(tab);
       const size_t qi = size_t(ord[0].projection);
       std::vector<double> block_bounds(tab.blocks.size(), 0.0);
+      std::vector<double> block_scores(tab.blocks.size(), 0.0);
       for (size_t bi = 0; bi < tab.blocks.size(); ++bi) {
         const auto &block = tab.blocks[bi];
         const auto &q = proj[qi];
@@ -611,11 +619,21 @@ struct Engine {
           bound += d * d;
         }
         block_bounds[bi] = bound;
+        if (use_ann) {
+          double score = 0.0;
+          for (size_t j = 0; j < tab.block_dims.size(); ++j) {
+            double d = double(block.center[j]) - double(q.target[size_t(tab.block_dims[j])]);
+            score += d * d;
+          }
+          block_scores[bi] = score;
+        } else {
+          block_scores[bi] = bound;
+        }
       }
       std::vector<size_t> block_order(tab.blocks.size());
       std::iota(block_order.begin(), block_order.end(), 0);
       std::sort(block_order.begin(), block_order.end(), [&](size_t a, size_t b) {
-        return block_bounds[a] < block_bounds[b];
+        return block_scores[a] < block_scores[b];
       });
       using Heap = std::priority_queue<size_t, std::vector<size_t>, decltype(less_row)>;
       Heap best(less_row);
@@ -629,14 +647,28 @@ struct Engine {
           best.push(r);
         }
       };
+      const size_t probe_blocks = use_ann
+        ? std::min(tab.blocks.size(), std::max<size_t>(38, (tab.blocks.size() + 3) / 4))
+        : tab.blocks.size();
       if (seed_rows) {
         for (size_t r : *seed_rows) consider(r);
       } else {
-        for (size_t bi : block_order) {
-          if (best.size() == wanted && block_bounds[bi] > distance_for(best.top(), qi))
+        for (size_t index = 0; index < probe_blocks; ++index) {
+          size_t bi = block_order[index];
+          if (!use_ann && best.size() == wanted && block_bounds[bi] > distance_for(best.top(), qi))
             continue;
           const auto &block = tab.blocks[bi];
           for (size_t r = block.begin; r < block.end; ++r) consider(r);
+        }
+        // A sparse filter or an unusually skewed block layout may leave too
+        // few candidates in the ANN probe. Complete the query rather than
+        // returning an undersized result set.
+        if (use_ann && best.size() < wanted) {
+          for (size_t index = probe_blocks; index < block_order.size(); ++index) {
+            size_t bi = block_order[index];
+            const auto &block = tab.blocks[bi];
+            for (size_t r = block.begin; r < block.end; ++r) consider(r);
+          }
         }
       }
       rows.clear();
@@ -679,11 +711,18 @@ int main(int argc, char **argv) {
         req = mv::json_parse(line); if (req.kind != mv::Json::OBJECT) throw mv::Error("invalid_request", "request must be an object"); if (req.o.count("id")) id = req.o.at("id"); std::string op = req.o.count("op") && req.o.at("op").kind == mv::Json::STRING ? req.o.at("op").s : "";
         if (op == "shutdown") { db.rollback(); std::cout << mv::json_dump(mv::Json::object({{"id", id}, {"ok", mv::Json::boolean(true)}})) << '\n' << std::flush; break; }
         if (op != "execute" || !req.o.count("sql") || req.o.at("sql").kind != mv::Json::STRING) throw mv::Error("invalid_request", "execute requires sql");
+        bool ann_mode = false;
+        if (req.o.count("search_mode")) {
+          const mv::Json &mode = req.o.at("search_mode");
+          if (mode.kind != mv::Json::STRING || (mode.s != "exact" && mode.s != "ann"))
+            throw mv::Error("invalid_request", "search_mode must be exact or ann");
+          ann_mode = mode.s == "ann";
+        }
         std::string sql = req.o.at("sql").s; auto tok = mv::lex_sql(sql); size_t p = 0; if (tok.empty()) throw mv::Error("unsupported_sql", "empty SQL"); std::string cmd = mv::lower(tok[p++].text); mv::Json body;
         if (cmd == "begin") { db.begin(); body = mv::Json::object({{"ok", mv::Json::boolean(true)}}); }
         else if (cmd == "commit") { db.commit(); body = mv::Json::object({{"ok", mv::Json::boolean(true)}}); }
         else if (cmd == "rollback") { db.rollback(); body = mv::Json::object({{"ok", mv::Json::boolean(true)}}); }
-        else { int64_t affected = 0; if (cmd == "create") { if (p < tok.size() && mv::ieq(tok[p].text, "vector")) db.create_index(tok, p); else db.create_table(tok, p); affected = 0; } else if (cmd == "insert") affected = db.insert(tok, p); else if (cmd == "update") db.update(tok, p, affected); else if (cmd == "delete") db.erase(tok, p, affected); else if (cmd == "select") body = db.select(tok, p); else throw mv::Error("unsupported_sql", "unsupported statement"); if (cmd != "select") db.autocommit(true, sql); if (body.kind == mv::Json::NIL) body = mv::Json::object({{"ok", mv::Json::boolean(true)}}); else body.o["ok"] = mv::Json::boolean(true); if (cmd == "insert" || cmd == "update" || cmd == "delete") body.o["affected_rows"] = mv::Json::integer(affected); }
+        else { int64_t affected = 0; if (cmd == "create") { if (p < tok.size() && mv::ieq(tok[p].text, "vector")) db.create_index(tok, p); else db.create_table(tok, p); affected = 0; } else if (cmd == "insert") affected = db.insert(tok, p); else if (cmd == "update") db.update(tok, p, affected); else if (cmd == "delete") db.erase(tok, p, affected); else if (cmd == "select") body = db.select(tok, p, ann_mode); else throw mv::Error("unsupported_sql", "unsupported statement"); if (cmd != "select") db.autocommit(true, sql); if (body.kind == mv::Json::NIL) body = mv::Json::object({{"ok", mv::Json::boolean(true)}}); else body.o["ok"] = mv::Json::boolean(true); if (cmd == "insert" || cmd == "update" || cmd == "delete") body.o["affected_rows"] = mv::Json::integer(affected); }
         body.o["id"] = id; std::cout << mv::json_dump(body) << '\n' << std::flush;
       } catch (const mv::Error &e) { std::cout << mv::json_dump(mv::Json::object({{"id", id}, {"ok", mv::Json::boolean(false)}, {"error", mv::Json::object({{"code", mv::Json::string(e.code)}, {"message", mv::Json::string(e.what())}})}})) << '\n' << std::flush; }
       catch (const std::exception &e) { std::cout << mv::json_dump(mv::Json::object({{"id", id}, {"ok", mv::Json::boolean(false)}, {"error", mv::Json::object({{"code", mv::Json::string("internal_error")}, {"message", mv::Json::string(e.what())}})}})) << '\n' << std::flush; }
