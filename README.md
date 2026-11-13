@@ -57,8 +57,10 @@ Deleted rows use an in-memory live bitmap and are not returned or resurrected
 by a restart.
 
 Vectors are converted to float32 at write time. Distance calculations use the
-stored float32 values in a native tight loop and return deterministic primary-key
-tie ordering. Non-finite values, dimension mismatches, overflow, invalid SQL,
+stored float32 values in a native tight loop; on x86 hosts with AVX2 the same
+double-precision accumulation uses a runtime-selected SIMD kernel, with a
+scalar fallback on other CPUs. Results return deterministic primary-key tie
+ordering. Non-finite values, dimension mismatches, overflow, invalid SQL,
 and unsupported constructs produce structured errors and keep the process alive.
 
 ## Protocol example

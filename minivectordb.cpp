@@ -25,6 +25,10 @@
 #include <variant>
 #include <vector>
 
+#if defined(__x86_64__) || defined(__i386__)
+#include <immintrin.h>
+#endif
+
 namespace mv {
 
 struct Error : std::runtime_error {
@@ -117,6 +121,48 @@ enum VKind { VK_INT, VK_STRING, VK_VECTOR };
 struct Value { VKind kind = VK_STRING; int64_t i = 0; std::string s; std::vector<float> v; };
 using Row = std::vector<Value>;
 struct Column { std::string name; VKind kind = VK_STRING; int width = 0; };
+static double distance_scalar(const float *left, const float *right, size_t width) {
+  double sum = 0;
+  for (size_t i = 0; i < width; ++i) {
+    const double d = double(left[i]) - double(right[i]);
+    sum += d * d;
+  }
+  return sum;
+}
+#if defined(__x86_64__) || defined(__i386__)
+__attribute__((target("avx2")))
+static double distance_avx2(const float *left, const float *right, size_t width) {
+  __m256d sum_lo = _mm256_setzero_pd();
+  __m256d sum_hi = _mm256_setzero_pd();
+  size_t i = 0;
+  for (; i + 8 <= width; i += 8) {
+    const __m256d left_lo = _mm256_cvtps_pd(_mm_loadu_ps(left + i));
+    const __m256d right_lo = _mm256_cvtps_pd(_mm_loadu_ps(right + i));
+    const __m256d left_hi = _mm256_cvtps_pd(_mm_loadu_ps(left + i + 4));
+    const __m256d right_hi = _mm256_cvtps_pd(_mm_loadu_ps(right + i + 4));
+    const __m256d diff_lo = _mm256_sub_pd(left_lo, right_lo);
+    const __m256d diff_hi = _mm256_sub_pd(left_hi, right_hi);
+    sum_lo = _mm256_add_pd(sum_lo, _mm256_mul_pd(diff_lo, diff_lo));
+    sum_hi = _mm256_add_pd(sum_hi, _mm256_mul_pd(diff_hi, diff_hi));
+  }
+  sum_lo = _mm256_add_pd(sum_lo, sum_hi);
+  alignas(32) double lanes[4];
+  _mm256_store_pd(lanes, sum_lo);
+  double sum = lanes[0] + lanes[1] + lanes[2] + lanes[3];
+  for (; i < width; ++i) {
+    const double d = double(left[i]) - double(right[i]);
+    sum += d * d;
+  }
+  return sum;
+}
+#endif
+static double distance_fast(const float *left, const float *right, size_t width) {
+#if defined(__GNUC__) && (defined(__x86_64__) || defined(__i386__))
+  static const bool avx2 = __builtin_cpu_supports("avx2");
+  if (avx2 && width >= 32) return distance_avx2(left, right, width);
+#endif
+  return distance_scalar(left, right, width);
+}
 struct VectorBlock {
   size_t begin = 0;
   size_t end = 0;
@@ -897,7 +943,11 @@ struct Engine {
     bool block_topk = !ord.empty() && ord[0].distance && !ord[0].desc &&
                       ord[0].projection >= 0 && ord[0].col == tab.vector_col &&
                       limit > 0 && limit < int64_t(tab.rows.size());
-    auto distance_squared = [&](const Value &v, const std::vector<float> &q) { if (v.kind != VK_VECTOR || v.v.size() != q.size()) throw Error("invalid_value", "distance requires a vector"); double sum = 0; for (size_t i = 0; i < q.size(); ++i) { double d = double(v.v[i]) - double(q[i]); sum += d * d; } return sum; };
+    auto distance_squared = [&](const Value &v, const std::vector<float> &q) {
+      if (v.kind != VK_VECTOR || v.v.size() != q.size())
+        throw Error("invalid_value", "distance requires a vector");
+      return distance_fast(v.v.data(), q.data(), q.size());
+    };
     std::vector<size_t> empty_seed;
     const std::vector<size_t> *seed_rows = nullptr;
     size_t seed_size = std::numeric_limits<size_t>::max();
