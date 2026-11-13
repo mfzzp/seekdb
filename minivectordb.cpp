@@ -180,7 +180,7 @@ struct Table {
   bool index = false;
   std::vector<Row> rows;
   std::vector<bool> alive;
-  std::map<int64_t, size_t> keys;
+  std::unordered_map<int64_t, size_t> keys;
   mutable bool blocks_valid = false;
   mutable size_t blocks_row_count = 0;
   mutable bool vector_matrix_valid = false;
@@ -718,6 +718,7 @@ struct Engine {
   }
   static void rebuild(Table &t) {
     t.keys.clear();
+    t.keys.reserve(t.rows.size());
     for (size_t r = 0; r < t.rows.size(); ++r)
       if (t.alive[r]) t.keys.emplace(t.rows[r][t.primary].i, r);
     t.blocks_valid = false;
@@ -934,6 +935,7 @@ struct Engine {
       if (seen.count(key) || tab.keys.count(key)) throw Error("duplicate_key", "duplicate primary key");
       seen[key] = true;
     }
+    tab.keys.reserve(tab.keys.size() + pending.size());
     for (auto &row : pending) {
       size_t pos = tab.rows.size();
       tab.keys[row[size_t(tab.primary)].i] = pos;
