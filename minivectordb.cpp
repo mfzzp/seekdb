@@ -182,6 +182,7 @@ struct Table {
   std::vector<bool> alive;
   std::map<int64_t, size_t> keys;
   mutable bool blocks_valid = false;
+  mutable size_t blocks_row_count = 0;
   mutable bool vector_matrix_valid = false;
   mutable int vector_matrix_dim = 0;
   mutable std::vector<float> vector_matrix;
@@ -705,6 +706,7 @@ struct Engine {
     for (size_t r = 0; r < t.rows.size(); ++r)
       if (t.alive[r]) t.keys.emplace(t.rows[r][t.primary].i, r);
     t.blocks_valid = false;
+    t.blocks_row_count = 0;
     t.vector_matrix_valid = false;
     t.vector_matrix_dim = 0;
     t.vector_matrix.clear();
@@ -716,9 +718,10 @@ struct Engine {
   }
   static void invalidate_blocks(Table &t) {
     t.blocks_valid = false;
+    // INSERT only appends to the MemTable.  Keep complete immutable blocks
+    // and the packed vector prefix; ensure_blocks() will rebuild at most the
+    // previous partial block plus the new tail.
     t.vector_matrix_valid = false;
-    t.block_dims.clear();
-    t.blocks.clear();
     t.equality_index_valid.clear();
     t.equality_index_disabled.clear();
     for (auto &index : t.equality_index) index.clear();
@@ -795,26 +798,51 @@ struct Engine {
   }
   static void ensure_blocks(Table &t) {
     if (t.blocks_valid) return;
-    t.blocks_valid = true;
-    t.block_dims.clear();
-    t.blocks.clear();
-    if (t.vector_col < 0 || t.rows.empty()) return;
+    if (t.vector_col < 0 || t.rows.empty()) {
+      t.blocks.clear();
+      t.block_dims.clear();
+      t.blocks_row_count = t.rows.size();
+      t.blocks_valid = true;
+      return;
+    }
     const int dim = t.cols[t.vector_col].width;
-    if (dim <= 0) return;
+    if (dim <= 0) {
+      t.blocks.clear();
+      t.block_dims.clear();
+      t.blocks_row_count = t.rows.size();
+      t.blocks_valid = true;
+      return;
+    }
     ensure_vector_matrix(t);
 
     // Keep a compact, evenly spaced sample of dimensions.  Bounds over a
     // subset of dimensions are still valid lower bounds for L2 distance, and
     // cap metadata for unusually wide vectors.
     const int samples = std::min(dim, 64);
-    t.block_dims.reserve(samples);
+    std::vector<int> expected_dims;
+    expected_dims.reserve(samples);
     for (int i = 0; i < samples; ++i) {
       int d = int((int64_t(i) * dim) / samples);
-      if (t.block_dims.empty() || t.block_dims.back() != d)
-        t.block_dims.push_back(d);
+      if (expected_dims.empty() || expected_dims.back() != d)
+        expected_dims.push_back(d);
     }
+    if (t.block_dims != expected_dims || t.blocks_row_count > t.rows.size() ||
+        (!t.blocks.empty() && t.blocks.back().end != t.blocks_row_count)) {
+      t.block_dims = expected_dims;
+      t.blocks.clear();
+      t.blocks_row_count = 0;
+    }
+    if (t.blocks_row_count != 0 && t.blocks.empty()) t.blocks_row_count = 0;
     constexpr size_t BLOCK_ROWS = 256;
-    for (size_t begin = 0; begin < t.rows.size(); begin += BLOCK_ROWS) {
+    // A partial tail block is mutable in the append-only MemTable. Rebuild
+    // only that tail; complete earlier blocks remain reusable.
+    if (!t.blocks.empty() && t.blocks_row_count < t.rows.size() &&
+        t.blocks.back().end == t.blocks_row_count &&
+        t.blocks.back().end - t.blocks.back().begin < BLOCK_ROWS) {
+      t.blocks_row_count = t.blocks.back().begin;
+      t.blocks.pop_back();
+    }
+    for (size_t begin = t.blocks_row_count; begin < t.rows.size(); begin += BLOCK_ROWS) {
       VectorBlock block;
       block.begin = begin;
       block.end = std::min(t.rows.size(), begin + BLOCK_ROWS);
@@ -842,6 +870,8 @@ struct Engine {
       }
       t.blocks.push_back(std::move(block));
     }
+    t.blocks_row_count = t.rows.size();
+    t.blocks_valid = true;
   }
   State &working() { return st; }
   const State &view() const { return st; }
