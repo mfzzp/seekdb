@@ -599,12 +599,29 @@ struct Engine {
     sync_directory();
   }
   void save() { save_snapshot(file()); }
+  static void compact_tombstones(Table &t) {
+    if (t.rows.size() < 1024 || t.alive.size() != t.rows.size()) return;
+    size_t live = 0;
+    for (bool value : t.alive) live += value ? 1u : 0u;
+    if (live * 4u > t.rows.size() * 3u) return;
+    std::vector<Row> rows;
+    rows.reserve(live);
+    for (size_t r = 0; r < t.rows.size(); ++r)
+      if (t.alive[r]) rows.push_back(std::move(t.rows[r]));
+    t.rows = std::move(rows);
+    t.alive.assign(t.rows.size(), true);
+    rebuild(t);
+  }
   void checkpoint() {
     if (tx) return;
     struct stat stbuf {};
     uint64_t offset = 0;
     if (::stat(journal().c_str(), &stbuf) == 0) offset = uint64_t(stbuf.st_size);
     else if (errno != ENOENT) throw Error("storage_error", "cannot stat journal");
+    // The alive bitmap is the cheap L0 delete path.  During a durable
+    // checkpoint, fold a sufficiently tombstone-heavy table into a compact
+    // immutable snapshot so future scans do not pay for deleted rows.
+    for (auto &entry : st.tables) compact_tombstones(entry.second);
     const uint64_t generation = checkpoint_generation + 1;
     const std::string name = "checkpoint-" + std::to_string(generation) + ".sst";
     save_snapshot(snapshot_path(name));
@@ -698,8 +715,6 @@ struct Engine {
   static void invalidate_blocks(Table &t) {
     t.blocks_valid = false;
     t.vector_matrix_valid = false;
-    t.vector_matrix_dim = 0;
-    t.vector_matrix.clear();
     t.block_dims.clear();
     t.blocks.clear();
     t.equality_index_valid.clear();
@@ -708,22 +723,38 @@ struct Engine {
   }
   static void ensure_vector_matrix(Table &t) {
     if (t.vector_matrix_valid) return;
-    t.vector_matrix_valid = true;
-    t.vector_matrix_dim = 0;
-    t.vector_matrix.clear();
-    if (t.vector_col < 0 || t.rows.empty()) return;
+    if (t.vector_col < 0 || t.rows.empty()) {
+      t.vector_matrix_valid = true;
+      t.vector_matrix_dim = 0;
+      t.vector_matrix.clear();
+      return;
+    }
     const int dim = t.cols[t.vector_col].width;
-    if (dim <= 0) return;
+    if (dim <= 0) {
+      t.vector_matrix_valid = true;
+      t.vector_matrix_dim = 0;
+      t.vector_matrix.clear();
+      return;
+    }
     if (t.rows.size() > std::numeric_limits<size_t>::max() / size_t(dim))
       throw Error("storage_error", "vector matrix too large");
+    size_t cached_rows = 0;
+    if (t.vector_matrix_dim == dim && t.vector_matrix.size() % size_t(dim) == 0 &&
+        t.vector_matrix.size() / size_t(dim) <= t.rows.size()) {
+      cached_rows = t.vector_matrix.size() / size_t(dim);
+    } else {
+      t.vector_matrix.clear();
+      t.vector_matrix_dim = dim;
+    }
     t.vector_matrix.resize(t.rows.size() * size_t(dim));
-    for (size_t r = 0; r < t.rows.size(); ++r) {
+    for (size_t r = cached_rows; r < t.rows.size(); ++r) {
       const Value &v = t.rows[r][t.vector_col];
       if (v.kind != VK_VECTOR || int(v.v.size()) != dim)
         throw Error("invalid_value", "distance requires a vector");
       std::memcpy(t.vector_matrix.data() + r * size_t(dim), v.v.data(), sizeof(float) * size_t(dim));
     }
     t.vector_matrix_dim = dim;
+    t.vector_matrix_valid = true;
   }
   static std::string equality_key(const Value &value) {
     if (value.kind == VK_INT) return "I:" + std::to_string(value.i);
