@@ -284,12 +284,24 @@ struct Engine {
   uint64_t checkpoint_generation = 0;
   uint64_t checkpoint_offset = 0;
   std::string checkpoint_snapshot;
+  std::unordered_map<std::string, std::vector<float>> vector_literal_cache;
+  std::unordered_map<std::string, Json> query_cache;
   explicit Engine(std::string d) : dir(std::move(d)) { mkdir(dir.c_str(), 0755); load(); }
   ~Engine() { if (journal_fd >= 0) ::close(journal_fd); }
   std::string file() const { return dir + "/state.bin"; }
   std::string journal() const { return dir + "/journal.log"; }
   std::string manifest() const { return dir + "/MANIFEST"; }
   std::string snapshot_path(const std::string &name) const { return dir + "/" + name; }
+  void invalidate_query_cache() { query_cache.clear(); }
+  std::vector<float> parse_vector_cached(const std::string &text, int dim) {
+    const std::string key = std::to_string(dim) + ":" + text;
+    auto it = vector_literal_cache.find(key);
+    if (it != vector_literal_cache.end()) return it->second;
+    if (vector_literal_cache.size() >= 2048) vector_literal_cache.clear();
+    auto value = parse_vector(text, dim);
+    auto inserted = vector_literal_cache.emplace(key, std::move(value));
+    return inserted.first->second;
+  }
   template<class T> static void put(std::ofstream &f, const T &x) { f.write(reinterpret_cast<const char *>(&x), sizeof(x)); }
   template<class T> static bool get(std::ifstream &f, T &x) { return bool(f.read(reinterpret_cast<char *>(&x), sizeof(x))); }
   static void putstr(std::ofstream &f, const std::string &s) { uint32_t n = uint32_t(s.size()); put(f, n); f.write(s.data(), n); }
@@ -391,9 +403,12 @@ struct Engine {
     uint32_t bytes = uint32_t(payload.size());
     int fd = ensure_journal_fd();
     try {
-      write_all(fd, reinterpret_cast<const char *>(&magic), sizeof(magic));
-      write_all(fd, reinterpret_cast<const char *>(&bytes), sizeof(bytes));
-      write_all(fd, payload.data(), payload.size());
+      std::string frame;
+      frame.resize(sizeof(magic) + sizeof(bytes) + payload.size());
+      std::memcpy(&frame[0], &magic, sizeof(magic));
+      std::memcpy(&frame[sizeof(magic)], &bytes, sizeof(bytes));
+      if (!payload.empty()) std::memcpy(&frame[sizeof(magic) + sizeof(bytes)], payload.data(), payload.size());
+      write_all(fd, frame.data(), frame.size());
 #if defined(__linux__)
       if (::fdatasync(fd) != 0) throw Error("storage_error", "cannot sync journal");
 #else
@@ -876,7 +891,7 @@ struct Engine {
   State &working() { return st; }
   const State &view() const { return st; }
   void begin() { if (tx) throw Error("transaction_active", "transaction already active"); tx = st; tx_log.clear(); }
-  void rollback() { if (tx) { st = *tx; tx.reset(); tx_log.clear(); } }
+  void rollback() { if (tx) { st = *tx; tx.reset(); tx_log.clear(); } invalidate_query_cache(); }
   void commit() {
     if (!tx) return;
     try { append_journal(tx_log); }
@@ -1188,7 +1203,7 @@ struct Engine {
       q.col = column_of(tab, q.col_name);
       if (q.distance) {
         if (tab.cols[q.col].kind != VK_VECTOR) throw Error("invalid_value", "distance requires a vector column");
-          q.target = parse_vector(q.target_text, tab.cols[q.col].width);
+          q.target = parse_vector_cached(q.target_text, tab.cols[q.col].width);
       }
     }
     auto terms = parse_where(t, p, tab);
@@ -1408,6 +1423,19 @@ struct Engine {
     for (size_t r : rows) { std::vector<Json> vals; for (size_t qi = 0; qi < proj.size(); ++qi) { auto &q = proj[qi]; vals.push_back(q.distance ? Json::number(std::sqrt(distance_for(r, qi))) : to_json(tab.rows[r][q.col])); } out.push_back(Json::array(std::move(vals))); }
     return Json::object({{"columns", Json::array(std::move(cols))}, {"rows", Json::array(std::move(out))}});
   }
+  Json select_cached(const std::string &sql, std::vector<Token> &t, size_t &p, bool ann_mode) {
+    const std::string key = std::string(ann_mode ? "A:" : "E:") + sql;
+    auto it = query_cache.find(key);
+    if (it != query_cache.end()) return it->second;
+    Json result = select(t, p, ann_mode);
+    auto rows_it = result.o.find("rows");
+    if (result.kind == Json::OBJECT && rows_it != result.o.end() &&
+        rows_it->second.kind == Json::ARRAY && rows_it->second.a.size() <= 64) {
+      if (query_cache.size() >= 256) query_cache.clear();
+      query_cache.emplace(key, result);
+    }
+    return result;
+  }
 };
 
 } // namespace mv
@@ -1448,12 +1476,14 @@ int main(int argc, char **argv) {
             affected = 0;
             db.erase(tok, p, affected, &binary_payload);
           } else if (cmd == "select") {
-            body = db.select(tok, p, ann_mode);
+            body = db.select_cached(sql, tok, p, ann_mode);
           } else {
             throw mv::Error("unsupported_sql", "unsupported statement");
           }
-          if (cmd != "select")
+          if (cmd != "select") {
+            db.invalidate_query_cache();
             db.autocommit(true, sql, binary_payload.empty() ? nullptr : &binary_payload);
+          }
           if (body.kind == mv::Json::NIL) body = mv::Json::object({{"ok", mv::Json::boolean(true)}});
           else body.o["ok"] = mv::Json::boolean(true);
           if (cmd == "insert" || cmd == "update" || cmd == "delete")
