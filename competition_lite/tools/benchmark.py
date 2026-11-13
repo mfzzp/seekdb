@@ -15,8 +15,11 @@ def run(binary,data_dir,n,dim,batch,queries):
  for a in range(0,n,batch):
   rows=[f"({i},'c{i%20}',{i%10},{100+i%10000},{19000+i%365},{1 if i%7 else 0},'title{i}','{v}')" for i in range(a+1,min(n,a+batch)+1)]
   ask('INSERT INTO docs VALUES '+','.join(rows)+';')
- t1=time.perf_counter();q='['+','.join('0.1' for _ in range(dim))+']';q0=time.perf_counter()
- for _ in range(queries):ask("SELECT id, L2_DISTANCE(embedding, '"+q+"') AS d FROM docs WHERE category = 'c1' ORDER BY d LIMIT 10;")
+ t1=time.perf_counter();q0=time.perf_counter()
+ for j in range(queries):
+  delta=((j*37)%101-50)*0.0001
+  q='['+','.join(f'{0.1+delta:.6f}' for _ in range(dim))+']'
+  ask("SELECT id, L2_DISTANCE(embedding, '"+q+"') AS d FROM docs WHERE category = 'c1' ORDER BY d LIMIT 10;")
  q1=time.perf_counter();p.stdin.write(json.dumps({'id':seq+1,'op':'shutdown'})+'\n');p.stdin.flush();p.stdout.readline();p.stdin.close()
  try:p.wait(timeout=20)
  except subprocess.TimeoutExpired:p.kill()
