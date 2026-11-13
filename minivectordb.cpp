@@ -223,7 +223,7 @@ struct Term { int col = -1; std::string op; Value value; };
 struct Projection { int col = -1; bool distance = false; std::string col_name; std::string alias; std::string target_text; std::vector<float> target; };
 struct Order { int col = -1; int projection = -1; bool distance = false; bool desc = false; };
 struct JournalEntry {
-  bool binary_insert = false;
+  bool binary_operation = false;
   std::string sql;
   std::string binary;
 };
@@ -305,7 +305,7 @@ struct Engine {
     bool all_binary = true;
     size_t binary_bytes = 0, sql_bytes = 0;
     for (const auto &entry : entries) {
-      all_binary = all_binary && entry.binary_insert;
+      all_binary = all_binary && entry.binary_operation;
       binary_bytes += entry.binary.size();
       sql_bytes += entry.sql.size();
     }
@@ -405,7 +405,7 @@ struct Engine {
             throw Error("storage_error", "invalid binary journal frame");
           std::string entry(payload.data() + binary_pos, size);
           binary_pos += size;
-          replay_binary_insert(entry);
+          replay_binary_operation(entry);
         }
         if (binary_pos != payload.size())
           throw Error("storage_error", "invalid binary journal frame");
@@ -576,7 +576,7 @@ struct Engine {
     JournalEntry entry;
     entry.sql = sql;
     if (binary_payload && !binary_payload->empty()) {
-      entry.binary_insert = true;
+      entry.binary_operation = true;
       entry.binary = *binary_payload;
     }
     if (tx) { tx_log.push_back(std::move(entry)); return; }
@@ -612,41 +612,68 @@ struct Engine {
     invalidate_blocks(tab);
     return int64_t(seen.size());
   }
+  static void append_value(std::string &out, const Value &value) {
+    append_u8(out, uint8_t(value.kind));
+    if (value.kind == VK_INT) {
+      append_le64(out, uint64_t(value.i));
+    } else if (value.kind == VK_STRING) {
+      append_blob(out, value.s);
+    } else if (value.kind == VK_VECTOR) {
+      if (value.v.size() > 100000) throw Error("storage_error", "vector too large");
+      append_le32(out, uint32_t(value.v.size()));
+      for (float item : value.v) {
+        uint32_t bits = 0;
+        static_assert(sizeof(bits) == sizeof(item), "float must be 32-bit");
+        std::memcpy(&bits, &item, sizeof(bits));
+        append_le32(out, bits);
+      }
+    } else {
+      throw Error("storage_error", "invalid journal value");
+    }
+  }
+  static bool read_value(const std::string &buf, size_t &pos, const Column &column, Value &value) {
+    uint8_t kind = 0;
+    if (!read_u8(buf, pos, kind) || kind != uint8_t(column.kind)) return false;
+    value.kind = VKind(kind);
+    if (value.kind == VK_INT) {
+      uint64_t bits = 0;
+      if (!read_le64(buf, pos, bits)) return false;
+      value.i = int64_t(bits);
+    } else if (value.kind == VK_STRING) {
+      if (!read_blob(buf, pos, value.s) || utf8_length(value.s) > size_t(column.width)) return false;
+    } else {
+      uint32_t dim = 0;
+      if (!read_le32(buf, pos, dim) || dim != uint32_t(column.width)) return false;
+      value.v.resize(dim);
+      for (float &item : value.v) {
+        uint32_t bits = 0;
+        if (!read_le32(buf, pos, bits)) return false;
+        std::memcpy(&item, &bits, sizeof(item));
+        if (!std::isfinite(item)) return false;
+      }
+    }
+    return true;
+  }
   static std::string encode_insert_payload(const std::string &table, const std::vector<Row> &rows) {
     if (rows.size() > 1000000) throw Error("storage_error", "too many journal rows");
     std::string out;
+    append_u8(out, 1); // INSERT
     append_blob(out, table);
     append_le32(out, uint32_t(rows.size()));
     for (const auto &row : rows) {
       if (row.size() > 1024) throw Error("storage_error", "too many journal columns");
       append_le32(out, uint32_t(row.size()));
-      for (const auto &value : row) {
-        append_u8(out, uint8_t(value.kind));
-        if (value.kind == VK_INT) {
-          append_le64(out, uint64_t(value.i));
-        } else if (value.kind == VK_STRING) {
-          append_blob(out, value.s);
-        } else if (value.kind == VK_VECTOR) {
-          if (value.v.size() > 100000) throw Error("storage_error", "vector too large");
-          append_le32(out, uint32_t(value.v.size()));
-          for (float item : value.v) {
-            uint32_t bits = 0;
-            static_assert(sizeof(bits) == sizeof(item), "float must be 32-bit");
-            std::memcpy(&bits, &item, sizeof(bits));
-            append_le32(out, bits);
-          }
-        } else {
-          throw Error("storage_error", "invalid journal value");
-        }
-      }
+      for (const auto &value : row) append_value(out, value);
     }
     return out;
   }
   void replay_binary_insert(const std::string &payload) {
     size_t pos = 0;
+    uint8_t opcode = 0;
     std::string table_name;
     uint32_t row_count = 0;
-    if (!read_blob(payload, pos, table_name) || !read_le32(payload, pos, row_count) || row_count > 1000000)
+    if (!read_u8(payload, pos, opcode) || opcode != 1 ||
+        !read_blob(payload, pos, table_name) || !read_le32(payload, pos, row_count) || row_count > 1000000)
       throw Error("storage_error", "invalid binary journal insert");
     Table &tab = table_of(st, table_name);
     std::vector<Row> rows;
@@ -657,30 +684,9 @@ struct Engine {
         throw Error("storage_error", "invalid binary journal row");
       Row row(tab.cols.size());
       for (uint32_t c = 0; c < column_count; ++c) {
-        uint8_t kind = 0;
-        if (!read_u8(payload, pos, kind) || kind != uint8_t(tab.cols[c].kind))
-          throw Error("storage_error", "invalid binary journal value");
         Value value;
-        value.kind = VKind(kind);
-        if (value.kind == VK_INT) {
-          uint64_t bits = 0;
-          if (!read_le64(payload, pos, bits)) throw Error("storage_error", "invalid binary journal value");
-          value.i = int64_t(bits);
-        } else if (value.kind == VK_STRING) {
-          if (!read_blob(payload, pos, value.s) || utf8_length(value.s) > size_t(tab.cols[c].width))
-            throw Error("storage_error", "invalid binary journal value");
-        } else {
-          uint32_t dim = 0;
-          if (!read_le32(payload, pos, dim) || dim != uint32_t(tab.cols[c].width))
-            throw Error("storage_error", "invalid binary journal vector");
-          value.v.resize(dim);
-          for (float &item : value.v) {
-            uint32_t bits = 0;
-            if (!read_le32(payload, pos, bits)) throw Error("storage_error", "invalid binary journal vector");
-            std::memcpy(&item, &bits, sizeof(item));
-            if (!std::isfinite(item)) throw Error("storage_error", "invalid binary journal vector");
-          }
-        }
+        if (!read_value(payload, pos, tab.cols[c], value))
+          throw Error("storage_error", "invalid binary journal value");
         row[c] = std::move(value);
       }
       rows.push_back(std::move(row));
@@ -688,12 +694,141 @@ struct Engine {
     if (pos != payload.size()) throw Error("storage_error", "invalid binary journal insert");
     apply_insert_rows(tab, std::move(rows));
   }
+  static bool read_terms(const std::string &payload, size_t &pos, const Table &tab,
+                         std::vector<Term> &terms) {
+    uint32_t count = 0;
+    if (!read_le32(payload, pos, count) || count > 1024) return false;
+    terms.reserve(count);
+    for (uint32_t i = 0; i < count; ++i) {
+      uint32_t col = 0;
+      uint8_t opcode = 0;
+      if (!read_le32(payload, pos, col) || col >= tab.cols.size() || !read_u8(payload, pos, opcode)) return false;
+      Value value;
+      if (!read_value(payload, pos, tab.cols[col], value)) return false;
+      terms.push_back({int(col), term_operator(opcode), std::move(value)});
+    }
+    return true;
+  }
+  void replay_binary_update(const std::string &payload) {
+    size_t pos = 0;
+    uint8_t opcode = 0;
+    std::string table_name;
+    uint32_t count = 0;
+    if (!read_u8(payload, pos, opcode) || opcode != 2 || !read_blob(payload, pos, table_name) ||
+        !read_le32(payload, pos, count) || count > 1024)
+      throw Error("storage_error", "invalid binary journal update");
+    Table &tab = table_of(st, table_name);
+    std::vector<std::pair<int, Value>> assigns;
+    assigns.reserve(count);
+    for (uint32_t i = 0; i < count; ++i) {
+      uint32_t col = 0;
+      if (!read_le32(payload, pos, col) || col >= tab.cols.size() || col == uint32_t(tab.primary))
+        throw Error("storage_error", "invalid binary journal update");
+      Value value;
+      if (!read_value(payload, pos, tab.cols[col], value))
+        throw Error("storage_error", "invalid binary journal update");
+      assigns.emplace_back(int(col), std::move(value));
+    }
+    std::vector<Term> terms;
+    if (!read_terms(payload, pos, tab, terms) || pos != payload.size())
+      throw Error("storage_error", "invalid binary journal update");
+    int64_t ignored = 0;
+    apply_update_ops(tab, assigns, terms, ignored);
+  }
+  void replay_binary_delete(const std::string &payload) {
+    size_t pos = 0;
+    uint8_t opcode = 0;
+    std::string table_name;
+    if (!read_u8(payload, pos, opcode) || opcode != 3 || !read_blob(payload, pos, table_name))
+      throw Error("storage_error", "invalid binary journal delete");
+    Table &tab = table_of(st, table_name);
+    std::vector<Term> terms;
+    if (!read_terms(payload, pos, tab, terms) || pos != payload.size())
+      throw Error("storage_error", "invalid binary journal delete");
+    int64_t ignored = 0;
+    apply_delete_terms(tab, terms, ignored);
+  }
+  void replay_binary_operation(const std::string &payload) {
+    if (payload.empty()) throw Error("storage_error", "invalid binary journal operation");
+    switch (uint8_t(static_cast<unsigned char>(payload[0]))) {
+      case 1: replay_binary_insert(payload); break;
+      case 2: replay_binary_update(payload); break;
+      case 3: replay_binary_delete(payload); break;
+      default: throw Error("storage_error", "invalid binary journal operation");
+    }
+  }
   int64_t insert(std::vector<Token> &t, size_t &p, std::string *journal_payload = nullptr) {
     expect(t, p, "into"); Table &tab = table_of(st, take_name(t, p)); std::vector<int> order; if (p < t.size() && t[p].text == "(") { ++p; while (true) { order.push_back(column_of(tab, take_name(t, p))); if (p >= t.size() || t[p].text != ",") break; ++p; } expect(t, p, ")"); } else for (size_t i = 0; i < tab.cols.size(); ++i) order.push_back(int(i)); if (order.size() != tab.cols.size()) throw Error("invalid_value", "all columns must appear"); expect(t, p, "values"); std::vector<Row> pending; while (true) { expect(t, p, "("); Row row(tab.cols.size()); size_t k = 0; while (true) { if (k >= order.size() || p >= t.size()) throw Error("invalid_value", "wrong value count"); int col = order[k++]; row[col] = convert_value(t[p++], tab.cols[col]); if (p >= t.size() || t[p].text != ",") break; ++p; } expect(t, p, ")"); if (k != order.size()) throw Error("invalid_value", "wrong value count"); pending.push_back(std::move(row)); if (p >= t.size() || t[p].text != ",") break; ++p; }
     if (journal_payload) *journal_payload = encode_insert_payload(tab.name, pending);
     return apply_insert_rows(tab, std::move(pending));
   }
-  void update(std::vector<Token> &t, size_t &p, int64_t &affected) { Table &tab = table_of(st, take_name(t, p)); expect(t, p, "set"); std::vector<std::pair<int, Value>> assigns; while (true) { int c = column_of(tab, take_name(t, p)); expect(t, p, "="); if (p >= t.size()) throw Error("invalid_value", "missing value"); Value value = convert_value(t[p++], tab.cols[c]);
+  static uint8_t term_opcode(const std::string &op) {
+    if (op == "=") return 0;
+    if (op == "<") return 1;
+    if (op == "<=") return 2;
+    if (op == ">") return 3;
+    if (op == ">=") return 4;
+    throw Error("storage_error", "invalid journal operator");
+  }
+  static std::string term_operator(uint8_t code) {
+    switch (code) {
+      case 0: return "=";
+      case 1: return "<";
+      case 2: return "<=";
+      case 3: return ">";
+      case 4: return ">=";
+      default: throw Error("storage_error", "invalid journal operator");
+    }
+  }
+  static void append_terms(std::string &out, const std::vector<Term> &terms) {
+    if (terms.size() > 1024) throw Error("storage_error", "too many journal terms");
+    append_le32(out, uint32_t(terms.size()));
+    for (const auto &term : terms) {
+      append_le32(out, uint32_t(term.col));
+      append_u8(out, term_opcode(term.op));
+      append_value(out, term.value);
+    }
+  }
+  static std::string encode_update_payload(const std::string &table,
+                                           const std::vector<std::pair<int, Value>> &assigns,
+                                           const std::vector<Term> &terms) {
+    if (assigns.size() > 1024) throw Error("storage_error", "too many journal assignments");
+    std::string out;
+    append_u8(out, 2); // UPDATE
+    append_blob(out, table);
+    append_le32(out, uint32_t(assigns.size()));
+    for (const auto &assignment : assigns) {
+      append_le32(out, uint32_t(assignment.first));
+      append_value(out, assignment.second);
+    }
+    append_terms(out, terms);
+    return out;
+  }
+  static std::string encode_delete_payload(const std::string &table,
+                                           const std::vector<Term> &terms) {
+    std::string out;
+    append_u8(out, 3); // DELETE
+    append_blob(out, table);
+    append_terms(out, terms);
+    return out;
+  }
+  void apply_update_ops(Table &tab, const std::vector<std::pair<int, Value>> &assigns,
+                        const std::vector<Term> &terms, int64_t &affected) {
+    for (size_t r = 0; r < tab.rows.size(); ++r) if (tab.alive[r] && matches(tab.rows[r], terms)) {
+      std::vector<Value> next = tab.rows[r];
+      for (const auto &assignment : assigns) next[size_t(assignment.first)] = assignment.second;
+      bool changed = false;
+      for (size_t i = 0; i < next.size(); ++i) changed |= !value_equal(next[i], tab.rows[r][i]);
+      if (changed) { tab.rows[r] = std::move(next); ++affected; }
+    }
+    rebuild(tab);
+  }
+  void apply_delete_terms(Table &tab, const std::vector<Term> &terms, int64_t &affected) {
+    for (size_t r = 0; r < tab.rows.size(); ++r)
+      if (tab.alive[r] && matches(tab.rows[r], terms)) { tab.alive[r] = false; ++affected; }
+    rebuild(tab);
+  }
+  void update(std::vector<Token> &t, size_t &p, int64_t &affected, std::string *journal_payload = nullptr) { Table &tab = table_of(st, take_name(t, p)); expect(t, p, "set"); std::vector<std::pair<int, Value>> assigns; while (true) { int c = column_of(tab, take_name(t, p)); expect(t, p, "="); if (p >= t.size()) throw Error("invalid_value", "missing value"); Value value = convert_value(t[p++], tab.cols[c]);
 
     if (c == tab.primary) {
       throw Error(
@@ -701,8 +836,8 @@ struct Engine {
           "updating primary key is unsupported");
     }
 
-    assigns.emplace_back(c, std::move(value)); if (p >= t.size() || t[p].text != ",") break; ++p; } auto terms = parse_where(t, p, tab); for (size_t r = 0; r < tab.rows.size(); ++r) if (tab.alive[r] && matches(tab.rows[r], terms)) { std::vector<Value> next = tab.rows[r]; for (auto &a : assigns) next[a.first] = a.second; bool changed = false; for (size_t i = 0; i < next.size(); ++i) changed |= !value_equal(next[i], tab.rows[r][i]); if (changed) { tab.rows[r] = std::move(next); ++affected; } } rebuild(tab); }
-  void erase(std::vector<Token> &t, size_t &p, int64_t &affected) { expect(t, p, "from"); Table &tab = table_of(st, take_name(t, p)); auto terms = parse_where(t, p, tab); for (size_t r = 0; r < tab.rows.size(); ++r) if (tab.alive[r] && matches(tab.rows[r], terms)) { tab.alive[r] = false; ++affected; } rebuild(tab); }
+    assigns.emplace_back(c, std::move(value)); if (p >= t.size() || t[p].text != ",") break; ++p; } auto terms = parse_where(t, p, tab); if (journal_payload) *journal_payload = encode_update_payload(tab.name, assigns, terms); apply_update_ops(tab, assigns, terms, affected); }
+  void erase(std::vector<Token> &t, size_t &p, int64_t &affected, std::string *journal_payload = nullptr) { expect(t, p, "from"); Table &tab = table_of(st, take_name(t, p)); auto terms = parse_where(t, p, tab); if (journal_payload) *journal_payload = encode_delete_payload(tab.name, terms); apply_delete_terms(tab, terms, affected); }
 
   Json select(std::vector<Token> &t, size_t &p, bool ann_mode = false) {
     std::vector<Projection> proj;
@@ -960,16 +1095,18 @@ int main(int argc, char **argv) {
           } else if (cmd == "insert") {
             affected = db.insert(tok, p, &binary_payload);
           } else if (cmd == "update") {
-            db.update(tok, p, affected);
+            affected = 0;
+            db.update(tok, p, affected, &binary_payload);
           } else if (cmd == "delete") {
-            db.erase(tok, p, affected);
+            affected = 0;
+            db.erase(tok, p, affected, &binary_payload);
           } else if (cmd == "select") {
             body = db.select(tok, p, ann_mode);
           } else {
             throw mv::Error("unsupported_sql", "unsupported statement");
           }
           if (cmd != "select")
-            db.autocommit(true, sql, cmd == "insert" ? &binary_payload : nullptr);
+            db.autocommit(true, sql, binary_payload.empty() ? nullptr : &binary_payload);
           if (body.kind == mv::Json::NIL) body = mv::Json::object({{"ok", mv::Json::boolean(true)}});
           else body.o["ok"] = mv::Json::boolean(true);
           if (cmd == "insert" || cmd == "update" || cmd == "delete")

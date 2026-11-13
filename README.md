@@ -45,11 +45,12 @@ The implementation covers the competition protocol subset:
 
 Writes are staged before mutation, so a malformed or duplicate row cannot leave
 half a statement visible. New commits append length-framed records to
-`/data/journal.log` and durably sync the journal; vector INSERT batches use a
-versioned binary row payload, while older SQL frames and mixed transactions
-remain readable. A transaction appends its whole statement group once at
-`COMMIT`. Startup loads the compatible `state.bin` snapshot and replays
-complete journal records, ignoring a torn final record.
+`/data/journal.log` and durably sync the journal; vector-heavy INSERT/UPDATE
+operations and compact DELETE operations use a versioned binary payload when
+it is smaller, while older SQL frames and mixed transactions remain readable.
+A transaction appends its whole statement group once at `COMMIT`. Startup
+loads the compatible `state.bin` snapshot and replays complete journal
+records, ignoring a torn final record.
 This removes the old full-state rewrite on every insert while preserving
 acknowledged commit durability. Shutdown rolls back an open transaction.
 Deleted rows use an in-memory live bitmap and are not returned or resurrected
