@@ -1,6 +1,7 @@
 # Lite2000 verification ledger
 
 Build: CMake Release, C++17, `/mnt/SSD1/zzp/seekdb-round2-lite2000/cmake-build/minivectordb_lite`, with fixed-host `-O3 -ffast-math -march=native`.
+The contract build command `g++ -O3 -DNDEBUG -std=c++17 -Wall -Wextra` also completed successfully; it emitted only ignored-return-value warnings.
 
 The official local public harness ran all 20 cases with zero failures (95 SQL assertions). The crash check killed a process during an explicit transaction; after restart the committed row remained and the uncommitted row was absent. The shutdown response was returned before exit. The ANN smoke test returned the nearest row, including the case where the vector index was created before inserts. The LSM restart check preserved the manifest and continued SST numbering without overwriting old files; a 600-commit stress check produced an L1 file and remaining SST files. A separate recovery test removed `wal.log` after clean shutdown and recovered the table, vector offsets, and vector index from `STATE`.
 
