@@ -480,9 +480,14 @@ struct Engine {
     }
     int64_t limit = std::numeric_limits<int64_t>::max();
     if (p < t.size() && ieq(t[p].text, "limit")) { ++p; limit = take_int(t, p); if (limit < 0) throw Error("invalid_value", "negative limit"); }
+    bool block_topk = !ord.empty() && ord[0].distance && !ord[0].desc &&
+                      ord[0].projection >= 0 && ord[0].col == tab.vector_col &&
+                      limit > 0 && limit < int64_t(tab.rows.size());
     auto distance_squared = [&](const Value &v, const std::vector<float> &q) { if (v.kind != VK_VECTOR || v.v.size() != q.size()) throw Error("invalid_value", "distance requires a vector"); double sum = 0; for (size_t i = 0; i < q.size(); ++i) { double d = double(v.v[i]) - double(q[i]); sum += d * d; } return sum; };
     std::vector<size_t> rows;
-    for (size_t r = 0; r < tab.rows.size(); ++r) if (tab.alive[r] && matches(tab.rows[r], terms)) rows.push_back(r);
+    if (!block_topk)
+      for (size_t r = 0; r < tab.rows.size(); ++r)
+        if (tab.alive[r] && matches(tab.rows[r], terms)) rows.push_back(r);
     // Cache each distance once per query. The old implementation recomputed the
     // same distance for every comparison in an O(n log n) sort.
     std::vector<std::vector<double>> distance_cache(proj.size());
@@ -519,9 +524,6 @@ struct Engine {
     // dimensions, so it can only underestimate the true distance.  A block is
     // skipped strictly above the current worst candidate; equal bounds remain
     // eligible for deterministic primary-key tie breaking.
-    bool block_topk = !ord.empty() && ord[0].distance && !ord[0].desc &&
-                      ord[0].projection >= 0 && ord[0].col == tab.vector_col &&
-                      limit > 0 && limit < int64_t(tab.rows.size());
     if (block_topk) {
       ensure_blocks(tab);
       const size_t qi = size_t(ord[0].projection);
