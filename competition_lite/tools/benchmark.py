@@ -20,7 +20,7 @@ def run(binary,data_dir,n,dim,batch,queries):
  q1=time.perf_counter();p.stdin.write(json.dumps({'id':seq+1,'op':'shutdown'})+'\n');p.stdin.flush();p.stdout.readline();p.stdin.close()
  try:p.wait(timeout=20)
  except subprocess.TimeoutExpired:p.kill()
- return {'rows':n,'dim':dim,'insert_s':t1-t0,'query_s':q1-q0,'requests':seq,'vectors_bytes':os.path.getsize(data_dir+'/vectors.f32'),'wal_bytes':os.path.getsize(data_dir+'/wal.log')}
+ return {'rows':n,'dim':dim,'insert_s':t1-t0,'query_s':q1-q0,'requests':seq,'vectors_bytes':os.path.getsize(data_dir+'/vectors.f32') if os.path.exists(data_dir+'/vectors.f32') else 0,'wal_bytes':os.path.getsize(data_dir+'/wal.log') if os.path.exists(data_dir+'/wal.log') else 0}
 def main():
  ap=argparse.ArgumentParser();ap.add_argument('--binary',required=True);ap.add_argument('--data-dir',required=True);ap.add_argument('--rows',type=int,default=100000);ap.add_argument('--dim',type=int,default=1024);ap.add_argument('--batch',type=int,default=256);ap.add_argument('--queries',type=int,default=1024);ap.add_argument('--runs',type=int,default=1);a=ap.parse_args()
  for i in range(a.runs):
