@@ -866,6 +866,12 @@ struct Engine {
     }
     if (t.blocks_row_count != 0 && t.blocks.empty()) t.blocks_row_count = 0;
     constexpr size_t BLOCK_ROWS = 256;
+    // For wide vectors the center/radius bound requires a second full-width
+    // pass over every row, while the sampled-coordinate bound remains exact
+    // and is usually tighter than the geometric ball. Keep the full bound
+    // for ordinary dimensions, but avoid paying that cold-build cost for
+    // high-dimensional tables.
+    const bool build_full_center = dim <= 256;
     // A partial tail block is mutable in the append-only MemTable. Rebuild
     // only that tail; complete earlier blocks remain reusable.
     if (!t.blocks.empty() && t.blocks_row_count < t.rows.size() &&
@@ -881,7 +887,7 @@ struct Engine {
       block.lo.assign(t.block_dims.size(), std::numeric_limits<float>::infinity());
       block.hi.assign(t.block_dims.size(), -std::numeric_limits<float>::infinity());
       block.center.assign(t.block_dims.size(), 0.0f);
-      block.center_full.assign(size_t(dim), 0.0f);
+      if (build_full_center) block.center_full.assign(size_t(dim), 0.0f);
       for (size_t r = block.begin; r < block.end; ++r) {
         const float *data = t.vector_matrix.data() + r * size_t(dim);
         for (size_t j = 0; j < t.block_dims.size(); ++j) {
@@ -890,15 +896,19 @@ struct Engine {
           block.hi[j] = std::max(block.hi[j], x);
           block.center[j] += x;
         }
-        for (int d = 0; d < dim; ++d) block.center_full[size_t(d)] += data[size_t(d)];
+        if (build_full_center) {
+          for (int d = 0; d < dim; ++d) block.center_full[size_t(d)] += data[size_t(d)];
+        }
       }
       const float count = float(block.end - block.begin);
       for (float &x : block.center) x /= count;
-      for (float &x : block.center_full) x /= count;
-      for (size_t r = block.begin; r < block.end; ++r) {
-        const float *data = t.vector_matrix.data() + r * size_t(dim);
-        block.radius2 = std::max(block.radius2,
-                                 distance_fast(data, block.center_full.data(), size_t(dim)));
+      if (build_full_center) {
+        for (float &x : block.center_full) x /= count;
+        for (size_t r = block.begin; r < block.end; ++r) {
+          const float *data = t.vector_matrix.data() + r * size_t(dim);
+          block.radius2 = std::max(block.radius2,
+                                   distance_fast(data, block.center_full.data(), size_t(dim)));
+        }
       }
       t.blocks.push_back(std::move(block));
     }

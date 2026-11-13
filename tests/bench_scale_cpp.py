@@ -160,6 +160,8 @@ def run(args: argparse.Namespace) -> dict:
         write_seconds = time.perf_counter() - write_start
         bytes_after_write = tree_bytes(root)
 
+        first_query_sql = None
+        first_query_mode = "exact"
         for index in range(args.queries):
             query = vector_literal(build_vector(queries_rng, args.dimension))
             category = f"cat{index % category_count}"
@@ -176,6 +178,9 @@ def run(args: argparse.Namespace) -> dict:
             mode = args.search_mode
             if mode == "mixed":
                 mode = "ann" if index % 2 else "exact"
+            if first_query_sql is None:
+                first_query_sql = sql
+                first_query_mode = mode
             start = time.perf_counter()
             response = client.execute(sql, mode)
             query_times.append(time.perf_counter() - start)
@@ -186,10 +191,22 @@ def run(args: argparse.Namespace) -> dict:
             if current_rss is not None:
                 rss_peak = max(rss_peak, current_rss)
 
+        cache_times: list[float] = []
+        if first_query_sql is not None:
+            for _ in range(10):
+                start = time.perf_counter()
+                client.execute(first_query_sql, first_query_mode)
+                cache_times.append(time.perf_counter() - start)
+
         before_restart = time.perf_counter()
         client.shutdown()
         client = Client(args.binary, root)
         restart_seconds = time.perf_counter() - before_restart
+        restart_query_seconds = 0.0
+        if first_query_sql is not None:
+            start = time.perf_counter()
+            client.execute(first_query_sql, first_query_mode)
+            restart_query_seconds = time.perf_counter() - start
         # Cheap correctness probes after recovery: first, last and one middle key.
         for row_id in (1, max(1, args.rows // 2), args.rows):
             response = client.execute(
@@ -214,8 +231,14 @@ def run(args: argparse.Namespace) -> dict:
             "query_p99_ms": round(percentile(query_times, 0.99) * 1000, 4),
             "query_mean_ms": round(statistics.mean(query_times) * 1000, 4),
             "query_total_seconds": round(sum(query_times), 6),
+            "cold_query_ms": round(query_times[0] * 1000, 4) if query_times else None,
+            "warm_unique_mean_ms": round(statistics.mean(query_times[1:]) * 1000, 4)
+                if len(query_times) > 1 else None,
+            "cache_repeat_mean_ms": round(statistics.mean(cache_times) * 1000, 4)
+                if cache_times else None,
             "query_rows_returned": query_rows,
             "restart_seconds": round(restart_seconds, 6),
+            "restart_vector_query_ms": round(restart_query_seconds * 1000, 4),
             "rss_peak_mib": round(rss_peak, 2) if rss_peak else None,
             "disk_bytes": tree_bytes(root),
             "disk_bytes_after_write": bytes_after_write,
