@@ -222,8 +222,13 @@ static Json to_json(const Value &v) { if (v.kind == VK_INT) return Json::integer
 struct Term { int col = -1; std::string op; Value value; };
 struct Projection { int col = -1; bool distance = false; std::string col_name; std::string alias; std::string target_text; std::vector<float> target; };
 struct Order { int col = -1; int projection = -1; bool distance = false; bool desc = false; };
+struct JournalEntry {
+  bool binary_insert = false;
+  std::string sql;
+  std::string binary;
+};
 struct Engine {
-  State st; std::optional<State> tx; std::vector<std::string> tx_log; std::string dir; int journal_fd = -1;
+  State st; std::optional<State> tx; std::vector<JournalEntry> tx_log; std::string dir; int journal_fd = -1;
   explicit Engine(std::string d) : dir(std::move(d)) { mkdir(dir.c_str(), 0755); load(); }
   ~Engine() { if (journal_fd >= 0) ::close(journal_fd); }
   std::string file() const { return dir + "/state.bin"; }
@@ -233,10 +238,52 @@ struct Engine {
   static void putstr(std::ofstream &f, const std::string &s) { uint32_t n = uint32_t(s.size()); put(f, n); f.write(s.data(), n); }
   static std::string getstr(std::ifstream &f) { uint32_t n; if (!get(f, n) || n > 1u << 24) throw std::runtime_error("bad state"); std::string s(n, '\0'); if (!f.read(s.data(), n)) throw std::runtime_error("bad state"); return s; }
   static constexpr uint32_t JOURNAL_MAGIC = 0x4d564a31;
+  static constexpr uint32_t BINARY_JOURNAL_MAGIC = 0x4d564a32;
   static void append_u32(std::string &out, uint32_t value) { out.append(reinterpret_cast<const char *>(&value), sizeof(value)); }
+  static void append_u8(std::string &out, uint8_t value) { out.push_back(char(value)); }
+  static void append_le32(std::string &out, uint32_t value) {
+    for (int shift = 0; shift < 32; shift += 8) out.push_back(char((value >> shift) & 0xffu));
+  }
+  static void append_le64(std::string &out, uint64_t value) {
+    for (int shift = 0; shift < 64; shift += 8) out.push_back(char((value >> shift) & 0xffu));
+  }
   static bool read_u32(const std::string &buf, size_t &pos, uint32_t &value) {
     if (pos + sizeof(value) > buf.size()) return false;
     std::memcpy(&value, buf.data() + pos, sizeof(value)); pos += sizeof(value); return true;
+  }
+  static bool read_u8(const std::string &buf, size_t &pos, uint8_t &value) {
+    if (pos >= buf.size()) return false;
+    value = uint8_t(static_cast<unsigned char>(buf[pos++]));
+    return true;
+  }
+  static bool read_le32(const std::string &buf, size_t &pos, uint32_t &value) {
+    if (pos > buf.size() || buf.size() - pos < sizeof(value)) return false;
+    value = uint32_t(static_cast<unsigned char>(buf[pos])) |
+            (uint32_t(static_cast<unsigned char>(buf[pos + 1])) << 8) |
+            (uint32_t(static_cast<unsigned char>(buf[pos + 2])) << 16) |
+            (uint32_t(static_cast<unsigned char>(buf[pos + 3])) << 24);
+    pos += sizeof(value);
+    return true;
+  }
+  static bool read_le64(const std::string &buf, size_t &pos, uint64_t &value) {
+    if (pos > buf.size() || buf.size() - pos < sizeof(value)) return false;
+    value = 0;
+    for (int shift = 0; shift < 64; shift += 8)
+      value |= uint64_t(static_cast<unsigned char>(buf[pos++])) << shift;
+    return true;
+  }
+  static void append_blob(std::string &out, const std::string &value) {
+    if (value.size() > (1u << 28)) throw Error("storage_error", "journal value too large");
+    append_le32(out, uint32_t(value.size()));
+    out.append(value);
+  }
+  static bool read_blob(const std::string &buf, size_t &pos, std::string &value) {
+    uint32_t size = 0;
+    if (!read_le32(buf, pos, size) || size > (1u << 28) || pos > buf.size() || buf.size() - pos < size)
+      return false;
+    value.assign(buf.data() + pos, size);
+    pos += size;
+    return true;
   }
   static void write_all(int fd, const char *data, size_t size) {
     while (size) {
@@ -253,11 +300,38 @@ struct Engine {
     if (journal_fd < 0) throw Error("storage_error", "cannot open journal");
     return journal_fd;
   }
-  void append_journal(const std::vector<std::string> &statements) {
-    if (statements.empty()) return;
-    std::string payload; append_u32(payload, uint32_t(statements.size()));
-    for (const auto &sql : statements) { if (sql.size() > (1u << 28)) throw Error("storage_error", "statement too large"); append_u32(payload, uint32_t(sql.size())); payload.append(sql); }
-    uint32_t magic = JOURNAL_MAGIC, bytes = uint32_t(payload.size());
+  void append_journal(const std::vector<JournalEntry> &entries) {
+    if (entries.empty()) return;
+    bool all_binary = true;
+    size_t binary_bytes = 0, sql_bytes = 0;
+    for (const auto &entry : entries) {
+      all_binary = all_binary && entry.binary_insert;
+      binary_bytes += entry.binary.size();
+      sql_bytes += entry.sql.size();
+    }
+    // Small scalar rows can be shorter as SQL (for example, a few small
+    // integers).  Use the binary frame only when it actually reduces the
+    // durable payload; vector-heavy INSERTs are the common winning case.
+    all_binary = all_binary && binary_bytes < sql_bytes;
+    std::string payload;
+    if (all_binary) append_le32(payload, uint32_t(entries.size()));
+    else append_u32(payload, uint32_t(entries.size()));
+    if (all_binary) {
+      for (const auto &entry : entries) {
+        if (entry.binary.size() > (1u << 28)) throw Error("storage_error", "journal value too large");
+        append_le32(payload, uint32_t(entry.binary.size()));
+        payload.append(entry.binary);
+      }
+    } else {
+      for (const auto &entry : entries) {
+        if (entry.sql.size() > (1u << 28)) throw Error("storage_error", "statement too large");
+        append_u32(payload, uint32_t(entry.sql.size()));
+        payload.append(entry.sql);
+      }
+    }
+    if (payload.size() > (1u << 30)) throw Error("storage_error", "journal frame too large");
+    uint32_t magic = all_binary ? BINARY_JOURNAL_MAGIC : JOURNAL_MAGIC;
+    uint32_t bytes = uint32_t(payload.size());
     int fd = ensure_journal_fd();
     try {
       write_all(fd, reinterpret_cast<const char *>(&magic), sizeof(magic));
@@ -305,7 +379,8 @@ struct Engine {
         torn_tail = true;
         break;
       }
-      if (magic != JOURNAL_MAGIC) throw Error("storage_error", "invalid journal magic");
+      if (magic != JOURNAL_MAGIC && magic != BINARY_JOURNAL_MAGIC)
+        throw Error("storage_error", "invalid journal magic");
       if (bytes > (1u << 30)) throw Error("storage_error", "invalid journal frame");
       const size_t frame_end = pos + sizeof(uint32_t) * 2 + size_t(bytes);
       if (frame_end > file_size) {
@@ -317,6 +392,26 @@ struct Engine {
       if (bytes && !f.read(&payload[0], std::streamsize(bytes))) {
         torn_tail = true;
         break;
+      }
+      if (magic == BINARY_JOURNAL_MAGIC) {
+        size_t binary_pos = 0;
+        uint32_t count = 0;
+        if (!read_le32(payload, binary_pos, count) || count > 1000000)
+          throw Error("storage_error", "invalid binary journal frame");
+        for (uint32_t i = 0; i < count; ++i) {
+          uint32_t size = 0;
+          if (!read_le32(payload, binary_pos, size) || size > (1u << 28) ||
+              binary_pos > payload.size() || payload.size() - binary_pos < size)
+            throw Error("storage_error", "invalid binary journal frame");
+          std::string entry(payload.data() + binary_pos, size);
+          binary_pos += size;
+          replay_binary_insert(entry);
+        }
+        if (binary_pos != payload.size())
+          throw Error("storage_error", "invalid binary journal frame");
+        pos = frame_end;
+        valid_end = pos;
+        continue;
       }
       // The frame is fully present.  Any inconsistency inside it is corruption,
       // not a torn tail, so it must fail loudly instead of being truncated.
@@ -476,10 +571,16 @@ struct Engine {
     catch (...) { st = State{}; tx.reset(); tx_log.clear(); load(); throw; }
     tx.reset(); tx_log.clear();
   }
-  void autocommit(bool changed, const std::string &sql) {
+  void autocommit(bool changed, const std::string &sql, const std::string *binary_payload = nullptr) {
     if (!changed) return;
-    if (tx) { tx_log.push_back(sql); return; }
-    try { append_journal({sql}); }
+    JournalEntry entry;
+    entry.sql = sql;
+    if (binary_payload && !binary_payload->empty()) {
+      entry.binary_insert = true;
+      entry.binary = *binary_payload;
+    }
+    if (tx) { tx_log.push_back(std::move(entry)); return; }
+    try { append_journal({std::move(entry)}); }
     catch (...) { st = State{}; tx.reset(); tx_log.clear(); load(); throw; }
   }
 
@@ -494,7 +595,104 @@ struct Engine {
     expect(t, p, "table"); std::string name = lower(take_name(t, p)); if (st.tables.count(name)) throw Error("table_exists", "table already exists"); expect(t, p, "("); Table tab; tab.name = name; std::vector<std::string> pks; while (true) { if (p < t.size() && ieq(t[p].text, "primary")) { ++p; expect(t, p, "key"); expect(t, p, "("); pks.push_back(take_name(t, p)); expect(t, p, ")"); } else { Column c; c.name = take_name(t, p); std::string k = lower(take_name(t, p)); if (k == "bigint") c.kind = VK_INT; else if (k == "varchar") c.kind = VK_STRING; else if (k == "vector") c.kind = VK_VECTOR; else throw Error("unsupported_sql", "unsupported column type"); if (c.kind != VK_INT) { expect(t, p, "("); c.width = int(take_int(t, p)); if (c.width <= 0) throw Error("invalid_schema", "nonpositive column width"); expect(t, p, ")"); } if (p < t.size() && ieq(t[p].text, "primary")) { ++p; expect(t, p, "key"); pks.push_back(c.name); } tab.cols.push_back(std::move(c)); } if (p >= t.size() || t[p].text != ",") break; ++p; } expect(t, p, ")"); if (pks.size() != 1) throw Error("invalid_schema", "one primary key is required"); tab.primary = column_of(tab, pks[0]); if (tab.cols[tab.primary].kind != VK_INT) throw Error("invalid_schema", "primary key must be BIGINT"); for (size_t i = 0; i < tab.cols.size(); ++i) if (tab.cols[i].kind == VK_VECTOR) { if (tab.vector_col >= 0) throw Error("invalid_schema", "at most one vector column"); tab.vector_col = int(i); } st.tables.emplace(name, std::move(tab));
   }
   void create_index(std::vector<Token> &t, size_t &p) { expect(t, p, "vector"); expect(t, p, "index"); std::string ignored = take_name(t, p); expect(t, p, "on"); Table &tab = table_of(st, take_name(t, p)); expect(t, p, "("); int c = column_of(tab, take_name(t, p)); expect(t, p, ")"); if (tab.cols[c].kind != VK_VECTOR) throw Error("invalid_schema", "index requires a vector"); if (tab.index) throw Error("index_exists", "vector index already exists"); tab.index = true; }
-  int64_t insert(std::vector<Token> &t, size_t &p) { expect(t, p, "into"); Table &tab = table_of(st, take_name(t, p)); std::vector<int> order; if (p < t.size() && t[p].text == "(") { ++p; while (true) { order.push_back(column_of(tab, take_name(t, p))); if (p >= t.size() || t[p].text != ",") break; ++p; } expect(t, p, ")"); } else for (size_t i = 0; i < tab.cols.size(); ++i) order.push_back(int(i)); if (order.size() != tab.cols.size()) throw Error("invalid_value", "all columns must appear"); expect(t, p, "values"); std::vector<Row> pending; while (true) { expect(t, p, "("); Row row(tab.cols.size()); size_t k = 0; while (true) { if (k >= order.size() || p >= t.size()) throw Error("invalid_value", "wrong value count"); int col = order[k++]; row[col] = convert_value(t[p++], tab.cols[col]); if (p >= t.size() || t[p].text != ",") break; ++p; } expect(t, p, ")"); if (k != order.size()) throw Error("invalid_value", "wrong value count"); pending.push_back(std::move(row)); if (p >= t.size() || t[p].text != ",") break; ++p; } std::map<int64_t, bool> seen; for (auto &row : pending) { int64_t key = row[tab.primary].i; if (seen.count(key) || tab.keys.count(key)) throw Error("duplicate_key", "duplicate primary key"); seen[key] = true; } for (auto &row : pending) { size_t pos = tab.rows.size(); tab.keys[row[tab.primary].i] = pos; tab.rows.push_back(std::move(row)); tab.alive.push_back(true); } invalidate_blocks(tab); return int64_t(pending.size()); }
+  static int64_t apply_insert_rows(Table &tab, std::vector<Row> pending) {
+    std::map<int64_t, bool> seen;
+    for (const auto &row : pending) {
+      if (row.size() != tab.cols.size()) throw Error("storage_error", "invalid journal row");
+      int64_t key = row[size_t(tab.primary)].i;
+      if (seen.count(key) || tab.keys.count(key)) throw Error("duplicate_key", "duplicate primary key");
+      seen[key] = true;
+    }
+    for (auto &row : pending) {
+      size_t pos = tab.rows.size();
+      tab.keys[row[size_t(tab.primary)].i] = pos;
+      tab.rows.push_back(std::move(row));
+      tab.alive.push_back(true);
+    }
+    invalidate_blocks(tab);
+    return int64_t(seen.size());
+  }
+  static std::string encode_insert_payload(const std::string &table, const std::vector<Row> &rows) {
+    if (rows.size() > 1000000) throw Error("storage_error", "too many journal rows");
+    std::string out;
+    append_blob(out, table);
+    append_le32(out, uint32_t(rows.size()));
+    for (const auto &row : rows) {
+      if (row.size() > 1024) throw Error("storage_error", "too many journal columns");
+      append_le32(out, uint32_t(row.size()));
+      for (const auto &value : row) {
+        append_u8(out, uint8_t(value.kind));
+        if (value.kind == VK_INT) {
+          append_le64(out, uint64_t(value.i));
+        } else if (value.kind == VK_STRING) {
+          append_blob(out, value.s);
+        } else if (value.kind == VK_VECTOR) {
+          if (value.v.size() > 100000) throw Error("storage_error", "vector too large");
+          append_le32(out, uint32_t(value.v.size()));
+          for (float item : value.v) {
+            uint32_t bits = 0;
+            static_assert(sizeof(bits) == sizeof(item), "float must be 32-bit");
+            std::memcpy(&bits, &item, sizeof(bits));
+            append_le32(out, bits);
+          }
+        } else {
+          throw Error("storage_error", "invalid journal value");
+        }
+      }
+    }
+    return out;
+  }
+  void replay_binary_insert(const std::string &payload) {
+    size_t pos = 0;
+    std::string table_name;
+    uint32_t row_count = 0;
+    if (!read_blob(payload, pos, table_name) || !read_le32(payload, pos, row_count) || row_count > 1000000)
+      throw Error("storage_error", "invalid binary journal insert");
+    Table &tab = table_of(st, table_name);
+    std::vector<Row> rows;
+    rows.reserve(row_count);
+    for (uint32_t r = 0; r < row_count; ++r) {
+      uint32_t column_count = 0;
+      if (!read_le32(payload, pos, column_count) || column_count != tab.cols.size())
+        throw Error("storage_error", "invalid binary journal row");
+      Row row(tab.cols.size());
+      for (uint32_t c = 0; c < column_count; ++c) {
+        uint8_t kind = 0;
+        if (!read_u8(payload, pos, kind) || kind != uint8_t(tab.cols[c].kind))
+          throw Error("storage_error", "invalid binary journal value");
+        Value value;
+        value.kind = VKind(kind);
+        if (value.kind == VK_INT) {
+          uint64_t bits = 0;
+          if (!read_le64(payload, pos, bits)) throw Error("storage_error", "invalid binary journal value");
+          value.i = int64_t(bits);
+        } else if (value.kind == VK_STRING) {
+          if (!read_blob(payload, pos, value.s) || utf8_length(value.s) > size_t(tab.cols[c].width))
+            throw Error("storage_error", "invalid binary journal value");
+        } else {
+          uint32_t dim = 0;
+          if (!read_le32(payload, pos, dim) || dim != uint32_t(tab.cols[c].width))
+            throw Error("storage_error", "invalid binary journal vector");
+          value.v.resize(dim);
+          for (float &item : value.v) {
+            uint32_t bits = 0;
+            if (!read_le32(payload, pos, bits)) throw Error("storage_error", "invalid binary journal vector");
+            std::memcpy(&item, &bits, sizeof(item));
+            if (!std::isfinite(item)) throw Error("storage_error", "invalid binary journal vector");
+          }
+        }
+        row[c] = std::move(value);
+      }
+      rows.push_back(std::move(row));
+    }
+    if (pos != payload.size()) throw Error("storage_error", "invalid binary journal insert");
+    apply_insert_rows(tab, std::move(rows));
+  }
+  int64_t insert(std::vector<Token> &t, size_t &p, std::string *journal_payload = nullptr) {
+    expect(t, p, "into"); Table &tab = table_of(st, take_name(t, p)); std::vector<int> order; if (p < t.size() && t[p].text == "(") { ++p; while (true) { order.push_back(column_of(tab, take_name(t, p))); if (p >= t.size() || t[p].text != ",") break; ++p; } expect(t, p, ")"); } else for (size_t i = 0; i < tab.cols.size(); ++i) order.push_back(int(i)); if (order.size() != tab.cols.size()) throw Error("invalid_value", "all columns must appear"); expect(t, p, "values"); std::vector<Row> pending; while (true) { expect(t, p, "("); Row row(tab.cols.size()); size_t k = 0; while (true) { if (k >= order.size() || p >= t.size()) throw Error("invalid_value", "wrong value count"); int col = order[k++]; row[col] = convert_value(t[p++], tab.cols[col]); if (p >= t.size() || t[p].text != ",") break; ++p; } expect(t, p, ")"); if (k != order.size()) throw Error("invalid_value", "wrong value count"); pending.push_back(std::move(row)); if (p >= t.size() || t[p].text != ",") break; ++p; }
+    if (journal_payload) *journal_payload = encode_insert_payload(tab.name, pending);
+    return apply_insert_rows(tab, std::move(pending));
+  }
   void update(std::vector<Token> &t, size_t &p, int64_t &affected) { Table &tab = table_of(st, take_name(t, p)); expect(t, p, "set"); std::vector<std::pair<int, Value>> assigns; while (true) { int c = column_of(tab, take_name(t, p)); expect(t, p, "="); if (p >= t.size()) throw Error("invalid_value", "missing value"); Value value = convert_value(t[p++], tab.cols[c]);
 
     if (c == tab.primary) {
@@ -753,7 +951,30 @@ int main(int argc, char **argv) {
         if (cmd == "begin") { db.begin(); body = mv::Json::object({{"ok", mv::Json::boolean(true)}}); }
         else if (cmd == "commit") { db.commit(); body = mv::Json::object({{"ok", mv::Json::boolean(true)}}); }
         else if (cmd == "rollback") { db.rollback(); body = mv::Json::object({{"ok", mv::Json::boolean(true)}}); }
-        else { int64_t affected = 0; if (cmd == "create") { if (p < tok.size() && mv::ieq(tok[p].text, "vector")) db.create_index(tok, p); else db.create_table(tok, p); affected = 0; } else if (cmd == "insert") affected = db.insert(tok, p); else if (cmd == "update") db.update(tok, p, affected); else if (cmd == "delete") db.erase(tok, p, affected); else if (cmd == "select") body = db.select(tok, p, ann_mode); else throw mv::Error("unsupported_sql", "unsupported statement"); if (cmd != "select") db.autocommit(true, sql); if (body.kind == mv::Json::NIL) body = mv::Json::object({{"ok", mv::Json::boolean(true)}}); else body.o["ok"] = mv::Json::boolean(true); if (cmd == "insert" || cmd == "update" || cmd == "delete") body.o["affected_rows"] = mv::Json::integer(affected); }
+        else {
+          int64_t affected = 0;
+          std::string binary_payload;
+          if (cmd == "create") {
+            if (p < tok.size() && mv::ieq(tok[p].text, "vector")) db.create_index(tok, p);
+            else db.create_table(tok, p);
+          } else if (cmd == "insert") {
+            affected = db.insert(tok, p, &binary_payload);
+          } else if (cmd == "update") {
+            db.update(tok, p, affected);
+          } else if (cmd == "delete") {
+            db.erase(tok, p, affected);
+          } else if (cmd == "select") {
+            body = db.select(tok, p, ann_mode);
+          } else {
+            throw mv::Error("unsupported_sql", "unsupported statement");
+          }
+          if (cmd != "select")
+            db.autocommit(true, sql, cmd == "insert" ? &binary_payload : nullptr);
+          if (body.kind == mv::Json::NIL) body = mv::Json::object({{"ok", mv::Json::boolean(true)}});
+          else body.o["ok"] = mv::Json::boolean(true);
+          if (cmd == "insert" || cmd == "update" || cmd == "delete")
+            body.o["affected_rows"] = mv::Json::integer(affected);
+        }
         body.o["id"] = id; std::cout << mv::json_dump(body) << '\n' << std::flush;
       } catch (const mv::Error &e) { std::cout << mv::json_dump(mv::Json::object({{"id", id}, {"ok", mv::Json::boolean(false)}, {"error", mv::Json::object({{"code", mv::Json::string(e.code)}, {"message", mv::Json::string(e.what())}})}})) << '\n' << std::flush; }
       catch (const std::exception &e) { std::cout << mv::json_dump(mv::Json::object({{"id", id}, {"ok", mv::Json::boolean(false)}, {"error", mv::Json::object({{"code", mv::Json::string("internal_error")}, {"message", mv::Json::string(e.what())}})}})) << '\n' << std::flush; }
