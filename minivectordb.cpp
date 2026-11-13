@@ -1290,14 +1290,25 @@ struct Engine {
       std::sort(block_order.begin(), block_order.end(), [&](size_t a, size_t b) {
         return block_scores[a] < block_scores[b];
       });
-      using Heap = std::priority_queue<size_t, std::vector<size_t>, decltype(less_row)>;
-      Heap best(less_row);
+      const bool simple_distance_order = ord.size() == 1 && ord[0].distance;
+      auto heap_less = [&](size_t a, size_t b) {
+        if (simple_distance_order) {
+          const double da = distance_cache[qi][a];
+          const double db = distance_cache[qi][b];
+          if (da != db) return da < db;
+          return tab.rows[a][tab.primary].i < tab.rows[b][tab.primary].i;
+        }
+        return less_row(a, b);
+      };
+      using Heap = std::priority_queue<size_t, std::vector<size_t>, decltype(heap_less)>;
+      Heap best(heap_less);
       const size_t wanted = size_t(limit);
       auto consider = [&](size_t r) {
         if (!tab.alive[r] || !matches(tab.rows[r], terms)) return;
+        if (simple_distance_order) (void)distance_for(r, qi);
         if (best.size() < wanted) {
           best.push(r);
-        } else if (less_row(r, best.top())) {
+        } else if (heap_less(r, best.top())) {
           best.pop();
           best.push(r);
         }
@@ -1310,7 +1321,8 @@ struct Engine {
       } else {
         for (size_t index = 0; index < probe_blocks; ++index) {
           size_t bi = block_order[index];
-          if (!use_ann && best.size() == wanted && block_bounds[bi] > distance_for(best.top(), qi))
+          if (!use_ann && best.size() == wanted && block_bounds[bi] >
+              (simple_distance_order ? distance_cache[qi][best.top()] : distance_for(best.top(), qi)))
             continue;
           const auto &block = tab.blocks[bi];
           for (size_t r = block.begin; r < block.end; ++r) consider(r);
