@@ -144,7 +144,38 @@ struct State { std::map<std::string, Table> tables; };
 static std::string lower(std::string x) { for (char &c : x) c = char(std::tolower((unsigned char)c)); return x; }
 static Table &table_of(State &s, const std::string &name) { auto it = s.tables.find(lower(name)); if (it == s.tables.end()) throw Error("unknown_table", "unknown table"); return it->second; }
 static int column_of(const Table &t, const std::string &name) { std::string n = lower(name); for (size_t i = 0; i < t.cols.size(); ++i) if (lower(t.cols[i].name) == n) return int(i); throw Error("unknown_column", "unknown column"); }
-static std::vector<float> parse_vector(const std::string &x, int dim) { std::string y = x; size_t a = y.find('['), b = y.rfind(']'); if (a == std::string::npos || b <= a) throw Error("invalid_vector", "expected vector array"); std::vector<float> out; std::string body = y.substr(a + 1, b - a - 1); std::stringstream ss(body); std::string item; while (std::getline(ss, item, ',')) { if (item.empty()) continue; char *end = nullptr; double d = std::strtod(item.c_str(), &end); if (!end || *end || !std::isfinite(d) || d > std::numeric_limits<float>::max() || d < -std::numeric_limits<float>::max()) throw Error("invalid_vector", "expected finite float32 array"); out.push_back(float(d)); } if (int(out.size()) != dim) throw Error("dimension_mismatch", "wrong vector dimension"); return out; }
+static std::vector<float> parse_vector(const std::string &x, int dim) {
+  const size_t begin = x.find('['), close = x.rfind(']');
+  if (begin == std::string::npos || close <= begin)
+    throw Error("invalid_vector", "expected vector array");
+
+  std::vector<float> out;
+  out.reserve(dim > 0 ? size_t(dim) : 0);
+  const char *p = x.data() + begin + 1;
+  const char *end = x.data() + close;
+  while (p < end) {
+    if (*p == ',') {
+      // Match the old parser's treatment of an empty comma-separated item.
+      ++p;
+      continue;
+    }
+    char *next = nullptr;
+    const double value = std::strtod(p, &next);
+    if (next == p || !std::isfinite(value) ||
+        value > std::numeric_limits<float>::max() ||
+        value < -std::numeric_limits<float>::max())
+      throw Error("invalid_vector", "expected finite float32 array");
+    out.push_back(float(value));
+    p = next;
+    while (p < end && std::isspace(static_cast<unsigned char>(*p))) ++p;
+    if (p < end && *p != ',')
+      throw Error("invalid_vector", "expected finite float32 array");
+    if (p < end) ++p;
+  }
+  if (int(out.size()) != dim)
+    throw Error("dimension_mismatch", "wrong vector dimension");
+  return out;
+}
 static size_t utf8_length(const std::string &s)
 {
   size_t count = 0;
