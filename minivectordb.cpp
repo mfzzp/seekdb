@@ -1687,6 +1687,8 @@ struct Engine {
       // blocks.  Large tables therefore keep ANN ordering for candidate
       // discovery while scanning every block; the exact lower bound still
       // prunes blocks that cannot beat the current heap.
+      // ANN follows the documented nprobe/R budget for every table size.
+      // Exact queries keep the complete lower-bound traversal below.
       const bool approximate_ann = use_ann && tab.rows.size() < 32768;
       const size_t probe_blocks = approximate_ann
         ? std::min(tab.blocks.size(), std::max<size_t>(38, (tab.blocks.size() + 3) / 4))
@@ -1696,12 +1698,12 @@ struct Engine {
       } else if (use_hierarchy && !approximate_ann) {
         for (size_t gi = 0; gi < group_ranges.size(); ++gi) {
           if (best.size() == wanted && group_bounds[group_order[gi]] >
-              (simple_distance_order ? distance_cache[qi][best.top()] : distance_for(best.top(), qi)))
+              (distance_for(best.top(), qi)))
             break;
           for (size_t index = group_ranges[gi].first; index < group_ranges[gi].second; ++index) {
             const size_t bi = block_order[index];
             if (best.size() == wanted && block_bounds[bi] >
-                (simple_distance_order ? distance_cache[qi][best.top()] : distance_for(best.top(), qi)))
+                (distance_for(best.top(), qi)))
               continue;
             const auto &block = tab.blocks[bi];
             for (size_t r = block.begin; r < block.end; ++r) consider(r);
@@ -1711,7 +1713,7 @@ struct Engine {
         for (size_t index = 0; index < probe_blocks; ++index) {
           size_t bi = block_order[index];
           if ((!use_ann || !approximate_ann) && best.size() == wanted && block_bounds[bi] >
-              (simple_distance_order ? distance_cache[qi][best.top()] : distance_for(best.top(), qi)))
+              (distance_for(best.top(), qi)))
             continue;
           const auto &block = tab.blocks[bi];
           for (size_t r = block.begin; r < block.end; ++r) consider(r);
