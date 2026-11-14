@@ -70,3 +70,8 @@
 - The vector flush boundary now refreshes the read-only mmap after appending `vectors.f32`, so exact scans reuse a contiguous file window instead of falling back to one `pread` per row.
 - Replaced the AVX2 distance kernel's float-to-double conversion loop with float SIMD accumulation and one final reduction. Public SQL: 20 cases, 0 failures; strict protocol package: 20 cases, all PASS.
 - Same 2,000 x 1,024 benchmark, three rounds: new exact mean 0.00907 s (from 0.01155 s), new ANN mean 0.00543 s, old exact mean 0.00305 s; new insert 1.659 s vs old 1.721 s. This is a measured ~21% exact-query improvement, while the old implementation remains the current exact latency baseline.
+
+## 2026-11-14 squared-distance ranking path
+
+- Exact and ANN ranking now keep squared L2 distances internally and apply the square root only when serializing the projected distance. This removes one square-root per scanned row while preserving the public Euclidean result and tie order.
+- The 20-case public harness remained at 0 failures after the change. The three-round comparison stayed within run noise at new exact 0.00911 s and ANN 0.00544 s, so this pass is kept for the cleaner ranking invariant rather than claimed as a standalone speed win.
