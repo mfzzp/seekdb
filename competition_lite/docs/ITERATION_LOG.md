@@ -33,3 +33,12 @@
 - 72-row smoke created L0/L1 files and a retained tombstone; after restart `id=2` stayed deleted and scalar filtering returned the expected rows.
 - Public harness: 20 cases, 0 failures.
 - Large experiments remain deferred.
+
+## 2026-11-14 IVF-PQ and ADC pass
+
+- Replaced the first-dimension bucket shortcut with trained IVF coarse centroids, global non-residual product-quantizer codebooks, per-row PQ codes, ADC candidate ranking, and raw-vector reranking.
+- Insert/update/delete and restart rebuild the IVF/PQ state. Exact mode remains a full independent scan.
+- The first probe/candidate setting produced 0/10 recall on a periodic 4,000-row smoke, so it was rejected. The final small setting probes all coarse lists and retains a bounded ADC candidate set before raw rerank; the same smoke reached 10/10 recall.
+- 2,000 rows x 1024 dimensions, 8 queries x 3 runs: exact mean 0.01641 s, ANN mean 0.01548 s (about 5.7% faster in this run). 4,000 rows x 32 dimensions showed ANN slower, so this optimization is intended for the fixed 1024-dimensional experiment.
+- Public harness: 20 cases, 0 failures. Vector index update/restart smoke passed.
+- Large experiments remain deferred.
