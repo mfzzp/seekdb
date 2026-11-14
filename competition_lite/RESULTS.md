@@ -17,7 +17,7 @@
 | LSM flush/compaction/restart smoke | PASS, 79 live rows and L0/L1 files |
 | IVF-PQ index persistence/restart | PASS |
 | Crash recovery smoke | 20/20 PASS |
-| Runtime physical-line budget | 1945 / 2000 (current source) |
+| Runtime physical-line budget | 1980 / 2000 (current source) |
 
 The tools under `competition_lite/bench` generate the fixed eight-column schema, write `vectors.f32`, compute a blockwise mmap-backed independent Oracle, exercise S1/B256/B1024/T256, support mixed and pure-random vectors, and emit per-query JSON plus summaries.
 
@@ -74,8 +74,8 @@ The 300k vector GC command completed in 5.498 s, kept the 1,228,800,000-byte liv
 - **T00:** clean branch, isolated worktree, contract file, ancestor check, and local/server paths are recorded. Official unknowns still need binding from the formal package rather than assumptions.
 - **T01:** JSONL line protocol, CLI, checks, and maintenance commands work. Negative SQL coverage is not exhaustive.
 - **T02:** WAL now has aligned frames, CRC rejection, and safe incomplete-tail truncation; it still reconstructs canonical mutation tokens rather than fully typed column-level PUT/PATCH/DELETE records, and vector spool thresholds are not separately implemented.
-- **T03:** vectors are separate and mmap-readable; MemTable/Immutable/SST maintenance exists with byte/WAL thresholds configurable for small tests. Checkpoint STATE is now a compact binary snapshot with a legacy JSON fallback, greatly reducing recovery memory. SST files now emit 32 KiB sparse block sidecars with per-block CRC and first-record markers; key/seq-aware merge semantics and safe tombstone dropping remain incomplete.
-- **T04:** count-based L0/L1/L2 compaction exists. Range-overlap selection, sequence/key merge semantics, safe tombstone dropping, and byte/range metrics are incomplete.
+- **T03:** vectors are separate and mmap-readable; MemTable/Immutable/SST maintenance exists with byte/WAL thresholds configurable for small tests. Checkpoint STATE is now a compact binary snapshot with a legacy JSON fallback, greatly reducing recovery memory. SST files now emit 32 KiB sparse block sidecars with per-block CRC and first-record markers; key/seq-aware merge semantics and overlap selection are implemented, while safe tombstone dropping remains incomplete.
+- **T04:** MemTable records now carry key/sequence/tombstone/row metadata; SST flush sorts them, Compaction performs key-aware latest-record merge, and higher-level selection keeps only overlapping ranges. L0→L1→L2 and orphan-file retention passed a small smoke. Safe tombstone dropping, manifest range statistics, and bytes-in/out metrics remain incomplete.
 - **T05:** exact search is independent of ANN and uses scalar postings plus safe block bounds. The independent Oracle is now mmap/blockwise and small exact match remains 1.0; a fast NumPy/compiled truth run for the complete 100k/300k bank is still missing.
 - **T06:** IVF, global non-residual PQ, ADC, raw rerank, persistence, index CRC, and nprobe observability exist. Defaults remain conservative for build time; `LITE_NLIST`, `LITE_PQ_M`, `LITE_PQ_KS`, `LITE_KMEANS_ITERS`, and `LITE_NPROBE` permit controlled sweeps. The measured small ANN recall is 0.90625 (<0.95 target).
 - **T07:** post-index insert, scalar update, vector update, delete, rollback, and restart checks now have an executable `bench/mutate_check.py` smoke. VectorId/ref_epoch generations, thresholded rebuild policy, and 128-query post-update/compaction/GC Oracle checks remain incomplete.
@@ -83,6 +83,7 @@ The 300k vector GC command completed in 5.498 s, kept the 1,228,800,000-byte liv
 - **T09:** 100k/300k B256 and the 1024-case engine sweep are recorded. S1/B1024/T256 at scale, K=1/K=100, updates/deletes, random-vector runs, and independent large truth are missing.
 - **T10:** compact binary recovery and windowed mmap now pass a 300k LOWMEM load/check plus 256-query (512 request) subrun at 1 GiB, with about 526 MiB peak RSS; full 300k build under the cap, true storage-cold, and large 20-round kill/restart matrix remain missing.
 - **T11:** commits, line checks, ancestor checks, and reproducible local/server paths exist. Clean platform submission, ablations, and a successful remote push remain incomplete.
+
 
 
 

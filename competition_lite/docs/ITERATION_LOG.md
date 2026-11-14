@@ -154,3 +154,10 @@
 
 - Each flushed or compacted SST now emits a 32 KiB sparse sidecar containing block offsets, lengths, first-record markers, and CRCs; old sidecars are removed during compaction.
 - Public strict protocol remained 20/20 PASS. Runtime count is 1945 physical lines.
+
+## 2026-11-14 key-aware LSM pass
+
+- Replaced SQL-text-only MemTable entries with key/sequence/tombstone/row-metadata records. SST records are encoded as `seq|P/T|hex(key)|hex(value)` and remain backward-readable for legacy `P `/`T ` lines.
+- Compaction now sorts by logical key and descending sequence, keeps the newest visible record per key, selects only overlapping next-level files, preserves non-overlapping files, and emits L0→L1→L2 output without orphaning retained ranges.
+- Small threshold smoke produced five retained L2 files; `--check`, post-index mutation/restart, strict protocol 20/20, and crash smoke 20/20 passed.
+- Runtime source count is 1980 physical lines. Tombstone safety conditions and manifest byte/range counters remain to be added.

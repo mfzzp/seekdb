@@ -262,6 +262,11 @@ namespace lite {
     size_t begin=0,end=0;
     std::vector<float>lo,hi;
   };
+  struct SRec{
+    std::string key,value;
+    uint64_t seq=0;
+    bool tomb=false;
+  };
   static uint32_t crc32c(const char*p,size_t n){
     uint32_t c=0xffffffffu;
     for(size_t i=0;i<n;++i){
@@ -312,7 +317,8 @@ namespace lite {
     std::string dir,wal,vecfile;
     std::map<std::string,Table>tabs,save;
     std::set<std::string>indexes;
-    std::vector<std::string>pending,memtable;
+    std::vector<std::string>pending;
+    std::vector<SRec>memtable,pending_lsm;
     bool in=false,recovering=false;
     off_t vec_mark=0,vec_end=0,vec_cursor=0;
     size_t vecbuf_mark=0;
@@ -321,7 +327,7 @@ namespace lite {
     off_t vecbuf_base=0;
     std::vector<float>scratch;
     std::unordered_map<std::string,std::string>vcache;
-    std::vector<std::string>immutable;
+    std::vector<SRec>immutable;
     std::map<int,std::vector<std::string>>levels;
     unsigned sst_seq=0;
     uint64_t wal_txid=0;
@@ -692,9 +698,10 @@ namespace lite {
         fdatasync(fd);
         close(fd);
       }
-      memtable.insert(memtable.end(),pending.begin(),pending.end());
+      for(auto&r:pending_lsm){r.seq=tx;memtable.push_back(std::move(r));}
       pending.clear();
-      size_t membytes=0;for(auto&x:memtable)membytes+=x.size();
+      pending_lsm.clear();
+      size_t membytes=0;for(auto&x:memtable)membytes+=x.key.size()+x.value.size()+32;
       if(membytes>=(size_t)envint("LITE_MEMTABLE_BYTES",4<<20)||fsize(wal)>=(32u<<20))flush_sst();
       for(auto&kv:index_cols){
         auto it=tabs.find(kv.first);
@@ -980,6 +987,7 @@ namespace lite {
       if(snapshot)save=tabs;
       else save.clear();
       pending.clear();
+      pending_lsm.clear();
       vec_mark=vec_end;
       vecbuf_mark=vecbuf.size();
       in=true;
@@ -988,6 +996,7 @@ namespace lite {
       if(!in)return;
       tabs=save;
       pending.clear();
+      pending_lsm.clear();
       vecbuf.resize(vecbuf_mark);
       trunc_vec(vec_mark);
       in=false;
@@ -1001,6 +1010,30 @@ namespace lite {
       persist();
       in=false;
     }
+    static std::string hexenc(const std::string&s){
+      static const char*h="0123456789abcdef";std::string r;r.reserve(s.size()*2);
+      for(unsigned char c:s){r.push_back(h[c>>4]);r.push_back(h[c&15]);}return r;
+    }
+    static std::string hexdec(const std::string&s){
+      if(s.size()%2)throw Err("corruption","sst hex");std::string r;r.resize(s.size()/2);
+      for(size_t i=0;i<r.size();++i){auto d=[](char c)->int{return c>='0'&&c<='9'?c-'0':c>='a'&&c<='f'?c-'a'+10:c>='A'&&c<='F'?c-'A'+10:-1;};int a=d(s[i*2]),b=d(s[i*2+1]);if(a<0||b<0)throw Err("corruption","sst hex");r[i]=(char)((a<<4)|b);}return r;
+    }
+    static std::string skey(const Table&q,long long id){
+      std::ostringstream o;o<<q.n<<'|'<<std::hex<<std::setw(16)<<std::setfill('0')<<(((uint64_t)id)^(1ull<<63));return o.str();
+    }
+    static std::string row_payload(const Table&q,const Row&r){
+      std::string s=std::to_string(r.id);
+      for(size_t i=1;i<q.c.size();++i){s.push_back('\x1f');s+=i<r.v.size()?r.v[i-1]:"";s.push_back('\x1f');s+=std::to_string(i<r.voff.size()?r.voff[i]:-1);}
+      return s;
+    }
+    static std::string sline(const SRec&r){return std::to_string(r.seq)+"|"+(r.tomb?"T":"P")+"|"+hexenc(r.key)+"|"+hexenc(r.value);}
+    static bool sread(const std::string&line,SRec&r){
+      size_t a=line.find('|'),b=a==std::string::npos?std::string::npos:line.find('|',a+1),c=b==std::string::npos?std::string::npos:line.find('|',b+1);
+      if(a!=std::string::npos&&b!=std::string::npos&&c!=std::string::npos){try{r.seq=std::stoull(line.substr(0,a));r.tomb=line[a+1]=='T';r.key=hexdec(line.substr(b+1,c-b-1));r.value=hexdec(line.substr(c+1));return true;}catch(...){return false;}}
+      if(line.size()>2&&(line[0]=='P'||line[0]=='T')&&line[1]==' '){r.seq=0;r.tomb=line[0]=='T';r.key=line.substr(2);r.value=line.substr(2);return true;}return false;
+    }
+    void lsm_put(const Table&q,const Row&r){if(!recovering)pending_lsm.push_back({skey(q,r.id),row_payload(q,r),0,false});}
+    void lsm_del(const Table&q,long long id){if(!recovering)pending_lsm.push_back({skey(q,id),{},0,true});}
     void record(const std::string&s){
       pending.push_back(s);
     }
@@ -1021,29 +1054,28 @@ namespace lite {
       for(uint32_t i=0;i<n;++i){size_t off=(size_t)i*32768,len=std::min<size_t>(32768,d.size()-off);uint64_t o=off;uint32_t l=(uint32_t)len,c=crc32c(d.data()+off,len);wr(g,o);wr(g,l);wr(g,c);size_t e=d.find('\n',off);ws(g,d.substr(off,e==std::string::npos?len:e-off));}
       g.flush();int fd=open((p+".idx").c_str(),O_RDONLY);if(fd>=0){fsync(fd);close(fd);}
     }
+    static bool srange(const std::string&p,std::string&lo,std::string&hi){
+      std::ifstream f(p);std::string x;SRec r;bool ok=false;
+      while(std::getline(f,x))if(sread(x,r)){if(!ok)lo=r.key;hi=r.key;ok=true;}
+      return ok;
+    }
     void compact(){
-      for(int lev=0;lev<3;++lev){
+      for(int lev=0;lev<2;++lev){
         auto&src=levels[lev];
         if(src.size()<4)continue;
         std::vector<std::string>in=src;
-        for(auto&x:levels[lev+1])in.push_back(x);
-        std::vector<std::ifstream>fs;
-        std::vector<std::string>cur;
+        std::string low,high;
+        for(auto&x:src){std::string a,b;if(srange(x,a,b)){if(low.empty()||a<low)low=a;if(high.empty()||b>high)high=b;}}
+        for(auto&x:levels[lev+1]){std::string a,b;if(!srange(x,a,b)||low.empty()||!(b<low||high<a))in.push_back(x);}
+        std::vector<SRec>all;
         for(auto&x:in){
-          fs.emplace_back(x);
-          std::string y;
-          std::getline(fs.back(),y);
-          cur.push_back(y);
+          std::ifstream f(x);std::string y;
+          while(std::getline(f,y)){SRec r;if(sread(y,r))all.push_back(std::move(r));}
         }
+        std::sort(all.begin(),all.end(),[](const SRec&a,const SRec&b){if(a.key!=b.key)return a.key<b.key;if(a.seq!=b.seq)return a.seq>b.seq;return a.tomb>b.tomb;});
         std::string p=dir+"/L"+std::to_string(lev+1)+"-"+std::to_string(++sst_seq)+".sst";
         std::ofstream out(p,std::ios::binary);
-        for(;;){
-          int k=-1;
-          for(size_t i=0;i<cur.size();++i)if(!cur[i].empty()&&(k<0||cur[i]<cur[k]))k=(int)i;
-          if(k<0)break;
-          out<<cur[k]<<'\n';
-          if(!std::getline(fs[k],cur[k]))cur[k].clear();
-        }
+        std::string last;for(auto&r:all)if(r.key!=last){out<<sline(r)<<'\n';last=r.key;}
         out.flush();
         int fd=open(p.c_str(),O_RDONLY);
         if(fd>=0){
@@ -1051,25 +1083,22 @@ namespace lite {
           close(fd);
         }
         seal_sst(p);
+        std::set<std::string>selected(in.begin(),in.end());
         for(auto&x:in){std::remove(x.c_str());std::remove((x+".idx").c_str());}
         src.clear();
-        levels[lev+1].clear();
-        levels[lev+1].push_back(p);
+        auto&dst=levels[lev+1];
+        dst.erase(std::remove_if(dst.begin(),dst.end(),[&](const std::string&x){return selected.count(x);}),dst.end());
+        dst.push_back(p);
         write_manifest();
       }
     }
     void flush_sst(){
       if(memtable.empty())return;
       immutable=memtable;
-      std::vector<std::string>rec;
-      for(auto&s:immutable){
-        auto t=tok(s);
-        rec.push_back((!t.empty()&&up(t[0])=="DELETE"?"T ":"P ")+s);
-      }
-      std::sort(rec.begin(),rec.end());
+      std::sort(immutable.begin(),immutable.end(),[](const SRec&a,const SRec&b){if(a.key!=b.key)return a.key<b.key;return a.seq>b.seq;});
       std::string p=dir+"/L0-"+std::to_string(++sst_seq)+".sst";
       std::ofstream f(p,std::ios::binary);
-      for(auto&s:rec)f<<s<<'\n';
+      for(auto&r:immutable)f<<sline(r)<<'\n';
       f.flush();
       int fd=open(p.c_str(),O_RDONLY);
       if(fd>=0){
@@ -1108,6 +1137,7 @@ namespace lite {
       std::vector<long long>new_ids;
       std::set<long long>old_ids;
       size_t np=pending.size();
+      size_t nl=pending_lsm.size();
       off_t vm=vec_end;
       size_t vb=vecbuf.size();
       try{
@@ -1144,6 +1174,7 @@ namespace lite {
             it->second.fast.clear();
           }
           pending.resize(np);
+          pending_lsm.resize(nl);
           vecbuf.resize(vb);
           trunc_vec(vm);
           sindex.clear();
@@ -1156,6 +1187,7 @@ namespace lite {
         else if(!readonly){
           tabs=before;
           pending.resize(np);
+          pending_lsm.resize(nl);
           vecbuf.resize(vb);
           trunc_vec(vm);
           sindex.clear();
@@ -1486,6 +1518,7 @@ namespace lite {
         q.order.push_back(id);
         scalar_add(q,id);
         index_add(q,id);
+        if(rec)lsm_put(q,r);
       }
       if(rec)record(canon_insert(q,rows));
       J x=jo();
@@ -1535,6 +1568,7 @@ namespace lite {
           else r.v[a.first-1]=a.second;
         }
         scalar_add(q,id);
+        if(rec)lsm_put(q,r);
       }
       if(rec){
         std::string s="UPDATE "+q.n+" SET ";
@@ -1565,6 +1599,7 @@ namespace lite {
       std::vector<long long>ids;
       for(auto id:q.order)if(q.r.count(id)&&match(q,q.r[id],cs))ids.push_back(id);
       for(auto id:ids){
+        if(rec)lsm_del(q,id);
         scalar_remove(q,id);
         index_remove(q,id);
         q.r.erase(id);
