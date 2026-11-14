@@ -244,6 +244,7 @@ namespace lite {
     std::vector<Col>c;
     std::unordered_map<long long,Row>r;
     std::vector<long long>order;
+    std::vector<Row*>fast;
   };
   struct Cond{
     int col=-1;
@@ -324,7 +325,6 @@ namespace lite {
     std::map<std::string,PQ>pqs;
     std::map<std::string,std::vector<VBlock>>vblocks;
     std::map<std::string,std::map<std::string,std::vector<long long>>>sindex;
-    std::map<std::string,J>qcache;
     mutable void*vmap=nullptr;
     mutable size_t mapsz=0;
     explicit Engine(std::string d):dir(std::move(d)),wal(dir+"/wal.log"),vecfile(dir+"/vectors.f32"){
@@ -993,16 +993,16 @@ namespace lite {
     void apply(const std::string&s){
       apply_tokens(tok(s));
     }
-    void begin(){
+    void begin(bool snapshot=true){
       if(in)throw Err("transaction_active","already active");
-      save=tabs;
+      if(snapshot)save=tabs;
+      else save.clear();
       pending.clear();
       vec_mark=vec_end;
       vecbuf_mark=vecbuf.size();
       in=true;
     }
     void rollback(){
-      qcache.clear();
       if(!in)return;
       tabs=save;
       pending.clear();
@@ -1020,7 +1020,6 @@ namespace lite {
       in=false;
     }
     void record(const std::string&s){
-      qcache.clear();
       pending.push_back(s);
     }
     void write_manifest(){
@@ -1106,13 +1105,22 @@ namespace lite {
       }
       bool readonly=k=="SELECT";
       bool auto_tx=!in&&!readonly;
-      if(auto_tx)begin();
+      bool lean_auto=auto_tx&&k=="INSERT";
+      if(auto_tx)begin(!lean_auto);
       std::map<std::string,Table>before;
-      if(!readonly)before=tabs;
+      if(!readonly&&!lean_auto)before=tabs;
+      std::vector<long long>new_ids;
+      std::set<long long>old_ids;
       size_t np=pending.size();
       off_t vm=vec_end;
       size_t vb=vecbuf.size();
       try{
+        if(lean_auto)for(size_t p=4;p<t.size();++p)if(t[p]=="("&&p+1<t.size()){
+          long long id=std::stoll(t[p+1]);
+          new_ids.push_back(id);
+          auto it=tabs.find(t[2]);
+          if(it!=tabs.end()&&it->second.r.count(id))old_ids.insert(id);
+        }
         J r;
         if(k=="CREATE"&&t.size()>1&&up(t[1])=="VECTOR")r=create_index(t);
         else if(k=="CREATE")r=create(t,true);
@@ -1120,21 +1128,36 @@ namespace lite {
         else if(k=="UPDATE")r=update(t,true);
         else if(k=="DELETE")r=erase(t,true);
         else if(k=="SELECT"){
-          std::string ck=(ann_mode?"A:":"E:")+sql;
-          auto qi=qcache.find(ck);
-          if(qi!=qcache.end())r=qi->second;
-          else{
-            flush_vecbuf();
-            r=select(t);
-            if(qcache.size()<128)qcache.emplace(std::move(ck),r);
-          }
+          flush_vecbuf();
+          r=select(t);
         }
         else throw Err("unsupported_sql","statement");
         if(auto_tx)commit();
         return r;
       }
       catch(...){
-        if(!readonly){
+        if(lean_auto){
+          auto it=t.size()>2?tabs.find(t[2]):tabs.end();
+          if(it!=tabs.end()){
+            for(auto id:new_ids)if(!old_ids.count(id)&&it->second.r.count(id)){
+              scalar_remove(it->second,id);
+              index_remove(it->second,id);
+              it->second.r.erase(id);
+            }
+            it->second.order.erase(std::remove_if(it->second.order.begin(),it->second.order.end(),[&](long long id){return !it->second.r.count(id);}),it->second.order.end());
+            it->second.fast.clear();
+          }
+          pending.resize(np);
+          vecbuf.resize(vb);
+          trunc_vec(vm);
+          sindex.clear();
+          buckets.clear();
+          for(auto&kv:tabs){
+            rebuild_scalar(kv.second);
+            rebuild_index(kv.second);
+          }
+        }
+        else if(!readonly){
           tabs=before;
           pending.resize(np);
           vecbuf.resize(vb);
@@ -1146,7 +1169,10 @@ namespace lite {
             rebuild_index(kv.second);
           }
         }
-        if(auto_tx)rollback();
+        if(auto_tx){
+          if(lean_auto)in=false;
+          else rollback();
+        }
         throw;
       }
     }
@@ -1260,7 +1286,16 @@ namespace lite {
         v.erase(std::remove(v.begin(),v.end(),id),v.end());
       }
     }
+    void refresh_fast(Table&q){
+      q.fast.clear();
+      q.fast.reserve(q.order.size());
+      for(auto id:q.order){
+        auto it=q.r.find(id);
+        if(it!=q.r.end())q.fast.push_back(&it->second);
+      }
+    }
     void rebuild_scalar(Table&q){
+      q.fast.clear();
       for(size_t c=1;c<q.c.size();++c)if(q.c[c].t!="VECTOR")sindex.erase(q.n+"."+q.c[c].n);
       for(auto&kv:q.r)scalar_add(q,kv.first);
     }
@@ -1407,6 +1442,7 @@ namespace lite {
       return jo();
     }
     J insert(const std::vector<std::string>&t,bool rec){
+      tabs[t[2]].fast.clear();
       if(t.size()<6||up(t[1])!="INTO"||up(t[3])!="VALUES")throw Err("unsupported_sql","insert");
       auto&q=tabs.at(t[2]);
       std::vector<std::vector<std::string>> rows;
@@ -1460,6 +1496,7 @@ namespace lite {
       return x;
     }
     J update(const std::vector<std::string>&t,bool rec){
+      tabs[t[1]].fast.clear();
       if(t.size()<6||up(t[0])!="UPDATE"||up(t[2])!="SET")throw Err("unsupported_sql","update");
       auto&q=tabs.at(t[1]);
       size_t p=3;
@@ -1522,6 +1559,7 @@ namespace lite {
       return x;
     }
     J erase(const std::vector<std::string>&t,bool rec){
+      tabs[t[2]].fast.clear();
       if(t.size()<3||up(t[0])!="DELETE"||up(t[1])!="FROM")throw Err("unsupported_sql","delete");
       auto&q=tabs.at(t[2]);
       size_t p=3;
@@ -1596,6 +1634,7 @@ namespace lite {
           break;
         }
       }
+      if(metric&&q.fast.size()!=q.order.size())refresh_fast(q);
       if(proj.size()==1&&proj[0]=="*"){
         proj.clear();
         for(auto&c:q.c)proj.push_back(c.n);
@@ -1675,14 +1714,19 @@ namespace lite {
         return a.id<b.id;
       };
       std::priority_queue<H,std::vector<H>,decltype(worse)>top(worse);
-      auto add_hit=[&](long long id){
-        auto it=q.r.find(id);
-        if(it==q.r.end()||!match(q,it->second,cs))return;
+      auto add_hit=[&](long long id,const Row*fast_row=nullptr){
+        const Row*row=fast_row;
+        if(!row){
+          auto it=q.r.find(id);
+          if(it==q.r.end())return;
+          row=&it->second;
+        }
+        if(!match(q,*row,cs))return;
         double d=0;
         if(metric){
-          if(it->second.voff.size()>=(size_t)q.c.size()&&it->second.voff[mcol]>=0)d=l2(it->second.voff[mcol],q.c[mcol].d,qv);
+          if(row->voff.size()>=(size_t)q.c.size()&&row->voff[mcol]>=0)d=l2(row->voff[mcol],q.c[mcol].d,qv);
           else{
-            auto v=vec(it->second.v[mcol-1],q.c[mcol].d);
+            auto v=vec(row->v[mcol-1],q.c[mcol].d);
             for(size_t k=0;k<v.size();++k){
               double z=v[k]-qv[k];
               d+=z*z;
@@ -1696,7 +1740,7 @@ namespace lite {
           else{
             int c=ci(q,on);
             if(c==0)ov=id;
-            else if(c>0&&q.c[c].t=="BIGINT")ov=std::stod(unq(it->second.v[c-1]));
+            else if(c>0&&q.c[c].t=="BIGINT")ov=std::stod(unq(row->v[c-1]));
           }
         }
         H hh{id,d,ov};
@@ -1706,6 +1750,14 @@ namespace lite {
           else if(worse(hh,top.top())){top.pop();top.push(hh);}
         }
         else h.push_back(hh);
+      };
+      auto add_fast=[&](size_t p){
+        if(p>=q.fast.size()||!q.fast[p]||!ask)return;
+        Row&r=*q.fast[p];
+        double d=l2(r.voff[mcol],q.c[mcol].d,qv);
+        H hh{r.id,d,d};
+        if(top.size()<ask)top.push(hh);
+        else if(worse(hh,top.top())){top.pop();top.push(hh);}
       };
       if(block_exact){
         int bc=mcol;
@@ -1719,9 +1771,8 @@ namespace lite {
             w.lo.assign(sd,1e30f);
             w.hi.assign(sd,-1e30f);
             for(size_t p=w.begin;p<w.end;++p){
-              auto it=q.r.find(q.order[p]);
-              if(it==q.r.end())continue;
-              auto v=read_vec(it->second.voff[bc],d);
+              if(p>=q.fast.size()||!q.fast[p])continue;
+              auto v=read_vec(q.fast[p]->voff[bc],d);
               for(int j=0;j<sd;++j){
                 int x=(j*d)/sd;
                 w.lo[j]=std::min(w.lo[j],v[x]);
@@ -1757,7 +1808,7 @@ namespace lite {
             double worst=top.top().d;
             if(kv.first>worst)break;
           }
-          for(size_t p=bs[kv.second].begin;p<bs[kv.second].end;++p)add_hit(q.order[p]);
+          for(size_t p=bs[kv.second].begin;p<bs[kv.second].end;++p)add_fast(p);
         }
       }
       else for(auto id:scan)add_hit(id);

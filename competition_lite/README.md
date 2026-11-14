@@ -2,7 +2,7 @@
 
 This directory is the clean-room C++17 implementation for the bound competition JSONL contract. The runtime entrypoint is `src/minivectordb_lite.cpp`; it does not include or link the previous `minivectordb.cpp` implementation.
 
-The runtime is deliberately single-writer. It has private transaction write sets, framed CRC WAL, a float32 vector file with mmap-on-demand reads, MemTable/Immutable/SST maintenance, checkpointed recovery state, scalar equality postings, exact Top-K, IVF with global non-residual PQ and raw-vector reranking, index persistence, and vector GC. Read-only SELECT avoids write-transaction snapshots, and the bounded query cache is invalidated by every recorded mutation.
+The runtime is deliberately single-writer. It has private transaction write sets, framed CRC WAL, a float32 vector file with mmap-on-demand reads, MemTable/Immutable/SST maintenance, checkpointed recovery state, scalar equality postings, exact Top-K, IVF with global non-residual PQ and raw-vector reranking, index persistence, and vector GC. Read-only SELECT executes against current state without a result cache.
 
 The source line checker counts physical lines, including comments and blanks:
 
@@ -10,7 +10,7 @@ The source line checker counts physical lines, including comments and blanks:
 python3 competition_lite/tools/check_lines.py
 ```
 
-It currently reports 1890 lines against the 2000-line runtime budget. The generator, Oracle, crash checker, benchmark driver, and summaries under `competition_lite/bench` are outside that runtime count.
+The current checker result is 1941 lines against the 2000-line runtime budget. The generator, Oracle, crash checker, benchmark driver, and summaries under `competition_lite/bench` are outside that runtime count.
 
 A small end-to-end run is:
 
@@ -24,4 +24,4 @@ python3 competition_lite/bench/verify_results.py \
   --queries /tmp/lite-run/queries.json --oracle /tmp/lite-data/oracle.jsonl
 ```
 
-The current evidence is recorded in `RESULTS.md`. It includes public/strict protocol checks, LSM and restart checks, 20 crash rounds, four write modes, an independent Oracle, and an old/new comparison. The plan's large 100k/300k matrix and memory-pressure runs are still pending; the report does not present them as completed. The WAL payload is framed, checksummed, and carries typed integer/string/vector/keyword fields, but it still reconstructs mutation handlers from canonical tokens rather than a fully typed column record, and SST files are not yet the sole recovery source. These are tracked as implementation gaps instead of being hidden by line compression or design-only claims.
+The current evidence is recorded in `RESULTS.md`. It includes public/strict protocol checks, LSM and restart checks, 20 crash rounds, four write modes, a small independent Oracle, a full 1024-case engine sweep at 100k/300k, and old/new timings. The plan's large Oracle, LOWMEM, full kill matrix, and submission checks remain explicitly marked as pending. The WAL is framed, checksummed, and carries typed integer/string/vector/keyword fields, but it still reconstructs mutation handlers from canonical tokens rather than a fully typed column record; SST files are not yet the sole recovery source.

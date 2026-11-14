@@ -125,3 +125,11 @@
 ## 2026-11-14 300k vector GC check
 
 - Stop-the-world vector GC on the 300k directory completed in 5.498 s, published a 1,228,800,000-byte live vector file, and a subsequent `--check` restart completed in 2.137 s.
+
+## 2026-11-14 lean write path and cache removal
+
+- Removed the bounded SQL/mode result cache because the implementation plan explicitly excludes query-result caching. The 1024-case sweep therefore measures real execution on current state.
+- Added a lean auto-commit INSERT path that records pre-existing ids and rolls back only newly-created rows on failure, avoiding a full table snapshot for each large request. Duplicate-key rollback and the 20-case public protocol suite still pass.
+- Added a pointer-addressed hot loop for exact block traversal. The latest 100k 1024-case sweep is 13.251 ms exact and 9.653 ms ANN per request, versus the previous 16.206/10.230 ms run.
+- Current runtime count: 1941/2000 physical lines. Same-data B256 writes are 52.885 s at 100k and 159.668 s at 300k, compared with 59.703 s and 178.769 s for the old baseline.
+- Exact remains slower than the old baseline at large scale, so this is recorded as an improvement pass, not a completion claim.
