@@ -1,0 +1,86 @@
+{
+  "passed": true,
+  "transport": "portable threaded local pipes; original public SQL and assertions",
+  "cases": [
+    {
+      "id": "sql_crud",
+      "passed": true
+    },
+    {
+      "id": "sql_comparisons",
+      "passed": true
+    },
+    {
+      "id": "sql_ordering",
+      "passed": true
+    },
+    {
+      "id": "sql_empty",
+      "passed": true
+    },
+    {
+      "id": "sql_primary_key",
+      "passed": true
+    },
+    {
+      "id": "sql_unicode",
+      "passed": true
+    },
+    {
+      "id": "sql_bigint",
+      "passed": true
+    },
+    {
+      "id": "sql_unsupported",
+      "passed": true
+    },
+    {
+      "id": "storage_restart",
+      "passed": true
+    },
+    {
+      "id": "vector_euclidean",
+      "passed": true
+    },
+    {
+      "id": "transaction_commit",
+      "passed": true
+    },
+    {
+      "id": "transaction_rollback",
+      "passed": true
+    },
+    {
+      "id": "storage_mutations",
+      "passed": true
+    },
+    {
+      "id": "storage_multiple_tables",
+      "passed": true
+    },
+    {
+      "id": "vector_ties_and_filter",
+      "passed": true
+    },
+    {
+      "id": "vector_float32",
+      "passed": true
+    },
+    {
+      "id": "vector_index_maintenance",
+      "passed": true
+    },
+    {
+      "id": "transaction_failed_insert",
+      "passed": true
+    },
+    {
+      "id": "transaction_autocommit_atomic",
+      "passed": true
+    },
+    {
+      "id": "transaction_shutdown_rollback",
+      "passed": true
+    }
+  ]
+}

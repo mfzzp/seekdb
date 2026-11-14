@@ -1,0 +1,17 @@
+{
+  "exact_oracle_queries": 1470,
+  "public_sql_cases": 20,
+  "bulk_kill_restart_cases": 4,
+  "quoted_literal_kill_restart_cases": 2,
+  "commit_crc_and_fault_cases": 13,
+  "manifest_fault_cases": 9,
+  "manifest_note": "passed on preceding candidate; final delta only adds WAL length accounting and checkpoint sync checks",
+  "full_row_restart_comparisons": 144576,
+  "wal_and_vector_bytes_identical": true,
+  "line_checker": {
+    "passed": false,
+    "lines": 2265,
+    "limit": 2000
+  },
+  "docker_linux": "not available locally"
+}

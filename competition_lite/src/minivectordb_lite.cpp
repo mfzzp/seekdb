@@ -285,13 +285,24 @@ namespace lite {
     uint64_t seq=0;
     bool tomb=false;
   };
-  static uint32_t crc32c(const char*p,size_t n){
+  static uint32_t crc32c_portable(const char*p,size_t n){
+    static const auto table=[](){std::vector<uint32_t> t(256);for(uint32_t i=0;i<256;++i){uint32_t c=i;for(int k=0;k<8;++k)c=(c>>1)^((c&1)?0x82f63b78u:0u);t[i]=c;}return t;}();
     uint32_t c=0xffffffffu;
-    for(size_t i=0;i<n;++i){
-      c^=(unsigned char)p[i];
-      for(int k=0;k<8;++k)c=(c>>1)^((c&1)?0x82f63b78u:0u);
-    }
+    for(size_t i=0;i<n;++i)c=table[(c^(unsigned char)p[i])&255]^(c>>8);
     return ~c;
+  }
+  #if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+  __attribute__((target("sse4.2"))) static uint32_t crc32c_hw(const char*p,size_t n){
+    uint64_t c=0xffffffffu;while(n>=8){uint64_t x;std::memcpy(&x,p,8);c=_mm_crc32_u64(c,x);p+=8;n-=8;}
+    while(n--)c=_mm_crc32_u8((uint32_t)c,(unsigned char)*p++);
+    return ~(uint32_t)c;
+  }
+  #endif
+  static uint32_t crc32c(const char*p,size_t n){
+    #if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+    static const bool hw=__builtin_cpu_supports("sse4.2");if(hw)return crc32c_hw(p,n);
+    #endif
+    return crc32c_portable(p,n);
   }
   static int envint(const char*n,int d){
     const char*x=std::getenv(n);
@@ -372,6 +383,10 @@ namespace lite {
     std::set<std::string>indexes;
     std::vector<std::string>pending;
     std::vector<SRec>memtable,pending_lsm;
+    size_t memtable_bytes=0;
+    int wfd=-1;
+    off_t wal_bytes=0;
+    bool failed_io=false;
     bool in=false,recovering=false;
     off_t vec_mark=0,vec_end=0,vec_cursor=0;
     size_t vecbuf_mark=0;
@@ -467,7 +482,8 @@ namespace lite {
       vec_end=n;
     }
     ~Engine(){
-      try{flush_sst();}catch(const std::exception&x){std::cerr<<"flush failed: "<<x.what()<<'\n';}
+      if(!failed_io)try{flush_sst();}catch(const std::exception&x){std::cerr<<"flush failed: "<<x.what()<<'\n';}
+      if(wfd>=0)close(wfd);
       if(vmap&&mapsz)munmap(vmap,mapsz);
       if(vfd>=0){
         fsync(vfd);
@@ -644,6 +660,7 @@ namespace lite {
       ensure_map();
     }
     void checkpoint(){
+      if(failed_io)throw Err("io_error","restart required after failed commit");
       flush_sst();
       for(auto&kv:tabs)save_vstats(kv.second);
       for(auto&kv:index_cols){auto it=tabs.find(kv.first);if(it!=tabs.end())save_index(it->second);}
@@ -652,11 +669,11 @@ namespace lite {
       std::ofstream z(wal,std::ios::trunc);
       z.flush();
       z.close();
-      int fd=open(wal.c_str(),O_RDONLY);
-      if(fd>=0){
-        fdatasync(fd);
-        close(fd);
-      }
+      if(!z)commit_io_error("truncate wal");
+      wal_bytes=0;
+      if(wfd>=0)sync_commit(wfd);
+      else{int fd=open(wal.c_str(),O_RDWR);if(fd<0)commit_io_error("open checkpoint wal");
+        try{sync_commit(fd);}catch(...){close(fd);throw;}close(fd);}
     }
     void load_state(){
       auto finish=[&](){vec_end=fsize(vecfile);ensure_map();sindex.clear();nindex.clear();bool post=load_postings();for(auto&t:tabs){if(post){t.second.fast.clear();refresh_fast(t.second);}else rebuild_scalar(t.second);load_vstats(t.second);if(!load_index(t.second))rebuild_index(t.second);}};
@@ -769,43 +786,55 @@ namespace lite {
       if(op==5&&k!="DELETE")return false;
       return true;
     }
-    void frame(std::ofstream&f,const std::string&s,uint64_t tx,uint16_t kind){
+    void frame(std::string&f,const std::string&s,uint64_t tx,uint16_t kind){
       uint32_t n=(uint32_t)s.size(),magic=WAL_MAGIC,crc=crc32c(s.data(),s.size());
       uint16_t flags=0;
-      f.write((char*)&magic,4).write((char*)&n,4).write((char*)&tx,8).write((char*)&kind,2).write((char*)&flags,2).write((char*)&crc,4).write(s.data(),n);
-      char z[8]={};f.write(z,(8-(24+n)%8)%8);
+      f.append((char*)&magic,4).append((char*)&n,4).append((char*)&tx,8).append((char*)&kind,2).append((char*)&flags,2).append((char*)&crc,4).append(s);
+      f.append((8-(24+n)%8)%8,'\0');
+    }
+    [[noreturn]] void commit_io_error(const char*operation){
+      failed_io=true;throw Err("io_error",std::string(operation)+": restart required");
+    }
+    void write_all(int fd,const char*p,size_t n){
+      while(n){ssize_t done=write(fd,p,n);if(done<0&&errno==EINTR)continue;
+        if(done<=0)commit_io_error("write");
+        p+=done;n-=(size_t)done;}
+    }
+    void sync_commit(int fd){
+      int rc;do{rc=fdatasync(fd);}while(rc!=0&&errno==EINTR);
+      if(rc!=0)commit_io_error("fdatasync");
     }
     void flush_vecbuf(){
-      if(vfd>=0&&!vecbuf.empty()){
-        write(vfd,vecbuf.data(),vecbuf.size());
+      if(!vecbuf.empty()){
+        write_all(vfd,vecbuf.data(),vecbuf.size());
         vecbuf.clear();
         vecbuf_base=vec_end;
-        ensure_map();
       }
     }
     void persist(){
       if(pending.empty())return;
       uint64_t tx=++wal_txid;
-      std::ofstream f(wal,std::ios::app|std::ios::binary);
+      std::string f;
       frame(f,"",tx,1);
       for(auto&s:pending){
         auto x=encode_tokens(s);
         if(!x.empty())frame(f,x,tx,2);
       }
       frame(f,"",tx,3);
-      f.flush();
+      if(wfd<0){wfd=open(wal.c_str(),O_RDWR|O_CREAT|O_APPEND,0644);wal_bytes=fsize(wal);}
+      if(wfd<0)commit_io_error("open wal");
+      // Persist vector bytes before publishing their offsets in a committed WAL.
+      // A failed/partial WAL write can then recover to either whole transaction.
       flush_vecbuf();
-      if(vfd>=0)fdatasync(vfd);
-      int fd=open(wal.c_str(),O_RDONLY);
-      if(fd>=0){
-        fdatasync(fd);
-        close(fd);
-      }
-      for(auto&r:pending_lsm){r.seq=tx;memtable.push_back(std::move(r));}
-      pending.clear();
-      pending_lsm.clear();
-      size_t membytes=0;for(auto&x:memtable)membytes+=x.key.size()+x.value.size()+32;
-      if(membytes>=(size_t)envint("LITE_MEMTABLE_BYTES",4<<20)||fsize(wal)>=(32u<<20))flush_sst();
+      sync_commit(vfd);
+      write_all(wfd,f.data(),f.size());
+      wal_bytes+=(off_t)f.size();
+      sync_commit(wfd);
+      try{
+        for(auto&r:pending_lsm){r.seq=tx;memtable_bytes+=r.key.size()+r.value.size()+32;memtable.push_back(std::move(r));}
+        pending.clear();pending_lsm.clear();
+        if(memtable_bytes>=(size_t)envint("LITE_MEMTABLE_BYTES",4<<20)||wal_bytes>=(32u<<20))flush_sst();
+      }catch(...){failed_io=true;throw;}
     }
     void recover(){
       recovering=true;
@@ -1122,6 +1151,7 @@ namespace lite {
       in=true;
     }
     void rollback(){
+      if(failed_io)throw Err("io_error","restart required after failed commit");
       if(!in)return;
       tabs=save;
       pending.clear();
@@ -1253,9 +1283,11 @@ namespace lite {
       write_manifest(std::move(next));
       immutable.clear();
       memtable.clear();
+      memtable_bytes=0;
       compact();
     }
     J exec(const std::string&sql){
+      if(failed_io)throw Err("io_error","restart required after failed commit");
       auto t=tok(sql);
       if(t.empty())throw Err("invalid_request","empty");
       std::string k=up(t[0]);
@@ -1273,18 +1305,18 @@ namespace lite {
       }
       bool readonly=k=="SELECT";
       bool auto_tx=!in&&!readonly;
-      bool lean_auto=auto_tx&&k=="INSERT";
-      if(auto_tx)begin(!lean_auto);
+      bool lean_insert=k=="INSERT";
+      if(auto_tx)begin(!lean_insert);
       std::map<std::string,Table>before;
-      if(!readonly&&!lean_auto)before=tabs;
+      if(!readonly&&!lean_insert)before=tabs;
       std::vector<long long>new_ids;
       std::set<long long>old_ids;
       size_t np=pending.size();
       size_t nl=pending_lsm.size();
-      off_t vm=vec_end;
+      off_t vm=vec_end,disk_mark=vecbuf.empty()?vec_end:vecbuf_base;
       size_t vb=vecbuf.size();
       try{
-        if(lean_auto)for(size_t p=4;p<t.size();++p)if(t[p]=="("&&p+1<t.size()){
+        if(lean_insert)for(size_t p=4;p<t.size();++p)if(t[p]=="("&&p+1<t.size()){
           long long id=std::stoll(t[p+1]);
           new_ids.push_back(id);
           auto it=tabs.find(t[2]);
@@ -1305,7 +1337,10 @@ namespace lite {
         return r;
       }
       catch(...){
-        if(lean_auto){
+        // A completed WAL may already describe this transaction. Never truncate
+        // its vectors after an ambiguous I/O failure; freeze until recovery.
+        if(failed_io)throw;
+        if(lean_insert){
           auto it=t.size()>2?tabs.find(t[2]):tabs.end();
           if(it!=tabs.end()){
             for(auto id:new_ids)if(!old_ids.count(id)&&it->second.r.count(id)){
@@ -1319,7 +1354,7 @@ namespace lite {
           pending.resize(np);
           pending_lsm.resize(nl);
           vecbuf.resize(vb);
-          trunc_vec(vm);
+          trunc_vec(disk_mark);vec_end=vm;
           sindex.clear();nindex.clear();
           buckets.clear();
           for(auto&kv:tabs){
@@ -1332,7 +1367,7 @@ namespace lite {
           pending.resize(np);
           pending_lsm.resize(nl);
           vecbuf.resize(vb);
-          trunc_vec(vm);
+          trunc_vec(disk_mark);vec_end=vm;
           sindex.clear();nindex.clear();
           buckets.clear();
           for(auto&kv:tabs){
@@ -1341,7 +1376,7 @@ namespace lite {
           }
         }
         if(auto_tx){
-          if(lean_auto)in=false;
+          if(lean_insert)in=false;
           else rollback();
         }
         throw;

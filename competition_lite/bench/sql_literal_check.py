@@ -12,7 +12,7 @@ def main():
     ap.add_argument('--root', required=True)
     args = ap.parse_args()
     root = Path(args.root).resolve()
-    assert '/zzp/' in str(root)
+    assert '/zzp/' in root.as_posix()
     root.mkdir(parents=True, exist_ok=True)
     for checkpoint in [False, True]:
         data = tempfile.mkdtemp(prefix='quotes-', dir=root)

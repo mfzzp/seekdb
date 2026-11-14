@@ -1,0 +1,151 @@
+{
+  "platform": "Windows-11-10.0.26200-SP0",
+  "rows": 10000,
+  "dim": 128,
+  "batch": 100,
+  "transaction": "explicit",
+  "generation_s": 0.676379900000029,
+  "seed": 20261114,
+  "request_count": 300,
+  "commit_count": 100,
+  "request_bytes": 16329383,
+  "request_sha256": "21293153332ee6c828133b799e4e1b69ec755b43b2f78dbe5d962fc457e13ee1",
+  "binaries": {
+    "before": "a03dbc6de0a0f93f7cf3ec8b49dccc628d5536cef1cbfef10828b8acba1bc40f",
+    "after": "509fa86dca2bf577a5c8864bc7556772f382004a3d6115492d4b82340d1ef489"
+  },
+  "runs": [
+    {
+      "round": 0,
+      "binary": "before",
+      "write_s": 1.5689523000000918,
+      "cpu_s": 0.640625,
+      "checkpoint_s": 0.14726660000042102,
+      "write_plus_checkpoint_s": 1.7162189000005128,
+      "peak_bytes": 27848704,
+      "restart_verify_s": 2.871204999999918,
+      "verified_rows": 10000,
+      "p50_request_ms": 3.468399999974281,
+      "p95_request_ms": 12.440200000128243,
+      "files_before_checkpoint": {
+        "vectors.f32": 5120000,
+        "wal.log": 776112
+      },
+      "hashes_before_checkpoint": {
+        "wal.log": "d745fece9d4d342e5642c0c087c54ea45de9f251648d1fff9779ff4f59169b0c",
+        "vectors.f32": "4c4f21aecd5102fa381e01de15931cbd6417152f7a85e31f26ba1489f1805e42"
+      }
+    },
+    {
+      "round": 0,
+      "binary": "after",
+      "write_s": 0.5198811000000205,
+      "cpu_s": 0.375,
+      "checkpoint_s": 0.15896609999981592,
+      "write_plus_checkpoint_s": 0.6788471999998364,
+      "peak_bytes": 25305088,
+      "restart_verify_s": 2.8813797999996495,
+      "verified_rows": 10000,
+      "p50_request_ms": 1.6301000000567,
+      "p95_request_ms": 3.20880000026591,
+      "files_before_checkpoint": {
+        "vectors.f32": 5120000,
+        "wal.log": 776112
+      },
+      "hashes_before_checkpoint": {
+        "wal.log": "d745fece9d4d342e5642c0c087c54ea45de9f251648d1fff9779ff4f59169b0c",
+        "vectors.f32": "4c4f21aecd5102fa381e01de15931cbd6417152f7a85e31f26ba1489f1805e42"
+      }
+    },
+    {
+      "round": 1,
+      "binary": "after",
+      "write_s": 0.5143901999999798,
+      "cpu_s": 0.40625,
+      "checkpoint_s": 0.14459729999998672,
+      "write_plus_checkpoint_s": 0.6589874999999665,
+      "peak_bytes": 25300992,
+      "restart_verify_s": 2.8203074999996716,
+      "verified_rows": 10000,
+      "p50_request_ms": 1.5832999999929598,
+      "p95_request_ms": 3.27110000034736,
+      "files_before_checkpoint": {
+        "vectors.f32": 5120000,
+        "wal.log": 776112
+      },
+      "hashes_before_checkpoint": {
+        "wal.log": "d745fece9d4d342e5642c0c087c54ea45de9f251648d1fff9779ff4f59169b0c",
+        "vectors.f32": "4c4f21aecd5102fa381e01de15931cbd6417152f7a85e31f26ba1489f1805e42"
+      }
+    },
+    {
+      "round": 1,
+      "binary": "before",
+      "write_s": 1.6622612999999546,
+      "cpu_s": 0.65625,
+      "checkpoint_s": 0.16081350000013117,
+      "write_plus_checkpoint_s": 1.8230748000000858,
+      "peak_bytes": 27856896,
+      "restart_verify_s": 2.9596460999996452,
+      "verified_rows": 10000,
+      "p50_request_ms": 3.586949999771605,
+      "p95_request_ms": 13.70679999990898,
+      "files_before_checkpoint": {
+        "vectors.f32": 5120000,
+        "wal.log": 776112
+      },
+      "hashes_before_checkpoint": {
+        "wal.log": "d745fece9d4d342e5642c0c087c54ea45de9f251648d1fff9779ff4f59169b0c",
+        "vectors.f32": "4c4f21aecd5102fa381e01de15931cbd6417152f7a85e31f26ba1489f1805e42"
+      }
+    },
+    {
+      "round": 2,
+      "binary": "before",
+      "write_s": 1.6068169000000125,
+      "cpu_s": 0.4375,
+      "checkpoint_s": 0.16467009999996662,
+      "write_plus_checkpoint_s": 1.7714869999999792,
+      "peak_bytes": 27983872,
+      "restart_verify_s": 2.893767200000184,
+      "verified_rows": 10000,
+      "p50_request_ms": 3.521800000271469,
+      "p95_request_ms": 12.762299999849347,
+      "files_before_checkpoint": {
+        "vectors.f32": 5120000,
+        "wal.log": 776112
+      },
+      "hashes_before_checkpoint": {
+        "wal.log": "d745fece9d4d342e5642c0c087c54ea45de9f251648d1fff9779ff4f59169b0c",
+        "vectors.f32": "4c4f21aecd5102fa381e01de15931cbd6417152f7a85e31f26ba1489f1805e42"
+      }
+    },
+    {
+      "round": 2,
+      "binary": "after",
+      "write_s": 0.4959324999999808,
+      "cpu_s": 0.375,
+      "checkpoint_s": 0.13153929999998581,
+      "write_plus_checkpoint_s": 0.6274717999999666,
+      "peak_bytes": 25448448,
+      "restart_verify_s": 2.8411863999999696,
+      "verified_rows": 10000,
+      "p50_request_ms": 1.4500999998290354,
+      "p95_request_ms": 3.1751000001349894,
+      "files_before_checkpoint": {
+        "vectors.f32": 5120000,
+        "wal.log": 776112
+      },
+      "hashes_before_checkpoint": {
+        "wal.log": "d745fece9d4d342e5642c0c087c54ea45de9f251648d1fff9779ff4f59169b0c",
+        "vectors.f32": "4c4f21aecd5102fa381e01de15931cbd6417152f7a85e31f26ba1489f1805e42"
+      }
+    }
+  ],
+  "baseline_commit": "edde4ac975d52936174d12f734e5ca78d8c53146",
+  "compiler": "MSYS2 GCC 16.2.0 -D_GNU_SOURCE -O3 -DNDEBUG -std=c++17",
+  "cpu": "Intel Core i5-1135G7 @ 2.40GHz",
+  "baseline_source_sha256": "3a2bef861f05ad2705bc0677eb2ab2a1346bb52eb3466309707c7a88475ca24f",
+  "candidate_source_sha256": "5d712cef4c12be3f536db65832ce13b2618c552b8dd2f417b7cb1fe183cfa183",
+  "baseline_portability_change": "Only open(wal.c_str(),O_RDONLY) -> O_RDWR, allowing both fdatasync calls to succeed on MSYS. Raw edde4ac cannot be used as a same-durability Windows baseline."
+}

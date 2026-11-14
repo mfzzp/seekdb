@@ -4,6 +4,8 @@ This directory is the clean-room C++17 implementation for the bound competition 
 
 The runtime is deliberately single-writer. It has transaction handling, framed CRC WAL, a float32 vector file with mmap-on-demand reads, a bounded continuous-vector matrix cache for small tables, persisted scalar postings and full-coordinate Block statistics, MemTable/Immutable/SST maintenance, checkpointed recovery state, exact Top-K, IVF with global non-residual PQ and raw-vector reranking, index persistence, and vector GC. BEGIN still copies table state; incremental private write sets remain incomplete. SST is not yet the authoritative read/recovery path. Read-only SELECT executes against current state without a result cache.
 
+The [implementation summary](docs/IMPLEMENTATION.md) describes the current data, query, commit and recovery paths. The latest [write iteration](docs/WRITE_PATHS_20261114.md) reuses a WAL descriptor, batches frame encoding, accelerates compatible CRC32C, tracks MemTable and WAL bytes incrementally and removes the extra INSERT statement snapshot inside explicit transactions. Every successful nonempty commit still synchronizes both vector and WAL files. Commit I/O failure freezes the engine until restart instead of acknowledging or truncating possibly committed vectors.
+
 The latest local exact scan/Block comparison is [EXACT_PATHS_20261114.md](docs/EXACT_PATHS_20261114.md). The root Dockerfile now builds this Lite runtime. `LITE_EXACT_PATH=auto` (default) selects direct scan; `scan` and `block` explicitly select the two comparable exact Top-K executors. `LITE_PROFILE=1` enables diagnostic stage timings; leave it unset for submission timing. Both paths share filtering, SIMD distances and bounded Top-K. Direct scan does not build blocks or compute/sort bounds during SELECT. The preceding server comparison is [COMPARE_100K_20261114.md](docs/COMPARE_100K_20261114.md); its 3.60% unfiltered ANN recall remains unresolved. Local exact improvements are not a competition-readiness claim.
 
 The source line checker counts physical lines, including comments and blanks:
@@ -12,9 +14,9 @@ The source line checker counts physical lines, including comments and blanks:
 python3 competition_lite/tools/check_lines.py
 ```
 
-The current source count is 2230 physical lines; the checker's original 2000-line ceiling is exceeded. Correctness and measured performance take priority over artificial compression. The generator, Oracle, crash checker, benchmark driver, and summaries under `competition_lite/bench` are outside that runtime count.
+The current source count is 2265 physical lines; the checker's original 2000-line ceiling is exceeded. Correctness and measured performance take priority over artificial compression. The generator, Oracle, crash checker, benchmark driver, and summaries under `competition_lite/bench` are outside that runtime count.
 
-The latest write measurements and their hardware limits are in [WRITE_LIMITS_20261114.md](docs/WRITE_LIMITS_20261114.md). JSONL input buffering and bulk string scanning reduce CPU cost without reducing commit syncs. STATE v3 records the checkpoint vector boundary for WAL recovery. Legacy v2/JSON state is accepted only with an empty WAL because it lacks that boundary; nonempty legacy WAL is rejected rather than assigned guessed offsets. Bulk recovery checks now verify nonzero vector distances as well as row IDs.
+Earlier server write measurements and their hardware limits are in [WRITE_LIMITS_20261114.md](docs/WRITE_LIMITS_20261114.md). JSONL input buffering and bulk string scanning reduce CPU cost without reducing commit syncs. STATE v3 records the checkpoint vector boundary for WAL recovery. Legacy v2/JSON state is accepted only with an empty WAL because it lacks that boundary; nonempty legacy WAL is rejected rather than assigned guessed offsets. Bulk recovery checks now verify nonzero vector distances as well as row IDs.
 
 A small end-to-end run is:
 

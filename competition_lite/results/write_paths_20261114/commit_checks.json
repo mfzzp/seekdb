@@ -1,0 +1,70 @@
+{
+  "passed": true,
+  "cases": [
+    {
+      "case": "crc",
+      "passed": true,
+      "output": "PASS CRC 176 buffers and known answer\n"
+    },
+    {
+      "case": "ok",
+      "passed": true,
+      "output": "PASS ok vector_syncs=1 wal_syncs=1 writes=2\nPASS restart rows=3\n"
+    },
+    {
+      "case": "short",
+      "passed": true,
+      "output": "PASS short vector_syncs=1 wal_syncs=1 writes=37\nPASS restart rows=3\n"
+    },
+    {
+      "case": "eintr",
+      "passed": true,
+      "output": "PASS eintr vector_syncs=1 wal_syncs=1 writes=3\nPASS restart rows=3\n"
+    },
+    {
+      "case": "sync_eintr",
+      "passed": true,
+      "output": "PASS sync_eintr vector_syncs=1 wal_syncs=1 writes=2\nPASS restart rows=3\n"
+    },
+    {
+      "case": "partial_vector",
+      "passed": true,
+      "output": "PASS partial_vector vector_syncs=0 wal_syncs=0 writes=2\nPASS restart rows=1\n"
+    },
+    {
+      "case": "partial_wal",
+      "passed": true,
+      "output": "PASS partial_wal vector_syncs=1 wal_syncs=0 writes=3\nPASS restart rows=1\n"
+    },
+    {
+      "case": "vector_sync",
+      "passed": true,
+      "output": "PASS vector_sync vector_syncs=0 wal_syncs=0 writes=1\nPASS restart rows=1\n"
+    },
+    {
+      "case": "wal_sync",
+      "passed": true,
+      "output": "PASS wal_sync vector_syncs=1 wal_syncs=0 writes=2\nPASS restart rows=3\n"
+    },
+    {
+      "case": "lsm_failure",
+      "passed": true,
+      "output": "PASS lsm_failure vector_syncs=1 wal_syncs=1 writes=2\nPASS restart rows=3\n"
+    },
+    {
+      "case": "crash_vector",
+      "passed": true,
+      "output": "PASS restart rows=1\n"
+    },
+    {
+      "case": "crash_wal",
+      "passed": true,
+      "output": "PASS restart rows=3\n"
+    },
+    {
+      "case": "statement_undo",
+      "passed": true,
+      "output": "PASS statement undo and MemTable bytes\nPASS restart rows=3\n"
+    }
+  ]
+}

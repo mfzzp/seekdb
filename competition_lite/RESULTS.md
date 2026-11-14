@@ -1,10 +1,12 @@
 # Lite2000 verification ledger
 
-The latest local exact iteration is [EXACT_PATHS_20261114.md](docs/EXACT_PATHS_20261114.md): selectable direct scan/Block executors, default scan, stage profiling, rollback cache invalidation, and durable Manifest publication before old-file reclamation. Its Windows/MSYS measurements must not be mixed with the server measurements below. The root Dockerfile now compiles Lite. The source is 2230 physical lines; the pre-existing 2000-line checker failure remains. Historical checks and counts below describe their original snapshots.
+The latest write iteration is [WRITE_PATHS_20261114.md](docs/WRITE_PATHS_20261114.md), with the [current implementation summary](docs/IMPLEMENTATION.md). It compares identical JSONL, commit counts and two successful syncs on both sides, and records full-row restart verification and commit failure injection. The old screenshot's 0.958/1.304 s figures were already withdrawn as an unequal-harness comparison; they are not the baseline for this iteration. Current source: 2265 physical lines; the original 2000-line checker still fails. The evidence below retains earlier snapshots.
+
+The latest local exact iteration is [EXACT_PATHS_20261114.md](docs/EXACT_PATHS_20261114.md): selectable direct scan/Block executors, default scan, stage profiling, rollback cache invalidation, and durable Manifest publication before old-file reclamation. Its Windows/MSYS measurements must not be mixed with the server measurements below. The root Dockerfile now compiles Lite. That iteration had 2230 physical lines; the pre-existing 2000-line checker failure remains. Historical checks and counts below describe their original snapshots.
 
 The latest same-input, same-container C++ comparison is [COMPARE_100K_20261114.md](docs/COMPARE_100K_20261114.md), with raw records under `results/paired_100k_20261114/`. It supersedes earlier old/new performance conclusions: 128-dimensional mean exact improved 1.96x, but filtered exact regressed; 1024-dimensional mean exact was 1.70x slower and unfiltered ANN recall was 3.60%. Both exact datasets and all full-row restart checks passed. No official composite score is claimed.
 
-## Current implementation
+## Earlier implementation snapshot
 
 - Runtime: `competition_lite/src/minivectordb_lite.cpp`, **2185 physical lines** (comments and blank lines included).
 - Build: C++17, `-O3 -DNDEBUG -Wall -Wextra`.

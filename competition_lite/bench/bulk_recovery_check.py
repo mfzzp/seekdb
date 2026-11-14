@@ -13,7 +13,7 @@ def main():
     ap.add_argument('--root', required=True)
     args = ap.parse_args()
     root = Path(args.root).resolve()
-    if '/zzp/' not in str(root):
+    if '/zzp/' not in root.as_posix():
         raise ValueError('root must be inside zzp')
     root.mkdir(parents=True, exist_ok=True)
     for batch, checkpoint in [(256, False), (1024, False), (256, True), (1024, True)]:
