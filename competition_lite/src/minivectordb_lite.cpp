@@ -1015,6 +1015,12 @@ namespace lite {
       fd=open(dir.c_str(),O_RDONLY);
       if(fd>=0){fsync(fd);close(fd);}
     }
+    void seal_sst(const std::string&p){
+      std::ifstream f(p,std::ios::binary);std::string d((std::istreambuf_iterator<char>(f)),{});
+      std::ofstream g(p+".idx",std::ios::binary|std::ios::trunc);uint32_t magic=0x53535449u,ver=1,n=(uint32_t)((d.size()+32767)/32768);wr(g,magic);wr(g,ver);wr(g,n);
+      for(uint32_t i=0;i<n;++i){size_t off=(size_t)i*32768,len=std::min<size_t>(32768,d.size()-off);uint64_t o=off;uint32_t l=(uint32_t)len,c=crc32c(d.data()+off,len);wr(g,o);wr(g,l);wr(g,c);size_t e=d.find('\n',off);ws(g,d.substr(off,e==std::string::npos?len:e-off));}
+      g.flush();int fd=open((p+".idx").c_str(),O_RDONLY);if(fd>=0){fsync(fd);close(fd);}
+    }
     void compact(){
       for(int lev=0;lev<3;++lev){
         auto&src=levels[lev];
@@ -1044,7 +1050,8 @@ namespace lite {
           fsync(fd);
           close(fd);
         }
-        for(auto&x:in)std::remove(x.c_str());
+        seal_sst(p);
+        for(auto&x:in){std::remove(x.c_str());std::remove((x+".idx").c_str());}
         src.clear();
         levels[lev+1].clear();
         levels[lev+1].push_back(p);
@@ -1069,6 +1076,7 @@ namespace lite {
         fsync(fd);
         close(fd);
       }
+      seal_sst(p);
       levels[0].push_back(p);
       write_manifest();
       compact();
