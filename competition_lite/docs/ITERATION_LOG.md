@@ -50,3 +50,8 @@
 - Checkpoint smoke: normal shutdown leaves `wal.log` at 0 bytes; restart preserves committed rows; a SIGKILL after an uncommitted insert does not expose that insert after restart. Public harness: 20 cases, 0 failures.
 - Correct-path comparison: 2,000 rows x 1,024 dimensions, batch 256, 8 queries x 3 runs. Old exact mean 0.00314 s; new exact mean 0.01145 s; new ANN mean 0.00588 s; new insert 1.619 s vs old 1.761 s; new index build 0.196 s. These numbers are a framework checkpoint, not the final 100k/300k result.
 - Large experiments remain deferred until the integrated storage/recovery path and ANN maintenance are stable.
+
+## 2026-11-14 protocol response contract pass
+
+- Normalized the JSONL entrypoint so every successful SQL request carries `ok:true` together with its result or affected-row payload. Error responses already carry `ok:false`, a non-empty code, and a message.
+- Strict `protocol_check/run.py` against the rebuilt binary: all 20 packaged public cases passed, including restart and shutdown rollback. This closes the distinction between semantic SQL correctness and judge-level response conformance.
