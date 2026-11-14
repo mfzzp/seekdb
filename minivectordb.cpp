@@ -1389,21 +1389,38 @@ struct Engine {
     append_terms(out, terms);
     return out;
   }
+  static void clear_equality_indexes(Table &tab) {
+    tab.equality_index.clear();
+    tab.equality_index_valid.clear();
+    tab.equality_index_disabled.clear();
+  }
   void apply_update_ops(Table &tab, const std::vector<std::pair<int, Value>> &assigns,
                         const std::vector<Term> &terms, int64_t &affected) {
+    bool vector_changed = false;
     for (size_t r = 0; r < tab.rows.size(); ++r) if (tab.alive[r] && matches(tab.rows[r], terms)) {
       std::vector<Value> next = tab.rows[r];
       for (const auto &assignment : assigns) next[size_t(assignment.first)] = assignment.second;
       bool changed = false;
       for (size_t i = 0; i < next.size(); ++i) changed |= !value_equal(next[i], tab.rows[r][i]);
-      if (changed) { tab.rows[r] = std::move(next); ++affected; }
+      if (changed) {
+        for (const auto &assignment : assigns)
+          if (assignment.first == tab.vector_col && !value_equal(assignment.second, tab.rows[r][tab.vector_col]))
+            vector_changed = true;
+        tab.rows[r] = std::move(next);
+        ++affected;
+      }
     }
-    rebuild(tab);
+    clear_equality_indexes(tab);
+    if (vector_changed) rebuild(tab);
   }
   void apply_delete_terms(Table &tab, const std::vector<Term> &terms, int64_t &affected) {
     for (size_t r = 0; r < tab.rows.size(); ++r)
-      if (tab.alive[r] && matches(tab.rows[r], terms)) { tab.alive[r] = false; ++affected; }
-    rebuild(tab);
+      if (tab.alive[r] && matches(tab.rows[r], terms)) {
+        tab.alive[r] = false;
+        tab.keys.erase(tab.rows[r][tab.primary].i);
+        ++affected;
+      }
+    clear_equality_indexes(tab);
   }
   void update(std::vector<Token> &t, size_t &p, int64_t &affected, std::string *journal_payload = nullptr) { Table &tab = table_of(st, take_name(t, p)); expect(t, p, "set"); std::vector<std::pair<int, Value>> assigns; while (true) { int c = column_of(tab, take_name(t, p)); expect(t, p, "="); if (p >= t.size()) throw Error("invalid_value", "missing value"); Value value = convert_value(t[p++], tab.cols[c]);
 
