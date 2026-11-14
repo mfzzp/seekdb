@@ -688,7 +688,11 @@ struct Engine {
     checkpoint_generation = generation;
     checkpoint_offset = offset;
     checkpoint_snapshot = name;
-    if (!previous.empty() && previous != name) ::unlink(snapshot_path(previous).c_str());
+    if (!previous.empty() && previous != name) {
+      if (::unlink(snapshot_path(previous).c_str()) != 0 && errno != ENOENT)
+        throw Error("storage_error", "cannot remove obsolete checkpoint");
+      sync_directory();
+    }
   }
   void maybe_checkpoint() {
     if (tx) return;
@@ -1127,10 +1131,11 @@ struct Engine {
   }
   State &working() { return st; }
   const State &view() const { return st; }
-  void begin() { if (tx) throw Error("transaction_active", "transaction already active"); tx = st; tx_log.clear(); }
+  void begin() { if (tx) throw Error("transaction_active", "transaction already active"); tx = st; tx_log.clear(); invalidate_query_cache(); }
   void rollback() { if (tx) { st = *tx; tx.reset(); tx_log.clear(); } invalidate_query_cache(); }
   void commit() {
     if (!tx) return;
+    invalidate_query_cache();
     try { append_journal(tx_log); }
     catch (...) { st = State{}; tx.reset(); tx_log.clear(); load(); throw; }
     tx.reset(); tx_log.clear();
@@ -1139,6 +1144,7 @@ struct Engine {
   }
   void autocommit(bool changed, const std::string &sql, const std::string *binary_payload = nullptr) {
     if (!changed) return;
+    invalidate_query_cache();
     JournalEntry entry;
     entry.sql = sql;
     if (binary_payload && !binary_payload->empty()) {
