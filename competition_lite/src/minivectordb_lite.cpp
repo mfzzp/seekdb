@@ -106,7 +106,32 @@ namespace lite {
     if(!json)return r;
     throw Err("invalid_request","string");
   }
-  static std::string jstr(const std::string&s,size_t&p){return quoted(s,p,'"',true);}
+  static std::string jstr(const std::string&s,size_t&p){
+    if(p>=s.size()||s[p++]!='"')throw Err("invalid_request","JSON string");
+    std::string r;
+    auto hex4=[&](){unsigned v=0;for(int i=0;i<4;++i){if(p==s.size())throw Err("invalid_request","unicode escape");
+      unsigned char c=s[p++];int d=c>='0'&&c<='9'?c-'0':c>='a'&&c<='f'?c-'a'+10:c>='A'&&c<='F'?c-'A'+10:-1;
+      if(d<0)throw Err("invalid_request","unicode escape");v=(v<<4)|d;}return v;};
+    while(p<s.size()){
+      unsigned char c=s[p++];if(c=='"')return r;
+      if(c<32)throw Err("invalid_request","JSON control character");
+      if(c!='\\'){r+=(char)c;continue;}
+      if(p==s.size())break;char e=s[p++];
+      if(e=='"'||e=='\\'||e=='/')r+=e;
+      else if(e=='n')r+='\n';else if(e=='r')r+='\r';else if(e=='t')r+='\t';else if(e=='b')r+='\b';else if(e=='f')r+='\f';
+      else if(e=='u'){
+        unsigned cp=hex4();
+        if(cp>=0xd800&&cp<=0xdbff){if(p+2>s.size()||s[p]!='\\'||s[p+1]!='u')throw Err("invalid_request","unicode surrogate");p+=2;
+          unsigned lo=hex4();if(lo<0xdc00||lo>0xdfff)throw Err("invalid_request","unicode surrogate");cp=0x10000+((cp-0xd800)<<10)+(lo-0xdc00);}
+        else if(cp>=0xdc00&&cp<=0xdfff)throw Err("invalid_request","unicode surrogate");
+        if(cp<0x80)r+=(char)cp;
+        else if(cp<0x800){r+=(char)(0xc0|(cp>>6));r+=(char)(0x80|(cp&63));}
+        else if(cp<0x10000){r+=(char)(0xe0|(cp>>12));r+=(char)(0x80|((cp>>6)&63));r+=(char)(0x80|(cp&63));}
+        else{r+=(char)(0xf0|(cp>>18));r+=(char)(0x80|((cp>>12)&63));r+=(char)(0x80|((cp>>6)&63));r+=(char)(0x80|(cp&63));}
+      }else throw Err("invalid_request","JSON escape");
+    }
+    throw Err("invalid_request","unterminated JSON string");
+  }
   static J pv(const std::string&s,size_t&p){
     ws(s,p);
     if(p>=s.size())throw Err("invalid_request","value");
@@ -175,6 +200,7 @@ namespace lite {
   static std::string esc(const std::string&s){
     std::string r="\"";
     for(char c:s){
+      if((unsigned char)c<32){const char*h="0123456789abcdef";r+="\\u00";r+=h[((unsigned char)c)>>4];r+=h[c&15];continue;}
       if(c=='"'||c=='\\')r+='\\';
       if(c=='\n')r+="\\n";
       else if(c=='\r')r+="\\r";
@@ -188,9 +214,10 @@ namespace lite {
     if(x.k==J::B)return x.b?"true":"false";
     if(x.k==J::I)return std::to_string(x.i);
     if(x.k==J::D){
+      if(!std::isfinite(x.d))throw Err("invalid_value","nonfinite result");
       std::ostringstream o;
       o<<std::setprecision(17)<<x.d;
-      return o.str();
+      std::string r=o.str();if(r.find_first_of(".eE")==std::string::npos)r+=".0";return r;
     }
     if(x.k==J::S)return esc(x.s);
     if(x.k==J::A){
@@ -216,7 +243,7 @@ namespace lite {
         r.push_back("'"+quoted(s,p,'\'',false)+"'");
       }
       else if(std::string("(),;=<>!").find(s[p])!=std::string::npos){
-        if((s[p]=='<'||s[p]=='>'||s[p]=='!')&&p+1<s.size()&&s[p+1]=='='){
+        if(p+1<s.size()&&(((s[p]=='<'||s[p]=='>'||s[p]=='!')&&s[p+1]=='=')||(s[p]=='<'&&s[p+1]=='>'))){
           r.push_back(s.substr(p,2));
           p+=2;
         }
@@ -312,46 +339,46 @@ namespace lite {
   #if defined(__x86_64__) || defined(__i386__)
   #if defined(__GNUC__) || defined(__clang__)
   __attribute__((target("avx2"))) static double l2_avx2(const float*a,const float*b,int d){
-    __m256 s0=_mm256_setzero_ps(),s1=s0,s2=s0,s3=s0;
+    __m256d s0=_mm256_setzero_pd(),s1=s0,s2=s0,s3=s0;
     int i=0;
-    for(;i+32<=d;i+=32){
-      __m256 x=_mm256_sub_ps(_mm256_loadu_ps(a+i),_mm256_loadu_ps(b+i));
-      s0=_mm256_add_ps(s0,_mm256_mul_ps(x,x));
-      x=_mm256_sub_ps(_mm256_loadu_ps(a+i+8),_mm256_loadu_ps(b+i+8));
-      s1=_mm256_add_ps(s1,_mm256_mul_ps(x,x));
-      x=_mm256_sub_ps(_mm256_loadu_ps(a+i+16),_mm256_loadu_ps(b+i+16));
-      s2=_mm256_add_ps(s2,_mm256_mul_ps(x,x));
-      x=_mm256_sub_ps(_mm256_loadu_ps(a+i+24),_mm256_loadu_ps(b+i+24));
-      s3=_mm256_add_ps(s3,_mm256_mul_ps(x,x));
+    for(;i+16<=d;i+=16){
+      __m256d x=_mm256_sub_pd(_mm256_cvtps_pd(_mm_loadu_ps(a+i)),_mm256_cvtps_pd(_mm_loadu_ps(b+i)));
+      s0=_mm256_add_pd(s0,_mm256_mul_pd(x,x));
+      x=_mm256_sub_pd(_mm256_cvtps_pd(_mm_loadu_ps(a+i+4)),_mm256_cvtps_pd(_mm_loadu_ps(b+i+4)));
+      s1=_mm256_add_pd(s1,_mm256_mul_pd(x,x));
+      x=_mm256_sub_pd(_mm256_cvtps_pd(_mm_loadu_ps(a+i+8)),_mm256_cvtps_pd(_mm_loadu_ps(b+i+8)));
+      s2=_mm256_add_pd(s2,_mm256_mul_pd(x,x));
+      x=_mm256_sub_pd(_mm256_cvtps_pd(_mm_loadu_ps(a+i+12)),_mm256_cvtps_pd(_mm_loadu_ps(b+i+12)));
+      s3=_mm256_add_pd(s3,_mm256_mul_pd(x,x));
     }
-    s0=_mm256_add_ps(s0,s1);s2=_mm256_add_ps(s2,s3);s0=_mm256_add_ps(s0,s2);
-    for(;i+8<=d;i+=8){
-      __m256 x=_mm256_sub_ps(_mm256_loadu_ps(a+i),_mm256_loadu_ps(b+i));
-      s0=_mm256_add_ps(s0,_mm256_mul_ps(x,x));
+    s0=_mm256_add_pd(s0,s1);s2=_mm256_add_pd(s2,s3);s0=_mm256_add_pd(s0,s2);
+    for(;i+4<=d;i+=4){
+      __m256d x=_mm256_sub_pd(_mm256_cvtps_pd(_mm_loadu_ps(a+i)),_mm256_cvtps_pd(_mm_loadu_ps(b+i)));
+      s0=_mm256_add_pd(s0,_mm256_mul_pd(x,x));
     }
-    alignas(32) float z[8];_mm256_store_ps(z,s0);double s=0;for(float x:z)s+=x;
-    for(;i<d;++i){double x=a[i]-b[i];s+=x*x;}return s;
+    alignas(32) double z[4];_mm256_store_pd(z,s0);double s=0;for(double x:z)s+=x;
+    for(;i<d;++i){double x=double(a[i])-double(b[i]);s+=x*x;}return s;
   }
   __attribute__((target("avx512f"))) static double l2_avx512(const float*a,const float*b,int d){
-    __m512 s0=_mm512_setzero_ps(),s1=s0,s2=s0,s3=s0;
+    __m512d s0=_mm512_setzero_pd(),s1=s0,s2=s0,s3=s0;
     int i=0;
-    for(;i+64<=d;i+=64){
-      __m512 x=_mm512_sub_ps(_mm512_loadu_ps(a+i),_mm512_loadu_ps(b+i));
-      s0=_mm512_add_ps(s0,_mm512_mul_ps(x,x));
-      x=_mm512_sub_ps(_mm512_loadu_ps(a+i+16),_mm512_loadu_ps(b+i+16));
-      s1=_mm512_add_ps(s1,_mm512_mul_ps(x,x));
-      x=_mm512_sub_ps(_mm512_loadu_ps(a+i+32),_mm512_loadu_ps(b+i+32));
-      s2=_mm512_add_ps(s2,_mm512_mul_ps(x,x));
-      x=_mm512_sub_ps(_mm512_loadu_ps(a+i+48),_mm512_loadu_ps(b+i+48));
-      s3=_mm512_add_ps(s3,_mm512_mul_ps(x,x));
+    for(;i+32<=d;i+=32){
+      __m512d x=_mm512_sub_pd(_mm512_cvtps_pd(_mm256_loadu_ps(a+i)),_mm512_cvtps_pd(_mm256_loadu_ps(b+i)));
+      s0=_mm512_add_pd(s0,_mm512_mul_pd(x,x));
+      x=_mm512_sub_pd(_mm512_cvtps_pd(_mm256_loadu_ps(a+i+8)),_mm512_cvtps_pd(_mm256_loadu_ps(b+i+8)));
+      s1=_mm512_add_pd(s1,_mm512_mul_pd(x,x));
+      x=_mm512_sub_pd(_mm512_cvtps_pd(_mm256_loadu_ps(a+i+16)),_mm512_cvtps_pd(_mm256_loadu_ps(b+i+16)));
+      s2=_mm512_add_pd(s2,_mm512_mul_pd(x,x));
+      x=_mm512_sub_pd(_mm512_cvtps_pd(_mm256_loadu_ps(a+i+24)),_mm512_cvtps_pd(_mm256_loadu_ps(b+i+24)));
+      s3=_mm512_add_pd(s3,_mm512_mul_pd(x,x));
     }
-    s0=_mm512_add_ps(s0,s1);s2=_mm512_add_ps(s2,s3);s0=_mm512_add_ps(s0,s2);
-    for(;i+16<=d;i+=16){
-      __m512 x=_mm512_sub_ps(_mm512_loadu_ps(a+i),_mm512_loadu_ps(b+i));
-      s0=_mm512_add_ps(s0,_mm512_mul_ps(x,x));
+    s0=_mm512_add_pd(s0,s1);s2=_mm512_add_pd(s2,s3);s0=_mm512_add_pd(s0,s2);
+    for(;i+8<=d;i+=8){
+      __m512d x=_mm512_sub_pd(_mm512_cvtps_pd(_mm256_loadu_ps(a+i)),_mm512_cvtps_pd(_mm256_loadu_ps(b+i)));
+      s0=_mm512_add_pd(s0,_mm512_mul_pd(x,x));
     }
-    alignas(64) float z[16];_mm512_store_ps(z,s0);double s=0;for(float x:z)s+=x;
-    for(;i<d;++i){double x=a[i]-b[i];s+=x*x;}return s;
+    alignas(64) double z[8];_mm512_store_pd(z,s0);double s=0;for(double x:z)s+=x;
+    for(;i<d;++i){double x=double(a[i])-double(b[i]);s+=x*x;}return s;
   }
   static bool has_avx2(){
     static const bool v=__builtin_cpu_supports("avx2");
@@ -380,7 +407,8 @@ namespace lite {
   struct Engine{
     std::string dir,wal,vecfile;
     std::map<std::string,Table>tabs,save;
-    std::set<std::string>indexes;
+    std::set<std::string>indexes,saved_indexes;
+    std::map<std::string,int>saved_index_cols;
     std::vector<std::string>pending;
     std::vector<SRec>memtable,pending_lsm;
     size_t memtable_bytes=0;
@@ -417,6 +445,7 @@ namespace lite {
       for(size_t p=1;p<dir.size();++p)if(dir[p]==char(47))mkdir(dir.substr(0,p).c_str(),0755);
       mkdir(dir.c_str(),0755);
       vfd=open(vecfile.c_str(),O_RDWR|O_CREAT|O_APPEND,0644);
+      if(vfd<0)throw Err("io_error","cannot open vector file in data directory");
       vec_end=fsize(vecfile);
       load_manifest();
       recover();
@@ -730,6 +759,18 @@ namespace lite {
       for(;p<x.size();++p)if(!std::isdigit((unsigned char)x[p]))return false;
       return true;
     }
+    static long long integer(const std::string&s){
+      if(!inttok(s))throw Err("invalid_value","BIGINT requires an integer");
+      try{return std::stoll(s);}catch(...){throw Err("invalid_value","BIGINT out of range");}
+    }
+    static void normalize_scalar(const Col&c,std::string&v){
+      if(c.t=="BIGINT")v=std::to_string(integer(v));
+      else if(c.t=="VARCHAR"){
+        if(v.size()<2||v.front()!='\''||v.back()!='\'')throw Err("invalid_value","VARCHAR requires a string");
+        size_t chars=0;for(size_t i=1;i+1<v.size();++i)if(((unsigned char)v[i]&0xc0)!=0x80)++chars;
+        if(chars>(size_t)c.d)throw Err("invalid_value","VARCHAR length");
+      }
+    }
     std::string encode_tokens(const std::string&s)const{
       auto t=tok(s);
       if(t.empty())return {};
@@ -898,52 +939,18 @@ namespace lite {
       const char*p=z.c_str()+1;
       const char*e=z.c_str()+z.size()-1;
       while(p<e){
-        while(p<e&&(std::isspace((unsigned char)*p)||*p==','))++p;
+        while(p<e&&std::isspace((unsigned char)*p))++p;
         if(p>=e)break;
-        bool neg=false;
-        if(*p=='-'||*p=='+'){
-          neg=*p=='-';
-          ++p;
-        }
-        double val=0;
-        int nd=0;
-        while(p<e&&std::isdigit((unsigned char)*p)){
-          val=val*10+(*p-'0');
-          ++p;
-          ++nd;
-        }
-        if(p<e&&*p=='.'){
-          ++p;
-          double scale=.1;
-          while(p<e&&std::isdigit((unsigned char)*p)){
-            val+=(*p-'0')*scale;
-            scale*=.1;
-            ++p;
-            ++nd;
-          }
-        }
-        int ex=0;
-        if(p<e&&(*p=='e'||*p=='E')){
-          ++p;
-          bool en=false;
-          if(*p=='-'||*p=='+'){
-            en=*p=='-';
-            ++p;
-          }
-          int ne=0;
-          while(p<e&&std::isdigit((unsigned char)*p)){
-            ex=ex*10+(*p-'0');
-            ++p;
-            ++ne;
-          }
-          if(!ne)throw Err("invalid_value","vector");
-          if(en)ex=-ex;
-        }
-        if(!nd)throw Err("invalid_value","vector");
-        if(ex)val*=std::pow(10.0,ex);
-        float x=(float)(neg?-val:val);
+        char*tail=nullptr;double val=std::strtod(p,&tail);
+        if(tail==p||tail>e)throw Err("invalid_value","vector number");
+        for(const char*q=p;q<tail;++q)if(!std::isdigit((unsigned char)*q)&&*q!='.'&&*q!='e'&&*q!='E'&&*q!='+'&&*q!='-')throw Err("invalid_value","vector number");
+        p=tail;float x=(float)val;
         if(!std::isfinite(x))throw Err("invalid_value","nonfinite vector");
         v.push_back(x);
+        while(p<e&&std::isspace((unsigned char)*p))++p;
+        if(p<e){if(*p++!=',')throw Err("invalid_value","vector separator");
+          while(p<e&&std::isspace((unsigned char)*p))++p;
+          if(p==e)throw Err("invalid_value","trailing vector comma");}
       }
       if(want>=0&&(int)v.size()!=want)throw Err("dimension_mismatch","vector dimension");
     }
@@ -997,7 +1004,7 @@ namespace lite {
       if(!p)return 0;
       if(d>=64&&has_avx512())return l2_avx512(p,q.data(),d);
       if(d>=32&&has_avx2())return l2_avx2(p,q.data(),d);
-      double z=0;for(int i=0;i<d;++i){double x=p[i]-q[i];z+=x*x;}return z;
+      double z=0;for(int i=0;i<d;++i){double x=double(p[i])-double(q[i]);z+=x*x;}return z;
     }
     double l2(off_t off,int d,const std::vector<float>&q)const{
       if(off<0)return 0;
@@ -1007,7 +1014,7 @@ namespace lite {
         if(d>=32&&has_avx2())return l2_avx2(p,q.data(),d);
         double z=0;
         for(int i=0;i<d;++i){
-          double x=p[i]-q[i];
+          double x=double(p[i])-double(q[i]);
           z+=x*x;
         }
         return z;
@@ -1019,7 +1026,7 @@ namespace lite {
         if(d>=32&&has_avx2())return l2_avx2(v.data(),q.data(),d);
         double z=0;
         for(int i=0;i<d;++i){
-          double x=v[i]-q[i];
+          double x=double(v[i])-double(q[i]);
           z+=x*x;
         }
         return z;
@@ -1077,6 +1084,7 @@ namespace lite {
         if(num){
           long long x=std::stoll(a),y=std::stoll(b);
           if(c.op=="="&&x!=y)return false;
+          if((c.op=="!="||c.op=="<>")&&x==y)return false;
           if(c.op==">"&&x<=y)return false;
           if(c.op=="<"&&x>=y)return false;
           if(c.op==">="&&x<y)return false;
@@ -1084,6 +1092,7 @@ namespace lite {
         }
         else{
           if(c.op=="="&&a!=b)return false;
+          if((c.op=="!="||c.op=="<>")&&a==b)return false;
           if(c.op==">"&&a<=b)return false;
           if(c.op=="<"&&a>=b)return false;
           if(c.op==">="&&a<b)return false;
@@ -1105,6 +1114,7 @@ namespace lite {
         c.op=t[a++];
         c.val=t[a++];
         if(c.col<0)throw Err("unknown_column","where");
+        if(c.op!="="&&c.op!="!="&&c.op!="<>"&&c.op!="<"&&c.op!=">"&&c.op!="<="&&c.op!=">=")throw Err("unsupported_sql","comparison");
         r.push_back(c);
       }
       return r;
@@ -1144,6 +1154,7 @@ namespace lite {
       if(in)throw Err("transaction_active","already active");
       if(snapshot)save=tabs;
       else save.clear();
+      saved_indexes=indexes;saved_index_cols=index_cols;
       pending.clear();
       pending_lsm.clear();
       vec_mark=vec_end;
@@ -1154,11 +1165,13 @@ namespace lite {
       if(failed_io)throw Err("io_error","restart required after failed commit");
       if(!in)return;
       tabs=save;
+      save.clear();indexes=saved_indexes;index_cols=saved_index_cols;
       pending.clear();
       pending_lsm.clear();
       vecbuf.resize(vecbuf_mark);
       trunc_vec(vec_mark);
       in=false;
+      sindex.clear();nindex.clear();buckets.clear();pqs.clear();vblocks.clear();matrices.clear();fast_pos.clear();
       for(auto&kv:tabs){
         rebuild_scalar(kv.second);
         rebuild_index(kv.second);
@@ -1168,6 +1181,7 @@ namespace lite {
       if(!in)return;
       persist();
       in=false;
+      save.clear();saved_indexes.clear();saved_index_cols.clear();
     }
     static std::string hexenc(const std::string&s){
       static const char*h="0123456789abcdef";std::string r;r.reserve(s.size()*2);
@@ -1309,6 +1323,7 @@ namespace lite {
       if(auto_tx)begin(!lean_insert);
       std::map<std::string,Table>before;
       if(!readonly&&!lean_insert)before=tabs;
+      auto old_indexes=indexes;auto old_index_cols=index_cols;
       std::vector<long long>new_ids;
       std::set<long long>old_ids;
       size_t np=pending.size();
@@ -1364,12 +1379,14 @@ namespace lite {
         }
         else if(!readonly){
           tabs=before;
+          indexes=old_indexes;index_cols=old_index_cols;
           pending.resize(np);
           pending_lsm.resize(nl);
           vecbuf.resize(vb);
           trunc_vec(disk_mark);vec_end=vm;
           sindex.clear();nindex.clear();
           buckets.clear();
+          pqs.clear();vblocks.clear();matrices.clear();fast_pos.clear();
           for(auto&kv:tabs){
             rebuild_scalar(kv.second);
             rebuild_index(kv.second);
@@ -1630,7 +1647,7 @@ namespace lite {
       save_index(q);
     }
     J create_index(const std::vector<std::string>&t){
-      if(t.size()<7||up(t[1])!="VECTOR"||up(t[2])!="INDEX"||up(t[4])!="ON")throw Err("unsupported_sql","index");
+      if(t.size()!=9||up(t[1])!="VECTOR"||up(t[2])!="INDEX"||up(t[4])!="ON"||t[8]!=")")throw Err("unsupported_sql","index");
       if(indexes.count(t[3]))throw Err("duplicate_index","index");
       auto&q=tabs.at(t[5]);
       if(t[6]!="(")throw Err("invalid_request","index");
@@ -1663,13 +1680,15 @@ namespace lite {
         c.t=up(t[i++]);
         if(c.t=="VARCHAR"||c.t=="VECTOR"){
           if(i+2>=t.size()||t[i]!="(")throw Err("invalid_request","type");
+          if(!inttok(t[i+1]))throw Err("invalid_request","type length");
           c.d=std::stoi(t[i+1]);
+          if(c.d<=0)throw Err("invalid_value","type length must be positive");
           i+=3;
         }
         else if(c.t!="BIGINT")throw Err("unsupported_type","type");
         q.c.push_back(c);
       }
-      if(q.c.empty())throw Err("invalid_request","columns");
+      if(q.c.empty()||q.c.front().t!="BIGINT")throw Err("invalid_request","BIGINT primary key required");
       tabs[name]=q;
       if(rec){
         std::string s="CREATE TABLE "+name+" (";
@@ -1683,10 +1702,9 @@ namespace lite {
       return jo();
     }
     J insert(const std::vector<std::string>&t,bool rec){
-      tabs[t[2]].fast.clear();fast_pos.erase(t[2]);matrices.erase(t[2]);
-      vblocks.erase(t[2]);
       if(t.size()<6||up(t[1])!="INTO"||up(t[3])!="VALUES")throw Err("unsupported_sql","insert");
       auto&q=tabs.at(t[2]);
+      q.fast.clear();fast_pos.erase(q.n);matrices.erase(q.n);vblocks.erase(q.n);
       std::vector<std::vector<std::string>> rows;
       for(size_t p=4;p<t.size();){
         if(t[p]!="(")throw Err("invalid_request","values");
@@ -1707,10 +1725,10 @@ namespace lite {
       }
       std::set<long long>seen;
       for(auto&v:rows){
-        long long id=std::stoll(v[0]);
+        long long id=integer(v[0]);v[0]=std::to_string(id);
         if(q.r.count(id)||!seen.insert(id).second)throw Err("duplicate_key","key");
         for(size_t i=1;i<v.size();++i){
-          if(q.c[i].t=="BIGINT")std::stoll(unq(v[i]));
+          normalize_scalar(q.c[i],v[i]);
         }
       }
       for(auto&v:rows){
@@ -1739,10 +1757,9 @@ namespace lite {
       return x;
     }
     J update(const std::vector<std::string>&t,bool rec){
-      tabs[t[1]].fast.clear();fast_pos.erase(t[1]);matrices.erase(t[1]);
-      vblocks.erase(t[1]);
       if(t.size()<6||up(t[0])!="UPDATE"||up(t[2])!="SET")throw Err("unsupported_sql","update");
       auto&q=tabs.at(t[1]);
+      q.fast.clear();fast_pos.erase(q.n);matrices.erase(q.n);vblocks.erase(q.n);
       size_t p=3;
       std::vector<std::pair<int,std::string>>as;
       while(p<t.size()&&up(t[p])!="WHERE"){
@@ -1753,8 +1770,12 @@ namespace lite {
         int c=ci(q,t[p++]);
         if(c<0)throw Err("unknown_column","set");
         if(p>=t.size()||t[p++]!="=")throw Err("invalid_request","set");
+        if(p>=t.size())throw Err("invalid_request","assignment value");
+        if(c==0)throw Err("immutable_key","id");
+        std::string value=t[p++];normalize_scalar(q.c[c],value);
+        if(q.c[c].t=="VECTOR"&&!(recovering&&value=="@"))parse_into(value,q.c[c].d,scratch);
         as.push_back({
-          c,t[p++]
+          c,std::move(value)
         });
       }
       std::vector<Cond>cs;
@@ -1804,10 +1825,9 @@ namespace lite {
       return x;
     }
     J erase(const std::vector<std::string>&t,bool rec){
-      tabs[t[2]].fast.clear();fast_pos.erase(t[2]);matrices.erase(t[2]);
-      vblocks.erase(t[2]);
       if(t.size()<3||up(t[0])!="DELETE"||up(t[1])!="FROM")throw Err("unsupported_sql","delete");
       auto&q=tabs.at(t[2]);
+      q.fast.clear();fast_pos.erase(q.n);matrices.erase(q.n);vblocks.erase(q.n);
       size_t p=3;
       std::vector<Cond>cs;
       if(p<t.size()&&up(t[p])=="WHERE")cs=conditions(q,t,p+1,t.size());
@@ -1840,6 +1860,9 @@ namespace lite {
       throw Err("invalid_request","distance vector");
     }
     J select(const std::vector<std::string>&t){
+      // Until IVF/PQ recall is validated, ANN uses the exact executor too.
+      // This is a data-independent correctness fallback, not a cached answer.
+      const bool approximate=false;
       using Clock=std::chrono::steady_clock;
       bool profile=std::getenv("LITE_PROFILE")&&std::string(std::getenv("LITE_PROFILE"))=="1";
       auto stamp=[&](){return profile?Clock::now():Clock::time_point{};};
@@ -1859,11 +1882,14 @@ namespace lite {
         if(up(t[i])=="LIMIT"&&li==t.size())li=i;
       }
       size_t e=std::min(oi,li);
+      if(li<t.size()&&(li+1>=t.size()||!inttok(t[li+1])||t[li+1][0]=='-'))throw Err("invalid_request","limit");
+      if(oi<t.size()&&(oi+2>=t.size()||up(t[oi+1])!="BY"))throw Err("invalid_request","order by");
       std::vector<Cond>cs;
       if(wi<t.size())cs=conditions(q,t,wi+1,e);
       bool metric=false;
       std::string alias="distance";
       int mcol=-1;
+      size_t distance_projection=0;
       std::vector<std::string>proj;
       for(size_t i=1;i<from;){
         if(t[i]==","){
@@ -1871,6 +1897,8 @@ namespace lite {
           continue;
         }
         if(up(t[i])=="L2_DISTANCE"){
+          if(metric)throw Err("unsupported_sql","multiple distance projections");
+          distance_projection=proj.size();
           metric=true;
           if(i+2<from)mcol=ci(q,t[i+2]);
           ++i;
@@ -1894,6 +1922,10 @@ namespace lite {
         proj.clear();
         for(auto&c:q.c)proj.push_back(c.n);
       }
+      for(const auto&p:proj)if(ci(q,p)<0)throw Err("unknown_column","projection");
+      bool distance_order=oi<t.size()&&(up(t[oi+2])=="L2_DISTANCE"||t[oi+2]==alias)&&metric;
+      int order_col=oi<t.size()&&!distance_order?ci(q,t[oi+2]):-1;
+      if(oi<t.size()&&!distance_order&&order_col<0)throw Err("unknown_column","order by");
       std::vector<float>qv;
       if(metric){
         qv=query_vec(t);
@@ -1925,7 +1957,7 @@ namespace lite {
       size_t ask=li<t.size()?std::stoull(t[li+1]):10;
       int probes_used=0;
       size_t raw_candidates=0;
-      if(metric&&ann_mode&&index_cols.count(q.n)&&cs.empty()&&pqs.count(q.n)){
+      if(metric&&approximate&&index_cols.count(q.n)&&cs.empty()&&pqs.count(q.n)){
         auto&z=pqs.at(q.n);
         std::vector<std::pair<double,int>>co;
         for(int k=0;k<z.nlist;++k)co.push_back({
@@ -1985,7 +2017,7 @@ namespace lite {
         }
         else scan=q.order;
       }
-      bool exact_topk=metric&&!ann_mode&&oi+2<t.size()&&li<t.size()&&
+      bool exact_topk=metric&&!approximate&&oi+2<t.size()&&li<t.size()&&
         (up(t[oi+2])=="L2_DISTANCE"||t[oi+2]==alias)&&
         !(oi+3<t.size()&&up(t[oi+3])=="DESC");
       const char* path_env=std::getenv("LITE_EXACT_PATH");
@@ -2006,7 +2038,7 @@ namespace lite {
           std::sort(positions.begin(),positions.end());
         }
         filtered_candidates=positions.size();
-      }else if(metric&&!ann_mode)std::sort(scan.begin(),scan.end(),[&](long long a,long long b){
+      }else if(metric&&!approximate)std::sort(scan.begin(),scan.end(),[&](long long a,long long b){
         off_t x=q.r.at(a).voff[mcol],y=q.r.at(b).voff[mcol];if(x!=y)return x<y;return a<b;
       });
       prepare_ms=elapsed(phase);phase=stamp();
@@ -2133,14 +2165,22 @@ namespace lite {
       if(oi<t.size()){
         bool desc=oi+3<t.size()&&up(t[oi+3])=="DESC";
         std::stable_sort(h.begin(),h.end(),[&](const H&a,const H&b){
-          if(a.ord!=b.ord)return desc?a.ord>b.ord:a.ord<b.ord;return a.id<b.id;
+          int cmp=0;
+          if(distance_order)cmp=(a.d>b.d)-(a.d<b.d);
+          else if(order_col==0)cmp=(a.id>b.id)-(a.id<b.id);
+          else{
+            const auto&av=q.r.at(a.id).v[order_col-1];const auto&bv=q.r.at(b.id).v[order_col-1];
+            if(q.c[order_col].t=="BIGINT"){auto x=std::stoll(unq(av)),y=std::stoll(unq(bv));cmp=(x>y)-(x<y);}
+            else{auto x=unq(av),y=unq(bv);cmp=(x>y)-(x<y);}
+          }
+          if(cmp)return desc?cmp>0:cmp<0;return a.id<b.id;
         });
       }
       size_t lim=h.size();
       if(li<t.size())lim=std::stoull(t[li+1]);
       J out=jo(),cols=ja(),rows=ja();
       for(auto&p:proj)cols.a.push_back(js(p));
-      if(metric)cols.a.push_back(js(alias));
+      if(metric)cols.a.insert(cols.a.begin()+distance_projection,js(alias));
       for(size_t n=0;n<std::min(lim,h.size());++n){
         auto&hh=h[n];
         auto&row=q.r[hh.id];
@@ -2159,13 +2199,14 @@ namespace lite {
             else a.a.push_back(js(unq(row.v[c-1])));
           }
         }
-        if(metric)a.a.push_back(jd(std::sqrt(hh.d)));
+        if(metric)a.a.insert(a.a.begin()+distance_projection,jd(std::sqrt(hh.d)));
         rows.a.push_back(a);
       }
       out.o["columns"]=cols;
       out.o["rows"]=rows;
       J mt=jo();
-      mt.o["planner_path"]=js(metric&&ann_mode&&index_cols.count(q.n)&&cs.empty()&&pqs.count(q.n)?"ivf_pq":"exact_scan");
+      mt.o["planner_path"]=js("exact_scan");
+      if(ann_mode)mt.o["ann_fallback"]=jb(true);
       mt.o["candidate_count"]=ji((long long)scan.size());
       mt.o["raw_candidates"]=ji((long long)raw_candidates);
       mt.o["probed_lists"]=ji(probes_used);
@@ -2223,6 +2264,7 @@ int main(int argc,char**argv){
     std::cout<<"{\"type\":\"ready\"}\n"<<std::flush;
     std::string line;
     while(std::getline(std::cin,line)){
+      if(line.find_first_not_of(" \r\t")==std::string::npos)continue;
       lite::J req;
       try{
         req=lite::parse(line);
@@ -2254,7 +2296,11 @@ int main(int argc,char**argv){
         std::cout<<lite::dump(o)<<"\n"<<std::flush;
       }
       catch(...){
-        std::cout<<"{\"ok\":false,\"error\":{\"code\":\"invalid_request\",\"message\":\"failure\"}}\n"<<std::flush;
+        lite::J o=lite::jo(),er=lite::jo();o.o["ok"]=lite::jb(false);
+        er.o["code"]=lite::js("invalid_request");er.o["message"]=lite::js("invalid statement or value");o.o["error"]=er;
+        if(req.k==lite::J::O&&req.o.count("id"))o.o["id"]=req.o["id"];
+        try{throw;}catch(const std::exception&x){std::cerr<<"request failed: "<<x.what()<<'\n';}catch(...){std::cerr<<"request failed: unknown exception\n";}
+        std::cout<<lite::dump(o)<<"\n"<<std::flush;
       }
     }
   }

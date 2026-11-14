@@ -1,0 +1,78 @@
+[
+  {
+    "case": "unknown_table",
+    "passed": false,
+    "error": "AssertionError(({'id': 1, 'op': 'execute', 'sql': 'SELECT id FROM absent;', 'search_mode': 'exact'}, {'ok': False, 'error': {'code': 'invalid_request', 'message': 'failure'}}))",
+    "exit_code": null
+  },
+  {
+    "case": "short_sql",
+    "passed": false,
+    "error": "AssertionError(b'')",
+    "exit_code": null
+  },
+  {
+    "case": "json_strings",
+    "passed": false,
+    "error": "AssertionError(({'id': '请求😀', 'op': 'execute', 'sql': \"INSERT INTO docs VALUES (1,'中文😀\\x08\\x0c\\x01');\", 'search_mode': 'exact'}, {'affected_rows': 1, 'id': 'u8bf7u6c42ud83dude00', 'ok': True}))",
+    "exit_code": null
+  },
+  {
+    "case": "scalar_order",
+    "passed": false,
+    "error": "AssertionError()",
+    "exit_code": null
+  },
+  {
+    "case": "scalar_not_equal",
+    "passed": false,
+    "error": "AssertionError()",
+    "exit_code": null
+  },
+  {
+    "case": "scalar_validation",
+    "passed": false,
+    "error": "AssertionError({'id': 1, 'ok': True})",
+    "exit_code": null
+  },
+  {
+    "case": "invalid_vectors",
+    "passed": false,
+    "error": "AssertionError({'affected_rows': 1, 'id': 7, 'ok': True})",
+    "exit_code": null
+  },
+  {
+    "case": "vector_precision",
+    "passed": false,
+    "error": "AssertionError({'columns': ['id', 'd'], 'id': 3, 'metrics': {'block_pruned_candidates': 0, 'blocks_considered': 0, 'blocks_pruned': 0, 'candidate_count': 2, 'distance_dimensions': 256, 'distance_pruned': 0, 'exact_evaluations': 2, 'exact_path': 'scan', 'filtered_candidates': 2, 'full_distance_evaluations': 2, 'heap_updates': 2, 'planner_path': 'exact_scan', 'probed_lists': 0, 'raw_candidates': 0}, 'ok': True, 'rows': [[1, 10000], [2, 10000]]})",
+    "exit_code": null
+  },
+  {
+    "case": "vector_finite_range",
+    "passed": false,
+    "error": "JSONDecodeError('Expecting value: line 1 column 374 (char 373)')",
+    "exit_code": null
+  },
+  {
+    "case": "projection_order",
+    "passed": false,
+    "error": "AssertionError({'columns': ['id', 'title', 'd'], 'id': 3, 'metrics': {'block_pruned_candidates': 0, 'blocks_considered': 0, 'blocks_pruned': 0, 'candidate_count': 1, 'distance_dimensions': 2, 'distance_pruned': 0, 'exact_evaluations': 1, 'exact_path': 'scan', 'filtered_candidates': 1, 'full_distance_evaluations': 1, 'heap_updates': 1, 'planner_path': 'exact_scan', 'probed_lists': 0, 'raw_candidates': 0}, 'ok': True, 'rows': [[1, 'x', 5]]})",
+    "exit_code": null
+  },
+  {
+    "case": "ddl_rollback",
+    "passed": false,
+    "error": "AssertionError({'error': {'code': 'duplicate_index', 'message': 'index'}, 'id': 6, 'ok': False})",
+    "exit_code": null
+  },
+  {
+    "case": "crash_recovery",
+    "passed": true
+  },
+  {
+    "case": "ann_recall",
+    "passed": false,
+    "error": "AssertionError((17, '', 0.7, [[452, 3.120952922904784], [435, 3.192994188431858], [472, 3.335395362451594], [128, 3.340325714493461], [290, 3.3648660981884473], [438, 3.3657053719135837], [406, 3.3811610069127562], [408, 3.381858827809243], [114, 3.453922930394388], [248, 3.463578312424229]], [[435, 3.192994188431858], [472, 3.335395362451594], [128, 3.340325714493461], [406, 3.3811610069127562], [408, 3.381858827809243], [114, 3.453922930394388], [248, 3.463578312424229], [426, 3.4692435042404384], [82, 3.475171302657156], [35, 3.510149132903691]]))",
+    "exit_code": null
+  }
+]

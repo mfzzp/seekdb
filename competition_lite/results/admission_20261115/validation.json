@@ -1,0 +1,17 @@
+{
+  "baseline": "a3615e8a5df3326aa01f6387f2fb0d1d873ea782",
+  "source_sha256": "8e199fdeea1e3c4e03a0897c897ff7f505b54bfe460802b1bc395b851d6a1556",
+  "binary_sha256": "ca94714867ab0be2dbafedf286b902dd37cee88f33d749569696ac3b97010257",
+  "platform": "Windows/MSYS2 GCC 16.2.0",
+  "build_flags": "-D_GNU_SOURCE -O3 -DNDEBUG -std=c++17",
+  "public_cases": 20,
+  "boundary_cases": 13,
+  "exact_queries": 1470,
+  "commit_checks": 13,
+  "bulk_recovery_cases": 4,
+  "quote_recovery_cases": 2,
+  "runtime_lines": 2311,
+  "linux_docker_tested": false,
+  "official_gate_passed": false,
+  "performance_measured": false
+}

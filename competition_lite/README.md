@@ -2,6 +2,8 @@
 
 This directory is the clean-room C++17 implementation for the bound competition JSONL contract. The runtime entrypoint is `src/minivectordb_lite.cpp`; it does not include or link the previous `minivectordb.cpp` implementation.
 
+**Admission status:** `a3615e8` failed the platform correctness gate (6 failures; performance not run). The [2026-11-15 investigation](docs/ADMISSION_20261115.md) records reproduced defects and local fixes. This branch is awaiting actual Linux/Docker validation and is not recommended for another official submission yet. ANN requests now use exact fallback; distance arithmetic widens stored float32 coordinates to double before subtraction and accumulation. Previous performance figures do not measure this corrected version.
+
 The runtime is deliberately single-writer. It has transaction handling, framed CRC WAL, a float32 vector file with mmap-on-demand reads, a bounded continuous-vector matrix cache for small tables, persisted scalar postings and full-coordinate Block statistics, MemTable/Immutable/SST maintenance, checkpointed recovery state, exact Top-K, IVF with global non-residual PQ and raw-vector reranking, index persistence, and vector GC. BEGIN still copies table state; incremental private write sets remain incomplete. SST is not yet the authoritative read/recovery path. Read-only SELECT executes against current state without a result cache.
 
 The [implementation summary](docs/IMPLEMENTATION.md) describes the current data, query, commit and recovery paths. The latest [write iteration](docs/WRITE_PATHS_20261114.md) reuses a WAL descriptor, batches frame encoding, accelerates compatible CRC32C, tracks MemTable and WAL bytes incrementally and removes the extra INSERT statement snapshot inside explicit transactions. Every successful nonempty commit still synchronizes both vector and WAL files. Commit I/O failure freezes the engine until restart instead of acknowledging or truncating possibly committed vectors.
@@ -14,7 +16,7 @@ The source line checker counts physical lines, including comments and blanks:
 python3 competition_lite/tools/check_lines.py
 ```
 
-The current source count is 2265 physical lines; the checker's original 2000-line ceiling is exceeded. Correctness and measured performance take priority over artificial compression. The generator, Oracle, crash checker, benchmark driver, and summaries under `competition_lite/bench` are outside that runtime count.
+The current source count is 2311 physical lines; the checker's original 2000-line ceiling is exceeded. The generator, Oracle, crash checker, benchmark driver, and summaries under `competition_lite/bench` are outside that runtime count.
 
 Earlier server write measurements and their hardware limits are in [WRITE_LIMITS_20261114.md](docs/WRITE_LIMITS_20261114.md). JSONL input buffering and bulk string scanning reduce CPU cost without reducing commit syncs. STATE v3 records the checkpoint vector boundary for WAL recovery. Legacy v2/JSON state is accepted only with an empty WAL because it lacks that boundary; nonempty legacy WAL is rejected rather than assigned guessed offsets. Bulk recovery checks now verify nonzero vector distances as well as row IDs.
 
