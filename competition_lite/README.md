@@ -2,7 +2,7 @@
 
 This directory is the clean-room C++17 implementation for the bound competition JSONL contract. The runtime entrypoint is `src/minivectordb_lite.cpp`; it does not include or link the previous `minivectordb.cpp` implementation.
 
-The runtime is deliberately single-writer. It has private transaction write sets, framed CRC WAL, a float32 vector file with mmap-on-demand reads, MemTable/Immutable/SST maintenance, checkpointed recovery state, scalar equality postings, exact Top-K, IVF with global non-residual PQ and raw-vector reranking, index persistence, and vector GC. Read-only SELECT executes against current state without a result cache.
+The runtime is deliberately single-writer. It has private transaction write sets, framed CRC WAL, a float32 vector file with mmap-on-demand reads, a bounded continuous-vector matrix cache for small tables, persisted scalar postings and full-coordinate Block statistics, MemTable/Immutable/SST maintenance, checkpointed recovery state, exact Top-K, IVF with global non-residual PQ and raw-vector reranking, index persistence, and vector GC. Read-only SELECT executes against current state without a result cache.
 
 The source line checker counts physical lines, including comments and blanks:
 
@@ -10,7 +10,7 @@ The source line checker counts physical lines, including comments and blanks:
 python3 competition_lite/tools/check_lines.py
 ```
 
-The current checker result is 1986 lines; the original 2000-line target is tracked, but correctness and measured performance take priority over artificial compression. The generator, Oracle, crash checker, benchmark driver, and summaries under `competition_lite/bench` are outside that runtime count.
+The current checker result is 2168 lines; the original 2000-line target is exceeded by explicit runtime index/statistics and cache paths. Correctness and measured performance take priority over artificial compression. The generator, Oracle, crash checker, benchmark driver, and summaries under `competition_lite/bench` are outside that runtime count.
 
 A small end-to-end run is:
 

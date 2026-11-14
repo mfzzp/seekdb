@@ -2,11 +2,11 @@
 
 ## Current implementation
 
-- Runtime: `competition_lite/src/minivectordb_lite.cpp`, **1986 physical lines** (comments and blank lines included).
+- Runtime: `competition_lite/src/minivectordb_lite.cpp`, **2168 physical lines** (comments and blank lines included).
 - Build: C++17, `-O3 -DNDEBUG -Wall -Wextra`.
-- Storage: private transaction writes, framed CRC WAL, separate float32 vector file with mmap reads, MemTable/Immutable/SST maintenance, checkpointed recovery state, scalar postings, exact Top-K, IVF with global non-residual PQ and raw-vector reranking, index persistence, and vector GC.
+- Storage: private transaction writes, framed CRC WAL, separate float32 vector file with mmap reads, bounded continuous-vector matrix caching for small tables, persisted scalar postings and full-coordinate Block statistics, MemTable/Immutable/SST maintenance, checkpointed recovery state, scalar postings, exact Top-K, IVF with global non-residual PQ and raw-vector reranking, index persistence, and vector GC.
 - There is **no query-result cache**. The plan explicitly excludes one, so every SELECT is computed from current state.\n- WAL frames now use 8-byte alignment, complete-frame CRC rejection, safe incomplete-tail truncation, and the vector cursor keeps only the last complete commit.\n- Manifest and persisted IVF-PQ files are published through temporary files; IVF-PQ files carry a trailing CRC, and a bad index is reported on stderr before rebuilding. `LITE_NPROBE` is exposed for validation and response metrics report probed lists and raw candidates.
-- The runtime remains single-writer and stays below the 2000 physical-line budget.
+- The runtime remains single-writer. The original 2000-line target is exceeded by explicit index/statistics and cache paths; no hidden or generated runtime code is used to reduce the count.
 
 ## Checks completed
 
@@ -17,7 +17,15 @@
 | LSM flush/compaction/restart smoke | PASS, 79 live rows and L0/L1 files |
 | IVF-PQ index persistence/restart | PASS |
 | Crash recovery smoke | 20/20 PASS |
-| Runtime physical-line budget | 1986 / 2000 (current source) |
+| Runtime physical-line count | 2168 (current source; comments and blanks included) |
+
+## Current exact-first optimization evidence
+
+The hot path first chooses the smallest persisted scalar posting/range candidate set, returns empty candidates immediately, and uses a bounded continuous float32 matrix only when the table fits `LITE_MATRIX_MB` (default 64 MiB). Larger tables use physically ordered mmap reads. Exact Top-K stores distance directly in the heap; Block traversal uses full-coordinate box and center/radius lower bounds, with physical order as the default to preserve sequential reads. Bound-sorted Block order is available with `LITE_BLOCK_ORDER=bound` for ablation.
+
+One 1,024-case exact sweep on the fixed 10k/128-dimension workload measured mean 0.467 ms/request, p50 0.260 ms, p95 1.275 ms; the accompanying independent check reported exact match 1.0. On the fixed 100k/1024-dimension bank, the earlier 1,024-case exact sweep measured 36.62 ms/request across all filters; the no-filter subset was 109.8 ms, category equality 22.7 ms, category+tenant 10.4 ms, and the id<100 path 0.497 ms. These are engine-path timings, not claims that the old and new implementations use identical storage layouts.
+
+The optional `LITE_EARLY=1` partial-distance path was tested on the 100k/1024 and 10k/128 banks. It pruned candidates safely but was slower than the full SIMD path on these distributions, so it is disabled by default and remains an ablation.
 
 The tools under `competition_lite/bench` generate the fixed eight-column schema, write `vectors.f32`, compute a blockwise mmap-backed independent Oracle, exercise S1/B256/B1024/T256, support mixed and pure-random vectors, and emit per-query JSON plus summaries.
 

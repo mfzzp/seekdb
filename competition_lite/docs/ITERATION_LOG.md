@@ -118,6 +118,15 @@
 ## 2026-11-14 full 1024-case filter sweep
 
 - Added `bench/query_sweep.py` so an already-loaded data directory can run all generated query cases without reinserting data.
+
+## 2026-11-14 exact-first physical scan and cache pass
+
+- Persisted scalar equality/range postings, including the primary-key range path; empty candidate sets now return before vector work.
+- Reordered the read-only vector view by physical offset, added full-coordinate Block box and center/radius metadata, and kept physical Block order as the default. Bound-sorted traversal remains an explicit ablation because it can destroy sequential reads.
+- Added a 64 MiB bounded continuous float32 matrix cache for small tables. The fixed 10k/128 exact sweep measured 0.467 ms/request mean (p50 0.260 ms, p95 1.275 ms) with independent exact match 1.0.
+- Added a real persisted IVF cell directory and ANN Block-bound path. `LITE_RERANK` and `LITE_NPROBE` remain tunable; exact mode never uses ANN cell omission.
+- Public protocol: 20/20 PASS; strict protocol package: 20/20 PASS; crash recovery: 20/20 PASS. Runtime source is 2168 physical lines; the original 2000-line target is exceeded by explicit runtime index/statistics/cache code and is tracked rather than hidden.
+- The optional partial-distance early-stop experiment was safe but slower on the fixed 10k/128 and 100k/1024 distributions, so it is disabled by default.
 - 100k rows: 2048 exact/ANN requests, exact mean 16.206 ms, ANN mean 10.230 ms, wall 29.75 s.
 - 300k rows: 2048 exact/ANN requests, exact mean 50.721 ms, ANN mean 32.380 ms, wall 90.95 s.
 - The sweep covered all generator filter categories. It remains a timing run until the independent large-scale Oracle path is accelerated.

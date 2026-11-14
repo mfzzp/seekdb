@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 namespace lite {
   struct Err:std::runtime_error{
     std::string code;
@@ -255,12 +256,18 @@ namespace lite {
   struct PQ{
     int d=0,m=0,ks=0,nlist=0;
     std::vector<float>coarse,book;
-    std::map<long long,std::vector<unsigned char>>code;
-    std::map<long long,int>cell;
+    std::unordered_map<long long,std::vector<unsigned char>>code;
+    std::unordered_map<long long,int>cell;
   };
   struct VBlock{
     size_t begin=0,end=0;
     std::vector<float>lo,hi;
+    std::vector<float>center;
+    float radius=0;
+  };
+  struct Matrix{
+    int col=0,dim=0;
+    std::vector<float>v;
   };
   struct SRec{
     std::string key,value;
@@ -283,33 +290,68 @@ namespace lite {
   #if defined(__x86_64__) || defined(__i386__)
   #if defined(__GNUC__) || defined(__clang__)
   __attribute__((target("avx2"))) static double l2_avx2(const float*a,const float*b,int d){
-    __m256 sum=_mm256_setzero_ps();
+    __m256 s0=_mm256_setzero_ps(),s1=s0,s2=s0,s3=s0;
     int i=0;
+    for(;i+32<=d;i+=32){
+      __m256 x=_mm256_sub_ps(_mm256_loadu_ps(a+i),_mm256_loadu_ps(b+i));
+      s0=_mm256_add_ps(s0,_mm256_mul_ps(x,x));
+      x=_mm256_sub_ps(_mm256_loadu_ps(a+i+8),_mm256_loadu_ps(b+i+8));
+      s1=_mm256_add_ps(s1,_mm256_mul_ps(x,x));
+      x=_mm256_sub_ps(_mm256_loadu_ps(a+i+16),_mm256_loadu_ps(b+i+16));
+      s2=_mm256_add_ps(s2,_mm256_mul_ps(x,x));
+      x=_mm256_sub_ps(_mm256_loadu_ps(a+i+24),_mm256_loadu_ps(b+i+24));
+      s3=_mm256_add_ps(s3,_mm256_mul_ps(x,x));
+    }
+    s0=_mm256_add_ps(s0,s1);s2=_mm256_add_ps(s2,s3);s0=_mm256_add_ps(s0,s2);
     for(;i+8<=d;i+=8){
-      __m256 va=_mm256_loadu_ps(a+i),vb=_mm256_loadu_ps(b+i),x=_mm256_sub_ps(va,vb);
-      sum=_mm256_add_ps(sum,_mm256_mul_ps(x,x));
+      __m256 x=_mm256_sub_ps(_mm256_loadu_ps(a+i),_mm256_loadu_ps(b+i));
+      s0=_mm256_add_ps(s0,_mm256_mul_ps(x,x));
     }
-    alignas(32) float z[8];
-    _mm256_store_ps(z,sum);
-    double s=0;
-    for(float x:z)s+=x;
-    for(;i<d;++i){
-      double x=a[i]-b[i];
-      s+=x*x;
+    alignas(32) float z[8];_mm256_store_ps(z,s0);double s=0;for(float x:z)s+=x;
+    for(;i<d;++i){double x=a[i]-b[i];s+=x*x;}return s;
+  }
+  __attribute__((target("avx512f"))) static double l2_avx512(const float*a,const float*b,int d){
+    __m512 s0=_mm512_setzero_ps(),s1=s0,s2=s0,s3=s0;
+    int i=0;
+    for(;i+64<=d;i+=64){
+      __m512 x=_mm512_sub_ps(_mm512_loadu_ps(a+i),_mm512_loadu_ps(b+i));
+      s0=_mm512_add_ps(s0,_mm512_mul_ps(x,x));
+      x=_mm512_sub_ps(_mm512_loadu_ps(a+i+16),_mm512_loadu_ps(b+i+16));
+      s1=_mm512_add_ps(s1,_mm512_mul_ps(x,x));
+      x=_mm512_sub_ps(_mm512_loadu_ps(a+i+32),_mm512_loadu_ps(b+i+32));
+      s2=_mm512_add_ps(s2,_mm512_mul_ps(x,x));
+      x=_mm512_sub_ps(_mm512_loadu_ps(a+i+48),_mm512_loadu_ps(b+i+48));
+      s3=_mm512_add_ps(s3,_mm512_mul_ps(x,x));
     }
-    return s;
+    s0=_mm512_add_ps(s0,s1);s2=_mm512_add_ps(s2,s3);s0=_mm512_add_ps(s0,s2);
+    for(;i+16<=d;i+=16){
+      __m512 x=_mm512_sub_ps(_mm512_loadu_ps(a+i),_mm512_loadu_ps(b+i));
+      s0=_mm512_add_ps(s0,_mm512_mul_ps(x,x));
+    }
+    alignas(64) float z[16];_mm512_store_ps(z,s0);double s=0;for(float x:z)s+=x;
+    for(;i<d;++i){double x=a[i]-b[i];s+=x*x;}return s;
   }
   static bool has_avx2(){
     static const bool v=__builtin_cpu_supports("avx2");
+    return v;
+  }
+  static bool has_avx512(){
+    static const bool v=__builtin_cpu_supports("avx512f");
     return v;
   }
   #else
   static bool has_avx2(){
     return false;
   }
+  static bool has_avx512(){
+    return false;
+  }
   #endif
   #else
   static bool has_avx2(){
+    return false;
+  }
+  static bool has_avx512(){
     return false;
   }
   #endif
@@ -338,6 +380,10 @@ namespace lite {
     std::map<std::string,PQ>pqs;
     std::map<std::string,std::vector<VBlock>>vblocks;
     std::map<std::string,std::map<std::string,std::vector<long long>>>sindex;
+    std::map<std::string,std::map<long long,std::vector<long long>>>nindex;
+    std::map<std::string,std::unordered_map<long long,size_t>>fast_pos;
+    std::map<std::string,Matrix>matrices;
+    std::map<std::string,int>vblock_col;
     mutable void*vmap=nullptr;
     mutable size_t mapsz=0;
     mutable off_t mapoff=0;
@@ -437,6 +483,34 @@ namespace lite {
       }
       rename(p.c_str(),(dir+"/STATE").c_str());
     }
+    std::string vstats_path(const Table&q)const{return dir+"/VSTATS-"+q.n+".bin";}
+    void save_vstats(Table&q){
+      int c=-1;for(size_t i=1;i<q.c.size();++i)if(q.c[i].t=="VECTOR"){c=(int)i;break;}
+      if(c<0||q.order.empty())return;
+      build_vblocks(q,c);auto&bs=vblocks[q.n];if(bs.empty())return;vblock_col[q.n]=c;
+      std::string p=vstats_path(q)+".tmp";std::ofstream f(p,std::ios::binary|std::ios::trunc);
+      uint32_t magic=0x56535432u,ver=4,d=q.c[c].d,sd=(uint32_t)(bs[0].lo.size()),n=(uint32_t)bs.size();uint64_t rows=q.order.size();
+      wr(f,magic);wr(f,ver);wr(f,wal_txid);wr(f,rows);wr(f,c);wr(f,d);wr(f,sd);wr(f,n);
+      for(auto&w:bs){uint64_t a=w.begin,b=w.end;wr(f,a);wr(f,b);for(float x:w.lo)wr(f,x);for(float x:w.hi)wr(f,x);for(float x:w.center)wr(f,x);wr(f,w.radius);}
+      f.flush();f.close();std::ifstream r(p,std::ios::binary);std::string raw((std::istreambuf_iterator<char>(r)),{});uint32_t sum=crc32c(raw.data(),raw.size());std::ofstream a(p,std::ios::binary|std::ios::app);wr(a,sum);a.flush();int fd=open(p.c_str(),O_RDONLY);if(fd>=0){fsync(fd);close(fd);}rename(p.c_str(),vstats_path(q).c_str());
+    }
+    bool load_vstats(Table&q){
+      std::ifstream f(vstats_path(q),std::ios::binary);if(!f)return false;std::ifstream ck(vstats_path(q),std::ios::binary);std::string raw((std::istreambuf_iterator<char>(ck)),{});if(raw.size()<4)return false;uint32_t want=0;std::memcpy(&want,raw.data()+raw.size()-4,4);if(crc32c(raw.data(),raw.size()-4)!=want)return false;
+      uint32_t magic=0,ver=0,d=0,sd=0,n=0;uint64_t tx=0,rows=0;int c=-1;if(!rd(f,magic)||!rd(f,ver)||!rd(f,tx)||!rd(f,rows)||!rd(f,c)||!rd(f,d)||!rd(f,sd)||!rd(f,n)||magic!=0x56535432u||ver!=4||tx!=wal_txid||rows!=q.order.size()||c<=0||c>=(int)q.c.size()||d!=(uint32_t)q.c[c].d||sd==0||sd>2048||n>10000000u)return false;
+      std::vector<VBlock>bs;bs.reserve(n);for(uint32_t i=0;i<n;++i){VBlock w;uint64_t a=0,b=0;if(!rd(f,a)||!rd(f,b)||b<a||b>rows)return false;w.begin=a;w.end=b;w.lo.resize(sd);w.hi.resize(sd);w.center.resize(sd);for(float&x:w.lo)if(!rd(f,x))return false;for(float&x:w.hi)if(!rd(f,x))return false;for(float&x:w.center)if(!rd(f,x))return false;if(!rd(f,w.radius))return false;bs.push_back(std::move(w));}vblocks[q.n]=std::move(bs);vblock_col[q.n]=c;return true;
+    }
+    void save_postings(){
+      std::string p=dir+"/POSTINGS.tmp";std::ofstream f(p,std::ios::binary|std::ios::trunc);uint32_t magic=0x504f5332u,ver=2,n=(uint32_t)sindex.size();wr(f,magic);wr(f,ver);wr(f,wal_txid);wr(f,n);
+      for(auto&k:sindex){ws(f,k.first);uint32_t m=(uint32_t)k.second.size();wr(f,m);for(auto&v:k.second){ws(f,v.first);uint32_t z=(uint32_t)v.second.size();wr(f,z);for(auto id:v.second)wr(f,id);}}
+      f.flush();f.close();std::ifstream r(p,std::ios::binary);std::string raw((std::istreambuf_iterator<char>(r)),{});uint32_t sum=crc32c(raw.data(),raw.size());std::ofstream a(p,std::ios::binary|std::ios::app);wr(a,sum);a.flush();int fd=open(p.c_str(),O_RDONLY);if(fd>=0){fsync(fd);close(fd);}rename(p.c_str(),(dir+"/POSTINGS").c_str());
+    }
+    bool load_postings(){
+      std::ifstream f(dir+"/POSTINGS",std::ios::binary);if(!f)return false;std::ifstream ck(dir+"/POSTINGS",std::ios::binary);std::string raw((std::istreambuf_iterator<char>(ck)),{});if(raw.size()<4)return false;uint32_t want=0;std::memcpy(&want,raw.data()+raw.size()-4,4);if(crc32c(raw.data(),raw.size()-4)!=want)return false;
+      uint32_t magic=0,ver=0,n=0;uint64_t tx=0;if(!rd(f,magic)||!rd(f,ver)||!rd(f,tx)||!rd(f,n)||magic!=0x504f5332u||ver!=2||tx!=wal_txid||n>1000000u)return false;sindex.clear();nindex.clear();
+      for(uint32_t i=0;i<n;++i){std::string k;if(!rs(f,k))return false;uint32_t m=0;if(!rd(f,m)||m>10000000u)return false;auto&dst=sindex[k];for(uint32_t j=0;j<m;++j){std::string v;if(!rs(f,v))return false;uint32_t z=0;if(!rd(f,z)||z>100000000u)return false;auto&ids=dst[v];ids.resize(z);for(auto&id:ids)if(!rd(f,id))return false;}}
+      for(auto&k:sindex){size_t p=k.first.find('.');if(p==std::string::npos)continue;auto t=tabs.find(k.first.substr(0,p));if(t==tabs.end())return false;int c=-1;for(size_t i=0;i<t->second.c.size();++i)if(t->second.c[i].n==k.first.substr(p+1)){c=(int)i;break;}if(c<0)return false;if(t->second.c[c].t=="BIGINT")for(auto&v:k.second)nindex[k.first][std::stoll(v.first)]=v.second;}
+      return true;
+    }
     std::string index_path(const Table&q)const{
       return dir+"/INDEX-"+q.n+".bin";
     }
@@ -444,7 +518,7 @@ namespace lite {
       auto z=pqs.find(q.n);
       if(z==pqs.end())return;
       std::ofstream f(index_path(q)+".tmp",std::ios::binary|std::ios::trunc);
-      uint32_t magic=0x4d564950,ver=1,d=z->second.d,m=z->second.m,ks=z->second.ks,nl=z->second.nlist,n=(uint32_t)z->second.code.size();
+      uint32_t magic=0x4d564950,ver=2,d=z->second.d,m=z->second.m,ks=z->second.ks,nl=z->second.nlist,n=(uint32_t)z->second.code.size();
       wr(f,magic);
       wr(f,ver);
       wr(f,wal_txid);
@@ -455,10 +529,12 @@ namespace lite {
       wr(f,n);
       for(float v:z->second.coarse)wr(f,v);
       for(float v:z->second.book)wr(f,v);
-      for(auto&kv:z->second.code){
+      std::vector<std::pair<uint32_t,long long>>ord;ord.reserve(n);std::vector<uint32_t>counts(nl);
+      for(auto&kv:z->second.code){uint32_t cell=z->second.cell.count(kv.first)?(uint32_t)z->second.cell.at(kv.first):0;if(cell>=nl)cell=0;ord.push_back({cell,kv.first});++counts[cell];}
+      std::sort(ord.begin(),ord.end());uint64_t first=0;for(uint32_t c=0;c<nl;++c){wr(f,first);wr(f,counts[c]);first+=counts[c];}
+      for(auto&ok:ord){auto&kv=*z->second.code.find(ok.second);
         uint64_t id=kv.first;
-        uint32_t len=(uint32_t)kv.second.size();
-        uint32_t cell=z->second.cell.count((long long)id)?(uint32_t)z->second.cell.at((long long)id):0;
+        uint32_t len=(uint32_t)kv.second.size(),cell=ok.first;
         wr(f,id);
         wr(f,cell);
         wr(f,len);
@@ -492,7 +568,7 @@ namespace lite {
       if(crc32c(raw.data(),raw.size()-sizeof(uint32_t))!=want){std::cerr<<"index_corrupt\n";return false;}
       uint32_t magic=0,ver=0,d=0,m=0,ks=0,nl=0,n=0;
       uint64_t seq=0;
-      if(!rd(f,magic)||!rd(f,ver)||!rd(f,seq)||!rd(f,d)||!rd(f,m)||!rd(f,ks)||!rd(f,nl)||!rd(f,n)||magic!=0x4d564950||ver!=1||seq!=wal_txid||n>q.r.size())return false;
+      if(!rd(f,magic)||!rd(f,ver)||!rd(f,seq)||!rd(f,d)||!rd(f,m)||!rd(f,ks)||!rd(f,nl)||!rd(f,n)||magic!=0x4d564950||!(ver==1||ver==2)||seq!=wal_txid||n>q.r.size())return false;
       PQ z;
       z.d=(int)d;
       z.m=(int)m;
@@ -503,11 +579,14 @@ namespace lite {
       z.book.resize((size_t)z.m*z.ks*((z.d+z.m-1)/z.m));
       for(float&v:z.coarse)if(!rd(f,v))return false;
       for(float&v:z.book)if(!rd(f,v))return false;
+      std::vector<uint64_t>first;std::vector<uint32_t>counts;
+      if(ver==2){uint32_t dn=0;if(!rd(f,dn)||dn!=(uint32_t)z.nlist)return false;first.resize(dn);counts.resize(dn);uint64_t total=0;for(uint32_t i=0;i<dn;++i){if(!rd(f,first[i])||!rd(f,counts[i])||first[i]!=total)return false;total+=counts[i];}if(total!=n)return false;}
       buckets[q.n].clear();
       for(uint32_t i=0;i<n;++i){
         uint64_t id=0;
         uint32_t cell=0,len=0;
         if(!rd(f,id)||!rd(f,cell)||!rd(f,len)||cell>=(uint32_t)z.nlist||len!=(uint32_t)z.m)return false;
+        if(ver==2&&(i<first[cell]||i>=first[cell]+counts[cell]))return false;
         std::vector<unsigned char>code(len);
         if(!f.read((char*)code.data(),len)||!q.r.count((long long)id))return false;
         auto&row=q.r[(long long)id];
@@ -548,12 +627,14 @@ namespace lite {
       vfd=open(vecfile.c_str(),O_RDWR|O_APPEND);
       if(vfd<0)throw Err("io_error","gc reopen");
       vec_end=n;
-      vblocks.clear();
+      vblocks.clear();matrices.clear();fast_pos.clear();
       ensure_map();
     }
     void checkpoint(){
       flush_sst();
+      for(auto&kv:tabs)save_vstats(kv.second);
       for(auto&kv:index_cols){auto it=tabs.find(kv.first);if(it!=tabs.end())save_index(it->second);}
+      save_postings();
       snapshot();
       std::ofstream z(wal,std::ios::trunc);
       z.flush();
@@ -565,7 +646,7 @@ namespace lite {
       }
     }
     void load_state(){
-      auto finish=[&](){vec_end=fsize(vecfile);ensure_map();sindex.clear();for(auto&t:tabs){rebuild_scalar(t.second);if(!load_index(t.second))rebuild_index(t.second);}};
+      auto finish=[&](){vec_end=fsize(vecfile);ensure_map();sindex.clear();nindex.clear();bool post=load_postings();for(auto&t:tabs){if(post){t.second.fast.clear();refresh_fast(t.second);}else rebuild_scalar(t.second);load_vstats(t.second);if(!load_index(t.second))rebuild_index(t.second);}};
       std::ifstream b(dir+"/STATE",std::ios::binary);uint32_t magic=0;
       if(b.read((char*)&magic,4)&&magic==0x4c535432u){
         uint32_t ver=0,nt=0;uint64_t w=0;
@@ -858,12 +939,23 @@ namespace lite {
       }
     }
     void ensure_map()const{map_window(0,1);}
+    const float* vptr(off_t off,int d)const{
+      if(off<0)return nullptr;
+      if(off>=vecbuf_base&&size_t(off-vecbuf_base+d*4)<=vecbuf.size())return (const float*)(vecbuf.data()+off-vecbuf_base);
+      if(vfd>=0){map_window(off,d*4);if(vmap&&off>=mapoff&&size_t(off-mapoff+d*4)<=mapsz)return (const float*)((const char*)vmap+off-mapoff);}
+      return nullptr;
+    }
+    double l2p(const float*p,int d,const std::vector<float>&q)const{
+      if(!p)return 0;
+      if(d>=64&&has_avx512())return l2_avx512(p,q.data(),d);
+      if(d>=32&&has_avx2())return l2_avx2(p,q.data(),d);
+      double z=0;for(int i=0;i<d;++i){double x=p[i]-q[i];z+=x*x;}return z;
+    }
     double l2(off_t off,int d,const std::vector<float>&q)const{
       if(off<0)return 0;
-      const float*p=nullptr;
-      if(off>=vecbuf_base&&size_t(off-vecbuf_base+d*4)<=vecbuf.size())p=(const float*)(vecbuf.data()+off-vecbuf_base);
-      else if(vfd>=0){map_window(off,d*4);if(vmap&&off>=mapoff&&size_t(off-mapoff+d*4)<=mapsz)p=(const float*)((const char*)vmap+off-mapoff);}
+      const float*p=vptr(off,d);
       if(p){
+        if(d>=64&&has_avx512())return l2_avx512(p,q.data(),d);
         if(d>=32&&has_avx2())return l2_avx2(p,q.data(),d);
         double z=0;
         for(int i=0;i<d;++i){
@@ -875,6 +967,7 @@ namespace lite {
       if(vfd>=0){
         std::vector<float>v(d);
         pread(vfd,v.data(),d*4,off);
+        if(d>=64&&has_avx512())return l2_avx512(v.data(),q.data(),d);
         if(d>=32&&has_avx2())return l2_avx2(v.data(),q.data(),d);
         double z=0;
         for(int i=0;i<d;++i){
@@ -885,18 +978,36 @@ namespace lite {
       }
       return 0;
     }
+    double l2_limit(off_t off,int d,const std::vector<float>&q,double lim,bool&cut,int&used)const{
+      const float*p=vptr(off,d);if(!p){cut=false;used=d;return l2(off,d,q);}
+      double z=0;for(int i=0;i<d;++i){double x=p[i]-q[i];z+=x*x;if((i&63)==63&&z>lim){cut=true;used=i+1;return z;}}
+      cut=false;used=d;return z;
+    }
     std::vector<float> read_vec(off_t off,int d)const{
       std::vector<float>v(d);
       if(off<0)return v;
-      if(off>=vecbuf_base&&size_t(off-vecbuf_base+d*4)<=vecbuf.size()){
-        std::memcpy(v.data(),vecbuf.data()+off-vecbuf_base,d*4);
-        return v;
-      }
+      if(const float*p=vptr(off,d)){std::memcpy(v.data(),p,d*4);return v;}
       if(vfd<0)return v;
-      map_window(off,d*4);
-      if(vmap&&off>=mapoff&&size_t(off-mapoff+d*4)<=mapsz)std::memcpy(v.data(),(char*)vmap+off-mapoff,d*4);
-      else pread(vfd,v.data(),d*4,off);
+      pread(vfd,v.data(),d*4,off);
       return v;
+    }
+    void ensure_matrix(Table&q,int c){
+      if(c<=0||c>=(int)q.c.size()||q.c[c].t!="VECTOR")return;
+      size_t bytes=q.order.size()*(size_t)q.c[c].d*sizeof(float),lim=(size_t)envint("LITE_MATRIX_MB",64)<<20;
+      auto it=matrices.find(q.n);if(it!=matrices.end()&&it->second.col==c&&it->second.v.size()*sizeof(float)==bytes)return;
+      if(bytes>lim)return;
+      if(q.fast.size()!=q.order.size())refresh_fast(q);
+      Matrix m;m.col=c;m.dim=q.c[c].d;m.v.resize(q.fast.size()*(size_t)m.dim);
+      for(size_t i=0;i<q.fast.size();++i)if(q.fast[i]){
+        const float*p=vptr(q.fast[i]->voff[c],m.dim);if(p)std::memcpy(m.v.data()+i*m.dim,p,m.dim*sizeof(float));
+        else{auto x=read_vec(q.fast[i]->voff[c],m.dim);std::memcpy(m.v.data()+i*m.dim,x.data(),m.dim*sizeof(float));}
+      }
+      matrices[q.n]=std::move(m);
+    }
+    const float* matrix_ptr(const Table&q,int c,long long id)const{
+      auto m=matrices.find(q.n);if(m==matrices.end()||m->second.col!=c)return nullptr;
+      auto p=fast_pos.find(q.n);if(p==fast_pos.end())return nullptr;auto i=p->second.find(id);if(i==p->second.end())return nullptr;
+      size_t off=i->second*(size_t)m->second.dim;if(off+m->second.dim>m->second.v.size())return nullptr;return m->second.v.data()+off;
     }
     std::string canon_insert(const Table&q,const std::vector<std::vector<std::string>>&rows)const{
       std::string s="INSERT INTO "+q.n+" VALUES ";
@@ -1177,13 +1288,13 @@ namespace lite {
               it->second.r.erase(id);
             }
             it->second.order.erase(std::remove_if(it->second.order.begin(),it->second.order.end(),[&](long long id){return !it->second.r.count(id);}),it->second.order.end());
-            it->second.fast.clear();
+            it->second.fast.clear();fast_pos.erase(it->first);matrices.erase(it->first);
           }
           pending.resize(np);
           pending_lsm.resize(nl);
           vecbuf.resize(vb);
           trunc_vec(vm);
-          sindex.clear();
+          sindex.clear();nindex.clear();
           buckets.clear();
           for(auto&kv:tabs){
             rebuild_scalar(kv.second);
@@ -1196,7 +1307,7 @@ namespace lite {
           pending_lsm.resize(nl);
           vecbuf.resize(vb);
           trunc_vec(vm);
-          sindex.clear();
+          sindex.clear();nindex.clear();
           buckets.clear();
           for(auto&kv:tabs){
             rebuild_scalar(kv.second);
@@ -1310,14 +1421,22 @@ namespace lite {
     }
     void scalar_add(Table&q,long long id){
       auto&row=q.r[id];
-      for(size_t c=1;c<q.c.size();++c)if(q.c[c].t!="VECTOR")sindex[q.n+"."+q.c[c].n][unq(row.v[c-1])].push_back(id);
+      sindex[q.n+".id"][std::to_string(id)].push_back(id);nindex[q.n+".id"][id].push_back(id);
+      for(size_t c=1;c<q.c.size();++c)if(q.c[c].t!="VECTOR"){
+        std::string k=q.n+"."+q.c[c].n,v=unq(row.v[c-1]);
+        sindex[k][v].push_back(id);
+        if(q.c[c].t=="BIGINT")nindex[k][std::stoll(v)].push_back(id);
+      }
     }
     void scalar_remove(Table&q,long long id){
       if(!q.r.count(id))return;
       auto&row=q.r[id];
+      auto&iv=sindex[q.n+".id"][std::to_string(id)];iv.erase(std::remove(iv.begin(),iv.end(),id),iv.end());auto&iw=nindex[q.n+".id"][id];iw.erase(std::remove(iw.begin(),iw.end(),id),iw.end());
       for(size_t c=1;c<q.c.size();++c)if(q.c[c].t!="VECTOR"){
-        auto&v=sindex[q.n+"."+q.c[c].n][unq(row.v[c-1])];
+        std::string k=q.n+"."+q.c[c].n,v0=unq(row.v[c-1]);
+        auto&v=sindex[k][v0];
         v.erase(std::remove(v.begin(),v.end(),id),v.end());
+        if(q.c[c].t=="BIGINT"){auto&w=nindex[k][std::stoll(v0)];w.erase(std::remove(w.begin(),w.end(),id),w.end());}
       }
     }
     void refresh_fast(Table&q){
@@ -1325,13 +1444,37 @@ namespace lite {
       q.fast.reserve(q.order.size());
       for(auto id:q.order){
         auto it=q.r.find(id);
-        if(it!=q.r.end())q.fast.push_back(&it->second);
+        q.fast.push_back(it==q.r.end()?nullptr:&it->second);
       }
+      int vc=-1;for(size_t i=1;i<q.c.size();++i)if(q.c[i].t=="VECTOR"){vc=(int)i;break;}
+      if(vc>0)std::sort(q.fast.begin(),q.fast.end(),[vc](const Row*a,const Row*b){
+        if(!a||!b)return a!=nullptr;
+        off_t x=vc<(int)a->voff.size()?a->voff[vc]:-1,y=vc<(int)b->voff.size()?b->voff[vc]:-1;
+        if(x!=y)return x<y;return a->id<b->id;
+      });
+      auto&pos=fast_pos[q.n];pos.clear();pos.reserve(q.fast.size()*2+1);
+      for(size_t i=0;i<q.fast.size();++i)if(q.fast[i])pos[q.fast[i]->id]=i;
     }
     void rebuild_scalar(Table&q){
       q.fast.clear();
-      for(size_t c=1;c<q.c.size();++c)if(q.c[c].t!="VECTOR")sindex.erase(q.n+"."+q.c[c].n);
+      sindex.erase(q.n+".id");nindex.erase(q.n+".id");
+      for(size_t c=1;c<q.c.size();++c)if(q.c[c].t!="VECTOR"){sindex.erase(q.n+"."+q.c[c].n);nindex.erase(q.n+"."+q.c[c].n);}
       for(auto&kv:q.r)scalar_add(q,kv.first);
+    }
+    void build_vblocks(Table&q,int bc){
+      auto&bs=vblocks[q.n];
+      if(!bs.empty())return;
+      if(q.fast.size()!=q.order.size())refresh_fast(q);
+      int d=q.c[bc].d,sd=d;
+      for(size_t b=0;b<q.order.size();b+=64){
+        VBlock w;w.begin=b;w.end=std::min(q.order.size(),b+64);w.lo.assign(sd,1e30f);w.hi.assign(sd,-1e30f);
+        bool any=false;for(size_t p=w.begin;p<w.end;++p)if(p<q.fast.size()&&q.fast[p]){
+          const float*v=vptr(q.fast[p]->voff[bc],d);if(!v)continue;
+          any=true;
+          for(int j=0;j<sd;++j){int x=(j*d)/sd;w.lo[j]=std::min(w.lo[j],v[x]);w.hi[j]=std::max(w.hi[j],v[x]);}
+        }
+        w.center.assign(sd,0);double rr=0;if(any)for(int j=0;j<sd;++j){w.center[j]=(w.lo[j]+w.hi[j])*.5f;double e=(w.hi[j]-w.lo[j])*.5;rr+=e*e;}w.radius=(float)std::sqrt(rr);bs.push_back(std::move(w));
+      }
     }
     void rebuild_index(Table&q){
       ensure_map();
@@ -1477,7 +1620,8 @@ namespace lite {
       return jo();
     }
     J insert(const std::vector<std::string>&t,bool rec){
-      tabs[t[2]].fast.clear();
+      tabs[t[2]].fast.clear();fast_pos.erase(t[2]);matrices.erase(t[2]);
+      vblocks.erase(t[2]);
       if(t.size()<6||up(t[1])!="INTO"||up(t[3])!="VALUES")throw Err("unsupported_sql","insert");
       auto&q=tabs.at(t[2]);
       std::vector<std::vector<std::string>> rows;
@@ -1532,7 +1676,8 @@ namespace lite {
       return x;
     }
     J update(const std::vector<std::string>&t,bool rec){
-      tabs[t[1]].fast.clear();
+      tabs[t[1]].fast.clear();fast_pos.erase(t[1]);matrices.erase(t[1]);
+      vblocks.erase(t[1]);
       if(t.size()<6||up(t[0])!="UPDATE"||up(t[2])!="SET")throw Err("unsupported_sql","update");
       auto&q=tabs.at(t[1]);
       size_t p=3;
@@ -1596,7 +1741,8 @@ namespace lite {
       return x;
     }
     J erase(const std::vector<std::string>&t,bool rec){
-      tabs[t[2]].fast.clear();
+      tabs[t[2]].fast.clear();fast_pos.erase(t[2]);matrices.erase(t[2]);
+      vblocks.erase(t[2]);
       if(t.size()<3||up(t[0])!="DELETE"||up(t[1])!="FROM")throw Err("unsupported_sql","delete");
       auto&q=tabs.at(t[2]);
       size_t p=3;
@@ -1689,13 +1835,21 @@ namespace lite {
       };
       if(metric)ensure_map();
       std::vector<long long>scan=q.order;
-      for(auto&c:cs)if(c.op=="="&&c.col>0&&q.c[c.col].t!="VECTOR"){
-        auto it=sindex.find(q.n+"."+q.c[c.col].n);
-        if(it!=sindex.end()){
-          auto jt=it->second.find(unq(c.val));
-          if(jt==it->second.end())scan.clear();
-          else if(jt->second.size()<scan.size())scan=jt->second;
+      for(auto&c:cs)if(c.col>=0&&q.c[c.col].t!="VECTOR"){
+        std::string k=q.n+"."+q.c[c.col].n;std::vector<long long>cand;bool used=false;
+        if(c.op=="="){
+          auto it=sindex.find(k);
+          if(it!=sindex.end()){used=true;auto jt=it->second.find(unq(c.val));if(jt!=it->second.end())cand=jt->second;}
         }
+        else if(q.c[c.col].t=="BIGINT"&&c.op!="!="){
+          auto it=nindex.find(k);
+          if(it!=nindex.end()){
+            used=true;long long y=std::stoll(unq(c.val));auto a=it->second.begin(),b=it->second.end();
+            if(c.op==">")a=it->second.upper_bound(y);else if(c.op==">=")a=it->second.lower_bound(y);else if(c.op=="<")b=it->second.lower_bound(y);else if(c.op=="<=")b=it->second.upper_bound(y);else used=false;
+            if(used)for(;a!=b;++a)cand.insert(cand.end(),a->second.begin(),a->second.end());
+          }
+        }
+        if(used&&cand.size()<scan.size())scan=std::move(cand);
       }
       size_t ask=li<t.size()?std::stoull(t[li+1]):10;
       int probes_used=0;
@@ -1741,17 +1895,37 @@ namespace lite {
             });
           }
           std::sort(ap.begin(),ap.end());
-          size_t cap=std::min(ap.size(),std::max<size_t>(ask*32,ask));
-          scan.clear();
-          for(size_t k=0;k<cap;++k)scan.push_back(ap[k].second);
+          size_t cap=std::min(ap.size(),std::max<size_t>(ask*(size_t)envint("LITE_RERANK",32),ask));
+          std::vector<long long>cand; cand.reserve(cap);
+          for(size_t k=0;k<cap;++k)cand.push_back(ap[k].second);
+          bool prune=fast_pos.count(q.n)&&vblocks.count(q.n)&&vblock_col[q.n]==mcol;
+          if(prune){
+            auto&bs=vblocks[q.n];auto&pos=fast_pos[q.n];size_t seed=std::min(ask,cand.size());
+            std::vector<double>sdist;sdist.reserve(seed);
+            for(size_t k=0;k<seed;++k){auto it=q.r.find(cand[k]);if(it!=q.r.end())sdist.push_back(l2(it->second.voff[mcol],q.c[mcol].d,qv));}
+            double threshold=1e300;if(sdist.size()==ask)threshold=*std::max_element(sdist.begin(),sdist.end());
+            int vd=q.c[mcol].d,vs=vd;std::vector<double>lb(bs.size(),-1);
+            auto lower=[&](size_t bi){
+              double z=0;for(int j=0;j<vs;++j){int x=(j*vd)/vs,a=0;double e=qv[x];if(e<bs[bi].lo[j])a=1,e=bs[bi].lo[j]-e;else if(e>bs[bi].hi[j])a=1,e-=bs[bi].hi[j];if(a)z+=e*e;}
+              if(!bs[bi].center.empty()){double c2=0;for(int j=0;j<vs;++j){double e=qv[(j*vd)/vs]-bs[bi].center[j];c2+=e*e;}double r=std::max(0.0,std::sqrt(c2)-bs[bi].radius);z=std::max(z,r*r);}return z;
+            };
+            scan.clear();for(size_t k=0;k<cand.size();++k){if(k<seed||threshold==1e300){scan.push_back(cand[k]);continue;}auto it=pos.find(cand[k]);if(it==pos.end()){scan.push_back(cand[k]);continue;}size_t bi=it->second/64;if(bi>=lb.size()||(lb[bi]<0?((lb[bi]=lower(bi))<=threshold):(lb[bi]<=threshold)))scan.push_back(cand[k]);}
+          }else scan=std::move(cand);
         }
         else scan=q.order;
       }
-      bool block_exact=metric&&!ann_mode&&cs.empty()&&oi<t.size()&&li<t.size()&&oi+2<t.size()&&
+      bool small_exact=!cs.empty()&&scan.size()<=2048,empty_exact=!cs.empty()&&scan.empty();
+      if(metric&&(cs.empty()||scan.size()>2048))ensure_matrix(q,mcol);
+      bool block_exact=metric&&!ann_mode&&!small_exact&&!empty_exact&&oi<t.size()&&li<t.size()&&oi+2<t.size()&&
         (up(t[oi+2])=="L2_DISTANCE"||t[oi+2]==alias)&&
         !(oi+3<t.size()&&up(t[oi+3])=="DESC")&&ask<q.order.size()&&
         (!std::getenv("LITE_BLOCK_EXACT")||std::atoi(std::getenv("LITE_BLOCK_EXACT"))!=0);
+      if(metric&&!ann_mode&&!block_exact)std::sort(scan.begin(),scan.end(),[&](long long a,long long b){
+        off_t x=q.r.at(a).voff[mcol],y=q.r.at(b).voff[mcol];if(x!=y)return x<y;return a<b;
+      });
       std::vector<H>h;
+      uint64_t early_pruned=0,early_dims=0,distance_calls=0;
+      const Matrix*matrix=nullptr;auto mci=matrices.find(q.n);if(mci!=matrices.end()&&mci->second.col==mcol)matrix=&mci->second;
       auto worse=[](const H&a,const H&b){
         if(a.d!=b.d)return a.d<b.d;
         return a.id<b.id;
@@ -1767,13 +1941,21 @@ namespace lite {
         if(!match(q,*row,cs))return;
         double d=0;
         if(metric){
-          if(row->voff.size()>=(size_t)q.c.size()&&row->voff[mcol]>=0)d=l2(row->voff[mcol],q.c[mcol].d,qv);
+          if(row->voff.size()>=(size_t)q.c.size()&&row->voff[mcol]>=0){
+            ++distance_calls;
+            int used=q.c[mcol].d;bool cut=false;const float*mp=matrix_ptr(q,mcol,row->id);
+            if(mp)d=l2p(mp,q.c[mcol].d,qv);
+            else if(block_exact&&ask&&top.size()>=ask&&std::getenv("LITE_EARLY")&&std::atoi(std::getenv("LITE_EARLY"))!=0)d=l2_limit(row->voff[mcol],q.c[mcol].d,qv,top.top().d,cut,used);
+            else d=l2(row->voff[mcol],q.c[mcol].d,qv);
+            early_dims+=used;if(cut){++early_pruned;return;}
+          }
           else{
             auto v=vec(row->v[mcol-1],q.c[mcol].d);
             for(size_t k=0;k<v.size();++k){
               double z=v[k]-qv[k];
               d+=z*z;
             }
+            ++distance_calls;early_dims+=v.size();
           }
         }
         double ov=0;
@@ -1797,7 +1979,12 @@ namespace lite {
       auto add_fast=[&](size_t p){
         if(p>=q.fast.size()||!q.fast[p]||!ask)return;
         Row&r=*q.fast[p];
-        double d=l2(r.voff[mcol],q.c[mcol].d,qv);
+        ++distance_calls;
+        int used=q.c[mcol].d;bool cut=false;double d;const float*mp=(matrix&&p*(size_t)matrix->dim+matrix->dim<=matrix->v.size())?matrix->v.data()+p*(size_t)matrix->dim:nullptr;
+        if(mp)d=l2p(mp,q.c[mcol].d,qv);
+        else if(top.size()>=ask&&std::getenv("LITE_EARLY")&&std::atoi(std::getenv("LITE_EARLY"))!=0)d=l2_limit(r.voff[mcol],q.c[mcol].d,qv,top.top().d,cut,used);
+        else d=l2(r.voff[mcol],q.c[mcol].d,qv);
+        early_dims+=used;if(cut){++early_pruned;return;}
         H hh{r.id,d,d};
         if(top.size()<ask)top.push(hh);
         else if(worse(hh,top.top())){top.pop();top.push(hh);}
@@ -1805,28 +1992,11 @@ namespace lite {
       if(block_exact){
         int bc=mcol;
         auto&bs=vblocks[q.n];
-        if(bs.empty()){
-          int d=q.c[bc].d,sd=std::min(32,d);
-          for(size_t b=0;b<q.order.size();b+=64){
-            VBlock w;
-            w.begin=b;
-            w.end=std::min(q.order.size(),b+64);
-            w.lo.assign(sd,1e30f);
-            w.hi.assign(sd,-1e30f);
-            for(size_t p=w.begin;p<w.end;++p){
-              if(p>=q.fast.size()||!q.fast[p])continue;
-              auto v=read_vec(q.fast[p]->voff[bc],d);
-              for(int j=0;j<sd;++j){
-                int x=(j*d)/sd;
-                w.lo[j]=std::min(w.lo[j],v[x]);
-                w.hi[j]=std::max(w.hi[j],v[x]);
-              }
-            }
-            bs.push_back(std::move(w));
-          }
-        }
+        build_vblocks(q,bc);
+        std::unordered_set<long long>allowed;
+        if(!cs.empty()&&scan.size()<q.order.size())allowed.insert(scan.begin(),scan.end());
         std::vector<std::pair<double,size_t>>bo;
-        int d=q.c[bc].d,sd=std::min(32,d);
+        int d=q.c[bc].d,sd=d;
         for(size_t bi=0;bi<bs.size();++bi){
           double z=0;
           for(int j=0;j<sd;++j){
@@ -1841,17 +2011,27 @@ namespace lite {
               z+=e*e;
             }
           }
+          if(!bs[bi].center.empty()){
+            double c2=0;for(int j=0;j<sd;++j){double e=qv[(j*d)/sd]-bs[bi].center[j];c2+=e*e;}
+            double lb=std::max(0.0,std::sqrt(c2)-bs[bi].radius);z=std::max(z,lb*lb);
+          }
           bo.push_back({
             z,bi
           });
         }
-        std::sort(bo.begin(),bo.end());
+        bool bound_order=std::getenv("LITE_BLOCK_ORDER")&&std::string(std::getenv("LITE_BLOCK_ORDER"))=="bound";
+        if(bound_order)std::sort(bo.begin(),bo.end());
         for(auto&kv:bo){
           if(ask&&top.size()>=ask){
             double worst=top.top().d;
-            if(kv.first>worst)break;
+            if(kv.first>worst){if(bound_order)break;continue;}
           }
-          for(size_t p=bs[kv.second].begin;p<bs[kv.second].end;++p)add_fast(p);
+          for(size_t p=bs[kv.second].begin;p<bs[kv.second].end;++p){
+            if(p>=q.fast.size()||!q.fast[p])continue;
+            if(!allowed.empty()&&!allowed.count(q.fast[p]->id))continue;
+            if(!match(q,*q.fast[p],cs))continue;
+            add_fast(p);
+          }
         }
       }
       else for(auto id:scan)add_hit(id);
@@ -1908,7 +2088,9 @@ namespace lite {
       mt.o["candidate_count"]=ji((long long)scan.size());
       mt.o["raw_candidates"]=ji((long long)raw_candidates);
       mt.o["probed_lists"]=ji(probes_used);
-      mt.o["exact_evaluations"]=ji((long long)h.size());
+      mt.o["exact_evaluations"]=ji((long long)distance_calls);
+      mt.o["distance_pruned"]=ji((long long)early_pruned);
+      mt.o["distance_dimensions"]=ji((long long)early_dims);
       out.o["metrics"]=mt;
       return out;
     }
