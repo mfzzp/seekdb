@@ -7,6 +7,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends g++ \
     && rm -rf /var/lib/apt/lists/*
 COPY minivectordb.cpp ./
-RUN g++ -O3 -DNDEBUG -std=c++17 -Wall -Wextra -o minivectordb minivectordb.cpp
+COPY v2 ./v2
+RUN g++ -O3 -DNDEBUG -std=c++17 -Wall -Wextra -o minivectordb minivectordb.cpp v2/v2_storage.cpp
 VOLUME ["/data"]
 ENTRYPOINT ["/app/minivectordb", "--data-dir", "/data"]
