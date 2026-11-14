@@ -4,11 +4,13 @@
 #include <cctype>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <dirent.h>
 #include <fcntl.h>
 #include <fstream>
 #include <iomanip>
+#include <iterator>
 #include <iostream>
 #include <map>
 #include <queue>
@@ -268,6 +270,10 @@ namespace lite {
     }
     return ~c;
   }
+  static int envint(const char*n,int d){
+    const char*x=std::getenv(n);
+    return x&&*x?std::max(1,std::atoi(x)):d;
+  }
   static const uint32_t WAL_MAGIC=0x4d564c32u;
   #if defined(__x86_64__) || defined(__i386__)
   #if defined(__GNUC__) || defined(__clang__)
@@ -479,6 +485,13 @@ namespace lite {
         f.write((char*)kv.second.data(),len);
       }
       f.flush();
+      f.close();
+      std::ifstream r(index_path(q)+".tmp",std::ios::binary);
+      std::string raw((std::istreambuf_iterator<char>(r)),{});
+      uint32_t sum=crc32c(raw.data(),raw.size());
+      std::ofstream a(index_path(q)+".tmp",std::ios::binary|std::ios::app);
+      wr(a,sum);
+      a.flush();
       int fd=open((index_path(q)+".tmp").c_str(),O_RDONLY);
       if(fd>=0){
         fsync(fd);
@@ -491,6 +504,12 @@ namespace lite {
       if(it==index_cols.end())return false;
       std::ifstream f(index_path(q),std::ios::binary);
       if(!f)return false;
+      std::ifstream ck(index_path(q),std::ios::binary);
+      std::string raw((std::istreambuf_iterator<char>(ck)),{});
+      if(raw.size()<sizeof(uint32_t))return false;
+      uint32_t want=0;
+      std::memcpy(&want,raw.data()+raw.size()-sizeof(uint32_t),sizeof(want));
+      if(crc32c(raw.data(),raw.size()-sizeof(uint32_t))!=want){std::cerr<<"index_corrupt\n";return false;}
       uint32_t magic=0,ver=0,d=0,m=0,ks=0,nl=0,n=0;
       uint64_t seq=0;
       if(!rd(f,magic)||!rd(f,ver)||!rd(f,seq)||!rd(f,d)||!rd(f,m)||!rd(f,ks)||!rd(f,nl)||!rd(f,n)||magic!=0x4d564950||ver!=1||seq!=wal_txid||n>q.r.size())return false;
@@ -729,7 +748,8 @@ namespace lite {
       }
       memtable.insert(memtable.end(),pending.begin(),pending.end());
       pending.clear();
-      if(memtable.size()>=16)flush_sst();
+      size_t membytes=0;for(auto&x:memtable)membytes+=x.size();
+      if(membytes>=(size_t)envint("LITE_MEMTABLE_BYTES",4<<20)||fsize(wal)>=(32u<<20))flush_sst();
       for(auto&kv:index_cols){
         auto it=tabs.find(kv.first);
         if(it!=tabs.end())save_index(it->second);
@@ -747,10 +767,15 @@ namespace lite {
       std::string x;
       std::vector<std::vector<std::string>>b;
       bool active=false,any=false;
+      off_t committed_vec=vec_end;
+      off_t wal_good=0;
       while(f.read((char*)&magic,4)){
-        if(!f.read((char*)&n,4)||!f.read((char*)&tx,8)||!f.read((char*)&kind,2)||!f.read((char*)&flags,2)||!f.read((char*)&crc,4)||magic!=WAL_MAGIC||n>(1u<<20))break;
+        if(!f.read((char*)&n,4)||!f.read((char*)&tx,8)||!f.read((char*)&kind,2)||!f.read((char*)&flags,2)||!f.read((char*)&crc,4))break;
+        if(magic!=WAL_MAGIC||n>(1u<<20))throw Err("corruption","wal header");
         x.assign(n,0);
-        if(!f.read(x.data(),n)||crc32c(x.data(),x.size())!=crc)break;
+        if(!f.read(x.data(),n))break;
+        if(crc32c(x.data(),x.size())!=crc)throw Err("corruption","wal checksum");
+        wal_good=(off_t)f.tellg();
         wal_txid=std::max(wal_txid,tx);
         bool current=tx>base;
         if(kind==1){
@@ -760,19 +785,21 @@ namespace lite {
         }
         else if(kind==2&&active&&tx==active_tx){
           std::vector<std::string>t;
-          if(!decode_tokens(x,t))break;
+          if(!decode_tokens(x,t))throw Err("corruption","wal payload");
           b.push_back(std::move(t));
         }
         else if(kind==3&&active&&tx==active_tx){
           for(auto&t:b)apply_tokens(t);
+          committed_vec=vec_cursor;
           any=true;
           b.clear();
           active=false;
         }
       }
-      if(any){
-        trunc_vec(vec_cursor);
-        vec_end=vec_cursor;
+      if(any||active)trunc_vec(committed_vec);
+      if(wal_good<(off_t)fsize(wal)){
+        int fd=open(wal.c_str(),O_WRONLY);
+        if(fd>=0){ftruncate(fd,wal_good);close(fd);}
       }
       recovering=false;
     }
@@ -1023,9 +1050,15 @@ namespace lite {
       pending.push_back(s);
     }
     void write_manifest(){
-      std::ofstream m(dir+"/MANIFEST",std::ios::trunc);
+      std::string tmp=dir+"/MANIFEST.tmp";
+      std::ofstream m(tmp,std::ios::trunc);
       for(auto&kv:levels)for(auto&x:kv.second)m<<kv.first<<" "<<x<<'\n';
       m.flush();
+      int fd=open(tmp.c_str(),O_RDONLY);
+      if(fd>=0){fsync(fd);close(fd);}
+      rename(tmp.c_str(),(dir+"/MANIFEST").c_str());
+      fd=open(dir.c_str(),O_RDONLY);
+      if(fd>=0){fsync(fd);close(fd);}
     }
     void compact(){
       for(int lev=0;lev<3;++lev){
@@ -1323,14 +1356,15 @@ namespace lite {
       if(ids.empty())return;
       PQ z;
       z.d=q.c[c].d;
-      z.nlist=std::min(32,std::max(1,(int)std::sqrt((double)ids.size())));
-      z.m=std::min(16,z.d);
-      z.ks=std::min(16,std::max(1,(int)sample.size()));
+      z.nlist=std::min(envint("LITE_NLIST",std::min(32,std::max(1,(int)std::sqrt((double)ids.size())))),(int)ids.size());
+      z.m=std::min(envint("LITE_PQ_M",16),z.d);
+      z.ks=std::min(envint("LITE_PQ_KS",16),std::max(1,(int)sample.size()));
+      int iters=envint("LITE_KMEANS_ITERS",3);
       int sub=(z.d+z.m-1)/z.m;
       z.coarse.resize(z.nlist*z.d);
       for(int k=0;k<z.nlist;++k)z.coarse[k*z.d]=sample[k%sample.size()][0];
       for(int k=0;k<z.nlist;++k)for(int j=0;j<z.d;++j)z.coarse[k*z.d+j]=sample[k%sample.size()][j];
-      for(int itn=0;itn<3;++itn){
+      for(int itn=0;itn<iters;++itn){
         std::vector<float>sum(z.nlist*z.d);
         std::vector<int>cnt(z.nlist);
         for(auto&v:sample){
@@ -1346,7 +1380,7 @@ namespace lite {
           int x=mi*sub+j;
           z.book[(mi*z.ks+k)*sub+j]=x<z.d?sample[k%sample.size()][x]:0;
         }
-        for(int itn=0;itn<3;++itn){
+        for(int itn=0;itn<iters;++itn){
           std::vector<float>sum(z.ks*sub);
           std::vector<int>cnt(z.ks);
           for(auto&v:sample){
@@ -1660,6 +1694,8 @@ namespace lite {
         }
       }
       size_t ask=li<t.size()?std::stoull(t[li+1]):10;
+      int probes_used=0;
+      size_t raw_candidates=0;
       if(metric&&ann_mode&&index_cols.count(q.n)&&cs.empty()&&pqs.count(q.n)){
         auto&z=pqs.at(q.n);
         std::vector<std::pair<double,int>>co;
@@ -1667,7 +1703,8 @@ namespace lite {
           coarse_dist(z,qv,k),k
         });
         std::sort(co.begin(),co.end());
-        int probes=std::min(8,z.nlist);
+        int probes=std::min(z.nlist,std::max(1,std::getenv("LITE_NPROBE")?std::atoi(std::getenv("LITE_NPROBE")):8));
+        probes_used=probes;
         scan.clear();
         for(int k=0;k<probes;++k){
           auto itb=buckets[q.n].find(co[k].second);
@@ -1675,6 +1712,7 @@ namespace lite {
         }
         std::sort(scan.begin(),scan.end());
         scan.erase(std::unique(scan.begin(),scan.end()),scan.end());
+        raw_candidates=scan.size();
         if(scan.size()>=ask){
           int sub=(z.d+z.m-1)/z.m;
           std::vector<double>ad(z.m*z.ks);
@@ -1707,7 +1745,8 @@ namespace lite {
       }
       bool block_exact=metric&&!ann_mode&&cs.empty()&&oi<t.size()&&li<t.size()&&oi+2<t.size()&&
         (up(t[oi+2])=="L2_DISTANCE"||t[oi+2]==alias)&&
-        !(oi+3<t.size()&&up(t[oi+3])=="DESC")&&ask<q.order.size();
+        !(oi+3<t.size()&&up(t[oi+3])=="DESC")&&ask<q.order.size()&&
+        (!std::getenv("LITE_BLOCK_EXACT")||std::atoi(std::getenv("LITE_BLOCK_EXACT"))!=0);
       std::vector<H>h;
       auto worse=[](const H&a,const H&b){
         if(a.d!=b.d)return a.d<b.d;
@@ -1863,6 +1902,8 @@ namespace lite {
       J mt=jo();
       mt.o["planner_path"]=js(metric&&ann_mode&&index_cols.count(q.n)&&cs.empty()&&pqs.count(q.n)?"ivf_pq":"exact_scan");
       mt.o["candidate_count"]=ji((long long)scan.size());
+      mt.o["raw_candidates"]=ji((long long)raw_candidates);
+      mt.o["probed_lists"]=ji(probes_used);
       mt.o["exact_evaluations"]=ji((long long)h.size());
       out.o["metrics"]=mt;
       return out;

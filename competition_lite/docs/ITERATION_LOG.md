@@ -133,3 +133,11 @@
 - Added a pointer-addressed hot loop for exact block traversal. The latest 100k 1024-case sweep is 13.251 ms exact and 9.653 ms ANN per request, versus the previous 16.206/10.230 ms run.
 - Current runtime count: 1941/2000 physical lines. Same-data B256 writes are 52.885 s at 100k and 159.668 s at 300k, compared with 59.703 s and 178.769 s for the old baseline.
 - Exact remains slower than the old baseline at large scale, so this is recorded as an improvement pass, not a completion claim.
+
+## 2026-11-14 durability, index integrity, and experiment path pass
+
+- WAL frames now align to 8-byte boundaries. Recovery keeps the vector offset at the last complete commit, truncates only an incomplete tail, and fails startup on a complete-frame checksum or decode error. A deliberately corrupted WAL returned rc=1 with `wal checksum`; a three-byte tail truncation restarted cleanly with no leaked row.
+- Manifest publication now writes a temporary file, fsyncs it, renames it, and fsyncs the data directory. Persisted IVF-PQ indexes carry a trailing CRC; corruption is reported as `index_corrupt` before a rebuild.
+- Added `LITE_NPROBE`, `LITE_NLIST`, `LITE_PQ_M`, `LITE_PQ_KS`, and `LITE_KMEANS_ITERS` controls for controlled validation sweeps. Query metrics now report `probed_lists`, `raw_candidates`, and `planner_path`; nprobe 1/8/32 produced 1/8/32 probed lists and different raw candidate counts on the 100k index.
+- The benchmark loader and Oracle now use mmap-backed vector access. The generator supports `--vector-mode random` in addition to the required 70/30 mixed distribution.
+- Runtime source remains 1975 physical lines. Strict protocol: 20/20; crash smoke: 20/20.

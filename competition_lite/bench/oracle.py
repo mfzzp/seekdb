@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
-import argparse,json,math,struct
+import argparse,json,math,struct,mmap
 
 def load(a):
  rows=[]
  with open(a+'/rows.jsonl') as f:
   for x in f: rows.append(json.loads(x))
- with open(a+'/vectors.f32','rb') as f: raw=f.read()
- d=len(raw)//4//len(rows); vs=[struct.unpack_from('<%df'%d,raw,i*d*4) for i in range(len(rows))]
- return rows,vs,d
+ f=open(a+'/vectors.f32','rb'); raw=mmap.mmap(f.fileno(),0,access=mmap.ACCESS_READ)
+ d=len(raw)//4//len(rows); return rows,raw,d,f
 
 def ok(r,q):
  f=q.get('filter','none')
@@ -23,12 +22,15 @@ def ok(r,q):
 
 def main():
  ap=argparse.ArgumentParser(); ap.add_argument('--data',required=True); ap.add_argument('--out',required=True); a=ap.parse_args()
- rows,vs,d=load(a.data); qs=[json.loads(x) for x in open(a.data+'/query_cases.jsonl')]
+ rows,raw,d,vf=load(a.data); qs=[json.loads(x) for x in open(a.data+'/query_cases.jsonl')]
  with open(a.out,'w') as out:
   for q in qs:
    qv=q['vector']; z=[]
-   for r,v in zip(rows,vs):
-    if ok(r,q): z.append((sum((float(x)-float(y))**2 for x,y in zip(v,qv)),r['id']))
+   for start in range(0,len(rows),2048):
+    for i,r in enumerate(rows[start:start+2048],start):
+     if ok(r,q):
+      v=struct.unpack_from('<%df'%d,raw,i*d*4); z.append((sum((float(x)-float(y))**2 for x,y in zip(v,qv)),r['id']))
    z.sort(key=lambda x:(x[0],x[1])); k=q.get('k',10)
    out.write(json.dumps({'id':q['id'],'ids':[x[1] for x in z[:k]],'distances':[x[0] for x in z[:k]]},separators=(',',':'))+'\n')
+ vf.close(); raw.close()
 if __name__=='__main__': main()
