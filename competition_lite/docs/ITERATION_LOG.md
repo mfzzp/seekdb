@@ -55,3 +55,7 @@
 
 - Normalized the JSONL entrypoint so every successful SQL request carries `ok:true` together with its result or affected-row payload. Error responses already carry `ok:false`, a non-empty code, and a message.
 - Strict `protocol_check/run.py` against the rebuilt binary: all 20 packaged public cases passed, including restart and shutdown rollback. This closes the distinction between semantic SQL correctness and judge-level response conformance.
+
+## 2026-11-14 post-contract benchmark rerun
+
+- Rebuilt after the response-contract fix and reran the same deterministic comparison once per round, three rounds total: old exact mean 0.00320 s; new exact mean 0.01155 s; new ANN mean 0.00586 s; new insert 1.616 s vs old 1.753 s; new index build 0.188 s. ANN returns the same ten IDs as exact on this workload.
