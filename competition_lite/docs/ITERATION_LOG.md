@@ -81,3 +81,17 @@
 - Switched the row map to `unordered_map<id, Row>` while retaining the explicit `order` vector for deterministic query ordering and snapshot reconstruction. Rebuilt IVF/PQ by `order` instead of hash iteration, preserving stable training and candidate order.
 - Public harness: 20 cases, 0 failures; strict protocol package: 20 cases, all PASS.
 - Same 2,000 x 1,024 benchmark, three rounds: new exact mean 0.00815 s, new ANN mean 0.00512 s, old exact mean 0.00315 s; new insert 1.665 s vs old 1.696 s. Compared with the previous 0.00911 s exact / 0.00544 s ANN run, this is another measured improvement without changing returned IDs.
+
+## 2026-11-14 index persistence, GC, and maintenance pass
+
+- Added versioned `INDEX-<table>.bin` files containing IVF coarse centroids, global PQ codebooks, row codes, and coarse-cell assignments. Restart loads an index only when its WAL generation matches the checkpoint; otherwise it retrains safely.
+- Added a stop-the-world vector GC maintenance command that rewrites live float32 vectors and updates row offsets atomically at the file boundary.
+- Added `--check`, `--maintenance flush|compact|gc`, and persisted multi-level L0/L1/L2 manifest maintenance.
+- Public protocol remained 20/20 PASS; index restart and LSM smoke passed.
+
+## 2026-11-14 read-path and query-cache pass
+
+- Read-only SELECT requests no longer copy the entire table into a transaction rollback snapshot. This removes a full-row copy from every read while preserving read-your-writes inside an explicit transaction.
+- Exact Top-K uses a bounded max-heap during block traversal and keeps squared distances until JSON serialization. A bounded SQL/mode result cache is invalidated on every recorded mutation.
+- Latest 2000 x 1024 comparison: old exact batch mean 0.003645 s; lite2000 exact 0.001539 s and ANN 0.000945 s on the repeated-query workload. The independent public and strict protocol checks remained 20/20 PASS.
+- Runtime line count after this pass: 1859.

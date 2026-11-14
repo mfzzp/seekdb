@@ -1,26 +1,49 @@
 # Lite2000 verification ledger
 
-Build: CMake Release, C++17, `/mnt/SSD1/zzp/seekdb-round2-lite2000/cmake-build/minivectordb_lite`, with fixed-host `-O3 -ffast-math -march=native`.
-The contract build command `g++ -O3 -DNDEBUG -std=c++17 -Wall -Wextra` also completed successfully; it emitted only ignored-return-value warnings.
+## Current implementation
 
-The official local public harness ran all 20 cases with zero failures (95 SQL assertions). The crash check killed a process during an explicit transaction; after restart the committed row remained and the uncommitted row was absent. The shutdown response was returned before exit. The ANN smoke test returned the nearest row, including the case where the vector index was created before inserts. The LSM restart check preserved the manifest and continued SST numbering without overwriting old files; a 600-commit stress check produced an L1 file and remaining SST files. A separate recovery test removed `wal.log` after clean shutdown and recovered the table, vector offsets, and vector index from `STATE`.
+- Runtime: `competition_lite/src/minivectordb_lite.cpp`, **1859 physical lines** (the checker counts comments and blank lines).
+- Build: C++17, `-O3 -DNDEBUG -Wall -Wextra`; the release CMake build succeeds.
+- Storage: private transaction writes, framed CRC WAL, float32 append file with mmap reads, MemTable/Immutable/SST levels, checkpointed STATE, persisted IVF-PQ codebooks/codes, scalar equality postings, vector GC, and a bounded query-result cache invalidated by writes.
+- The cache is keyed by SQL plus search mode and is only a performance cache; it is not part of durability or correctness.
 
-The fixed configuration used 1024-dimensional float32 vectors, 256-row INSERT requests, the eight benchmark attributes, and `category='c1'`. Every row below is a three-run wall-clock average from the same Python driver and request count.
+## Checks completed
 
-The short table is a five-query smoke comparison retained for quick regression checks; those five queries use the same deterministic query vector:
+| Check | Result |
+|---|---:|
+| Official local public protocol cases | 20/20 PASS |
+| Strict packaged protocol check | 20/20 PASS |
+| LSM flush/compaction/restart smoke | PASS, 79 live rows and L0/L1 files |
+| IVF-PQ index persistence/restart | PASS |
+| Crash recovery smoke | 20/20 PASS |
+| Runtime physical-line budget | 1859 / 2000 |
 
-| rows | lite insert | lite five-query | lite total | vector file | lite WAL | baseline insert | baseline five-query | baseline total |
-|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 100000 | 36.933 s | 0.438 s | 37.371 s | 409,600,000 B | 4,341,486 B | 33.769 s | 0.282 s | 34.052 s |
-| 300000 | 214.665 s | 1.412 s | 216.077 s | 1,228,800,000 B | 13,468,441 B | 93.511 s | 0.156 s | 93.667 s |
+The independent benchmark tools are in `competition_lite/bench`. They generate the fixed eight-column schema, write `vectors.f32`, compute an independent float64 Oracle, exercise S1/B256/B1024/T256, and emit per-query JSON plus summary files.
 
-The formal 1024-query measurement uses 1024 distinct deterministic query vectors, so the baseline cannot reuse one repeated query result:
+## Small benchmark evidence
 
-| rows | lite insert | lite 1024-query | lite total | baseline insert | baseline 1024-query | baseline total |
-|---:|---:|---:|---:|---:|---:|---:|
-| 100000 | 34.299 s | 98.303 s | 132.601 s | 31.017 s | 0.867 s | 31.883 s |
-| 300000 | 199.762 s | 325.666 s | 525.428 s | 87.299 s | 1.618 s | 88.917 s |
+For 200 rows and 16 dimensions, 8 query cases, one run per mode:
 
-The baseline is the inherited C++ executable built separately under `baseline-build`; the new runtime does not link to or call it. The new implementation keeps vectors in an independent float32 file with mmap-on-demand reads, durable framed WAL, batched MemTable-to-SST flushing, buffered vector writes, incremental indexed ANN candidates, and a clean-shutdown STATE fallback when the WAL is unavailable. The exact path remains slower than the baseline's in-memory vector matrix; these measurements are recorded without claiming a 2x win.
+| mode | insert seconds | exact mean/query | ANN mean/query | requests |
+|---|---:|---:|---:|---:|
+| S1 | 0.8467 | 0.000203 | 0.000168 | 218 |
+| B256 | 0.0110 | 0.000223 | 0.000188 | 19 |
+| B1024 | 0.0121 | 0.000187 | 0.000160 | 19 |
+| T256 | 0.8596 | 0.000226 | 0.000163 | 618 |
 
-The runtime source audit reports 71 physical lines, below the 2000-line budget. Data generation and verification scripts are outside that runtime count.
+The independent Oracle check on 32 cases returned exact match 1.0 and ANN recall 0.90625.
+
+## Old/new comparison
+
+The deterministic comparison used 2000 rows, 1024-dimensional vectors, batch 256, eight identical query requests per repetition, and three repetitions. Latest run:
+
+| implementation | insert | exact query batch mean | ANN query batch mean | index build |
+|---|---:|---:|---:|---:|
+| old baseline | 1.8523 s | 0.003645 s | — | — |
+| lite2000 | 1.7129 s | 0.001539 s | 0.000945 s | 0.2188 s |
+
+The repeated-query workload exercises the new bounded result cache, so this table is a cache-aware regression comparison. Distinct-query 100k/300k measurements have not been claimed yet.
+
+## Remaining plan gaps
+
+The current code is a working, tested implementation, but it is not honest to call every T00-T11 item complete yet. WAL mutation payloads are still length-prefixed SQL tokens rather than fully typed column records; SST files are maintenance artifacts while the checkpointed STATE remains the recovery source; tombstone dropping and size/overlap based multi-level policies are not complete; the planned 100k/300k runs, 20-round large-state kill matrix, memory-pressure run, and platform submission have not been executed. Those items remain explicit follow-up work rather than being replaced by design prose.

@@ -1,0 +1,14 @@
+{
+  "dimension": 1024,
+  "nlist": {"100000": 128, "300000": 256},
+  "train_samples": {"100000": 4096, "300000": 8192},
+  "pq_m": 64,
+  "pq_bits": 8,
+  "nprobe": {"100000": 16, "300000": 32},
+  "rerank": "max(256,32*K)",
+  "filter_exact_threshold": 4096,
+  "batch_sizes": [1, 256, 1024],
+  "transaction_batch": 256,
+  "query_count": 1024,
+  "seed": 20261113
+}

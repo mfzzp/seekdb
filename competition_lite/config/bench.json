@@ -1,0 +1,11 @@
+{
+  "row_counts": [100000, 300000],
+  "dimension": 1024,
+  "schema_columns": ["id", "category", "tenant_id", "price_cents", "created_day", "active", "title", "embedding"],
+  "filters": ["none", "category", "tenant", "category_tenant", "price_range", "active_day", "missing_category", "id_small", "title_exact"],
+  "query_count": 1024,
+  "k_values": [1, 10, 100],
+  "insert_modes": ["S1", "B256", "B1024", "T256"],
+  "kill_rounds": 20,
+  "memory_limits_mib": [2048, 1024]
+}
