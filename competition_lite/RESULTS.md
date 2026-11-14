@@ -69,3 +69,5 @@ These runs use the fixed 1,024-dimensional generator and B256 requests. They mea
 |---:|---:|---:|---:|---:|
 | 100,000 | 2048 | 16.206 ms | 10.230 ms | 29.75 s |
 | 300,000 | 2048 | 50.721 ms | 32.380 ms | 90.95 s |
+
+The 300k vector GC maintenance command completed in 5.498 s, kept the 1,228,800,000-byte live vector file, and a subsequent `--check` restart completed in 2.137 s.

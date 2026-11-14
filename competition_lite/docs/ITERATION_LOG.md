@@ -121,3 +121,7 @@
 - 100k rows: 2048 exact/ANN requests, exact mean 16.206 ms, ANN mean 10.230 ms, wall 29.75 s.
 - 300k rows: 2048 exact/ANN requests, exact mean 50.721 ms, ANN mean 32.380 ms, wall 90.95 s.
 - The sweep covered all generator filter categories. It remains a timing run until the independent large-scale Oracle path is accelerated.
+
+## 2026-11-14 300k vector GC check
+
+- Stop-the-world vector GC on the 300k directory completed in 5.498 s, published a 1,228,800,000-byte live vector file, and a subsequent `--check` restart completed in 2.137 s.
