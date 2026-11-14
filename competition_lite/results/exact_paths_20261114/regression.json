@@ -1,0 +1,42 @@
+{
+  "exact_oracle_queries": 1470,
+  "exact_modes": [
+    "scan",
+    "block",
+    "auto"
+  ],
+  "matrix": [
+    "enabled",
+    "disabled by 1 MiB cap"
+  ],
+  "coverage": [
+    "two vector columns",
+    "ties",
+    "limits 0/1/10/>row count",
+    "ASC/DESC",
+    "empty/equality/range filters",
+    "update/delete/insert",
+    "transaction read then rollback",
+    "checkpoint restart"
+  ],
+  "manifest_cases": 9,
+  "manifest_coverage": [
+    "success",
+    "SST write failure",
+    "Manifest write failure",
+    "rename failure",
+    "file sync failure",
+    "directory sync before/after rename",
+    "process exit before/after rename"
+  ],
+  "manifest_restart_inspections": 9,
+  "public_sql_cases": 20,
+  "public_transport": "Windows threaded pipes, unchanged repository SQL and assertions",
+  "docker": "not available locally",
+  "line_check": {
+    "passed": false,
+    "physical_lines": 2230,
+    "limit": 2000,
+    "baseline_lines": 2185
+  }
+}

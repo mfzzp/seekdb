@@ -1,3 +1,5 @@
 *
 !Dockerfile
-!minivectordb.cpp
+!competition_lite/
+!competition_lite/src/
+!competition_lite/src/minivectordb_lite.cpp

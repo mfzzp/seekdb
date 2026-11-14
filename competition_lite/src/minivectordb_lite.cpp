@@ -1,8 +1,11 @@
 #include <algorithm>
 #include <cmath>
+#include <chrono>
+#include <limits>
 #include <immintrin.h>
 #include <cctype>
 #include <cstdint>
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -452,18 +455,19 @@ namespace lite {
     static void ws(std::ofstream&f,const std::string&s){uint32_t n=(uint32_t)s.size();wr(f,n);f.write(s.data(),n);}
     static bool rs(std::ifstream&f,std::string&s){uint32_t n=0;if(!rd(f,n)||n>(1u<<20))return false;s.resize(n);return bool(f.read(s.data(),n));}
     void trunc_vec(off_t n){
-      vec_end=n;
-      if(vfd>=0)ftruncate(vfd,n);
+      // Drop views of rolled-back bytes before truncation (also required by MSYS).
+      if(vmap&&mapsz){munmap(vmap,mapsz);vmap=nullptr;mapsz=0;mapoff=0;}
+      if(vfd>=0){if(ftruncate(vfd,n)!=0)throw Err("io_error","truncate vectors");}
       else{
         int fd=open(vecfile.c_str(),O_WRONLY|O_CREAT,0644);
-        if(fd>=0){
-          ftruncate(fd,n);
-          close(fd);
-        }
+        if(fd<0)throw Err("io_error","open vectors for truncate");
+        int rc=ftruncate(fd,n);close(fd);
+        if(rc!=0)throw Err("io_error","truncate vectors");
       }
+      vec_end=n;
     }
     ~Engine(){
-      flush_sst();
+      try{flush_sst();}catch(const std::exception&x){std::cerr<<"flush failed: "<<x.what()<<'\n';}
       if(vmap&&mapsz)munmap(vmap,mapsz);
       if(vfd>=0){
         fsync(vfd);
@@ -1162,24 +1166,37 @@ namespace lite {
     void record(const std::string&s){
       pending.push_back(s);
     }
-    void write_manifest(){
+    static void sync_path(const std::string&p){
+      struct stat st{};
+      if(stat(p.c_str(),&st)!=0)throw Err("io_error","stat for sync: "+p);
+      int fd=open(p.c_str(),S_ISDIR(st.st_mode)?O_RDONLY:O_RDWR);
+      if(fd<0)throw Err("io_error","open for sync: "+p);
+      int rc=fsync(fd),error=errno,closed=close(fd);
+      if(rc!=0||closed!=0)throw Err("io_error","sync: "+p+": "+std::strerror(rc!=0?error:errno));
+    }
+    static void finish_file(std::ofstream&f,const std::string&p){
+      f.flush();if(!f)throw Err("io_error","write: "+p);
+      f.close();if(!f)throw Err("io_error","close: "+p);
+      sync_path(p);
+    }
+    void write_manifest(std::map<int,std::vector<std::string>> next){
       std::string tmp=dir+"/MANIFEST.tmp";
       std::ofstream m(tmp,std::ios::trunc);
       m<<"#v2 checkpoint "<<wal_txid<<" next_sst "<<sst_seq<<" bytes_in "<<lsm_bytes_in<<" bytes_out "<<lsm_bytes_out<<'\n';
-      for(auto&kv:levels)for(auto&x:kv.second){std::string a,b;srange(x,a,b);m<<kv.first<<" "<<x<<" "<<a<<" "<<b<<'\n';}
-      m.flush();
-      int fd=open(tmp.c_str(),O_RDONLY);
-      if(fd>=0){fsync(fd);close(fd);}
-      rename(tmp.c_str(),(dir+"/MANIFEST").c_str());
-      fd=open(dir.c_str(),O_RDONLY);
-      if(fd>=0){fsync(fd);close(fd);}
+      for(auto&kv:next)for(auto&x:kv.second){std::string a,b;srange(x,a,b);m<<kv.first<<" "<<x<<" "<<a<<" "<<b<<'\n';}
+      finish_file(m,tmp);
+      sync_path(dir); // Persist new SST and sidecar directory entries before publication.
+      if(rename(tmp.c_str(),(dir+"/MANIFEST").c_str())!=0)throw Err("io_error","manifest publish");
+      levels.swap(next); // Single writer: the published view is now the current view.
+      sync_path(dir); // On failure keep ALL old files; restart may see either manifest.
     }
     void seal_sst(const std::string&p){
       std::ifstream f(p,std::ios::binary);std::ofstream g(p+".idx",std::ios::binary|std::ios::trunc);
       uint64_t sz=(uint64_t)fsize(p);uint32_t magic=0x53535449u,ver=1,n=(uint32_t)((sz+32767)/32768);wr(g,magic);wr(g,ver);wr(g,n);
       std::vector<char>b(32768);
       for(uint32_t i=0;i<n;++i){uint64_t o=(uint64_t)i*32768;size_t want=(size_t)std::min<uint64_t>(32768,sz-o);f.read(b.data(),want);size_t len=(size_t)f.gcount();uint32_t l=(uint32_t)len,c=crc32c(b.data(),len);wr(g,o);wr(g,l);wr(g,c);size_t e=0;while(e<len&&b[e]!='\n')++e;ws(g,std::string(b.data(),e));}
-      g.flush();int fd=open((p+".idx").c_str(),O_RDONLY);if(fd>=0){fsync(fd);close(fd);}
+      if(!f)throw Err("io_error","sst read: "+p);
+      finish_file(g,p+".idx");
     }
     static bool srange(const std::string&p,std::string&lo,std::string&hi){
       std::ifstream f(p);std::string x;SRec r;bool ok=false;
@@ -1200,27 +1217,26 @@ namespace lite {
         std::vector<SRec>all;
         for(auto&x:in){
           std::ifstream f(x);std::string y;
-          while(std::getline(f,y)){SRec r;if(sread(y,r))all.push_back(std::move(r));}
+          if(!f)throw Err("io_error","sst open: "+x);
+          while(std::getline(f,y)){SRec r;if(!sread(y,r))throw Err("corruption","sst record");all.push_back(std::move(r));}
+          if(!f.eof())throw Err("io_error","sst read: "+x);
         }
         std::sort(all.begin(),all.end(),[](const SRec&a,const SRec&b){if(a.key!=b.key)return a.key<b.key;if(a.seq!=b.seq)return a.seq>b.seq;return a.tomb>b.tomb;});
         std::string p=dir+"/L"+std::to_string(lev+1)+"-"+std::to_string(++sst_seq)+".sst";
         std::ofstream out(p,std::ios::binary);
         std::string last;for(auto&r:all)if(r.key!=last){last=r.key;if(drop_tomb&&r.tomb)continue;out<<sline(r)<<'\n';}
-        out.flush();
-        int fd=open(p.c_str(),O_RDONLY);
-        if(fd>=0){
-          fsync(fd);
-          close(fd);
-        }
+        finish_file(out,p);
         seal_sst(p);
         lsm_bytes_out+=(uint64_t)fsize(p);
         std::set<std::string>selected(in.begin(),in.end());
-        for(auto&x:in){std::remove(x.c_str());std::remove((x+".idx").c_str());}
-        src.clear();
-        auto&dst=levels[lev+1];
+        auto next=levels;
+        next[lev].clear();
+        auto&dst=next[lev+1];
         dst.erase(std::remove_if(dst.begin(),dst.end(),[&](const std::string&x){return selected.count(x);}),dst.end());
         dst.push_back(p);
-        write_manifest();
+        write_manifest(std::move(next));
+        // No concurrent readers retain SST references in this single-writer engine.
+        for(auto&x:in){std::remove(x.c_str());std::remove((x+".idx").c_str());}
       }
     }
     void flush_sst(){
@@ -1230,19 +1246,14 @@ namespace lite {
       std::string p=dir+"/L0-"+std::to_string(++sst_seq)+".sst";
       std::ofstream f(p,std::ios::binary);
       for(auto&r:immutable)f<<sline(r)<<'\n';
-      f.flush();
-      int fd=open(p.c_str(),O_RDONLY);
-      if(fd>=0){
-        fsync(fd);
-        close(fd);
-      }
+      finish_file(f,p);
       seal_sst(p);
       lsm_bytes_out+=(uint64_t)fsize(p);
-      levels[0].push_back(p);
-      write_manifest();
-      compact();
+      auto next=levels;next[0].push_back(p);
+      write_manifest(std::move(next));
       immutable.clear();
       memtable.clear();
+      compact();
     }
     J exec(const std::string&sql){
       auto t=tok(sql);
@@ -1472,19 +1483,21 @@ namespace lite {
     }
     void rebuild_scalar(Table&q){
       q.fast.clear();
+      fast_pos.erase(q.n);matrices.erase(q.n);vblocks.erase(q.n);
       sindex.erase(q.n+".id");nindex.erase(q.n+".id");
       for(size_t c=1;c<q.c.size();++c)if(q.c[c].t!="VECTOR"){sindex.erase(q.n+"."+q.c[c].n);nindex.erase(q.n+"."+q.c[c].n);}
       for(auto&kv:q.r)scalar_add(q,kv.first);
     }
     void build_vblocks(Table&q,int bc){
       auto&bs=vblocks[q.n];
-      if(!bs.empty())return;
+      if(!bs.empty()&&vblock_col[q.n]==bc&&bs[0].lo.size()==(size_t)q.c[bc].d)return;
+      bs.clear();vblock_col[q.n]=bc;
       if(q.fast.size()!=q.order.size())refresh_fast(q);
       int d=q.c[bc].d,sd=d;
       for(size_t b=0;b<q.order.size();b+=64){
-        VBlock w;w.begin=b;w.end=std::min(q.order.size(),b+64);w.lo.assign(sd,1e30f);w.hi.assign(sd,-1e30f);
+        VBlock w;w.begin=b;w.end=std::min(q.order.size(),b+64);w.lo.assign(sd,std::numeric_limits<float>::infinity());w.hi.assign(sd,-std::numeric_limits<float>::infinity());
         bool any=false;for(size_t p=w.begin;p<w.end;++p)if(p<q.fast.size()&&q.fast[p]){
-          const float*v=vptr(q.fast[p]->voff[bc],d);if(!v)continue;
+          const float*v=vptr(q.fast[p]->voff[bc],d);std::vector<float>fallback;if(!v){fallback=read_vec(q.fast[p]->voff[bc],d);v=fallback.data();}
           any=true;
           for(int j=0;j<sd;++j){int x=(j*d)/sd;w.lo[j]=std::min(w.lo[j],v[x]);w.hi[j]=std::max(w.hi[j],v[x]);}
         }
@@ -1792,6 +1805,14 @@ namespace lite {
       throw Err("invalid_request","distance vector");
     }
     J select(const std::vector<std::string>&t){
+      using Clock=std::chrono::steady_clock;
+      bool profile=std::getenv("LITE_PROFILE")&&std::string(std::getenv("LITE_PROFILE"))=="1";
+      auto stamp=[&](){return profile?Clock::now():Clock::time_point{};};
+      auto elapsed=[&](Clock::time_point a){return profile?std::chrono::duration<double,std::milli>(Clock::now()-a).count():0.0;};
+      auto query_start=stamp(),phase=query_start;
+      double prepare_ms=0,matrix_ms=0,block_build_ms=0,bounds_ms=0,block_sort_ms=0,distance_ms=0,topk_ms=0,scan_ms=0;
+      uint64_t filtered_candidates=0,blocks_considered=0,blocks_pruned=0,block_pruned_candidates=0,heap_updates=0;
+
       size_t from=0;
       for(;from<t.size();++from)if(up(t[from])=="FROM")break;
       if(from+1>=t.size())throw Err("invalid_request","from");
@@ -1848,7 +1869,7 @@ namespace lite {
         double d;
         double ord;
       };
-      if(metric)ensure_map();
+      // vptr maps on demand. Empty/index-only candidates must not remap vector data.
       std::vector<long long>scan=q.order;
       for(auto&c:cs)if(c.col>=0&&q.c[c.col].t!="VECTOR"){
         std::string k=q.n+"."+q.c[c.col].n;std::vector<long long>cand;bool used=false;
@@ -1929,15 +1950,33 @@ namespace lite {
         }
         else scan=q.order;
       }
-      bool small_exact=!cs.empty()&&scan.size()<=2048,empty_exact=!cs.empty()&&scan.empty();
-      if(metric&&(cs.empty()||scan.size()>2048))ensure_matrix(q,mcol);
-      bool block_exact=metric&&!ann_mode&&!small_exact&&!empty_exact&&oi<t.size()&&li<t.size()&&oi+2<t.size()&&
+      bool exact_topk=metric&&!ann_mode&&oi+2<t.size()&&li<t.size()&&
         (up(t[oi+2])=="L2_DISTANCE"||t[oi+2]==alias)&&
-        !(oi+3<t.size()&&up(t[oi+3])=="DESC")&&ask<q.order.size()&&
-        (!std::getenv("LITE_BLOCK_EXACT")||std::atoi(std::getenv("LITE_BLOCK_EXACT"))!=0);
-      if(metric&&!ann_mode&&!block_exact)std::sort(scan.begin(),scan.end(),[&](long long a,long long b){
+        !(oi+3<t.size()&&up(t[oi+3])=="DESC");
+      const char* path_env=std::getenv("LITE_EXACT_PATH");
+      std::string exact_path=path_env?path_env:"auto";
+      if(exact_path!="auto"&&exact_path!="scan"&&exact_path!="block")throw Err("invalid_request","LITE_EXACT_PATH must be auto, scan or block");
+      // Auto currently selects scan: shuffled high-dimensional blocks rarely prune.
+      bool block_exact=exact_topk&&exact_path=="block";
+      if(!path_env&&std::getenv("LITE_BLOCK_EXACT"))block_exact=exact_topk&&std::atoi(std::getenv("LITE_BLOCK_EXACT"))!=0;
+      std::vector<size_t>positions;
+      if(exact_topk){
+        positions.reserve(scan.size());
+        if(scan.size()==q.order.size()){
+          for(size_t p=0;p<q.fast.size();++p)if(q.fast[p]&&match(q,*q.fast[p],cs))positions.push_back(p);
+        }else{
+          const auto&pos=fast_pos.at(q.n);
+          for(auto id:scan){auto it=pos.find(id);if(it!=pos.end()&&q.fast[it->second]&&match(q,*q.fast[it->second],cs))positions.push_back(it->second);}
+          // Sort integer positions once, without tree lookups in the comparator.
+          std::sort(positions.begin(),positions.end());
+        }
+        filtered_candidates=positions.size();
+      }else if(metric&&!ann_mode)std::sort(scan.begin(),scan.end(),[&](long long a,long long b){
         off_t x=q.r.at(a).voff[mcol],y=q.r.at(b).voff[mcol];if(x!=y)return x<y;return a<b;
       });
+      prepare_ms=elapsed(phase);phase=stamp();
+      if(metric&&(exact_topk?(ask&&positions.size()>2048):(cs.empty()||scan.size()>2048)))ensure_matrix(q,mcol);
+      matrix_ms=elapsed(phase);
       std::vector<H>h;
       uint64_t early_pruned=0,early_dims=0,distance_calls=0;
       const Matrix*matrix=nullptr;auto mci=matrices.find(q.n);if(mci!=matrices.end()&&mci->second.col==mcol)matrix=&mci->second;
@@ -1991,71 +2030,63 @@ namespace lite {
         }
         else h.push_back(hh);
       };
-      auto add_fast=[&](size_t p){
-        if(p>=q.fast.size()||!q.fast[p]||!ask)return;
-        Row&r=*q.fast[p];
-        ++distance_calls;
-        int used=q.c[mcol].d;bool cut=false;double d;const float*mp=(matrix&&p*(size_t)matrix->dim+matrix->dim<=matrix->v.size())?matrix->v.data()+p*(size_t)matrix->dim:nullptr;
-        if(mp)d=l2p(mp,q.c[mcol].d,qv);
-        else if(top.size()>=ask&&std::getenv("LITE_EARLY")&&std::atoi(std::getenv("LITE_EARLY"))!=0)d=l2_limit(r.voff[mcol],q.c[mcol].d,qv,top.top().d,cut,used);
-        else d=l2(r.voff[mcol],q.c[mcol].d,qv);
-        early_dims+=used;if(cut){++early_pruned;return;}
-        H hh{r.id,d,d};
-        if(top.size()<ask)top.push(hh);
-        else if(worse(hh,top.top())){top.pop();top.push(hh);}
-      };
-      if(block_exact){
-        int bc=mcol;
-        auto&bs=vblocks[q.n];
-        build_vblocks(q,bc);
-        std::unordered_set<long long>allowed;
-        if(!cs.empty()&&scan.size()<q.order.size())allowed.insert(scan.begin(),scan.end());
-        std::vector<std::pair<double,size_t>>bo;
-        int d=q.c[bc].d,sd=d;
-        for(size_t bi=0;bi<bs.size();++bi){
-          double z=0;
-          for(int j=0;j<sd;++j){
-            int x=(j*d)/sd;
-            double a=qv[x];
-            if(a<bs[bi].lo[j]){
-              double e=bs[bi].lo[j]-a;
-              z+=e*e;
+      if(exact_topk){
+        // Both paths use the same batched SIMD distances and bounded heap.
+        // Diagnostic clocks run once per batch, never once per vector.
+        auto score=[&](size_t begin,size_t end){
+          for(size_t base=begin;base<end;base+=256){
+            H batch[256];size_t count=0;auto dt=stamp();
+            for(size_t i=base;i<std::min(end,base+256);++i){
+              size_t p=positions[i];const Row&r=*q.fast[p];
+              const float*mp=matrix?matrix->v.data()+p*(size_t)matrix->dim:nullptr;
+              double d=mp?l2p(mp,q.c[mcol].d,qv):l2(r.voff[mcol],q.c[mcol].d,qv);
+              batch[count++]={r.id,d,d};++distance_calls;early_dims+=q.c[mcol].d;
             }
-            else if(a>bs[bi].hi[j]){
-              double e=a-bs[bi].hi[j];
-              z+=e*e;
+            distance_ms+=elapsed(dt);dt=stamp();
+            for(size_t i=0;i<count;++i){
+              if(top.size()<ask){top.push(batch[i]);++heap_updates;}
+              else if(worse(batch[i],top.top())){top.pop();top.push(batch[i]);++heap_updates;}
             }
+            topk_ms+=elapsed(dt);
           }
-          if(!bs[bi].center.empty()){
-            double c2=0;for(int j=0;j<sd;++j){double e=qv[(j*d)/sd]-bs[bi].center[j];c2+=e*e;}
-            double lb=std::max(0.0,std::sqrt(c2)-bs[bi].radius);z=std::max(z,lb*lb);
+        };
+        phase=stamp();
+        if(block_exact&&ask&&!positions.empty()){
+          build_vblocks(q,mcol);
+          block_build_ms=elapsed(phase);phase=stamp();
+          const auto&bs=vblocks.at(q.n);
+          struct Visit{double bound;size_t begin,end;};
+          std::vector<Visit>visits;visits.reserve(bs.size());
+          for(size_t begin=0;begin<positions.size();){
+            size_t bi=positions[begin]/64,end=begin+1;
+            while(end<positions.size()&&positions[end]/64==bi)++end;
+            double bound=0;
+            for(int j=0;j<q.c[mcol].d;++j){
+              double x=qv[j],delta=x<bs[bi].lo[j]?double(bs[bi].lo[j])-x:x>bs[bi].hi[j]?x-double(bs[bi].hi[j]):0;
+              bound+=delta*delta;
+            }
+            // Only the box bound is used. The persisted float sphere radius is
+            // not outward-rounded. Discount for float SIMD rounding as well.
+            double margin=std::min(1.0,16.0*(q.c[mcol].d+1)*std::numeric_limits<float>::epsilon());
+            bound=std::max(0.0,bound*(1-margin)-std::numeric_limits<float>::min()*q.c[mcol].d);
+            visits.push_back({bound,begin,end});begin=end;++blocks_considered;
           }
-          bo.push_back({
-            z,bi
-          });
-        }
-        bool bound_order=std::getenv("LITE_BLOCK_ORDER")&&std::string(std::getenv("LITE_BLOCK_ORDER"))=="bound";
-        if(bound_order)std::sort(bo.begin(),bo.end());
-        for(auto&kv:bo){
-          if(ask&&top.size()>=ask){
-            double worst=top.top().d;
-            if(kv.first>worst){if(bound_order)break;continue;}
+          bounds_ms=elapsed(phase);phase=stamp();
+          bool bound_order=std::getenv("LITE_BLOCK_ORDER")&&std::string(std::getenv("LITE_BLOCK_ORDER"))=="bound";
+          if(bound_order)std::stable_sort(visits.begin(),visits.end(),[](const Visit&a,const Visit&b){return a.bound<b.bound;});
+          block_sort_ms=elapsed(phase);phase=stamp();
+          for(const auto&v:visits){
+            if(top.size()>=ask&&v.bound>top.top().d){++blocks_pruned;block_pruned_candidates+=v.end-v.begin;continue;}
+            score(v.begin,v.end);
           }
-          for(size_t p=bs[kv.second].begin;p<bs[kv.second].end;++p){
-            if(p>=q.fast.size()||!q.fast[p])continue;
-            if(!allowed.empty()&&!allowed.count(q.fast[p]->id))continue;
-            if(!match(q,*q.fast[p],cs))continue;
-            add_fast(p);
-          }
-        }
+        }else if(ask)score(0,positions.size());
+        scan_ms=elapsed(phase);
+        while(!top.empty()){h.push_back(top.top());top.pop();}
+      }else{
+        phase=stamp();for(auto id:scan)add_hit(id);scan_ms=elapsed(phase);
+        filtered_candidates=h.size();
       }
-      else for(auto id:scan)add_hit(id);
-      if(block_exact){
-        while(!top.empty()){
-          h.push_back(top.top());
-          top.pop();
-        }
-      }
+      phase=stamp();
       if(metric&&li<t.size()&&oi+2<t.size()&&ask<h.size()&&(up(t[oi+2])=="L2_DISTANCE"||t[oi+2]==alias)&&!(oi+3<t.size()&&up(t[oi+3])=="DESC")){
         auto cmp=[&](const H&a,const H&b){
           if(a.d!=b.d)return a.d<b.d;
@@ -2106,6 +2137,20 @@ namespace lite {
       mt.o["exact_evaluations"]=ji((long long)distance_calls);
       mt.o["distance_pruned"]=ji((long long)early_pruned);
       mt.o["distance_dimensions"]=ji((long long)early_dims);
+      mt.o["exact_path"]=js(exact_topk?(block_exact?"block":"scan"):"generic");
+      mt.o["filtered_candidates"]=ji(filtered_candidates);
+      mt.o["full_distance_evaluations"]=ji(distance_calls-early_pruned);
+      mt.o["blocks_considered"]=ji(blocks_considered);
+      mt.o["blocks_pruned"]=ji(blocks_pruned);
+      mt.o["block_pruned_candidates"]=ji(block_pruned_candidates);
+      mt.o["heap_updates"]=ji(heap_updates);
+      if(profile){
+        J times=jo();
+        times.o["prepare"]=jd(prepare_ms);times.o["matrix"]=jd(matrix_ms);
+        times.o["block_build"]=jd(block_build_ms);times.o["bounds"]=jd(bounds_ms);times.o["block_sort"]=jd(block_sort_ms);
+        times.o["vector_distance"]=jd(distance_ms);times.o["topk"]=jd(topk_ms);times.o["scan_total"]=jd(scan_ms);
+        times.o["result"]=jd(elapsed(phase));times.o["select_total"]=jd(elapsed(query_start));mt.o["profile_ms"]=std::move(times);
+      }
       out.o["metrics"]=mt;
       return out;
     }
