@@ -59,3 +59,8 @@
 ## 2026-11-14 post-contract benchmark rerun
 
 - Rebuilt after the response-contract fix and reran the same deterministic comparison once per round, three rounds total: old exact mean 0.00320 s; new exact mean 0.01155 s; new ANN mean 0.00586 s; new insert 1.616 s vs old 1.753 s; new index build 0.188 s. ANN returns the same ten IDs as exact on this workload.
+
+## 2026-11-14 LSM framework smoke
+
+- 80-row mutation/restart smoke crossed the 16-record MemTable flush threshold repeatedly and produced both L0 and L1 files (`L0-6.sst`, `L0-7.sst`, `L1-5.sst`).
+- After restart, a scalar update remained visible through the rebuilt index, a delete stayed absent, and 79 live rows were returned. The smoke passed on the clean HDD data directory.
