@@ -1021,8 +1021,6 @@ struct Engine {
       t.blocks_valid = true;
       return;
     }
-    ensure_vector_matrix(t);
-
     // Keep a compact, evenly spaced sample of dimensions.  Bounds over a
     // subset of dimensions are still valid lower bounds for L2 distance, and
     // cap metadata for unusually wide vectors.
@@ -1518,7 +1516,7 @@ struct Engine {
           distance_cache[qi].assign(tab.rows.size(), std::numeric_limits<double>::quiet_NaN());
       }
     }
-    if (has_vector_distance) ensure_vector_matrix(tab);
+    if (has_vector_distance && !block_topk) ensure_vector_matrix(tab);
     std::vector<std::unordered_map<size_t, double>> sparse_distance_cache(proj.size());
     if (block_topk) {
       const size_t reserve_count = std::min(tab.rows.size(), size_t(limit) * 64);
