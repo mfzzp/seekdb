@@ -168,7 +168,6 @@ struct VectorBlock {
   size_t end = 0;
   std::vector<float> lo;
   std::vector<float> hi;
-  std::vector<float> center;
   std::vector<float> center_full;
   double radius2 = 0.0;
 };
@@ -592,11 +591,11 @@ struct Engine {
     std::string tmp = path + ".tmp";
     std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
     if (!f) throw Error("storage_error", "cannot open data directory");
-    // Version 3 keeps the row format byte-for-byte compatible with v2 and
+    // Version 4 keeps the row format byte-for-byte compatible with v2 and
     // appends an optional, validated Block metadata section per table.  The
     // metadata is only a query cache: rows remain the source of truth and a
     // stale/absent section is rebuilt normally after loading.
-    uint32_t magic = 0x4d564333, nt = uint32_t(st.tables.size());
+    uint32_t magic = 0x4d564334, nt = uint32_t(st.tables.size());
     put(f, magic); put(f, nt);
     for (auto &kv : st.tables) {
       const Table &t = kv.second;
@@ -634,14 +633,11 @@ struct Engine {
           const uint64_t begin = uint64_t(block.begin), end = uint64_t(block.end);
           const uint32_t nlo = uint32_t(block.lo.size());
           const uint32_t nhi = uint32_t(block.hi.size());
-          const uint32_t ncenter = uint32_t(block.center.size());
           const uint32_t nfull = uint32_t(block.center_full.size());
           put(f, begin); put(f, end); put(f, nlo);
           if (nlo) f.write(reinterpret_cast<const char *>(block.lo.data()), sizeof(float) * nlo);
           put(f, nhi);
           if (nhi) f.write(reinterpret_cast<const char *>(block.hi.data()), sizeof(float) * nhi);
-          put(f, ncenter);
-          if (ncenter) f.write(reinterpret_cast<const char *>(block.center.data()), sizeof(float) * ncenter);
           put(f, nfull);
           if (nfull) f.write(reinterpret_cast<const char *>(block.center_full.data()), sizeof(float) * nfull);
           put(f, block.radius2);
@@ -725,9 +721,10 @@ struct Engine {
     std::ifstream f(path, std::ios::binary);
     if (!f) throw Error("storage_error", "checkpoint snapshot is missing");
     uint32_t magic = 0, nt = 0;
-    if (!get(f, magic) || (magic != 0x4d564332 && magic != 0x4d564333) || !get(f, nt))
+    if (!get(f, magic) || (magic != 0x4d564332 && magic != 0x4d564333 && magic != 0x4d564334) || !get(f, nt))
       throw Error("storage_error", "invalid data");
-    const bool has_block_metadata = magic == 0x4d564333;
+    const bool has_block_metadata = magic == 0x4d564333 || magic == 0x4d564334;
+    const bool metadata_has_legacy_center = magic == 0x4d564333;
     for (uint32_t z = 0; z < nt; ++z) {
       Table t; t.name = getstr(f); uint32_t nc;
       if (!get(f, nc) || nc > 1024 || !get(f, t.primary) || !get(f, t.vector_col))
@@ -778,7 +775,7 @@ struct Engine {
           for (uint64_t i = 0; i < nb; ++i) {
             VectorBlock block;
             uint64_t begin = 0, end = 0;
-            uint32_t nlo = 0, nhi = 0, ncenter = 0, nfull = 0;
+            uint32_t nlo = 0, nhi = 0, nfull = 0;
             if (!get(f, begin) || !get(f, end) || begin > end || end > nr)
               throw Error("storage_error", "invalid block metadata");
             if (!get(f, nlo) || nlo > 1024) throw Error("storage_error", "invalid block metadata");
@@ -789,11 +786,14 @@ struct Engine {
             block.hi.resize(nhi);
             if (nhi && !f.read(reinterpret_cast<char *>(block.hi.data()), sizeof(float) * nhi))
               throw Error("storage_error", "invalid block metadata");
-            if (!get(f, ncenter) || ncenter > 1024) throw Error("storage_error", "invalid block metadata");
-            block.center.resize(ncenter);
-            if (ncenter && !f.read(reinterpret_cast<char *>(block.center.data()), sizeof(float) * ncenter))
-              throw Error("storage_error", "invalid block metadata");
-            if (!get(f, nfull) || nfull > 100000) throw Error("storage_error", "invalid block metadata");
+            if (metadata_has_legacy_center) {
+              uint32_t ncenter = 0;
+              if (!get(f, ncenter) || ncenter > 1024) throw Error("storage_error", "invalid block metadata");
+              std::vector<float> legacy_center(ncenter);
+              if (ncenter && !f.read(reinterpret_cast<char *>(legacy_center.data()), sizeof(float) * ncenter))
+                throw Error("storage_error", "invalid block metadata");
+            }
+            if (!get(f, nfull) || nfull > 1024) throw Error("storage_error", "invalid block metadata");
             block.center_full.resize(nfull);
             if (nfull && !f.read(reinterpret_cast<char *>(block.center_full.data()), sizeof(float) * nfull))
               throw Error("storage_error", "invalid block metadata");
@@ -820,7 +820,6 @@ struct Engine {
                 block.end - block.begin > 256 ||
                 block.lo.size() != metadata_dims.size() ||
                 block.hi.size() != metadata_dims.size() ||
-                block.center.size() != metadata_dims.size() ||
                 (!block.center_full.empty() && block.center_full.size() != size_t(std::max(dim, 0)))) {
               valid = false;
               break;
@@ -1071,7 +1070,6 @@ struct Engine {
       block.end = std::min(t.rows.size(), begin + BLOCK_ROWS);
       block.lo.assign(t.block_dims.size(), std::numeric_limits<float>::infinity());
       block.hi.assign(t.block_dims.size(), -std::numeric_limits<float>::infinity());
-      block.center.assign(t.block_dims.size(), 0.0f);
       if (build_full_center) block.center_full.assign(size_t(dim), 0.0f);
       for (size_t r = block.begin; r < block.end; ++r) {
         const float *data = vector_data(t, r, dim);
@@ -1079,14 +1077,12 @@ struct Engine {
           float x = data[size_t(t.block_dims[j])];
           block.lo[j] = std::min(block.lo[j], x);
           block.hi[j] = std::max(block.hi[j], x);
-          block.center[j] += x;
         }
         if (build_full_center) {
           for (int d = 0; d < dim; ++d) block.center_full[size_t(d)] += data[size_t(d)];
         }
       }
       const float count = float(block.end - block.begin);
-      for (float &x : block.center) x /= count;
       if (build_full_center) {
         for (float &x : block.center_full) x /= count;
         for (size_t r = block.begin; r < block.end; ++r) {
