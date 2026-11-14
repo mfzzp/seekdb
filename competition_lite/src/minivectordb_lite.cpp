@@ -617,16 +617,32 @@ namespace lite {
     static void put32(std::string&o,uint32_t v){
       for(int i=0;i<4;++i)o.push_back((char)(v>>(i*8)));
     }
+    static void put64(std::string&o,uint64_t v){
+      for(int i=0;i<8;++i)o.push_back((char)(v>>(i*8)));
+    }
     static bool get32(const std::string&s,size_t&p,uint32_t&v){
       if(p+4>s.size())return false;
-      v=(unsigned char)s[p]|((uint32_t)(unsigned char)s[p+1]<<8)|((uint32_t)(unsigned char)s[p+2]<<16)|((uint32_t)(unsigned char)s[p+3]<<24);
+      v=(unsigned char)s[p]|((uint32_t)(unsigned char)s[p+1]<<8)|
+        ((uint32_t)(unsigned char)s[p+2]<<16)|((uint32_t)(unsigned char)s[p+3]<<24);
       p+=4;
+      return true;
+    }
+    static bool get64(const std::string&s,size_t&p,uint64_t&v){
+      if(p+8>s.size())return false;
+      v=0;
+      for(int i=0;i<8;++i)v|=(uint64_t)(unsigned char)s[p+i]<<(i*8);
+      p+=8;
+      return true;
+    }
+    static bool inttok(const std::string&x){
+      size_t p=!x.empty()&&(x[0]=='-'||x[0]=='+');
+      if(p==x.size())return false;
+      for(;p<x.size();++p)if(!std::isdigit((unsigned char)x[p]))return false;
       return true;
     }
     std::string encode_tokens(const std::string&s)const{
       auto t=tok(s);
-      if(t.empty())return {
-      };
+      if(t.empty())return {};
       std::string k=up(t[0]);
       uint8_t op=0;
       if(k=="CREATE"&&t.size()>1&&up(t[1])=="TABLE")op=1;
@@ -634,13 +650,18 @@ namespace lite {
       else if(k=="INSERT")op=3;
       else if(k=="UPDATE")op=4;
       else if(k=="DELETE")op=5;
-      if(!op)return {
-      };
+      if(!op)return {};
       std::string o(1,(char)op);
       put32(o,(uint32_t)t.size());
       for(auto&x:t){
-        put32(o,(uint32_t)x.size());
-        o+=x;
+        uint8_t tag=inttok(x)?1:(x.size()>=2&&x.front()==char(39)&&x.back()==char(39)?2:
+          (!x.empty()&&x.front()=='['?3:4));
+        o.push_back((char)tag);
+        if(tag==1)put64(o,(uint64_t)std::stoll(x));
+        else{
+          put32(o,(uint32_t)x.size());
+          o+=x;
+        }
       }
       return o;
     }
@@ -652,10 +673,20 @@ namespace lite {
       if(op<1||op>5||!get32(s,p,n)||n==0||n>4096)return false;
       t.clear();
       for(uint32_t i=0;i<n;++i){
-        uint32_t z=0;
-        if(!get32(s,p,z)||z>(1u<<20)||p+z>s.size())return false;
-        t.emplace_back(s.data()+p,z);
-        p+=z;
+        if(p>=s.size())return false;
+        uint8_t tag=(uint8_t)s[p++];
+        if(tag==1){
+          uint64_t z=0;
+          if(!get64(s,p,z))return false;
+          t.push_back(std::to_string((long long)z));
+        }
+        else if(tag>=2&&tag<=4){
+          uint32_t z=0;
+          if(!get32(s,p,z)||z>(1u<<20)||p+z>s.size())return false;
+          t.emplace_back(s.data()+p,z);
+          p+=z;
+        }
+        else return false;
       }
       if(p!=s.size()||t.empty())return false;
       std::string k=up(t[0]);

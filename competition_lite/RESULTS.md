@@ -2,7 +2,7 @@
 
 ## Current implementation
 
-- Runtime: `competition_lite/src/minivectordb_lite.cpp`, **1859 physical lines** (the checker counts comments and blank lines).
+- Runtime: `competition_lite/src/minivectordb_lite.cpp`, **1890 physical lines** (the checker counts comments and blank lines).
 - Build: C++17, `-O3 -DNDEBUG -Wall -Wextra`; the release CMake build succeeds.
 - Storage: private transaction writes, framed CRC WAL, float32 append file with mmap reads, MemTable/Immutable/SST levels, checkpointed STATE, persisted IVF-PQ codebooks/codes, scalar equality postings, vector GC, and a bounded query-result cache invalidated by writes.
 - The cache is keyed by SQL plus search mode and is only a performance cache; it is not part of durability or correctness.
@@ -16,7 +16,7 @@
 | LSM flush/compaction/restart smoke | PASS, 79 live rows and L0/L1 files |
 | IVF-PQ index persistence/restart | PASS |
 | Crash recovery smoke | 20/20 PASS |
-| Runtime physical-line budget | 1859 / 2000 |
+| Runtime physical-line budget | 1890 / 2000 |
 
 The independent benchmark tools are in `competition_lite/bench`. They generate the fixed eight-column schema, write `vectors.f32`, compute an independent float64 Oracle, exercise S1/B256/B1024/T256, and emit per-query JSON plus summary files.
 
@@ -39,8 +39,8 @@ The deterministic comparison used 2000 rows, 1024-dimensional vectors, batch 256
 
 | implementation | insert | exact query batch mean | ANN query batch mean | index build |
 |---|---:|---:|---:|---:|
-| old baseline | 1.8523 s | 0.003645 s | — | — |
-| lite2000 | 1.7129 s | 0.001539 s | 0.000945 s | 0.2188 s |
+| old baseline | 1.8019 s | 0.003185 s | — | — |
+| lite2000 | 1.6840 s | 0.001540 s | 0.000946 s | 0.2060 s |
 
 The repeated-query workload exercises the new bounded result cache, so this table is a cache-aware regression comparison. Distinct-query 100k/300k measurements have not been claimed yet.
 

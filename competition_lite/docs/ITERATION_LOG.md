@@ -95,3 +95,10 @@
 - Exact Top-K uses a bounded max-heap during block traversal and keeps squared distances until JSON serialization. A bounded SQL/mode result cache is invalidated on every recorded mutation.
 - Latest 2000 x 1024 comparison: old exact batch mean 0.003645 s; lite2000 exact 0.001539 s and ANN 0.000945 s on the repeated-query workload. The independent public and strict protocol checks remained 20/20 PASS.
 - Runtime line count after this pass: 1859.
+
+## 2026-11-14 typed WAL field pass
+
+- WAL mutation payloads now tag each field as an integer, quoted string, vector literal, or keyword. Integer fields use fixed-width little-endian values; bounded length prefixes remain for textual fields.
+- Recovery validates field tags and reconstructs the mutation token vector without invoking the SQL tokenizer. CRC framing and transaction commit markers remain unchanged.
+- Public protocol: 20/20 PASS; strict protocol: 20/20 PASS; crash recovery: 20/20 PASS; LSM and index restart smokes passed.
+- Runtime line count is 1890/2000. The remaining storage gap is full typed column-level mutation encoding and key-aware tombstone dropping, which are intentionally recorded rather than claimed complete.

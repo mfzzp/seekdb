@@ -10,7 +10,7 @@ The source line checker counts physical lines, including comments and blanks:
 python3 competition_lite/tools/check_lines.py
 ```
 
-It currently reports 1859 lines against the 2000-line runtime budget. The generator, Oracle, crash checker, benchmark driver, and summaries under `competition_lite/bench` are outside that runtime count.
+It currently reports 1890 lines against the 2000-line runtime budget. The generator, Oracle, crash checker, benchmark driver, and summaries under `competition_lite/bench` are outside that runtime count.
 
 A small end-to-end run is:
 
@@ -24,4 +24,4 @@ python3 competition_lite/bench/verify_results.py \
   --queries /tmp/lite-run/queries.json --oracle /tmp/lite-data/oracle.jsonl
 ```
 
-The current evidence is recorded in `RESULTS.md`. It includes public/strict protocol checks, LSM and restart checks, 20 crash rounds, four write modes, an independent Oracle, and an old/new comparison. The plan's large 100k/300k matrix and memory-pressure runs are still pending; the report does not present them as completed. The WAL payload is structured and checksummed but still token-oriented rather than a fully typed column record, and SST files are not yet the sole recovery source. These are tracked as implementation gaps instead of being hidden by line compression or design-only claims.
+The current evidence is recorded in `RESULTS.md`. It includes public/strict protocol checks, LSM and restart checks, 20 crash rounds, four write modes, an independent Oracle, and an old/new comparison. The plan's large 100k/300k matrix and memory-pressure runs are still pending; the report does not present them as completed. The WAL payload is framed, checksummed, and carries typed integer/string/vector/keyword fields, but it still reconstructs mutation handlers from canonical tokens rather than a fully typed column record, and SST files are not yet the sole recovery source. These are tracked as implementation gaps instead of being hidden by line compression or design-only claims.
