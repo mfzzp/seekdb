@@ -64,3 +64,9 @@
 
 - 80-row mutation/restart smoke crossed the 16-record MemTable flush threshold repeatedly and produced both L0 and L1 files (`L0-6.sst`, `L0-7.sst`, `L1-5.sst`).
 - After restart, a scalar update remained visible through the rebuilt index, a delete stayed absent, and 79 live rows were returned. The smoke passed on the clean HDD data directory.
+
+## 2026-11-14 contiguous vector distance pass
+
+- The vector flush boundary now refreshes the read-only mmap after appending `vectors.f32`, so exact scans reuse a contiguous file window instead of falling back to one `pread` per row.
+- Replaced the AVX2 distance kernel's float-to-double conversion loop with float SIMD accumulation and one final reduction. Public SQL: 20 cases, 0 failures; strict protocol package: 20 cases, all PASS.
+- Same 2,000 x 1,024 benchmark, three rounds: new exact mean 0.00907 s (from 0.01155 s), new ANN mean 0.00543 s, old exact mean 0.00305 s; new insert 1.659 s vs old 1.721 s. This is a measured ~21% exact-query improvement, while the old implementation remains the current exact latency baseline.
