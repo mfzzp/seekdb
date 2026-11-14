@@ -13,7 +13,7 @@
 | Check | Result |
 |---|---:|
 | Official local public protocol cases | 20/20 PASS after latest optimization |
-| Strict packaged protocol check | 20/20 PASS (previous clean run; latest changes are query-loop only) |
+| Strict packaged protocol check | 20/20 PASS after latest source and query-loop changes |
 | LSM flush/compaction/restart smoke | PASS, 79 live rows and L0/L1 files |
 | IVF-PQ index persistence/restart | PASS |
 | Crash recovery smoke | 20/20 PASS |
@@ -83,3 +83,4 @@ The 300k vector GC command completed in 5.498 s, kept the 1,228,800,000-byte liv
 - **T09:** 100k/300k B256 and the 1024-case engine sweep are recorded. S1/B1024/T256 at scale, K=1/K=100, updates/deletes, random-vector runs, and independent large truth are missing.
 - **T10:** a GC/restart smoke exists. The 1 GiB LOWMEM run, true cold-cache run, and large 20-round kill/restart matrix are missing.
 - **T11:** commits, line checks, ancestor checks, and reproducible local/server paths exist. Clean platform submission, ablations, and a successful remote push remain incomplete.
+
