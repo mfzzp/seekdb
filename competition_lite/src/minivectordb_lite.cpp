@@ -333,6 +333,7 @@ namespace lite {
     std::map<std::string,std::map<std::string,std::vector<long long>>>sindex;
     mutable void*vmap=nullptr;
     mutable size_t mapsz=0;
+    mutable off_t mapoff=0;
     explicit Engine(std::string d):dir(std::move(d)),wal(dir+"/wal.log"),vecfile(dir+"/vectors.f32"){
       for(size_t p=1;p<dir.size();++p)if(dir[p]==char(47))mkdir(dir.substr(0,p).c_str(),0755);
       mkdir(dir.c_str(),0755);
@@ -384,6 +385,10 @@ namespace lite {
       };
       return stat(p.c_str(),&st)==0?st.st_size:0;
     }
+    template<class T> static void wr(std::ofstream&f,const T&v){f.write((const char*)&v,sizeof(v));}
+    template<class T> static bool rd(std::ifstream&f,T&v){return bool(f.read((char*)&v,sizeof(v)));}
+    static void ws(std::ofstream&f,const std::string&s){uint32_t n=(uint32_t)s.size();wr(f,n);f.write(s.data(),n);}
+    static bool rs(std::ifstream&f,std::string&s){uint32_t n=0;if(!rd(f,n)||n>(1u<<20))return false;s.resize(n);return bool(f.read(s.data(),n));}
     void trunc_vec(off_t n){
       vec_end=n;
       if(vfd>=0)ftruncate(vfd,n);
@@ -404,45 +409,18 @@ namespace lite {
       }
     }
     void snapshot(){
-      J a=ja();
-      for(auto&t:tabs){
-        J x=jo();
-        x.o["name"]=js(t.second.n);
-        J c=ja();
-        for(auto&z:t.second.c){
-          J y=jo();
-          y.o["n"]=js(z.n);
-          y.o["t"]=js(z.t);
-          y.o["d"]=ji(z.d);
-          c.a.push_back(y);
-        }
-        x.o["c"]=c;
-        J r=ja();
-        for(auto&kv:t.second.r){
-          J y=jo();
-          y.o["id"]=ji(kv.second.id);
-          J v=ja(),o=ja();
-          for(size_t i=1;i<t.second.c.size();++i){
-            v.a.push_back(js(kv.second.v[i-1]));
-            o.a.push_back(ji(i<kv.second.voff.size()?kv.second.voff[i]:-1));
-          }
-          y.o["v"]=v;
-          y.o["o"]=o;
-          r.a.push_back(y);
-        }
-        x.o["r"]=r;
-        a.a.push_back(x);
-      }
-      J z=jo(),ix=ja(),ic=jo();
-      for(auto&s:indexes)ix.a.push_back(js(s));
-      for(auto&v:index_cols)ic.o[v.first]=ji(v.second);
-      z.o["t"]=a;
-      z.o["i"]=ix;
-      z.o["c"]=ic;
-      z.o["w"]=ji((long long)wal_txid);
       std::string p=dir+"/STATE.tmp";
-      std::ofstream f(p,std::ios::trunc);
-      f<<dump(z)<<"\n";
+      std::ofstream f(p,std::ios::binary|std::ios::trunc);
+      uint32_t magic=0x4c535432u,ver=2,nt=(uint32_t)tabs.size();
+      wr(f,magic);wr(f,ver);wr(f,wal_txid);wr(f,nt);
+      for(auto&tk:tabs){
+        auto&q=tk.second;ws(f,q.n);uint32_t nc=(uint32_t)q.c.size();wr(f,nc);
+        for(auto&c:q.c){ws(f,c.n);ws(f,c.t);wr(f,c.d);}
+        uint64_t nr=q.order.size();wr(f,nr);
+        for(auto id:q.order){auto&row=q.r.at(id);wr(f,row.id);for(size_t i=1;i<q.c.size();++i){ws(f,row.v[i-1]);int64_t o=i<row.voff.size()?row.voff[i]:-1;wr(f,o);}}
+      }
+      uint32_t ni=(uint32_t)indexes.size();wr(f,ni);for(auto&s:indexes)ws(f,s);
+      uint32_t nc=(uint32_t)index_cols.size();wr(f,nc);for(auto&v:index_cols){ws(f,v.first);wr(f,v.second);}
       f.flush();
       int fd=open(p.c_str(),O_RDONLY);
       if(fd>=0){
@@ -450,12 +428,6 @@ namespace lite {
         close(fd);
       }
       rename(p.c_str(),(dir+"/STATE").c_str());
-    }
-    template<class T> static void wr(std::ofstream&f,const T&v){
-      f.write((const char*)&v,sizeof(v));
-    }
-    template<class T> static bool rd(std::ifstream&f,T&v){
-      return bool(f.read((char*)&v,sizeof(v)));
     }
     std::string index_path(const Table&q)const{
       return dir+"/INDEX-"+q.n+".bin";
@@ -584,54 +556,27 @@ namespace lite {
       }
     }
     void load_state(){
-      std::ifstream f(dir+"/STATE");
-      std::string line;
-      if(!std::getline(f,line)||line.empty())return;
-      try{
-        J z=parse(line);
-        if(z.o.count("w"))wal_txid=(uint64_t)z.o["w"].i;
-        for(auto&x:z.o["t"].a){
-          Table q;
-          q.n=x.o["name"].s;
-          for(auto&c:x.o["c"].a){
-            Col y;
-            y.n=c.o["n"].s;
-            y.t=c.o["t"].s;
-            y.d=(int)c.o["d"].i;
-            q.c.push_back(y);
-          }
-          for(auto&y:x.o["r"].a){
-            Row r;
-            r.id=y.o["id"].i;
-            for(auto&v:y.o["v"].a)r.v.push_back(v.s);
-            r.voff.push_back(-1);
-            for(auto&o:y.o["o"].a)r.voff.push_back((off_t)o.i);
-            q.r[r.id]=r;
-            q.order.push_back(r.id);
-          }
-          tabs[q.n]=q;
+      auto finish=[&](){vec_end=fsize(vecfile);ensure_map();sindex.clear();for(auto&t:tabs){rebuild_scalar(t.second);if(!load_index(t.second))rebuild_index(t.second);}};
+      std::ifstream b(dir+"/STATE",std::ios::binary);uint32_t magic=0;
+      if(b.read((char*)&magic,4)&&magic==0x4c535432u){
+        uint32_t ver=0,nt=0;uint64_t w=0;
+        if(!rd(b,ver)||ver!=2||!rd(b,w)||!rd(b,nt))throw Err("corruption","state header");
+        wal_txid=w;
+        for(uint32_t ti=0;ti<nt;++ti){
+          Table q;uint32_t nc=0;uint64_t nr=0;if(!rs(b,q.n)||!rd(b,nc))throw Err("corruption","state table");
+          for(uint32_t ci=0;ci<nc;++ci){Col c;if(!rs(b,c.n)||!rs(b,c.t)||!rd(b,c.d))throw Err("corruption","state column");q.c.push_back(c);}
+          if(!rd(b,nr)||nr>1000000000ull)throw Err("corruption","state rows");
+          for(uint64_t ri=0;ri<nr;++ri){Row r;if(!rd(b,r.id))throw Err("corruption","state row");r.voff.push_back(-1);for(size_t ci=1;ci<q.c.size();++ci){std::string v;int64_t o=0;if(!rs(b,v)||!rd(b,o))throw Err("corruption","state value");r.v.push_back(std::move(v));r.voff.push_back((off_t)o);}q.order.push_back(r.id);q.r.emplace(r.id,std::move(r));}
+          tabs.emplace(q.n,std::move(q));
         }
-        indexes.clear();
-        for(auto&i:z.o["i"].a)indexes.insert(i.s);
-        index_cols.clear();
-        for(auto&i:z.o["c"].o)index_cols[i.first]=(int)i.second.i;
-        vec_end=fsize(vecfile);
-        ensure_map();
-        sindex.clear();
-        for(auto&t:tabs){
-          rebuild_scalar(t.second);
-          if(!load_index(t.second))rebuild_index(t.second);
-        }
+        uint32_t ni=0,nc=0;if(!rd(b,ni)||ni>1000000u)throw Err("corruption","state indexes");for(uint32_t i=0;i<ni;++i){std::string x;if(!rs(b,x))throw Err("corruption","state index");indexes.insert(std::move(x));}
+        if(!rd(b,nc)||nc>1000000u)throw Err("corruption","state index columns");for(uint32_t i=0;i<nc;++i){std::string x;int c=0;if(!rs(b,x)||!rd(b,c))throw Err("corruption","state index column");index_cols.emplace(std::move(x),c);}
+        finish();return;
       }
-      catch(...){
-        tabs.clear();
-        indexes.clear();
-        index_cols.clear();
-        buckets.clear();
-        pqs.clear();
-        vblocks.clear();
-        sindex.clear();
-      }
+      b.close();std::ifstream f(dir+"/STATE");std::string line;if(!std::getline(f,line)||line.empty())return;
+      J z=parse(line);if(z.o.count("w"))wal_txid=(uint64_t)z.o["w"].i;
+      for(auto&x:z.o["t"].a){Table q;q.n=x.o["name"].s;for(auto&c:x.o["c"].a){Col y;y.n=c.o["n"].s;y.t=c.o["t"].s;y.d=(int)c.o["d"].i;q.c.push_back(y);}for(auto&y:x.o["r"].a){Row r;r.id=y.o["id"].i;for(auto&v:y.o["v"].a)r.v.push_back(v.s);r.voff.push_back(-1);for(auto&o:y.o["o"].a)r.voff.push_back((off_t)o.i);q.r[r.id]=r;q.order.push_back(r.id);}tabs[q.n]=q;}
+      indexes.clear();for(auto&i:z.o["i"].a)indexes.insert(i.s);index_cols.clear();for(auto&i:z.o["c"].o)index_cols[i.first]=(int)i.second.i;finish();
     }
     static void put32(std::string&o,uint32_t v){
       for(int i=0;i<4;++i)o.push_back((char)(v>>(i*8)));
@@ -719,6 +664,7 @@ namespace lite {
       uint32_t n=(uint32_t)s.size(),magic=WAL_MAGIC,crc=crc32c(s.data(),s.size());
       uint16_t flags=0;
       f.write((char*)&magic,4).write((char*)&n,4).write((char*)&tx,8).write((char*)&kind,2).write((char*)&flags,2).write((char*)&crc,4).write(s.data(),n);
+      char z[8]={};f.write(z,(8-(24+n)%8)%8);
     }
     void flush_vecbuf(){
       if(vfd>=0&&!vecbuf.empty()){
@@ -775,6 +721,8 @@ namespace lite {
         x.assign(n,0);
         if(!f.read(x.data(),n))break;
         if(crc32c(x.data(),x.size())!=crc)throw Err("corruption","wal checksum");
+        size_t pad=(8-(24+n)%8)%8;
+        if(pad&&!f.ignore((std::streamsize)pad))break;
         wal_good=(off_t)f.tellg();
         wal_txid=std::max(wal_txid,tx);
         bool current=tx>base;
@@ -885,24 +833,30 @@ namespace lite {
       vec_end+=raw.size();
       return off;
     }
-    void ensure_map()const{
-      if(mapsz==size_t(vec_end)&&vmap)return;
+    void map_window(off_t off,size_t need)const{
+      if(vmap&&off>=mapoff&&size_t(off-mapoff)+need<=mapsz)return;
       if(vmap&&mapsz)munmap(vmap,mapsz);
       vmap=nullptr;
       mapsz=0;
-      if(vec_end){
-        void*p=mmap(nullptr,vec_end,PROT_READ,MAP_SHARED,vfd,0);
+      mapoff=0;
+      if(vec_end&&vfd>=0){
+        size_t win=256u<<20;off_t base=(off/(off_t)win)*(off_t)win;
+        size_t len=(size_t)std::min<off_t>((off_t)win,vec_end-base);
+        if(len<need)len=(size_t)std::min<off_t>(vec_end-base,(off_t)need);
+        void*p=mmap(nullptr,len,PROT_READ,MAP_SHARED,vfd,base);
         if(p!=MAP_FAILED){
           vmap=p;
-          mapsz=vec_end;
+          mapsz=len;
+          mapoff=base;
         }
       }
     }
+    void ensure_map()const{map_window(0,1);}
     double l2(off_t off,int d,const std::vector<float>&q)const{
       if(off<0)return 0;
       const float*p=nullptr;
       if(off>=vecbuf_base&&size_t(off-vecbuf_base+d*4)<=vecbuf.size())p=(const float*)(vecbuf.data()+off-vecbuf_base);
-      else if(vfd>=0&&vmap&&size_t(off+d*4)<=mapsz)p=(const float*)((const char*)vmap+off);
+      else if(vfd>=0){map_window(off,d*4);if(vmap&&off>=mapoff&&size_t(off-mapoff+d*4)<=mapsz)p=(const float*)((const char*)vmap+off-mapoff);}
       if(p){
         if(d>=32&&has_avx2())return l2_avx2(p,q.data(),d);
         double z=0;
@@ -933,7 +887,8 @@ namespace lite {
         return v;
       }
       if(vfd<0)return v;
-      if(vmap&&size_t(off+d*4)<=mapsz)std::memcpy(v.data(),(char*)vmap+off,d*4);
+      map_window(off,d*4);
+      if(vmap&&off>=mapoff&&size_t(off-mapoff+d*4)<=mapsz)std::memcpy(v.data(),(char*)vmap+off-mapoff,d*4);
       else pread(vfd,v.data(),d*4,off);
       return v;
     }

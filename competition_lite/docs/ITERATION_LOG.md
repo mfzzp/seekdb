@@ -141,3 +141,11 @@
 - Added `LITE_NPROBE`, `LITE_NLIST`, `LITE_PQ_M`, `LITE_PQ_KS`, and `LITE_KMEANS_ITERS` controls for controlled validation sweeps. Query metrics now report `probed_lists`, `raw_candidates`, and `planner_path`; nprobe 1/8/32 produced 1/8/32 probed lists and different raw candidate counts on the 100k index.
 - The benchmark loader and Oracle now use mmap-backed vector access. The generator supports `--vector-mode random` in addition to the required 70/30 mixed distribution.
 - Runtime source remains 1975 physical lines. Strict protocol: 20/20; crash smoke: 20/20.
+
+## 2026-11-14 compact checkpoint and LOWMEM window pass
+
+- Replaced the large JSON DOM checkpoint with a compact binary `STATE` snapshot containing schema, rows, vector offsets, index metadata, and WAL high-water mark. Legacy JSON STATE remains readable for migration.
+- A 300k normal-memory conversion wrote the binary snapshot. Under a 1 GiB address limit, `--check` now loads one table with about 260 MiB peak RSS instead of silently clearing state after `bad_alloc`.
+- Replaced whole-file mmap with 256 MiB sliding windows. A 300k exact query under the 1 GiB limit completed in about 0.4 s; the LOWMEM 256-query bank (512 exact/ANN requests) passed with 525,996 KiB peak RSS, exact mean 91.515 ms, ANN mean 73.869 ms.
+- Added `bench/mutate_check.py` for post-index inserts, scalar/vector updates, deletes, rollback, and restart. The 80-row smoke passed after all four mutation classes.
+- Runtime source remains 1937 physical lines. Full 300k build under 1 GiB and large random-kill matrix are still pending.

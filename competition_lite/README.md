@@ -10,7 +10,7 @@ The source line checker counts physical lines, including comments and blanks:
 python3 competition_lite/tools/check_lines.py
 ```
 
-The current checker result is 1975 lines; the original 2000-line target is tracked, but correctness and measured performance take priority over artificial compression. The generator, Oracle, crash checker, benchmark driver, and summaries under `competition_lite/bench` are outside that runtime count.
+The current checker result is 1937 lines; the original 2000-line target is tracked, but correctness and measured performance take priority over artificial compression. The generator, Oracle, crash checker, benchmark driver, and summaries under `competition_lite/bench` are outside that runtime count.
 
 A small end-to-end run is:
 
@@ -24,5 +24,6 @@ python3 competition_lite/bench/verify_results.py \
   --queries /tmp/lite-run/queries.json --oracle /tmp/lite-data/oracle.jsonl
 ```
 
-The current evidence is recorded in `RESULTS.md`. WAL frames are aligned and reject complete-frame CRC corruption while truncating only incomplete tails. Manifest and index publication use temporary files; persisted indexes include a CRC and nprobe metrics expose actual bucket coverage. It includes public/strict protocol checks, LSM and restart checks, 20 crash rounds, four write modes, a small independent Oracle, a full 1024-case engine sweep at 100k/300k, and old/new timings. The plan's large Oracle, LOWMEM, full kill matrix, and submission checks remain explicitly marked as pending. The WAL is framed, checksummed, and carries typed integer/string/vector/keyword fields, but it still reconstructs mutation handlers from canonical tokens rather than a fully typed column record; SST files are not yet the sole recovery source.
+The current evidence is recorded in `RESULTS.md`. WAL frames are aligned and reject complete-frame CRC corruption while truncating only incomplete tails. Manifest and index publication use temporary files; persisted indexes include a CRC and nprobe metrics expose actual bucket coverage. Checkpoint state is binary and recovery uses windowed mmap, so the 300k LOWMEM load/check and 256-query subset stay below 1 GiB. It includes public/strict protocol checks, LSM and restart checks, 20 crash rounds, four write modes, a small independent Oracle, a full 1024-case engine sweep at 100k/300k, and old/new timings. The plan's large Oracle, LOWMEM, full kill matrix, and submission checks remain explicitly marked as pending. The WAL is framed, checksummed, and carries typed integer/string/vector/keyword fields, but it still reconstructs mutation handlers from canonical tokens rather than a fully typed column record; SST files are not yet the sole recovery source.
+
 

@@ -17,7 +17,7 @@
 | LSM flush/compaction/restart smoke | PASS, 79 live rows and L0/L1 files |
 | IVF-PQ index persistence/restart | PASS |
 | Crash recovery smoke | 20/20 PASS |
-| Runtime physical-line budget | 1975 / 2000 (current source) |
+| Runtime physical-line budget | 1937 / 2000 (current source) |
 
 The tools under `competition_lite/bench` generate the fixed eight-column schema, write `vectors.f32`, compute a blockwise mmap-backed independent Oracle, exercise S1/B256/B1024/T256, support mixed and pure-random vectors, and emit per-query JSON plus summaries.
 
@@ -63,25 +63,26 @@ These runs use the fixed 1,024-dimensional generator and B256 requests. They mea
 | 100,000 | 409,600,000 B | 64.039 s | 2.758 s | 1.120 s | 21.933 ms | 11.829 ms | PASS |
 | 300,000 | 1,228,800,000 B | 268.291 s | 7.402 s | 2.921 s | 55.736 ms | 35.003 ms | PASS |
 
-The fixed-path smoke predates the lean auto-commit optimization; the same-data write table above is the current write comparison.
+The fixed-path smoke predates the lean auto-commit optimization; the same-data write table above is the current write comparison. LOWMEM used the converted binary STATE and windowed mmap path.
 
 ## Maintenance evidence
 
-The 300k vector GC command completed in 5.498 s, kept the 1,228,800,000-byte live vector file, and a subsequent `--check` restart completed in 2.1377 s. This proves the command path and restart check, but not yet the full thresholded segment-reclamation protocol with row-id/ref-epoch evidence.
+The 300k vector GC command completed in 5.498 s, kept the 1,228,800,000-byte live vector file, and a subsequent `--check` restart completed in 2.1377 s. The compact binary STATE conversion measured about 1.1 GiB peak in the normal-memory conversion, while subsequent 1 GiB load/check used about 260 MiB. This proves the command path and restart check, but not yet the full thresholded segment-reclamation protocol with row-id/ref-epoch evidence.
 
 ## T00-T11 gap audit
 
 - **T00:** clean branch, isolated worktree, contract file, ancestor check, and local/server paths are recorded. Official unknowns still need binding from the formal package rather than assumptions.
 - **T01:** JSONL line protocol, CLI, checks, and maintenance commands work. Negative SQL coverage is not exhaustive.
 - **T02:** WAL now has aligned frames, CRC rejection, and safe incomplete-tail truncation; it still reconstructs canonical mutation tokens rather than fully typed column-level PUT/PATCH/DELETE records, and vector spool thresholds are not separately implemented.
-- **T03:** vectors are separate and mmap-readable; MemTable/Immutable/SST maintenance exists with byte/WAL thresholds configurable for small tests. SST files are not yet metadata-only sparse-block files with checksummed block directories, and checkpointed STATE remains the recovery source.
+- **T03:** vectors are separate and mmap-readable; MemTable/Immutable/SST maintenance exists with byte/WAL thresholds configurable for small tests. Checkpoint STATE is now a compact binary snapshot with a legacy JSON fallback, greatly reducing recovery memory. SST files are not yet metadata-only sparse-block files with checksummed block directories.
 - **T04:** count-based L0/L1/L2 compaction exists. Range-overlap selection, sequence/key merge semantics, safe tombstone dropping, and byte/range metrics are incomplete.
-- **T05:** exact search is independent of ANN and uses scalar postings plus safe block bounds. Small independent Oracle exact match is 1.0. A NumPy/blockwise Oracle for 100k/300k and the full plan-sized truth set is missing.
+- **T05:** exact search is independent of ANN and uses scalar postings plus safe block bounds. The independent Oracle is now mmap/blockwise and small exact match remains 1.0; a fast NumPy/compiled truth run for the complete 100k/300k bank is still missing.
 - **T06:** IVF, global non-residual PQ, ADC, raw rerank, persistence, index CRC, and nprobe observability exist. Defaults remain conservative for build time; `LITE_NLIST`, `LITE_PQ_M`, `LITE_PQ_KS`, `LITE_KMEANS_ITERS`, and `LITE_NPROBE` permit controlled sweeps. The measured small ANN recall is 0.90625 (<0.95 target).
-- **T07:** insert/update/delete and index persistence/rebuild work. VectorId/ref_epoch generations, thresholded rebuild policy, and 128-query post-update/restart/compaction/GC oracle checks are incomplete.
+- **T07:** post-index insert, scalar update, vector update, delete, rollback, and restart checks now have an executable `bench/mutate_check.py` smoke. VectorId/ref_epoch generations, thresholded rebuild policy, and 128-query post-update/compaction/GC Oracle checks remain incomplete.
 - **T08:** public/strict protocol, smoke recovery, and 20 tiny crash rounds pass. The 13-point C01-C13 matrix, ASan/UBSan, short-write/ENOSPC/interior-CRC cases, and 20 large-state random kill rounds are missing.
 - **T09:** 100k/300k B256 and the 1024-case engine sweep are recorded. S1/B1024/T256 at scale, K=1/K=100, updates/deletes, random-vector runs, and independent large truth are missing.
-- **T10:** a GC/restart smoke exists. The 1 GiB LOWMEM run, true cold-cache run, and large 20-round kill/restart matrix are missing.
+- **T10:** compact binary recovery and windowed mmap now pass a 300k LOWMEM load/check plus 256-query (512 request) subrun at 1 GiB, with about 526 MiB peak RSS; full 300k build under the cap, true storage-cold, and large 20-round kill/restart matrix remain missing.
 - **T11:** commits, line checks, ancestor checks, and reproducible local/server paths exist. Clean platform submission, ablations, and a successful remote push remain incomplete.
+
 
 
