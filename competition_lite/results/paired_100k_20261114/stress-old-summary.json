@@ -1,0 +1,311 @@
+{
+  "label": "stress-old",
+  "run": "/mnt/SSD1/zzp/seekdb-round2-lite2000/compare-100k-20261114/paired-runs/stress-old-nnrxstq7",
+  "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/compare-100k-20261114/container-binaries/baseline",
+  "binary_sha256": "84d2ccf317d65dc66f149a9b42a48697214024f8d53fa59f24294d2a9d1e3ae3",
+  "prepared": "/mnt/SSD1/zzp/seekdb-round2-lite2000/compare-100k-20261114/stress-prepared",
+  "insert_sha256": "87a35e6d87aa14772a3737ea9ee9b7b9c31709ea5d82ac8f366d146dca4aac9e",
+  "query_cases_sha256": "50b89b0d8ee5dbc6148f19028dfe14763c39f2e2cd6c0ec3c1cc944533f650e6",
+  "rows": 100000,
+  "dim": 1024,
+  "batch": 256,
+  "requests": 391,
+  "startup_s": 0.2992734231520444,
+  "insert_request_s": 38.884045756654814,
+  "insert_wall_s": 40.12557383207604,
+  "insert_cpu_s": 37.357557,
+  "index_s": 0.0024499560240656137,
+  "warmup_s": 0.6900020248722285,
+  "write_drain_s": 0.008002297021448612,
+  "query_wall_s": 31.56260553514585,
+  "query_drain_s": 0.020337586058303714,
+  "checkpoint_s": 0.8761048780288547,
+  "restart_s": 0.6270196260884404,
+  "restart_pass": true,
+  "verified_rows": 100000,
+  "correctness_check_s": 92.64709438406862,
+  "image_id": "sha256:acf8897bf01a3a0ea273a50a58fc10b6317a3e360bd29aa7c9246a54d7c63e88",
+  "resources": {
+    "initial": {
+      "device": "259:4",
+      "io": null,
+      "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+      "process_diagnostics_not_official_B": null,
+      "memory_peak_bytes": 6230016,
+      "memory_current_bytes": 1777664,
+      "cpu_s": 0.036236,
+      "memory_events": {
+        "low": "0",
+        "high": "0",
+        "max": "0",
+        "oom": "0",
+        "oom_kill": "0",
+        "oom_group_kill": "0"
+      },
+      "cpu_max": "200000 100000",
+      "memory_max": "2147483648",
+      "swap_max": "0"
+    },
+    "write_end": {
+      "device": "259:4",
+      "io": null,
+      "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+      "process_diagnostics_not_official_B": {
+        "cpu_s": 37.37,
+        "rchar": 1249571023,
+        "wchar": 551911000,
+        "syscr": 305236,
+        "syscw": 81839,
+        "read_bytes": 0,
+        "write_bytes": 553500672,
+        "cancelled_write_bytes": 0,
+        "peak_rss_kib": 500984
+      },
+      "memory_peak_bytes": 1079537664,
+      "memory_current_bytes": 1061588992,
+      "cpu_s": 37.416312,
+      "memory_events": {
+        "low": "0",
+        "high": "0",
+        "max": "0",
+        "oom": "0",
+        "oom_kill": "0",
+        "oom_group_kill": "0"
+      },
+      "cpu_max": "200000 100000",
+      "memory_max": "2147483648",
+      "swap_max": "0"
+    },
+    "query_prepared": {
+      "device": "259:4",
+      "io": null,
+      "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+      "process_diagnostics_not_official_B": {
+        "cpu_s": 38.02,
+        "rchar": 1250025231,
+        "wchar": 551920215,
+        "syscr": 305381,
+        "syscw": 81878,
+        "read_bytes": 0,
+        "write_bytes": 553504768,
+        "cancelled_write_bytes": 0,
+        "peak_rss_kib": 500984
+      },
+      "memory_peak_bytes": 1079537664,
+      "memory_current_bytes": 1068666880,
+      "cpu_s": 38.069875,
+      "memory_events": {
+        "low": "0",
+        "high": "0",
+        "max": "0",
+        "oom": "0",
+        "oom_kill": "0",
+        "oom_group_kill": "0"
+      },
+      "cpu_max": "200000 100000",
+      "memory_max": "2147483648",
+      "swap_max": "0"
+    },
+    "query_end": {
+      "device": "259:4",
+      "io": null,
+      "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+      "process_diagnostics_not_official_B": {
+        "cpu_s": 68.05,
+        "rchar": 1275881735,
+        "wchar": 552439331,
+        "syscr": 313573,
+        "syscw": 83926,
+        "read_bytes": 0,
+        "write_bytes": 553504768,
+        "cancelled_write_bytes": 0,
+        "peak_rss_kib": 509284
+      },
+      "memory_peak_bytes": 1087660032,
+      "memory_current_bytes": 1087660032,
+      "cpu_s": 68.098719,
+      "memory_events": {
+        "low": "0",
+        "high": "0",
+        "max": "0",
+        "oom": "0",
+        "oom_kill": "0",
+        "oom_group_kill": "0"
+      },
+      "cpu_max": "200000 100000",
+      "memory_max": "2147483648",
+      "swap_max": "0"
+    },
+    "after_shutdown": {
+      "device": "259:4",
+      "io": null,
+      "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+      "process_diagnostics_not_official_B": null,
+      "memory_peak_bytes": 1945133056,
+      "memory_current_bytes": 1356042240,
+      "cpu_s": 68.896384,
+      "memory_events": {
+        "low": "0",
+        "high": "0",
+        "max": "0",
+        "oom": "0",
+        "oom_kill": "0",
+        "oom_group_kill": "0"
+      },
+      "cpu_max": "200000 100000",
+      "memory_max": "2147483648",
+      "swap_max": "0"
+    }
+  },
+  "final_file_bytes": 1727853180,
+  "verification": {
+    "ann": {
+      "cases": 1024,
+      "mean_ms": 14.78432154112852,
+      "id_order_match": 1.0,
+      "recall": 1.0,
+      "mismatch_ids": [],
+      "distance_error_ids": [],
+      "invalid_ids": [],
+      "filters": {
+        "none": {
+          "n": 114,
+          "mean_ms": 58.24116741821758,
+          "p50_ms": 55.92638102825731,
+          "p95_ms": 64.51150705106556,
+          "recall": 1.0
+        },
+        "category": {
+          "n": 114,
+          "mean_ms": 4.125015456801313,
+          "p50_ms": 4.05855244025588,
+          "p95_ms": 4.641532897949219,
+          "recall": 1.0
+        },
+        "tenant": {
+          "n": 114,
+          "mean_ms": 7.82630729219435,
+          "p50_ms": 7.755163591355085,
+          "p95_ms": 8.56017298065126,
+          "recall": 1.0
+        },
+        "category_tenant": {
+          "n": 114,
+          "mean_ms": 1.0214190431788825,
+          "p50_ms": 1.011027954518795,
+          "p95_ms": 1.1788478586822748,
+          "recall": 1.0
+        },
+        "price_range": {
+          "n": 114,
+          "mean_ms": 26.368283280661625,
+          "p50_ms": 25.88448452297598,
+          "p95_ms": 28.492706129327416,
+          "recall": 1.0
+        },
+        "active_day": {
+          "n": 114,
+          "mean_ms": 25.421304372956225,
+          "p50_ms": 25.106616551056504,
+          "p95_ms": 27.57565607316792,
+          "recall": 1.0
+        },
+        "missing_category": {
+          "n": 114,
+          "mean_ms": 0.4621137060192332,
+          "p50_ms": 0.4442954668775201,
+          "p95_ms": 0.5730469711124897
+        },
+        "id_small": {
+          "n": 113,
+          "mean_ms": 4.198481330845867,
+          "p50_ms": 4.108731867745519,
+          "p95_ms": 4.988017026335001,
+          "recall": 1.0
+        },
+        "title_exact": {
+          "n": 113,
+          "mean_ms": 5.218028873864529,
+          "p50_ms": 5.14176394790411,
+          "p95_ms": 6.023209076374769,
+          "recall": 1.0
+        }
+      },
+      "passed": true
+    },
+    "exact": {
+      "cases": 1024,
+      "mean_ms": 15.35726575730223,
+      "id_order_match": 1.0,
+      "recall": 1.0,
+      "mismatch_ids": [],
+      "distance_error_ids": [],
+      "invalid_ids": [],
+      "filters": {
+        "none": {
+          "n": 114,
+          "mean_ms": 58.66695177055111,
+          "p50_ms": 56.76818441133946,
+          "p95_ms": 64.30963706225157,
+          "recall": 1.0
+        },
+        "category": {
+          "n": 114,
+          "mean_ms": 4.730175723109329,
+          "p50_ms": 4.6481669414788485,
+          "p95_ms": 5.3593788761645555,
+          "recall": 1.0
+        },
+        "tenant": {
+          "n": 114,
+          "mean_ms": 8.126791621754435,
+          "p50_ms": 8.057322003878653,
+          "p95_ms": 8.758655982092023,
+          "recall": 1.0
+        },
+        "category_tenant": {
+          "n": 114,
+          "mean_ms": 1.3064710860418385,
+          "p50_ms": 1.2753320625051856,
+          "p95_ms": 1.537518110126257,
+          "recall": 1.0
+        },
+        "price_range": {
+          "n": 114,
+          "mean_ms": 26.943145037971828,
+          "p50_ms": 26.605100953020155,
+          "p95_ms": 28.6299551371485,
+          "recall": 1.0
+        },
+        "active_day": {
+          "n": 114,
+          "mean_ms": 26.117546606416767,
+          "p50_ms": 25.884304428473115,
+          "p95_ms": 27.925590984523296,
+          "recall": 1.0
+        },
+        "missing_category": {
+          "n": 114,
+          "mean_ms": 0.7743300919077898,
+          "p50_ms": 0.73573540430516,
+          "p95_ms": 1.1499000247567892
+        },
+        "id_small": {
+          "n": 113,
+          "mean_ms": 5.310741570506212,
+          "p50_ms": 5.213437834754586,
+          "p95_ms": 5.847990978509188,
+          "recall": 1.0
+        },
+        "title_exact": {
+          "n": 113,
+          "mean_ms": 6.069640505366621,
+          "p50_ms": 5.970288068056107,
+          "p95_ms": 6.5609419252723455,
+          "recall": 1.0
+        }
+      },
+      "passed": true
+    }
+  }
+}

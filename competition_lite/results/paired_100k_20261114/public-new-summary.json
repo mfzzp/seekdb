@@ -1,0 +1,189 @@
+{
+  "label": "public-new",
+  "run": "/mnt/SSD1/zzp/seekdb-round2-lite2000/compare-100k-20261114/paired-runs/public-new-hqi4sak4",
+  "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/compare-100k-20261114/container-binaries/lite",
+  "binary_sha256": "4beb2759eb3a77080d9e191c2d914acfe5d20dfa10924052a63193db98760e15",
+  "prepared": "/mnt/SSD1/zzp/seekdb-round2-lite2000/compare-100k-20261114/public-prepared",
+  "insert_sha256": "0dd811760872756e6b00f2fa5c1d53e77c1805839b4ec8ae8d16e9dd8aceeb01",
+  "query_cases_sha256": "c8ecc80cf5baca8a83204a54ad07cf8737c46e56b1175e216aea0f8469afc504",
+  "rows": 100000,
+  "dim": 128,
+  "batch": 100,
+  "requests": 1000,
+  "startup_s": 0.309819565853104,
+  "insert_request_s": 6.3583393869921565,
+  "insert_wall_s": 6.495416424935684,
+  "insert_cpu_s": 1.71356,
+  "index_s": 1.2913826100993901,
+  "warmup_s": 0.16956045594997704,
+  "write_drain_s": 0.008711820002645254,
+  "query_wall_s": 5.134897299110889,
+  "query_drain_s": 0.012116417987272143,
+  "checkpoint_s": 0.502816605148837,
+  "restart_s": 1.8102262739557773,
+  "restart_pass": true,
+  "verified_rows": 100000,
+  "correctness_check_s": 15.86858176602982,
+  "image_id": "sha256:acf8897bf01a3a0ea273a50a58fc10b6317a3e360bd29aa7c9246a54d7c63e88",
+  "resources": {
+    "initial": {
+      "device": "259:4",
+      "io": null,
+      "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+      "process_diagnostics_not_official_B": null,
+      "memory_peak_bytes": 5701632,
+      "memory_current_bytes": 2097152,
+      "cpu_s": 0.0364,
+      "memory_events": {
+        "low": "0",
+        "high": "0",
+        "max": "0",
+        "oom": "0",
+        "oom_kill": "0",
+        "oom_group_kill": "0"
+      },
+      "cpu_max": "200000 100000",
+      "memory_max": "2147483648",
+      "swap_max": "0"
+    },
+    "write_end": {
+      "device": "259:4",
+      "io": null,
+      "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+      "process_diagnostics_not_official_B": {
+        "cpu_s": 1.72,
+        "rchar": 192595217,
+        "wchar": 70814981,
+        "syscr": 25905,
+        "syscw": 5427,
+        "read_bytes": 4096,
+        "write_bytes": 76918784,
+        "cancelled_write_bytes": 0,
+        "peak_rss_kib": 83872
+      },
+      "memory_peak_bytes": 156729344,
+      "memory_current_bytes": 156729344,
+      "cpu_s": 1.770747,
+      "memory_events": {
+        "low": "0",
+        "high": "0",
+        "max": "0",
+        "oom": "0",
+        "oom_kill": "0",
+        "oom_group_kill": "0"
+      },
+      "cpu_max": "200000 100000",
+      "memory_max": "2147483648",
+      "swap_max": "0"
+    },
+    "query_prepared": {
+      "device": "259:4",
+      "io": null,
+      "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+      "process_diagnostics_not_official_B": {
+        "cpu_s": 3.17,
+        "rchar": 195851152,
+        "wchar": 74049255,
+        "syscr": 26319,
+        "syscw": 5842,
+        "read_bytes": 8192,
+        "write_bytes": 80150528,
+        "cancelled_write_bytes": 0,
+        "peak_rss_kib": 254308
+      },
+      "memory_peak_bytes": 283774976,
+      "memory_current_bytes": 283774976,
+      "cpu_s": 3.211282,
+      "memory_events": {
+        "low": "0",
+        "high": "0",
+        "max": "0",
+        "oom": "0",
+        "oom_kill": "0",
+        "oom_group_kill": "0"
+      },
+      "cpu_max": "200000 100000",
+      "memory_max": "2147483648",
+      "swap_max": "0"
+    },
+    "query_end": {
+      "device": "259:4",
+      "io": null,
+      "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+      "process_diagnostics_not_official_B": {
+        "cpu_s": 7.99,
+        "rchar": 197611232,
+        "wchar": 74554126,
+        "syscr": 27319,
+        "syscw": 6842,
+        "read_bytes": 8192,
+        "write_bytes": 80150528,
+        "cancelled_write_bytes": 0,
+        "peak_rss_kib": 254308
+      },
+      "memory_peak_bytes": 283774976,
+      "memory_current_bytes": 283201536,
+      "cpu_s": 8.02951,
+      "memory_events": {
+        "low": "0",
+        "high": "0",
+        "max": "0",
+        "oom": "0",
+        "oom_kill": "0",
+        "oom_group_kill": "0"
+      },
+      "cpu_max": "200000 100000",
+      "memory_max": "2147483648",
+      "swap_max": "0"
+    },
+    "after_shutdown": {
+      "device": "259:4",
+      "io": null,
+      "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+      "process_diagnostics_not_official_B": null,
+      "memory_peak_bytes": 298577920,
+      "memory_current_bytes": 84627456,
+      "cpu_s": 8.445329,
+      "memory_events": {
+        "low": "0",
+        "high": "0",
+        "max": "0",
+        "oom": "0",
+        "oom_kill": "0",
+        "oom_group_kill": "0"
+      },
+      "cpu_max": "200000 100000",
+      "memory_max": "2147483648",
+      "swap_max": "0"
+    }
+  },
+  "final_file_bytes": 81010004,
+  "verification": {
+    "exact": {
+      "cases": 1000,
+      "mean_ms": 5.014224547892809,
+      "id_order_match": 1.0,
+      "recall": 1.0,
+      "mismatch_ids": [],
+      "distance_error_ids": [],
+      "invalid_ids": [],
+      "filters": {
+        "none": {
+          "n": 500,
+          "mean_ms": 6.401007127482444,
+          "p50_ms": 6.428788881748915,
+          "p95_ms": 7.272806949913502,
+          "recall": 1.0
+        },
+        "category": {
+          "n": 500,
+          "mean_ms": 3.627441968303174,
+          "p50_ms": 3.584255580790341,
+          "p95_ms": 4.132556961849332,
+          "recall": 1.0
+        }
+      },
+      "passed": true
+    }
+  }
+}

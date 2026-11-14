@@ -1,0 +1,95 @@
+{
+  "new_commit": "2974219cc152b6f8530158fad9767b1bba54a48a",
+  "old_commit": "449bba12112755a1a3061a422b383587a5bb468a",
+  "compiled_with": "g++ (Debian 12.2.0-14+deb12u1) 12.2.0",
+  "flags": "-O3 -DNDEBUG -std=c++17 -Wall -Wextra",
+  "runtime_lines": 2185,
+  "started": "2026-11-14T21:29:02.302605+08:00",
+  "runs_per_pair": 1,
+  "resources": "2 CPU quota, CPUs 0/1 affinity, 2 GiB cgroup memory, swap disabled, network none",
+  "io_limitation": "rootless delegated cpu/memory/pids only; no io.stat; no official B or composite score",
+  "cache_policy": "fresh data directory and container; preload request file outside timer; load/index plus 18 disjoint warmup cases per mode; no host-wide cache drop",
+  "binaries": {
+    "baseline": "84d2ccf317d65dc66f149a9b42a48697214024f8d53fa59f24294d2a9d1e3ae3",
+    "lite": "4beb2759eb3a77080d9e191c2d914acfe5d20dfa10924052a63193db98760e15"
+  },
+  "prepared": {
+    "public": {
+      "data": "/mnt/SSD1/zzp/seekdb-round2-lite2000/compare-100k-20261114/public-input",
+      "rows": 100000,
+      "dim": 128,
+      "batch": 100,
+      "requests": 1000,
+      "request_bytes": 163356617,
+      "max_request_bytes": 163727,
+      "insert_sha256": "0dd811760872756e6b00f2fa5c1d53e77c1805839b4ec8ae8d16e9dd8aceeb01",
+      "query_cases_sha256": "c8ecc80cf5baca8a83204a54ad07cf8737c46e56b1175e216aea0f8469afc504",
+      "input_manifest": {
+        "rows": 100000,
+        "dimension": 128,
+        "schema_columns": 4,
+        "seed": 20261111,
+        "distribution": "local independent N(0,0.5^2), 20 balanced categories; official generator unavailable",
+        "source": "published parameters and SQL example; synthetic generator is ours, not organizer code",
+        "spec_url": "https://oceanbase.yuque.com/org-wiki-obtech-vh7w9r/hc3pio/lg8enxlmwg69unt6",
+        "sha256": {
+          "vectors.f32": "98767caa1b4ec9d34ff304a52893df28941fc523e74dfef5b9ba97b55073d523",
+          "rows.jsonl": "8eab42286112bed16a5cd6fe0c29cf364cbdf5539b483a17a4d595cabf816a21",
+          "load_order.u32": "cb6bfc69ebdd515012c2b9c2b3973530684982ecf2b9ff20fce2ec424ca355b3",
+          "query_cases.jsonl": "8b22f383c9803fe868f5ae5fda95e15dc8a82a8811b94944d110aad3db0d8f33"
+        }
+      },
+      "prepare_s": 4.564600287005305,
+      "modes": [
+        "exact"
+      ],
+      "columns": [
+        "id",
+        "category",
+        "content"
+      ],
+      "schema_sql": "CREATE TABLE docs (id BIGINT PRIMARY KEY, category VARCHAR(32), content VARCHAR(1024), embedding VECTOR(128));"
+    },
+    "stress": {
+      "data": "/mnt/SSD1/zzp/seekdb-round2-lite2000/compare-100k-20261114/input",
+      "rows": 100000,
+      "dim": 1024,
+      "batch": 256,
+      "requests": 391,
+      "request_bytes": 1249513518,
+      "max_request_bytes": 3200320,
+      "insert_sha256": "87a35e6d87aa14772a3737ea9ee9b7b9c31709ea5d82ac8f366d146dca4aac9e",
+      "query_cases_sha256": "50b89b0d8ee5dbc6148f19028dfe14763c39f2e2cd6c0ec3c1cc944533f650e6",
+      "input_manifest": {
+        "rows": 100000,
+        "dimension": 1024,
+        "seed": 20261113,
+        "vector_mode": "mixed",
+        "schema_columns": 8,
+        "vector_file": "vectors.f32",
+        "rows_file": "rows.jsonl",
+        "sha256": {
+          "vectors.f32": "921ae490d569d4fb1318c6b732c545c9ce1b9cf4fa7d55ba29139f27b535a94b",
+          "rows.jsonl": "a7e4c4a240a79c0b061a4b16d40db6439ce8d702c80f7841448ab4e0d1936c54",
+          "load_order.u32": "bb631f80fd303d319e5e20b83e1a1d85b688a55b12d8c76989a6b6ce43ee2101",
+          "query_cases.jsonl": "e274e19a68f79fb188ae8924532fc0258335f5f74eb5383df57c72997afc854b"
+        }
+      },
+      "prepare_s": 31.915331203024834,
+      "modes": [
+        "exact",
+        "ann"
+      ],
+      "columns": [
+        "id",
+        "category",
+        "tenant_id",
+        "price_cents",
+        "created_day",
+        "active",
+        "title"
+      ],
+      "schema_sql": "CREATE TABLE docs (id BIGINT PRIMARY KEY, category VARCHAR(8), tenant_id BIGINT, price_cents BIGINT, created_day BIGINT, active BIGINT, title VARCHAR(64), embedding VECTOR(1024));"
+    }
+  }
+}

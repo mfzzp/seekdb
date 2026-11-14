@@ -2,7 +2,9 @@
 
 This directory is the clean-room C++17 implementation for the bound competition JSONL contract. The runtime entrypoint is `src/minivectordb_lite.cpp`; it does not include or link the previous `minivectordb.cpp` implementation.
 
-The runtime is deliberately single-writer. It has private transaction write sets, framed CRC WAL, a float32 vector file with mmap-on-demand reads, a bounded continuous-vector matrix cache for small tables, persisted scalar postings and full-coordinate Block statistics, MemTable/Immutable/SST maintenance, checkpointed recovery state, exact Top-K, IVF with global non-residual PQ and raw-vector reranking, index persistence, and vector GC. Read-only SELECT executes against current state without a result cache.
+The runtime is deliberately single-writer. It has transaction handling, framed CRC WAL, a float32 vector file with mmap-on-demand reads, a bounded continuous-vector matrix cache for small tables, persisted scalar postings and full-coordinate Block statistics, MemTable/Immutable/SST maintenance, checkpointed recovery state, exact Top-K, IVF with global non-residual PQ and raw-vector reranking, index persistence, and vector GC. BEGIN still copies table state; incremental private write sets remain incomplete. SST is not yet the authoritative read/recovery path. Read-only SELECT executes against current state without a result cache.
+
+The latest controlled C++ comparison is [COMPARE_100K_20261114.md](docs/COMPARE_100K_20261114.md). Both datasets passed exact and full-row restart verification, but the new 1024-dimensional query path regressed and unfiltered ANN recall was only 3.60%. This is not a completion or competition-readiness claim.
 
 The source line checker counts physical lines, including comments and blanks:
 
@@ -10,7 +12,7 @@ The source line checker counts physical lines, including comments and blanks:
 python3 competition_lite/tools/check_lines.py
 ```
 
-The current checker result is 2175 lines; the original 2000-line target is exceeded by explicit runtime index/statistics and cache paths. Correctness and measured performance take priority over artificial compression. The generator, Oracle, crash checker, benchmark driver, and summaries under `competition_lite/bench` are outside that runtime count.
+The current source count is 2185 physical lines; the checker's original 2000-line ceiling is exceeded. Correctness and measured performance take priority over artificial compression. The generator, Oracle, crash checker, benchmark driver, and summaries under `competition_lite/bench` are outside that runtime count.
 
 The latest write measurements and their hardware limits are in [WRITE_LIMITS_20261114.md](docs/WRITE_LIMITS_20261114.md). JSONL input buffering and bulk string scanning reduce CPU cost without reducing commit syncs. STATE v3 records the checkpoint vector boundary for WAL recovery. Legacy v2/JSON state is accepted only with an empty WAL because it lacks that boundary; nonempty legacy WAL is rejected rather than assigned guessed offsets. Bulk recovery checks now verify nonzero vector distances as well as row IDs.
 

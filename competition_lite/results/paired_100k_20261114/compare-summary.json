@@ -1,0 +1,1128 @@
+{
+  "runs": [
+    {
+      "label": "public-old",
+      "run": "/mnt/SSD1/zzp/seekdb-round2-lite2000/compare-100k-20261114/paired-runs/public-old-gw8vgjn8",
+      "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/compare-100k-20261114/container-binaries/baseline",
+      "binary_sha256": "84d2ccf317d65dc66f149a9b42a48697214024f8d53fa59f24294d2a9d1e3ae3",
+      "prepared": "/mnt/SSD1/zzp/seekdb-round2-lite2000/compare-100k-20261114/public-prepared",
+      "insert_sha256": "0dd811760872756e6b00f2fa5c1d53e77c1805839b4ec8ae8d16e9dd8aceeb01",
+      "query_cases_sha256": "c8ecc80cf5baca8a83204a54ad07cf8737c46e56b1175e216aea0f8469afc504",
+      "rows": 100000,
+      "dim": 128,
+      "batch": 100,
+      "requests": 1000,
+      "startup_s": 0.32557671307586133,
+      "insert_request_s": 7.120212370995432,
+      "insert_wall_s": 7.27953464910388,
+      "insert_cpu_s": 4.590806,
+      "index_s": 0.0024492009542882442,
+      "warmup_s": 0.20561339892446995,
+      "write_drain_s": 0.00450599892064929,
+      "query_wall_s": 9.918042511912063,
+      "query_drain_s": 0.0070851880591362715,
+      "checkpoint_s": 0.29713968094438314,
+      "restart_s": 0.4177071419544518,
+      "restart_pass": true,
+      "verified_rows": 100000,
+      "correctness_check_s": 15.39017043588683,
+      "image_id": "sha256:acf8897bf01a3a0ea273a50a58fc10b6317a3e360bd29aa7c9246a54d7c63e88",
+      "resources": {
+        "initial": {
+          "device": "259:4",
+          "io": null,
+          "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+          "process_diagnostics_not_official_B": null,
+          "memory_peak_bytes": 7016448,
+          "memory_current_bytes": 2826240,
+          "cpu_s": 0.038898,
+          "memory_events": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0"
+          },
+          "cpu_max": "200000 100000",
+          "memory_max": "2147483648",
+          "swap_max": "0"
+        },
+        "write_end": {
+          "device": "259:4",
+          "io": null,
+          "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+          "process_diagnostics_not_official_B": {
+            "cpu_s": 4.61,
+            "rchar": 163414053,
+            "wchar": 55319982,
+            "syscr": 40040,
+            "syscw": 2006,
+            "read_bytes": 8192,
+            "write_bytes": 59367424,
+            "cancelled_write_bytes": 0,
+            "peak_rss_kib": 97080
+          },
+          "memory_peak_bytes": 155021312,
+          "memory_current_bytes": 155021312,
+          "cpu_s": 4.651898,
+          "memory_events": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0"
+          },
+          "cpu_max": "200000 100000",
+          "memory_max": "2147483648",
+          "swap_max": "0"
+        },
+        "query_prepared": {
+          "device": "259:4",
+          "io": null,
+          "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+          "process_diagnostics_not_official_B": {
+            "cpu_s": 4.8,
+            "rchar": 163444992,
+            "wchar": 55325624,
+            "syscr": 40059,
+            "syscw": 2026,
+            "read_bytes": 8192,
+            "write_bytes": 59371520,
+            "cancelled_write_bytes": 0,
+            "peak_rss_kib": 102488
+          },
+          "memory_peak_bytes": 161775616,
+          "memory_current_bytes": 158244864,
+          "cpu_s": 4.844213,
+          "memory_events": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0"
+          },
+          "cpu_max": "200000 100000",
+          "memory_max": "2147483648",
+          "swap_max": "0"
+        },
+        "query_end": {
+          "device": "259:4",
+          "io": null,
+          "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+          "process_diagnostics_not_official_B": {
+            "cpu_s": 14.16,
+            "rchar": 165205072,
+            "wchar": 55634423,
+            "syscr": 41059,
+            "syscw": 3026,
+            "read_bytes": 8192,
+            "write_bytes": 59371520,
+            "cancelled_write_bytes": 0,
+            "peak_rss_kib": 104964
+          },
+          "memory_peak_bytes": 163651584,
+          "memory_current_bytes": 160141312,
+          "cpu_s": 14.2052,
+          "memory_events": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0"
+          },
+          "cpu_max": "200000 100000",
+          "memory_max": "2147483648",
+          "swap_max": "0"
+        },
+        "after_shutdown": {
+          "device": "259:4",
+          "io": null,
+          "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+          "process_diagnostics_not_official_B": null,
+          "memory_peak_bytes": 275734528,
+          "memory_current_bytes": 173793280,
+          "cpu_s": 14.464184,
+          "memory_events": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0"
+          },
+          "cpu_max": "200000 100000",
+          "memory_max": "2147483648",
+          "swap_max": "0"
+        }
+      },
+      "final_file_bytes": 220222080,
+      "verification": {
+        "exact": {
+          "cases": 1000,
+          "mean_ms": 9.810716544510797,
+          "id_order_match": 1.0,
+          "recall": 1.0,
+          "mismatch_ids": [],
+          "distance_error_ids": [],
+          "invalid_ids": [],
+          "filters": {
+            "none": {
+              "n": 500,
+              "mean_ms": 17.3244628761895,
+              "p50_ms": 17.33938546385616,
+              "p95_ms": 18.352281069383025,
+              "recall": 1.0
+            },
+            "category": {
+              "n": 500,
+              "mean_ms": 2.2969702128320932,
+              "p50_ms": 2.2904890356585383,
+              "p95_ms": 2.5656861253082752,
+              "recall": 1.0
+            }
+          },
+          "passed": true
+        }
+      },
+      "name": "public-old",
+      "completed": true
+    },
+    {
+      "label": "public-new",
+      "run": "/mnt/SSD1/zzp/seekdb-round2-lite2000/compare-100k-20261114/paired-runs/public-new-hqi4sak4",
+      "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/compare-100k-20261114/container-binaries/lite",
+      "binary_sha256": "4beb2759eb3a77080d9e191c2d914acfe5d20dfa10924052a63193db98760e15",
+      "prepared": "/mnt/SSD1/zzp/seekdb-round2-lite2000/compare-100k-20261114/public-prepared",
+      "insert_sha256": "0dd811760872756e6b00f2fa5c1d53e77c1805839b4ec8ae8d16e9dd8aceeb01",
+      "query_cases_sha256": "c8ecc80cf5baca8a83204a54ad07cf8737c46e56b1175e216aea0f8469afc504",
+      "rows": 100000,
+      "dim": 128,
+      "batch": 100,
+      "requests": 1000,
+      "startup_s": 0.309819565853104,
+      "insert_request_s": 6.3583393869921565,
+      "insert_wall_s": 6.495416424935684,
+      "insert_cpu_s": 1.71356,
+      "index_s": 1.2913826100993901,
+      "warmup_s": 0.16956045594997704,
+      "write_drain_s": 0.008711820002645254,
+      "query_wall_s": 5.134897299110889,
+      "query_drain_s": 0.012116417987272143,
+      "checkpoint_s": 0.502816605148837,
+      "restart_s": 1.8102262739557773,
+      "restart_pass": true,
+      "verified_rows": 100000,
+      "correctness_check_s": 15.86858176602982,
+      "image_id": "sha256:acf8897bf01a3a0ea273a50a58fc10b6317a3e360bd29aa7c9246a54d7c63e88",
+      "resources": {
+        "initial": {
+          "device": "259:4",
+          "io": null,
+          "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+          "process_diagnostics_not_official_B": null,
+          "memory_peak_bytes": 5701632,
+          "memory_current_bytes": 2097152,
+          "cpu_s": 0.0364,
+          "memory_events": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0"
+          },
+          "cpu_max": "200000 100000",
+          "memory_max": "2147483648",
+          "swap_max": "0"
+        },
+        "write_end": {
+          "device": "259:4",
+          "io": null,
+          "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+          "process_diagnostics_not_official_B": {
+            "cpu_s": 1.72,
+            "rchar": 192595217,
+            "wchar": 70814981,
+            "syscr": 25905,
+            "syscw": 5427,
+            "read_bytes": 4096,
+            "write_bytes": 76918784,
+            "cancelled_write_bytes": 0,
+            "peak_rss_kib": 83872
+          },
+          "memory_peak_bytes": 156729344,
+          "memory_current_bytes": 156729344,
+          "cpu_s": 1.770747,
+          "memory_events": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0"
+          },
+          "cpu_max": "200000 100000",
+          "memory_max": "2147483648",
+          "swap_max": "0"
+        },
+        "query_prepared": {
+          "device": "259:4",
+          "io": null,
+          "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+          "process_diagnostics_not_official_B": {
+            "cpu_s": 3.17,
+            "rchar": 195851152,
+            "wchar": 74049255,
+            "syscr": 26319,
+            "syscw": 5842,
+            "read_bytes": 8192,
+            "write_bytes": 80150528,
+            "cancelled_write_bytes": 0,
+            "peak_rss_kib": 254308
+          },
+          "memory_peak_bytes": 283774976,
+          "memory_current_bytes": 283774976,
+          "cpu_s": 3.211282,
+          "memory_events": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0"
+          },
+          "cpu_max": "200000 100000",
+          "memory_max": "2147483648",
+          "swap_max": "0"
+        },
+        "query_end": {
+          "device": "259:4",
+          "io": null,
+          "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+          "process_diagnostics_not_official_B": {
+            "cpu_s": 7.99,
+            "rchar": 197611232,
+            "wchar": 74554126,
+            "syscr": 27319,
+            "syscw": 6842,
+            "read_bytes": 8192,
+            "write_bytes": 80150528,
+            "cancelled_write_bytes": 0,
+            "peak_rss_kib": 254308
+          },
+          "memory_peak_bytes": 283774976,
+          "memory_current_bytes": 283201536,
+          "cpu_s": 8.02951,
+          "memory_events": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0"
+          },
+          "cpu_max": "200000 100000",
+          "memory_max": "2147483648",
+          "swap_max": "0"
+        },
+        "after_shutdown": {
+          "device": "259:4",
+          "io": null,
+          "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+          "process_diagnostics_not_official_B": null,
+          "memory_peak_bytes": 298577920,
+          "memory_current_bytes": 84627456,
+          "cpu_s": 8.445329,
+          "memory_events": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0"
+          },
+          "cpu_max": "200000 100000",
+          "memory_max": "2147483648",
+          "swap_max": "0"
+        }
+      },
+      "final_file_bytes": 81010004,
+      "verification": {
+        "exact": {
+          "cases": 1000,
+          "mean_ms": 5.014224547892809,
+          "id_order_match": 1.0,
+          "recall": 1.0,
+          "mismatch_ids": [],
+          "distance_error_ids": [],
+          "invalid_ids": [],
+          "filters": {
+            "none": {
+              "n": 500,
+              "mean_ms": 6.401007127482444,
+              "p50_ms": 6.428788881748915,
+              "p95_ms": 7.272806949913502,
+              "recall": 1.0
+            },
+            "category": {
+              "n": 500,
+              "mean_ms": 3.627441968303174,
+              "p50_ms": 3.584255580790341,
+              "p95_ms": 4.132556961849332,
+              "recall": 1.0
+            }
+          },
+          "passed": true
+        }
+      },
+      "name": "public-new",
+      "completed": true
+    },
+    {
+      "label": "stress-old",
+      "run": "/mnt/SSD1/zzp/seekdb-round2-lite2000/compare-100k-20261114/paired-runs/stress-old-nnrxstq7",
+      "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/compare-100k-20261114/container-binaries/baseline",
+      "binary_sha256": "84d2ccf317d65dc66f149a9b42a48697214024f8d53fa59f24294d2a9d1e3ae3",
+      "prepared": "/mnt/SSD1/zzp/seekdb-round2-lite2000/compare-100k-20261114/stress-prepared",
+      "insert_sha256": "87a35e6d87aa14772a3737ea9ee9b7b9c31709ea5d82ac8f366d146dca4aac9e",
+      "query_cases_sha256": "50b89b0d8ee5dbc6148f19028dfe14763c39f2e2cd6c0ec3c1cc944533f650e6",
+      "rows": 100000,
+      "dim": 1024,
+      "batch": 256,
+      "requests": 391,
+      "startup_s": 0.2992734231520444,
+      "insert_request_s": 38.884045756654814,
+      "insert_wall_s": 40.12557383207604,
+      "insert_cpu_s": 37.357557,
+      "index_s": 0.0024499560240656137,
+      "warmup_s": 0.6900020248722285,
+      "write_drain_s": 0.008002297021448612,
+      "query_wall_s": 31.56260553514585,
+      "query_drain_s": 0.020337586058303714,
+      "checkpoint_s": 0.8761048780288547,
+      "restart_s": 0.6270196260884404,
+      "restart_pass": true,
+      "verified_rows": 100000,
+      "correctness_check_s": 92.64709438406862,
+      "image_id": "sha256:acf8897bf01a3a0ea273a50a58fc10b6317a3e360bd29aa7c9246a54d7c63e88",
+      "resources": {
+        "initial": {
+          "device": "259:4",
+          "io": null,
+          "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+          "process_diagnostics_not_official_B": null,
+          "memory_peak_bytes": 6230016,
+          "memory_current_bytes": 1777664,
+          "cpu_s": 0.036236,
+          "memory_events": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0"
+          },
+          "cpu_max": "200000 100000",
+          "memory_max": "2147483648",
+          "swap_max": "0"
+        },
+        "write_end": {
+          "device": "259:4",
+          "io": null,
+          "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+          "process_diagnostics_not_official_B": {
+            "cpu_s": 37.37,
+            "rchar": 1249571023,
+            "wchar": 551911000,
+            "syscr": 305236,
+            "syscw": 81839,
+            "read_bytes": 0,
+            "write_bytes": 553500672,
+            "cancelled_write_bytes": 0,
+            "peak_rss_kib": 500984
+          },
+          "memory_peak_bytes": 1079537664,
+          "memory_current_bytes": 1061588992,
+          "cpu_s": 37.416312,
+          "memory_events": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0"
+          },
+          "cpu_max": "200000 100000",
+          "memory_max": "2147483648",
+          "swap_max": "0"
+        },
+        "query_prepared": {
+          "device": "259:4",
+          "io": null,
+          "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+          "process_diagnostics_not_official_B": {
+            "cpu_s": 38.02,
+            "rchar": 1250025231,
+            "wchar": 551920215,
+            "syscr": 305381,
+            "syscw": 81878,
+            "read_bytes": 0,
+            "write_bytes": 553504768,
+            "cancelled_write_bytes": 0,
+            "peak_rss_kib": 500984
+          },
+          "memory_peak_bytes": 1079537664,
+          "memory_current_bytes": 1068666880,
+          "cpu_s": 38.069875,
+          "memory_events": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0"
+          },
+          "cpu_max": "200000 100000",
+          "memory_max": "2147483648",
+          "swap_max": "0"
+        },
+        "query_end": {
+          "device": "259:4",
+          "io": null,
+          "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+          "process_diagnostics_not_official_B": {
+            "cpu_s": 68.05,
+            "rchar": 1275881735,
+            "wchar": 552439331,
+            "syscr": 313573,
+            "syscw": 83926,
+            "read_bytes": 0,
+            "write_bytes": 553504768,
+            "cancelled_write_bytes": 0,
+            "peak_rss_kib": 509284
+          },
+          "memory_peak_bytes": 1087660032,
+          "memory_current_bytes": 1087660032,
+          "cpu_s": 68.098719,
+          "memory_events": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0"
+          },
+          "cpu_max": "200000 100000",
+          "memory_max": "2147483648",
+          "swap_max": "0"
+        },
+        "after_shutdown": {
+          "device": "259:4",
+          "io": null,
+          "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+          "process_diagnostics_not_official_B": null,
+          "memory_peak_bytes": 1945133056,
+          "memory_current_bytes": 1356042240,
+          "cpu_s": 68.896384,
+          "memory_events": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0"
+          },
+          "cpu_max": "200000 100000",
+          "memory_max": "2147483648",
+          "swap_max": "0"
+        }
+      },
+      "final_file_bytes": 1727853180,
+      "verification": {
+        "ann": {
+          "cases": 1024,
+          "mean_ms": 14.78432154112852,
+          "id_order_match": 1.0,
+          "recall": 1.0,
+          "mismatch_ids": [],
+          "distance_error_ids": [],
+          "invalid_ids": [],
+          "filters": {
+            "none": {
+              "n": 114,
+              "mean_ms": 58.24116741821758,
+              "p50_ms": 55.92638102825731,
+              "p95_ms": 64.51150705106556,
+              "recall": 1.0
+            },
+            "category": {
+              "n": 114,
+              "mean_ms": 4.125015456801313,
+              "p50_ms": 4.05855244025588,
+              "p95_ms": 4.641532897949219,
+              "recall": 1.0
+            },
+            "tenant": {
+              "n": 114,
+              "mean_ms": 7.82630729219435,
+              "p50_ms": 7.755163591355085,
+              "p95_ms": 8.56017298065126,
+              "recall": 1.0
+            },
+            "category_tenant": {
+              "n": 114,
+              "mean_ms": 1.0214190431788825,
+              "p50_ms": 1.011027954518795,
+              "p95_ms": 1.1788478586822748,
+              "recall": 1.0
+            },
+            "price_range": {
+              "n": 114,
+              "mean_ms": 26.368283280661625,
+              "p50_ms": 25.88448452297598,
+              "p95_ms": 28.492706129327416,
+              "recall": 1.0
+            },
+            "active_day": {
+              "n": 114,
+              "mean_ms": 25.421304372956225,
+              "p50_ms": 25.106616551056504,
+              "p95_ms": 27.57565607316792,
+              "recall": 1.0
+            },
+            "missing_category": {
+              "n": 114,
+              "mean_ms": 0.4621137060192332,
+              "p50_ms": 0.4442954668775201,
+              "p95_ms": 0.5730469711124897
+            },
+            "id_small": {
+              "n": 113,
+              "mean_ms": 4.198481330845867,
+              "p50_ms": 4.108731867745519,
+              "p95_ms": 4.988017026335001,
+              "recall": 1.0
+            },
+            "title_exact": {
+              "n": 113,
+              "mean_ms": 5.218028873864529,
+              "p50_ms": 5.14176394790411,
+              "p95_ms": 6.023209076374769,
+              "recall": 1.0
+            }
+          },
+          "passed": true
+        },
+        "exact": {
+          "cases": 1024,
+          "mean_ms": 15.35726575730223,
+          "id_order_match": 1.0,
+          "recall": 1.0,
+          "mismatch_ids": [],
+          "distance_error_ids": [],
+          "invalid_ids": [],
+          "filters": {
+            "none": {
+              "n": 114,
+              "mean_ms": 58.66695177055111,
+              "p50_ms": 56.76818441133946,
+              "p95_ms": 64.30963706225157,
+              "recall": 1.0
+            },
+            "category": {
+              "n": 114,
+              "mean_ms": 4.730175723109329,
+              "p50_ms": 4.6481669414788485,
+              "p95_ms": 5.3593788761645555,
+              "recall": 1.0
+            },
+            "tenant": {
+              "n": 114,
+              "mean_ms": 8.126791621754435,
+              "p50_ms": 8.057322003878653,
+              "p95_ms": 8.758655982092023,
+              "recall": 1.0
+            },
+            "category_tenant": {
+              "n": 114,
+              "mean_ms": 1.3064710860418385,
+              "p50_ms": 1.2753320625051856,
+              "p95_ms": 1.537518110126257,
+              "recall": 1.0
+            },
+            "price_range": {
+              "n": 114,
+              "mean_ms": 26.943145037971828,
+              "p50_ms": 26.605100953020155,
+              "p95_ms": 28.6299551371485,
+              "recall": 1.0
+            },
+            "active_day": {
+              "n": 114,
+              "mean_ms": 26.117546606416767,
+              "p50_ms": 25.884304428473115,
+              "p95_ms": 27.925590984523296,
+              "recall": 1.0
+            },
+            "missing_category": {
+              "n": 114,
+              "mean_ms": 0.7743300919077898,
+              "p50_ms": 0.73573540430516,
+              "p95_ms": 1.1499000247567892
+            },
+            "id_small": {
+              "n": 113,
+              "mean_ms": 5.310741570506212,
+              "p50_ms": 5.213437834754586,
+              "p95_ms": 5.847990978509188,
+              "recall": 1.0
+            },
+            "title_exact": {
+              "n": 113,
+              "mean_ms": 6.069640505366621,
+              "p50_ms": 5.970288068056107,
+              "p95_ms": 6.5609419252723455,
+              "recall": 1.0
+            }
+          },
+          "passed": true
+        }
+      },
+      "name": "stress-old",
+      "completed": true
+    },
+    {
+      "label": "stress-new",
+      "run": "/mnt/SSD1/zzp/seekdb-round2-lite2000/compare-100k-20261114/paired-runs/stress-new-b47c94ei",
+      "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/compare-100k-20261114/container-binaries/lite",
+      "binary_sha256": "4beb2759eb3a77080d9e191c2d914acfe5d20dfa10924052a63193db98760e15",
+      "prepared": "/mnt/SSD1/zzp/seekdb-round2-lite2000/compare-100k-20261114/stress-prepared",
+      "insert_sha256": "87a35e6d87aa14772a3737ea9ee9b7b9c31709ea5d82ac8f366d146dca4aac9e",
+      "query_cases_sha256": "50b89b0d8ee5dbc6148f19028dfe14763c39f2e2cd6c0ec3c1cc944533f650e6",
+      "rows": 100000,
+      "dim": 1024,
+      "batch": 256,
+      "requests": 391,
+      "startup_s": 0.3010596209205687,
+      "insert_request_s": 8.890337429009378,
+      "insert_wall_s": 10.102238428080454,
+      "insert_cpu_s": 6.24082,
+      "index_s": 2.8667517679277807,
+      "warmup_s": 1.2595555998850614,
+      "write_drain_s": 0.007102529983967543,
+      "query_wall_s": 62.436022581066936,
+      "query_drain_s": 0.012071189936250448,
+      "checkpoint_s": 1.0506423059850931,
+      "restart_s": 3.706855572061613,
+      "restart_pass": true,
+      "verified_rows": 100000,
+      "correctness_check_s": 102.63682497409172,
+      "image_id": "sha256:acf8897bf01a3a0ea273a50a58fc10b6317a3e360bd29aa7c9246a54d7c63e88",
+      "resources": {
+        "initial": {
+          "device": "259:4",
+          "io": null,
+          "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+          "process_diagnostics_not_official_B": null,
+          "memory_peak_bytes": 6537216,
+          "memory_current_bytes": 2519040,
+          "cpu_s": 0.034406,
+          "memory_events": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0"
+          },
+          "cpu_max": "200000 100000",
+          "memory_max": "2147483648",
+          "swap_max": "0"
+        },
+        "write_end": {
+          "device": "259:4",
+          "io": null,
+          "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+          "process_diagnostics_not_official_B": {
+            "cpu_s": 6.25,
+            "rchar": 1281884855,
+            "wchar": 436750566,
+            "syscr": 178108,
+            "syscw": 3142,
+            "read_bytes": 4096,
+            "write_bytes": 438341632,
+            "cancelled_write_bytes": 0,
+            "peak_rss_kib": 167648
+          },
+          "memory_peak_bytes": 618549248,
+          "memory_current_bytes": 618549248,
+          "cpu_s": 6.294978,
+          "memory_events": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0"
+          },
+          "cpu_max": "200000 100000",
+          "memory_max": "2147483648",
+          "swap_max": "0"
+        },
+        "query_prepared": {
+          "device": "259:4",
+          "io": null,
+          "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+          "process_diagnostics_not_official_B": {
+            "cpu_s": 10.3,
+            "rchar": 1285736091,
+            "wchar": 440163660,
+            "syscr": 178597,
+            "syscw": 3596,
+            "read_bytes": 4096,
+            "write_bytes": 441745408,
+            "cancelled_write_bytes": 0,
+            "peak_rss_kib": 535064
+          },
+          "memory_peak_bytes": 753610752,
+          "memory_current_bytes": 739975168,
+          "cpu_s": 10.339943,
+          "memory_events": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0"
+          },
+          "cpu_max": "200000 100000",
+          "memory_max": "2147483648",
+          "swap_max": "0"
+        },
+        "query_end": {
+          "device": "259:4",
+          "io": null,
+          "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+          "process_diagnostics_not_official_B": {
+            "cpu_s": 69.52,
+            "rchar": 1311592595,
+            "wchar": 441067456,
+            "syscr": 182693,
+            "syscw": 5644,
+            "read_bytes": 4096,
+            "write_bytes": 441745408,
+            "cancelled_write_bytes": 0,
+            "peak_rss_kib": 535640
+          },
+          "memory_peak_bytes": 767102976,
+          "memory_current_bytes": 734371840,
+          "cpu_s": 69.555783,
+          "memory_events": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0"
+          },
+          "cpu_max": "200000 100000",
+          "memory_max": "2147483648",
+          "swap_max": "0"
+        },
+        "after_shutdown": {
+          "device": "259:4",
+          "io": null,
+          "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+          "process_diagnostics_not_official_B": null,
+          "memory_peak_bytes": 778776576,
+          "memory_current_bytes": 487317504,
+          "cpu_s": 70.532774,
+          "memory_events": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0"
+          },
+          "cpu_max": "200000 100000",
+          "memory_max": "2147483648",
+          "swap_max": "0"
+        }
+      },
+      "final_file_bytes": 473084779,
+      "verification": {
+        "ann": {
+          "cases": 1024,
+          "mean_ms": 33.97718767132574,
+          "id_order_match": 0.888671875,
+          "recall": 0.8792307692307693,
+          "mismatch_ids": [
+            0,
+            9,
+            18,
+            27,
+            36,
+            45,
+            54,
+            63,
+            72,
+            81,
+            90,
+            99,
+            108,
+            117,
+            126,
+            135,
+            144,
+            153,
+            162,
+            171,
+            180,
+            189,
+            198,
+            207,
+            216,
+            225,
+            234,
+            243,
+            252,
+            261,
+            270,
+            279,
+            288,
+            297,
+            306,
+            315,
+            324,
+            333,
+            342,
+            351,
+            360,
+            369,
+            378,
+            387,
+            396,
+            405,
+            414,
+            423,
+            432,
+            441,
+            450,
+            459,
+            468,
+            477,
+            486,
+            495,
+            504,
+            513,
+            522,
+            531,
+            540,
+            549,
+            558,
+            567,
+            576,
+            585,
+            594,
+            603,
+            612,
+            621,
+            630,
+            639,
+            648,
+            657,
+            666,
+            675,
+            684,
+            693,
+            702,
+            711,
+            720,
+            729,
+            738,
+            747,
+            756,
+            765,
+            774,
+            783,
+            792,
+            801,
+            810,
+            819,
+            828,
+            837,
+            846,
+            855,
+            864,
+            873,
+            882,
+            891,
+            900,
+            909,
+            918,
+            927,
+            936,
+            945,
+            954,
+            963,
+            972,
+            981,
+            990,
+            999,
+            1008,
+            1017
+          ],
+          "distance_error_ids": [],
+          "invalid_ids": [],
+          "filters": {
+            "none": {
+              "n": 114,
+              "mean_ms": 22.659869921769488,
+              "p50_ms": 21.81960642337799,
+              "p95_ms": 25.461921002715826,
+              "recall": 0.035964912280701755
+            },
+            "category": {
+              "n": 114,
+              "mean_ms": 10.519347741807762,
+              "p50_ms": 10.501118958927691,
+              "p95_ms": 11.780878994613886,
+              "recall": 1.0
+            },
+            "tenant": {
+              "n": 114,
+              "mean_ms": 17.705172153287812,
+              "p50_ms": 17.427777987904847,
+              "p95_ms": 19.529965007677674,
+              "recall": 1.0
+            },
+            "category_tenant": {
+              "n": 114,
+              "mean_ms": 3.9492116836634907,
+              "p50_ms": 3.7950504338368773,
+              "p95_ms": 4.859355045482516,
+              "recall": 1.0
+            },
+            "price_range": {
+              "n": 114,
+              "mean_ms": 153.5110436339062,
+              "p50_ms": 150.24146542418748,
+              "p95_ms": 175.06934981793165,
+              "recall": 1.0
+            },
+            "active_day": {
+              "n": 114,
+              "mean_ms": 95.52387814772756,
+              "p50_ms": 93.55941053945571,
+              "p95_ms": 106.12688283436,
+              "recall": 1.0
+            },
+            "missing_category": {
+              "n": 114,
+              "mean_ms": 0.29174907525119026,
+              "p50_ms": 0.27715798933058977,
+              "p95_ms": 0.3853549715131521
+            },
+            "id_small": {
+              "n": 113,
+              "mean_ms": 0.8113320269910371,
+              "p50_ms": 0.7986240088939667,
+              "p95_ms": 0.9416791144758463,
+              "recall": 1.0
+            },
+            "title_exact": {
+              "n": 113,
+              "mean_ms": 0.23618236851705388,
+              "p50_ms": 0.23241504095494747,
+              "p95_ms": 0.2912979107350111,
+              "recall": 1.0
+            }
+          },
+          "passed": false
+        },
+        "exact": {
+          "cases": 1024,
+          "mean_ms": 26.048746120068245,
+          "id_order_match": 1.0,
+          "recall": 1.0,
+          "mismatch_ids": [],
+          "distance_error_ids": [],
+          "invalid_ids": [],
+          "filters": {
+            "none": {
+              "n": 114,
+              "mean_ms": 62.622673546062096,
+              "p50_ms": 62.53289547748864,
+              "p95_ms": 65.82889705896378,
+              "recall": 1.0
+            },
+            "category": {
+              "n": 114,
+              "mean_ms": 15.845279495248146,
+              "p50_ms": 15.712025109678507,
+              "p95_ms": 17.194638028740883,
+              "recall": 1.0
+            },
+            "tenant": {
+              "n": 114,
+              "mean_ms": 21.88146805692987,
+              "p50_ms": 21.619279985316098,
+              "p95_ms": 23.615618934854865,
+              "recall": 1.0
+            },
+            "category_tenant": {
+              "n": 114,
+              "mean_ms": 10.305612697266042,
+              "p50_ms": 10.11238747742027,
+              "p95_ms": 11.899143923074007,
+              "recall": 1.0
+            },
+            "price_range": {
+              "n": 114,
+              "mean_ms": 62.85293270392638,
+              "p50_ms": 61.44683598540723,
+              "p95_ms": 68.08945606462657,
+              "recall": 1.0
+            },
+            "active_day": {
+              "n": 114,
+              "mean_ms": 58.91024264743911,
+              "p50_ms": 58.17184248007834,
+              "p95_ms": 62.201758148148656,
+              "recall": 1.0
+            },
+            "missing_category": {
+              "n": 114,
+              "mean_ms": 0.6709614556217403,
+              "p50_ms": 0.6586734671145678,
+              "p95_ms": 0.8932820055633783
+            },
+            "id_small": {
+              "n": 113,
+              "mean_ms": 0.6227731000038639,
+              "p50_ms": 0.6091741379350424,
+              "p95_ms": 0.7407430093735456,
+              "recall": 1.0
+            },
+            "title_exact": {
+              "n": 113,
+              "mean_ms": 0.27767449526726146,
+              "p50_ms": 0.2680150792002678,
+              "p95_ms": 0.35866606049239635,
+              "recall": 1.0
+            }
+          },
+          "passed": true
+        }
+      },
+      "name": "stress-new",
+      "completed": true
+    }
+  ],
+  "scope": "One local paired run per dataset; public parameters, not official score. io.stat unavailable in this rootless daemon."
+}

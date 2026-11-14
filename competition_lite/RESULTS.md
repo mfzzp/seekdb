@@ -1,10 +1,12 @@
 # Lite2000 verification ledger
 
+The latest same-input, same-container C++ comparison is [COMPARE_100K_20261114.md](docs/COMPARE_100K_20261114.md), with raw records under `results/paired_100k_20261114/`. It supersedes earlier old/new performance conclusions: 128-dimensional mean exact improved 1.96x, but filtered exact regressed; 1024-dimensional mean exact was 1.70x slower and unfiltered ANN recall was 3.60%. Both exact datasets and all full-row restart checks passed. No official composite score is claimed.
+
 ## Current implementation
 
-- Runtime: `competition_lite/src/minivectordb_lite.cpp`, **2175 physical lines** (comments and blank lines included).
+- Runtime: `competition_lite/src/minivectordb_lite.cpp`, **2185 physical lines** (comments and blank lines included).
 - Build: C++17, `-O3 -DNDEBUG -Wall -Wextra`.
-- Storage: private transaction writes, framed CRC WAL, separate float32 vector file with mmap reads, bounded continuous-vector matrix caching for small tables, persisted scalar postings and full-coordinate Block statistics, MemTable/Immutable/SST maintenance, checkpointed recovery state, scalar postings, exact Top-K, IVF with global non-residual PQ and raw-vector reranking, index persistence, and vector GC.
+- Storage components: framed CRC WAL, separate float32 vector file with mmap reads, bounded continuous-vector matrix caching for small tables, persisted scalar postings and full-coordinate Block statistics, MemTable/Immutable/SST maintenance, checkpointed recovery state, exact Top-K, IVF with global non-residual PQ and raw-vector reranking, index persistence, and vector GC. BEGIN currently copies table state, so the planned incremental private write set is incomplete; SST is not yet the primary query/recovery source. Crash-safe publication and reclamation also remain incomplete.
 - There is **no query-result cache**. The plan explicitly excludes one, so every SELECT is computed from current state.
 - WAL frames use 8-byte alignment, complete-frame CRC rejection and incomplete-tail truncation. STATE v3 now records the checkpoint vector boundary, and WAL token counts are bounded by encoded payload length.
 - Manifest and persisted IVF-PQ files are published through temporary files; IVF-PQ files carry a trailing CRC, and a bad index is reported on stderr before rebuilding. `LITE_NPROBE` is exposed for validation and response metrics report probed lists and raw candidates.

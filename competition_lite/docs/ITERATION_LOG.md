@@ -201,3 +201,12 @@
 - Found and fixed two inherited recovery issues: the 4096-token WAL limit rejected valid 8-column B256 commits, and replay used the crash-time vector file end instead of the checkpoint boundary. STATE v3 now persists the boundary. Legacy state without it is accepted only with empty WAL.
 - Current validation: public protocol 20/20; nonzero-vector crash smoke 20/20; wide B256/B1024 recovery with and without checkpoints 4/4; quoted string regression 2000/2000. Earlier ID-only crash checks did not establish vector recovery correctness.
 - Runtime: 2175 physical lines. Full timings, limits, compatibility and reproduction commands are in `docs/WRITE_LIMITS_20261114.md`; per-run evidence is in `results/write_study_20261114.json`.
+
+## 2026-11-14 paired 100k C++ container measurements
+
+- Fixed SQL doubled-quote parsing and quoted-token WAL serialization before freezing source at `2974219`. Runtime is now 2185 physical lines. Baseline source is C++ `449bba1`; both binaries were built with Debian GCC 12.2.0 and identical optimization flags.
+- Re-read the official specification and protocol. Public defaults are 10k rows, 128 dimensions, B100, 1000 queries, K=10, half equality-filtered, default exact. Ran a 100k extension using a clearly identified local synthetic generator, plus the user's 100k/8-column/1024-dimensional plan dataset. Each version ran once per dataset, serially, with 2 CPU quota, 2 GiB cgroup memory, swap/network disabled, identical input bytes and fixed warmup.
+- 128-dimensional write wall time: 7.279535 -> 6.495416 s; exact mean: 9.810717 -> 5.014225 ms. Unfiltered improved, but category-filtered queries regressed.
+- 1024-dimensional write wall time: 40.125574 -> 10.102238 s; exact mean: 15.357266 -> 26.048746 ms; ANN mean: 14.784322 -> 33.977188 ms. New unfiltered ANN recall is only 0.035964912; the mixed nonempty-query average of 0.879230769 hides this severe failure.
+- All exact results matched independent raw-data truth. Every run restarted and checked every scalar and complete float32 vector of all 100k records. Frozen candidate public protocol: 20/20 PASS. Small quote/WAL and wide-batch recovery regressions passed.
+- Recorded cgroup memory.peak including page cache. The rootless daemon lacks an io controller; official B is unavailable, not zero. No composite score or three-round ranking claim. Both runs finished at 21:36:26; no code changed during measurement. Full evidence is in `docs/COMPARE_100K_20261114.md` and `results/paired_100k_20261114/`.

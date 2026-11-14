@@ -1,0 +1,58 @@
+{
+  "started": "2026-11-14T21:29:02.345978+08:00",
+  "status": "completed",
+  "phase": "finished",
+  "steps": [
+    {
+      "phase": "public-oracle",
+      "returncode": 0,
+      "seconds": 3.7586538870818913
+    },
+    {
+      "phase": "stress-oracle",
+      "returncode": 0,
+      "seconds": 13.300265217898414
+    },
+    {
+      "phase": "public-old",
+      "returncode": 0,
+      "seconds": 34.51771493908018
+    },
+    {
+      "phase": "public-old-verify",
+      "returncode": 0,
+      "seconds": 0.28935866383835673
+    },
+    {
+      "phase": "public-new",
+      "returncode": 0,
+      "seconds": 32.39063304197043
+    },
+    {
+      "phase": "public-new-verify",
+      "returncode": 0,
+      "seconds": 0.29178707394748926
+    },
+    {
+      "phase": "stress-old",
+      "returncode": 0,
+      "seconds": 168.52352942107245
+    },
+    {
+      "phase": "stress-old-verify",
+      "returncode": 0,
+      "seconds": 2.4643771508708596
+    },
+    {
+      "phase": "stress-new",
+      "returncode": 0,
+      "seconds": 185.87774661392905
+    },
+    {
+      "phase": "stress-new-verify",
+      "returncode": 0,
+      "seconds": 2.387309620855376
+    }
+  ],
+  "finished": "2026-11-14T21:36:26.196996+08:00"
+}
