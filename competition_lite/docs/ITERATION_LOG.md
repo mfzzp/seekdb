@@ -18,3 +18,10 @@
 - Public harness: 20 cases, 0 failures.
 - This is an intermediate durability step. Mutation payloads are still canonical operation strings, so the next durability pass must replace recovery-time SQL application with structured mutation opcodes before claiming full T02 compliance.
 - Large 100k/300k experiments remain deferred until the storage and ANN work has no obvious small-scale regression.
+
+## 2026-11-14 structured WAL mutation pass
+
+- WAL mutation frames now carry an opcode plus bounded length-prefixed SQL token fields. Recovery decodes this binary record and dispatches directly to mutation handlers; it does not call the SQL tokenizer.
+- Verified frame payloads: CREATE uses opcode `01`, INSERT uses opcode `03`; the 24-byte framing and CRC remain unchanged.
+- Public harness: 20 cases, 0 failures. WAL smoke, SIGKILL recovery, garbage-tail recovery, and truncated-tail recovery all passed.
+- This removes the main recovery parser dependency, but the payload is still token-oriented rather than fully typed column values. The next storage pass will address true multi-level SST/manifest behavior and tombstone compaction.
