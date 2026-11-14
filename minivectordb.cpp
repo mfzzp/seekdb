@@ -1514,11 +1514,33 @@ struct Engine {
     for (size_t qi = 0; qi < proj.size(); ++qi) {
       if (proj[qi].distance) {
         has_vector_distance = true;
-        distance_cache[qi].assign(tab.rows.size(), std::numeric_limits<double>::quiet_NaN());
+        if (!block_topk)
+          distance_cache[qi].assign(tab.rows.size(), std::numeric_limits<double>::quiet_NaN());
       }
     }
     if (has_vector_distance) ensure_vector_matrix(tab);
+    std::vector<std::unordered_map<size_t, double>> sparse_distance_cache(proj.size());
+    if (block_topk) {
+      const size_t reserve_count = std::min(tab.rows.size(), size_t(limit) * 64);
+      for (size_t qi = 0; qi < proj.size(); ++qi)
+        if (proj[qi].distance) sparse_distance_cache[qi].reserve(reserve_count);
+    }
     auto distance_for = [&](size_t r, size_t qi) {
+      if (block_topk) {
+        auto &cache = sparse_distance_cache[qi];
+        auto cached = cache.find(r);
+        if (cached != cache.end()) return cached->second;
+        const Projection &q = proj[qi];
+        double value = 0.0;
+        if (q.col == tab.vector_col && tab.vector_matrix_valid) {
+          const size_t dim = size_t(tab.vector_matrix_dim);
+          value = distance_fast(tab.vector_matrix.data() + r * dim, q.target.data(), dim);
+        } else {
+          value = distance_squared(tab.rows[r][q.col], q.target);
+        }
+        cache.emplace(r, value);
+        return value;
+      }
       if (std::isnan(distance_cache[qi][r])) {
         const Projection &q = proj[qi];
         if (q.col == tab.vector_col && tab.vector_matrix_valid) {
@@ -1640,8 +1662,8 @@ struct Engine {
       const bool simple_distance_order = ord.size() == 1 && ord[0].distance;
       auto heap_less = [&](size_t a, size_t b) {
         if (simple_distance_order) {
-          const double da = distance_cache[qi][a];
-          const double db = distance_cache[qi][b];
+          const double da = distance_for(a, qi);
+          const double db = distance_for(b, qi);
           if (da != db) return da < db;
           return tab.rows[a][tab.primary].i < tab.rows[b][tab.primary].i;
         }
