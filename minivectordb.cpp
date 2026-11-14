@@ -10,6 +10,8 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <memory>
+#include "v2/v2_storage.hpp"
 #include <map>
 #include <numeric>
 #include <optional>
@@ -294,7 +296,8 @@ struct Engine {
   std::string checkpoint_snapshot;
   std::unordered_map<std::string, std::vector<float>> vector_literal_cache;
   std::unordered_map<std::string, Json> query_cache;
-  explicit Engine(std::string d) : dir(std::move(d)) { mkdir(dir.c_str(), 0755); load(); }
+  std::unique_ptr<mv2::ManifestStore> v2_manifest;
+  explicit Engine(std::string d) : dir(std::move(d)) { mkdir(dir.c_str(), 0755); v2_manifest = std::make_unique<mv2::ManifestStore>(dir); load(); }
   ~Engine() { if (journal_fd >= 0) ::close(journal_fd); }
   std::string file() const { return dir + "/state.bin"; }
   std::string journal() const { return dir + "/journal.log"; }
@@ -666,6 +669,30 @@ struct Engine {
     t.alive.assign(t.rows.size(), true);
     rebuild(t);
   }
+  void publish_v2_vectors(uint64_t generation) {
+    if (!v2_manifest) return;
+    mv2::Manifest manifest;
+    manifest.generation = generation;
+    manifest.visible_seq = generation;
+    manifest.durable_seq = generation;
+    manifest.wal_offset = checkpoint_offset;
+    uint64_t segment_id = generation * 1000000;
+    for (const auto &entry : st.tables) {
+      const Table &table = entry.second;
+      if (table.vector_col < 0 || table.rows.empty()) continue;
+      const int dim = table.cols[table.vector_col].width;
+      const std::string name = "vectors-" + entry.first + "-" + std::to_string(generation) + ".seg";
+      mv2::VectorSegmentWriter writer(dir + "/" + name, ++segment_id, generation, static_cast<uint32_t>(dim));
+      for (size_t row = 0; row < table.rows.size(); ++row) {
+        const Value &value = table.rows[row][size_t(table.vector_col)];
+        if (value.kind != VK_VECTOR || int(value.v.size()) != dim) throw Error("storage_error", "invalid vector segment row");
+        writer.append({static_cast<uint64_t>(row + 1)}, value.v);
+      }
+      writer.finish();
+      manifest.vector_segments.push_back(name);
+    }
+    v2_manifest->publish(manifest);
+  }
   void checkpoint() {
     if (tx) return;
     struct stat stbuf {};
@@ -679,6 +706,7 @@ struct Engine {
     const uint64_t generation = checkpoint_generation + 1;
     const std::string name = "checkpoint-" + std::to_string(generation) + ".sst";
     save_snapshot(snapshot_path(name));
+    publish_v2_vectors(generation);
     write_manifest(name, generation, offset);
     const std::string previous = checkpoint_snapshot;
     checkpoint_generation = generation;
