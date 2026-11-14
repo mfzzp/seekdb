@@ -1103,6 +1103,11 @@ struct Engine {
       t.block_groups_valid = true;
       return;
     }
+    const int dim = t.vector_col >= 0 && t.vector_col < int(t.cols.size()) ? t.cols[t.vector_col].width : 0;
+    if (t.blocks.size() < 64 || dim > 256) {
+      t.block_groups_valid = true;
+      return;
+    }
     constexpr size_t GROUP_BLOCKS = 16;
     const size_t groups = (t.blocks.size() + GROUP_BLOCKS - 1) / GROUP_BLOCKS;
     t.block_groups.reserve(groups);
