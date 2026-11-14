@@ -1,3 +1,5 @@
 *
 !Dockerfile
 !minivectordb.cpp
+!v2/
+!v2/**
