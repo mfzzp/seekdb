@@ -330,6 +330,7 @@ namespace lite {
     std::vector<SRec>immutable;
     std::map<int,std::vector<std::string>>levels;
     unsigned sst_seq=0;
+    uint64_t lsm_bytes_in=0,lsm_bytes_out=0;
     uint64_t wal_txid=0;
     bool ann_mode=false;
     std::map<std::string,int>index_cols;
@@ -353,13 +354,14 @@ namespace lite {
       std::string x;
       while(std::getline(f,x)){
         if(x.empty())continue;
+        if(x[0]=='#')continue;
         int lev=0;
         std::string p=x;
         size_t sp=x.find(' ');
         if(sp!=std::string::npos){
           try{
             lev=std::stoi(x.substr(0,sp));
-            p=x.substr(sp+1);
+            std::istringstream z(x.substr(sp+1));z>>p;
           }
           catch(...){
             lev=0;
@@ -1040,7 +1042,8 @@ namespace lite {
     void write_manifest(){
       std::string tmp=dir+"/MANIFEST.tmp";
       std::ofstream m(tmp,std::ios::trunc);
-      for(auto&kv:levels)for(auto&x:kv.second)m<<kv.first<<" "<<x<<'\n';
+      m<<"#v2 checkpoint "<<wal_txid<<" next_sst "<<sst_seq<<" bytes_in "<<lsm_bytes_in<<" bytes_out "<<lsm_bytes_out<<'\n';
+      for(auto&kv:levels)for(auto&x:kv.second){std::string a,b;srange(x,a,b);m<<kv.first<<" "<<x<<" "<<a<<" "<<b<<'\n';}
       m.flush();
       int fd=open(tmp.c_str(),O_RDONLY);
       if(fd>=0){fsync(fd);close(fd);}
@@ -1064,6 +1067,7 @@ namespace lite {
         auto&src=levels[lev];
         if(src.size()<4)continue;
         std::vector<std::string>in=src;
+        for(auto&x:in)lsm_bytes_in+=(uint64_t)fsize(x);
         std::string low,high;
         for(auto&x:src){std::string a,b;if(srange(x,a,b)){if(low.empty()||a<low)low=a;if(high.empty()||b>high)high=b;}}
         for(auto&x:levels[lev+1]){std::string a,b;if(!srange(x,a,b)||low.empty()||!(b<low||high<a))in.push_back(x);}
@@ -1075,7 +1079,7 @@ namespace lite {
         std::sort(all.begin(),all.end(),[](const SRec&a,const SRec&b){if(a.key!=b.key)return a.key<b.key;if(a.seq!=b.seq)return a.seq>b.seq;return a.tomb>b.tomb;});
         std::string p=dir+"/L"+std::to_string(lev+1)+"-"+std::to_string(++sst_seq)+".sst";
         std::ofstream out(p,std::ios::binary);
-        std::string last;for(auto&r:all)if(r.key!=last){out<<sline(r)<<'\n';last=r.key;}
+        std::string last;for(auto&r:all)if(r.key!=last){last=r.key;if(lev==1&&r.tomb)continue;out<<sline(r)<<'\n';}
         out.flush();
         int fd=open(p.c_str(),O_RDONLY);
         if(fd>=0){
@@ -1083,6 +1087,7 @@ namespace lite {
           close(fd);
         }
         seal_sst(p);
+        lsm_bytes_out+=(uint64_t)fsize(p);
         std::set<std::string>selected(in.begin(),in.end());
         for(auto&x:in){std::remove(x.c_str());std::remove((x+".idx").c_str());}
         src.clear();
@@ -1106,6 +1111,7 @@ namespace lite {
         close(fd);
       }
       seal_sst(p);
+      lsm_bytes_out+=(uint64_t)fsize(p);
       levels[0].push_back(p);
       write_manifest();
       compact();
