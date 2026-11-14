@@ -25,3 +25,11 @@
 - Verified frame payloads: CREATE uses opcode `01`, INSERT uses opcode `03`; the 24-byte framing and CRC remain unchanged.
 - Public harness: 20 cases, 0 failures. WAL smoke, SIGKILL recovery, garbage-tail recovery, and truncated-tail recovery all passed.
 - This removes the main recovery parser dependency, but the payload is still token-oriented rather than fully typed column values. The next storage pass will address true multi-level SST/manifest behavior and tombstone compaction.
+
+## 2026-11-14 L0/L1 SST pass
+
+- Replaced the single SST list with a level-aware manifest. Flushes write sorted L0 records; four L0 files trigger a multiway merge with existing L1 into a new L1 file.
+- Delete records are marked with a `T ` tombstone prefix and are retained through the merge. This is the first real level transition; key-aware tombstone dropping and range metadata are still pending.
+- 72-row smoke created L0/L1 files and a retained tombstone; after restart `id=2` stayed deleted and scalar filtering returned the expected rows.
+- Public harness: 20 cases, 0 failures.
+- Large experiments remain deferred.
