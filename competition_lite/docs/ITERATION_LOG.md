@@ -42,3 +42,11 @@
 - 2,000 rows x 1024 dimensions, 8 queries x 3 runs: exact mean 0.01641 s, ANN mean 0.01548 s (about 5.7% faster in this run). 4,000 rows x 32 dimensions showed ANN slower, so this optimization is intended for the fixed 1024-dimensional experiment.
 - Public harness: 20 cases, 0 failures. Vector index update/restart smoke passed.
 - Large experiments remain deferred.
+
+## 2026-11-14 integrated durability/checkpoint pass
+
+- Added a real shutdown checkpoint boundary: rollback any open transaction, flush the current LSM memtable/SST state, write an atomic `STATE.tmp` snapshot carrying the committed WAL high-water mark, fsync it, rename it, then truncate and fdatasync the WAL.
+- Recovery loads the snapshot first and replays only WAL transactions newer than that high-water mark. Vector append offsets are rolled back for committed replay and incomplete tails are ignored. Shutdown rollback now matches the public transaction contract.
+- Checkpoint smoke: normal shutdown leaves `wal.log` at 0 bytes; restart preserves committed rows; a SIGKILL after an uncommitted insert does not expose that insert after restart. Public harness: 20 cases, 0 failures.
+- Correct-path comparison: 2,000 rows x 1,024 dimensions, batch 256, 8 queries x 3 runs. Old exact mean 0.00314 s; new exact mean 0.01145 s; new ANN mean 0.00588 s; new insert 1.619 s vs old 1.761 s; new index build 0.196 s. These numbers are a framework checkpoint, not the final 100k/300k result.
+- Large experiments remain deferred until the integrated storage/recovery path and ANN maintenance are stable.
