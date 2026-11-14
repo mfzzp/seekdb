@@ -114,3 +114,10 @@
 - 100,000 rows at 1,024 dimensions: vector file 409,600,000 B; B256 insert 64.039 s; index build 2.758 s; 64-query batch 1.120 s; exact 21.933 ms/request; ANN 11.829 ms/request; clean restart check PASS.
 - 300,000 rows at 1,024 dimensions: vector file 1,228,800,000 B; B256 insert 268.291 s; index build 7.402 s; 64-query batch 2.921 s; exact 55.736 ms/request; ANN 35.003 ms/request; clean restart check PASS.
 - These are fixed-path performance/storage smokes. The independent Oracle and 20-round kill matrix still need a compiled or NumPy truth path before being reported as complete large-scale correctness experiments.
+
+## 2026-11-14 full 1024-case filter sweep
+
+- Added `bench/query_sweep.py` so an already-loaded data directory can run all generated query cases without reinserting data.
+- 100k rows: 2048 exact/ANN requests, exact mean 16.206 ms, ANN mean 10.230 ms, wall 29.75 s.
+- 300k rows: 2048 exact/ANN requests, exact mean 50.721 ms, ANN mean 32.380 ms, wall 90.95 s.
+- The sweep covered all generator filter categories. It remains a timing run until the independent large-scale Oracle path is accelerated.

@@ -60,3 +60,12 @@ These runs use the fixed 1,024-dimensional generator and B256 requests. They mea
 |---:|---:|---:|---:|---:|---:|---:|:---:|
 | 100,000 | 409,600,000 B | 64.039 s | 2.758 s | 1.120 s | 21.933 ms | 11.829 ms | PASS |
 | 300,000 | 1,228,800,000 B | 268.291 s | 7.402 s | 2.921 s | 55.736 ms | 35.003 ms | PASS |
+
+## 1024-query filter sweep
+
+`bench/query_sweep.py` ran all 1024 generated cases in both modes (2048 requests total), including every fixed filter category. This is an engine timing sweep; independent truth remains the small-run Oracle until a NumPy/compiled validator is available.
+
+| rows | total requests | exact mean/request | ANN mean/request | wall time |
+|---:|---:|---:|---:|---:|
+| 100,000 | 2048 | 16.206 ms | 10.230 ms | 29.75 s |
+| 300,000 | 2048 | 50.721 ms | 32.380 ms | 90.95 s |
