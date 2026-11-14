@@ -42,12 +42,21 @@ The deterministic comparison used 2000 rows, 1024-dimensional vectors, batch 256
 | old baseline | 1.8019 s | 0.003185 s | — | — |
 | lite2000 | 1.6840 s | 0.001540 s | 0.000946 s | 0.2060 s |
 
-The repeated-query workload exercises the new bounded result cache, so this table is a cache-aware regression comparison. Distinct-query 100k/300k measurements have not been claimed yet.
+The repeated-query workload exercises the new bounded result cache, so this table is a cache-aware regression comparison. The large B256 path below is a separate smoke; it does not replace the full 1024-query/filter matrix or the large-state kill matrix.
 
 ## Remaining plan gaps
 
-The current code is a working, tested implementation, but it is not honest to call every T00-T11 item complete yet. WAL mutation payloads are still length-prefixed SQL tokens rather than fully typed column records; SST files are maintenance artifacts while the checkpointed STATE remains the recovery source; tombstone dropping and size/overlap based multi-level policies are not complete; the planned 100k/300k runs, 20-round large-state kill matrix, memory-pressure run, and platform submission have not been executed. Those items remain explicit follow-up work rather than being replaced by design prose.
+The current code is a working, tested implementation, but it is not honest to call every T00-T11 item complete yet. WAL mutation payloads are still length-prefixed SQL tokens rather than fully typed column records; SST files are maintenance artifacts while the checkpointed STATE remains the recovery source; tombstone dropping and size/overlap based multi-level policies are not complete; the full 1024-query/filter matrix, 20-round large-state kill matrix, memory-pressure run, and platform submission have not been executed. Those items remain explicit follow-up work rather than being replaced by design prose.
 
 ## 10k medium-scale run
 
 A 10,000-row, 1024-dimensional B256 run completed without an Oracle or memory failure: insert 5.488 s, index build 0.532 s, 64 end-to-end queries 0.108 s, mean exact request 1.651 ms, mean ANN request 1.077 ms, and a 40,960,000-byte vector file. The pure-stdlib Oracle is intentionally used for small correctness runs; at this scale its naive Python loop expands to hundreds of millions of scalar operations, so the 10k result is recorded as a performance/storage smoke rather than a fabricated independent-truth score.
+
+## Fixed-dimension large-path smoke
+
+These runs use the fixed 1,024-dimensional generator and B256 requests. They measure the engine path only; no independent Oracle claim is attached to them.
+
+| rows | vector file | insert | index build | 64-query batch | exact mean/request | ANN mean/request | restart check |
+|---:|---:|---:|---:|---:|---:|---:|:---:|
+| 100,000 | 409,600,000 B | 64.039 s | 2.758 s | 1.120 s | 21.933 ms | 11.829 ms | PASS |
+| 300,000 | 1,228,800,000 B | 268.291 s | 7.402 s | 2.921 s | 55.736 ms | 35.003 ms | PASS |

@@ -108,3 +108,9 @@
 - Generated 10,000 rows with the fixed 1,024-dimensional vector format and ran B256 through insert, index build, exact, ANN, and clean shutdown.
 - Insert: 5.488 s; IVF-PQ build: 0.532 s; 64 end-to-end query requests: 0.108 s; exact mean 1.651 ms/request; ANN mean 1.077 ms/request; vector file 40,960,000 bytes.
 - The stdlib Oracle was not used at this scale because its intentionally simple independent loop would require hundreds of millions of Python scalar operations. Small Oracle runs remain mandatory for correctness; large-scale truth generation still needs the planned NumPy/compiled path.
+
+## 2026-11-14 fixed 100k/300k B256 path smoke
+
+- 100,000 rows at 1,024 dimensions: vector file 409,600,000 B; B256 insert 64.039 s; index build 2.758 s; 64-query batch 1.120 s; exact 21.933 ms/request; ANN 11.829 ms/request; clean restart check PASS.
+- 300,000 rows at 1,024 dimensions: vector file 1,228,800,000 B; B256 insert 268.291 s; index build 7.402 s; 64-query batch 2.921 s; exact 55.736 ms/request; ANN 35.003 ms/request; clean restart check PASS.
+- These are fixed-path performance/storage smokes. The independent Oracle and 20-round kill matrix still need a compiled or NumPy truth path before being reported as complete large-scale correctness experiments.
