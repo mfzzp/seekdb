@@ -24,6 +24,8 @@ int main() {
     sql += "' AS text;";
     const auto tokens = lite::tok(sql);
     assert(tokens.size() == 4 && tokens[1] == "'" + value + "'");
+    const auto canonical = lite::tok("SELECT " + lite::sqltok(tokens[1]) + " AS text;");
+    assert(canonical == tokens);
   }
   std::cout << "quoted_string_cases=2000 PASS\n";
 }

@@ -90,7 +90,11 @@ namespace lite {
         end=s.size();
       }
       const char* escape=(const char*)std::memchr(s.data()+p,'\\',end-p);
-      if(!escape){r.append(s,p,end-p);p=end+(end<s.size());return r;}
+      if(!escape){
+        r.append(s,p,end-p);p=end+(end<s.size());
+        if(!json&&p<s.size()&&s[p]==quote){r+=quote;++p;continue;}
+        return r;
+      }
       size_t at=(size_t)(escape-s.data());r.append(s,p,at-p);p=at+1;
       if(p==s.size()){if(json)throw Err("invalid_request","string");r+='\\';return r;}
       char e=s[p++];
@@ -230,6 +234,12 @@ namespace lite {
   }
   static std::string unq(const std::string&s){
     return s.size()>=2&&s.front()=='\''&&s.back()=='\''?s.substr(1,s.size()-2):s;
+  }
+  static std::string sqltok(const std::string&s){
+    if(s.size()<2||s.front()!='\''||s.back()!='\'')return s;
+    std::string r="'";
+    for(size_t i=1;i+1<s.size();++i){if(s[i]=='\''||s[i]=='\\')r+=s[i];r+=s[i];}
+    return r+"'";
   }
   struct Col{
     std::string n,t;
@@ -1021,7 +1031,7 @@ namespace lite {
         s+='(';
         for(size_t j=0;j<rows[i].size();++j){
           if(j)s+=',';
-          s+=(j>0&&q.c[j].t=="VECTOR"?"@":rows[i][j]);
+          s+=(j>0&&q.c[j].t=="VECTOR"?"@":sqltok(rows[i][j]));
         }
         s+=')';
       }
@@ -1730,13 +1740,13 @@ namespace lite {
         std::string s="UPDATE "+q.n+" SET ";
         for(size_t i=0;i<as.size();++i){
           if(i)s+=",";
-          s+=q.c[as[i].first].n+"="+(q.c[as[i].first].t=="VECTOR"?"@":as[i].second);
+          s+=q.c[as[i].first].n+"="+(q.c[as[i].first].t=="VECTOR"?"@":sqltok(as[i].second));
         }
         if(!cs.empty()){
           s+=" WHERE ";
           for(size_t i=0;i<cs.size();++i){
             if(i)s+=" AND ";
-            s+=q.c[cs[i].col].n+cs[i].op+cs[i].val;
+            s+=q.c[cs[i].col].n+cs[i].op+sqltok(cs[i].val);
           }
         }
         record(s+";");
@@ -1768,7 +1778,7 @@ namespace lite {
           s+=" WHERE ";
           for(size_t i=0;i<cs.size();++i){
             if(i)s+=" AND ";
-            s+=q.c[cs[i].col].n+cs[i].op+cs[i].val;
+            s+=q.c[cs[i].col].n+cs[i].op+sqltok(cs[i].val);
           }
         }
         record(s+";");
