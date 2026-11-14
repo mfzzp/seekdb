@@ -102,3 +102,9 @@
 - Recovery validates field tags and reconstructs the mutation token vector without invoking the SQL tokenizer. CRC framing and transaction commit markers remain unchanged.
 - Public protocol: 20/20 PASS; strict protocol: 20/20 PASS; crash recovery: 20/20 PASS; LSM and index restart smokes passed.
 - Runtime line count is 1890/2000. The remaining storage gap is full typed column-level mutation encoding and key-aware tombstone dropping, which are intentionally recorded rather than claimed complete.
+
+## 2026-11-14 10k vector-file pressure smoke
+
+- Generated 10,000 rows with the fixed 1,024-dimensional vector format and ran B256 through insert, index build, exact, ANN, and clean shutdown.
+- Insert: 5.488 s; IVF-PQ build: 0.532 s; 64 end-to-end query requests: 0.108 s; exact mean 1.651 ms/request; ANN mean 1.077 ms/request; vector file 40,960,000 bytes.
+- The stdlib Oracle was not used at this scale because its intentionally simple independent loop would require hundreds of millions of Python scalar operations. Small Oracle runs remain mandatory for correctness; large-scale truth generation still needs the planned NumPy/compiled path.

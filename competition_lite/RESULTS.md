@@ -47,3 +47,7 @@ The repeated-query workload exercises the new bounded result cache, so this tabl
 ## Remaining plan gaps
 
 The current code is a working, tested implementation, but it is not honest to call every T00-T11 item complete yet. WAL mutation payloads are still length-prefixed SQL tokens rather than fully typed column records; SST files are maintenance artifacts while the checkpointed STATE remains the recovery source; tombstone dropping and size/overlap based multi-level policies are not complete; the planned 100k/300k runs, 20-round large-state kill matrix, memory-pressure run, and platform submission have not been executed. Those items remain explicit follow-up work rather than being replaced by design prose.
+
+## 10k medium-scale run
+
+A 10,000-row, 1024-dimensional B256 run completed without an Oracle or memory failure: insert 5.488 s, index build 0.532 s, 64 end-to-end queries 0.108 s, mean exact request 1.651 ms, mean ANN request 1.077 ms, and a 40,960,000-byte vector file. The pure-stdlib Oracle is intentionally used for small correctness runs; at this scale its naive Python loop expands to hundreds of millions of scalar operations, so the 10k result is recorded as a performance/storage smoke rather than a fabricated independent-truth score.
