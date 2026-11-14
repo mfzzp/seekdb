@@ -10,7 +10,9 @@ The source line checker counts physical lines, including comments and blanks:
 python3 competition_lite/tools/check_lines.py
 ```
 
-The current checker result is 2168 lines; the original 2000-line target is exceeded by explicit runtime index/statistics and cache paths. Correctness and measured performance take priority over artificial compression. The generator, Oracle, crash checker, benchmark driver, and summaries under `competition_lite/bench` are outside that runtime count.
+The current checker result is 2175 lines; the original 2000-line target is exceeded by explicit runtime index/statistics and cache paths. Correctness and measured performance take priority over artificial compression. The generator, Oracle, crash checker, benchmark driver, and summaries under `competition_lite/bench` are outside that runtime count.
+
+The latest write measurements and their hardware limits are in [WRITE_LIMITS_20261114.md](docs/WRITE_LIMITS_20261114.md). JSONL input buffering and bulk string scanning reduce CPU cost without reducing commit syncs. STATE v3 records the checkpoint vector boundary for WAL recovery. Legacy v2/JSON state is accepted only with an empty WAL because it lacks that boundary; nonempty legacy WAL is rejected rather than assigned guessed offsets. Bulk recovery checks now verify nonzero vector distances as well as row IDs.
 
 A small end-to-end run is:
 
@@ -25,8 +27,3 @@ python3 competition_lite/bench/verify_results.py \
 ```
 
 The current evidence is recorded in `RESULTS.md`. WAL frames are aligned and reject complete-frame CRC corruption while truncating only incomplete tails. Manifest and index publication use temporary files; persisted indexes include a CRC and nprobe metrics expose actual bucket coverage. Checkpoint state is binary and recovery uses windowed mmap, so the 300k LOWMEM load/check and 256-query subset stay below 1 GiB. It includes public/strict protocol checks, LSM and restart checks, 20 crash rounds, four write modes, a small independent Oracle, a full 1024-case engine sweep at 100k/300k, and old/new timings. The plan's large Oracle, LOWMEM, full kill matrix, and submission checks remain explicitly marked as pending. The WAL is framed, checksummed, and carries typed integer/string/vector/keyword fields, but it still reconstructs mutation handlers from canonical tokens rather than a fully typed column record; SST files are not yet the sole recovery source.
-
-
-
-
-

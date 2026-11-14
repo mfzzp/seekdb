@@ -80,20 +80,26 @@ namespace lite {
   static void ws(const std::string&s,size_t&p){
     while(p<s.size()&&std::isspace((unsigned char)s[p]))++p;
   }
-  static std::string jstr(const std::string&s,size_t&p){
-    if(p>=s.size()||s[p++]!='"')throw Err("invalid_request","string");
+  static std::string quoted(const std::string&s,size_t&p,char quote,bool json){
+    if(p>=s.size()||s[p++]!=quote)throw Err("invalid_request","string");
     std::string r;
     while(p<s.size()){
-      char c=s[p++];
-      if(c=='"')return r;
-      if(c=='\\'&&p<s.size()){
-        char e=s[p++];
-        r+=e=='n'?'\n':e=='r'?'\r':e=='t'?'\t':e;
+      size_t end=s.find(quote,p);
+      if(end==std::string::npos){
+        if(json)throw Err("invalid_request","string");
+        end=s.size();
       }
-      else r+=c;
+      const char* escape=(const char*)std::memchr(s.data()+p,'\\',end-p);
+      if(!escape){r.append(s,p,end-p);p=end+(end<s.size());return r;}
+      size_t at=(size_t)(escape-s.data());r.append(s,p,at-p);p=at+1;
+      if(p==s.size()){if(json)throw Err("invalid_request","string");r+='\\';return r;}
+      char e=s[p++];
+      r+=json?(e=='n'?'\n':e=='r'?'\r':e=='t'?'\t':e):e;
     }
+    if(!json)return r;
     throw Err("invalid_request","string");
   }
+  static std::string jstr(const std::string&s,size_t&p){return quoted(s,p,'"',true);}
   static J pv(const std::string&s,size_t&p){
     ws(s,p);
     if(p>=s.size())throw Err("invalid_request","value");
@@ -200,15 +206,7 @@ namespace lite {
       while(p<s.size()&&std::isspace((unsigned char)s[p]))++p;
       if(p>=s.size())break;
       if(s[p]=='\''){
-        ++p;
-        std::string x;
-        while(p<s.size()){
-          char c=s[p++];
-          if(c=='\'')break;
-          if(c=='\\'&&p<s.size())x+=s[p++];
-          else x+=c;
-        }
-        r.push_back("'"+x+"'");
+        r.push_back("'"+quoted(s,p,'\'',false)+"'");
       }
       else if(std::string("(),;=<>!").find(s[p])!=std::string::npos){
         if((s[p]=='<'||s[p]=='>'||s[p]=='!')&&p+1<s.size()&&s[p+1]=='='){
@@ -465,8 +463,9 @@ namespace lite {
     void snapshot(){
       std::string p=dir+"/STATE.tmp";
       std::ofstream f(p,std::ios::binary|std::ios::trunc);
-      uint32_t magic=0x4c535432u,ver=2,nt=(uint32_t)tabs.size();
-      wr(f,magic);wr(f,ver);wr(f,wal_txid);wr(f,nt);
+      uint32_t magic=0x4c535432u,ver=3,nt=(uint32_t)tabs.size();
+      int64_t vector_end=vec_end;
+      wr(f,magic);wr(f,ver);wr(f,wal_txid);wr(f,vector_end);wr(f,nt);
       for(auto&tk:tabs){
         auto&q=tk.second;ws(f,q.n);uint32_t nc=(uint32_t)q.c.size();wr(f,nc);
         for(auto&c:q.c){ws(f,c.n);ws(f,c.t);wr(f,c.d);}
@@ -649,8 +648,11 @@ namespace lite {
       auto finish=[&](){vec_end=fsize(vecfile);ensure_map();sindex.clear();nindex.clear();bool post=load_postings();for(auto&t:tabs){if(post){t.second.fast.clear();refresh_fast(t.second);}else rebuild_scalar(t.second);load_vstats(t.second);if(!load_index(t.second))rebuild_index(t.second);}};
       std::ifstream b(dir+"/STATE",std::ios::binary);uint32_t magic=0;
       if(b.read((char*)&magic,4)&&magic==0x4c535432u){
-        uint32_t ver=0,nt=0;uint64_t w=0;
-        if(!rd(b,ver)||ver!=2||!rd(b,w)||!rd(b,nt))throw Err("corruption","state header");
+        uint32_t ver=0,nt=0;uint64_t w=0;int64_t vector_end=0;
+        if(!rd(b,ver)||(ver!=2&&ver!=3)||!rd(b,w))throw Err("corruption","state header");
+        if(ver==3&&(!rd(b,vector_end)||vector_end<0||vector_end>vec_end))throw Err("corruption","state vector boundary");
+        if(ver==2&&fsize(wal)!=0)throw Err("corruption","legacy state without vector boundary has nonempty WAL");
+        if(!rd(b,nt))throw Err("corruption","state header");
         wal_txid=w;
         for(uint32_t ti=0;ti<nt;++ti){
           Table q;uint32_t nc=0;uint64_t nr=0;if(!rs(b,q.n)||!rd(b,nc))throw Err("corruption","state table");
@@ -661,9 +663,12 @@ namespace lite {
         }
         uint32_t ni=0,nc=0;if(!rd(b,ni)||ni>1000000u)throw Err("corruption","state indexes");for(uint32_t i=0;i<ni;++i){std::string x;if(!rs(b,x))throw Err("corruption","state index");indexes.insert(std::move(x));}
         if(!rd(b,nc)||nc>1000000u)throw Err("corruption","state index columns");for(uint32_t i=0;i<nc;++i){std::string x;int c=0;if(!rs(b,x)||!rd(b,c))throw Err("corruption","state index column");index_cols.emplace(std::move(x),c);}
-        finish();return;
+        if(ver==2)vector_end=vec_end;
+        vec_cursor=(off_t)vector_end;finish();return;
       }
       b.close();std::ifstream f(dir+"/STATE");std::string line;if(!std::getline(f,line)||line.empty())return;
+      if(fsize(wal)!=0)throw Err("corruption","legacy state without vector boundary has nonempty WAL");
+      vec_cursor=vec_end;
       J z=parse(line);if(z.o.count("w"))wal_txid=(uint64_t)z.o["w"].i;
       for(auto&x:z.o["t"].a){Table q;q.n=x.o["name"].s;for(auto&c:x.o["c"].a){Col y;y.n=c.o["n"].s;y.t=c.o["t"].s;y.d=(int)c.o["d"].i;q.c.push_back(y);}for(auto&y:x.o["r"].a){Row r;r.id=y.o["id"].i;for(auto&v:y.o["v"].a)r.v.push_back(v.s);r.voff.push_back(-1);for(auto&o:y.o["o"].a)r.voff.push_back((off_t)o.i);q.r[r.id]=r;q.order.push_back(r.id);}tabs[q.n]=q;}
       indexes.clear();for(auto&i:z.o["i"].a)indexes.insert(i.s);index_cols.clear();for(auto&i:z.o["c"].o)index_cols[i.first]=(int)i.second.i;finish();
@@ -724,7 +729,7 @@ namespace lite {
       uint8_t op=(uint8_t)s[0];
       uint32_t n=0;
       size_t p=1;
-      if(op<1||op>5||!get32(s,p,n)||n==0||n>4096)return false;
+      if(op<1||op>5||!get32(s,p,n)||n==0||n>(s.size()-5)/5)return false;
       t.clear();
       for(uint32_t i=0;i<n;++i){
         if(p>=s.size())return false;
@@ -792,15 +797,14 @@ namespace lite {
       recovering=true;
       load_state();
       uint64_t base=wal_txid;
-      vec_cursor=vec_end;
       std::ifstream f(wal,std::ios::binary);
       uint32_t magic,n,crc;
       uint64_t tx=0,active_tx=0;
       uint16_t kind=0,flags=0;
       std::string x;
       std::vector<std::vector<std::string>>b;
-      bool active=false,any=false;
-      off_t committed_vec=vec_end;
+      bool active=false;
+      off_t committed_vec=vec_cursor;
       off_t wal_good=0;
       while(f.read((char*)&magic,4)){
         if(!f.read((char*)&n,4)||!f.read((char*)&tx,8)||!f.read((char*)&kind,2)||!f.read((char*)&flags,2)||!f.read((char*)&crc,4))break;
@@ -826,12 +830,13 @@ namespace lite {
         else if(kind==3&&active&&tx==active_tx){
           for(auto&t:b)apply_tokens(t);
           committed_vec=vec_cursor;
-          any=true;
           b.clear();
           active=false;
         }
       }
-      if(any||active)trunc_vec(committed_vec);
+      if(committed_vec>vec_end)throw Err("corruption","committed vector file is incomplete");
+      if(committed_vec!=vec_end)trunc_vec(committed_vec);
+      vecbuf_base=vec_end;
       if(wal_good<(off_t)fsize(wal)){
         int fd=open(wal.c_str(),O_WRONLY);
         if(fd>=0){ftruncate(fd,wal_good);close(fd);}
@@ -2097,6 +2102,8 @@ namespace lite {
   };
 }
 int main(int argc,char**argv){
+  std::ios::sync_with_stdio(false);
+  std::cin.tie(nullptr);
   std::string d="/data",maint;
   bool check=false;
   for(int i=1;i<argc;++i){

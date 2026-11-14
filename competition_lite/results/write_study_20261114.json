@@ -1,0 +1,1721 @@
+{
+  "date": "2026-11-14",
+  "baseline_commit": "b63ed07",
+  "source_sha256": "7fb9f2d79c165d150143baa93ea903d4221a13ca734a6d610bb51482efca8fd4",
+  "runtime_physical_lines": 2175,
+  "cpu": "2 x Intel Xeon Gold 6430",
+  "filesystem": "ext4",
+  "ssd1": "/dev/nvme1n1 ZHITAI TiPlus7100 2TB",
+  "constraints": {
+    "cpu_affinity": false,
+    "docker_limits": false,
+    "engine_threads": 1,
+    "input_columns": 4,
+    "trained_ivf_maintenance_included": false
+  },
+  "hardware": [
+    {
+      "mode": "seq",
+      "direct": 1,
+      "jobs": 1,
+      "bytes": 2147483648,
+      "submit_s": 0.421725,
+      "durable_s": 0.42463,
+      "MB_s": 5057.3,
+      "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114",
+      "repeat": 0
+    },
+    {
+      "mode": "seq",
+      "direct": 1,
+      "jobs": 4,
+      "bytes": 2147483648,
+      "submit_s": 0.478327,
+      "durable_s": 0.482022,
+      "MB_s": 4455.15,
+      "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114",
+      "repeat": 0
+    },
+    {
+      "mode": "seq",
+      "direct": 0,
+      "jobs": 1,
+      "bytes": 2147483648,
+      "submit_s": 0.508017,
+      "durable_s": 0.875508,
+      "MB_s": 2452.84,
+      "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114",
+      "repeat": 0
+    },
+    {
+      "mode": "commit",
+      "rows": 500,
+      "dim": 128,
+      "batch": 1,
+      "commits": 500,
+      "bytes": 384000,
+      "seconds": 2.04692,
+      "rows_s": 244.27,
+      "mean_commit_ms": 4.09383,
+      "p50_commit_ms": 4.03591,
+      "p95_commit_ms": 5.0266,
+      "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114",
+      "repeat": 0
+    },
+    {
+      "mode": "commit",
+      "rows": 10000,
+      "dim": 128,
+      "batch": 100,
+      "commits": 100,
+      "bytes": 6412800,
+      "seconds": 0.411732,
+      "rows_s": 24287.6,
+      "mean_commit_ms": 4.11732,
+      "p50_commit_ms": 4.04873,
+      "p95_commit_ms": 4.99595,
+      "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114",
+      "repeat": 0
+    },
+    {
+      "mode": "commit",
+      "rows": 4096,
+      "dim": 1024,
+      "batch": 256,
+      "commits": 16,
+      "bytes": 17303552,
+      "seconds": 0.0805523,
+      "rows_s": 50849,
+      "mean_commit_ms": 5.03452,
+      "p50_commit_ms": 5.01342,
+      "p95_commit_ms": 6.01098,
+      "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114",
+      "repeat": 0
+    },
+    {
+      "mode": "seq",
+      "direct": 1,
+      "jobs": 1,
+      "bytes": 2147483648,
+      "submit_s": 0.410185,
+      "durable_s": 0.413248,
+      "MB_s": 5196.6,
+      "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114",
+      "repeat": 1
+    },
+    {
+      "mode": "seq",
+      "direct": 1,
+      "jobs": 4,
+      "bytes": 2147483648,
+      "submit_s": 0.495456,
+      "durable_s": 0.499115,
+      "MB_s": 4302.58,
+      "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114",
+      "repeat": 1
+    },
+    {
+      "mode": "seq",
+      "direct": 0,
+      "jobs": 1,
+      "bytes": 2147483648,
+      "submit_s": 0.522787,
+      "durable_s": 0.944069,
+      "MB_s": 2274.71,
+      "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114",
+      "repeat": 1
+    },
+    {
+      "mode": "commit",
+      "rows": 500,
+      "dim": 128,
+      "batch": 1,
+      "commits": 500,
+      "bytes": 384000,
+      "seconds": 1.92986,
+      "rows_s": 259.086,
+      "mean_commit_ms": 3.85973,
+      "p50_commit_ms": 4.02468,
+      "p95_commit_ms": 4.78605,
+      "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114",
+      "repeat": 1
+    },
+    {
+      "mode": "commit",
+      "rows": 10000,
+      "dim": 128,
+      "batch": 100,
+      "commits": 100,
+      "bytes": 6412800,
+      "seconds": 0.384026,
+      "rows_s": 26039.9,
+      "mean_commit_ms": 3.84026,
+      "p50_commit_ms": 4.03245,
+      "p95_commit_ms": 4.38392,
+      "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114",
+      "repeat": 1
+    },
+    {
+      "mode": "commit",
+      "rows": 4096,
+      "dim": 1024,
+      "batch": 256,
+      "commits": 16,
+      "bytes": 17303552,
+      "seconds": 0.0793606,
+      "rows_s": 51612.5,
+      "mean_commit_ms": 4.96003,
+      "p50_commit_ms": 4.99355,
+      "p95_commit_ms": 8.99935,
+      "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114",
+      "repeat": 1
+    },
+    {
+      "mode": "seq",
+      "direct": 1,
+      "jobs": 1,
+      "bytes": 2147483648,
+      "submit_s": 0.484111,
+      "durable_s": 0.485731,
+      "MB_s": 4421.14,
+      "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114",
+      "repeat": 2
+    },
+    {
+      "mode": "seq",
+      "direct": 1,
+      "jobs": 4,
+      "bytes": 2147483648,
+      "submit_s": 0.51706,
+      "durable_s": 0.526125,
+      "MB_s": 4081.7,
+      "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114",
+      "repeat": 2
+    },
+    {
+      "mode": "seq",
+      "direct": 0,
+      "jobs": 1,
+      "bytes": 2147483648,
+      "submit_s": 0.491244,
+      "durable_s": 0.876011,
+      "MB_s": 2451.43,
+      "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114",
+      "repeat": 2
+    },
+    {
+      "mode": "commit",
+      "rows": 500,
+      "dim": 128,
+      "batch": 1,
+      "commits": 500,
+      "bytes": 384000,
+      "seconds": 1.94461,
+      "rows_s": 257.122,
+      "mean_commit_ms": 3.88921,
+      "p50_commit_ms": 4.02628,
+      "p95_commit_ms": 4.62113,
+      "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114",
+      "repeat": 2
+    },
+    {
+      "mode": "commit",
+      "rows": 10000,
+      "dim": 128,
+      "batch": 100,
+      "commits": 100,
+      "bytes": 6412800,
+      "seconds": 0.41892,
+      "rows_s": 23870.9,
+      "mean_commit_ms": 4.1892,
+      "p50_commit_ms": 4.04816,
+      "p95_commit_ms": 5.04144,
+      "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114",
+      "repeat": 2
+    },
+    {
+      "mode": "commit",
+      "rows": 4096,
+      "dim": 1024,
+      "batch": 256,
+      "commits": 16,
+      "bytes": 17303552,
+      "seconds": 0.0808603,
+      "rows_s": 50655.3,
+      "mean_commit_ms": 5.05377,
+      "p50_commit_ms": 5.01281,
+      "p95_commit_ms": 6.09391,
+      "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114",
+      "repeat": 2
+    },
+    {
+      "mode": "seq",
+      "direct": 1,
+      "jobs": 1,
+      "bytes": 268435456,
+      "submit_s": 2.01134,
+      "durable_s": 2.06206,
+      "MB_s": 130.178,
+      "root": "/mnt/HDD2/zzp/seekdb-round2-lite2000/write-study-20261114",
+      "repeat": 0
+    },
+    {
+      "mode": "commit",
+      "rows": 50,
+      "dim": 128,
+      "batch": 1,
+      "commits": 50,
+      "bytes": 38400,
+      "seconds": 1.86499,
+      "rows_s": 26.8097,
+      "mean_commit_ms": 37.2999,
+      "p50_commit_ms": 33.8176,
+      "p95_commit_ms": 56.4831,
+      "root": "/mnt/HDD2/zzp/seekdb-round2-lite2000/write-study-20261114",
+      "repeat": 0
+    },
+    {
+      "mode": "commit",
+      "rows": 10000,
+      "dim": 128,
+      "batch": 100,
+      "commits": 100,
+      "bytes": 6412800,
+      "seconds": 3.50239,
+      "rows_s": 2855.19,
+      "mean_commit_ms": 35.0239,
+      "p50_commit_ms": 33.5038,
+      "p95_commit_ms": 58.2761,
+      "root": "/mnt/HDD2/zzp/seekdb-round2-lite2000/write-study-20261114",
+      "repeat": 0
+    },
+    {
+      "mode": "commit",
+      "rows": 10000,
+      "dim": 128,
+      "batch": 1024,
+      "commits": 10,
+      "bytes": 6401280,
+      "seconds": 0.0521781,
+      "rows_s": 191651,
+      "mean_commit_ms": 5.21781,
+      "p50_commit_ms": 5.06596,
+      "p95_commit_ms": 6.18245,
+      "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114",
+      "repeat": 0
+    },
+    {
+      "mode": "commit",
+      "rows": 10000,
+      "dim": 128,
+      "batch": 1024,
+      "commits": 10,
+      "bytes": 6401280,
+      "seconds": 0.0531724,
+      "rows_s": 188068,
+      "mean_commit_ms": 5.31724,
+      "p50_commit_ms": 4.98075,
+      "p95_commit_ms": 6.22494,
+      "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114",
+      "repeat": 1
+    },
+    {
+      "mode": "commit",
+      "rows": 10000,
+      "dim": 128,
+      "batch": 1024,
+      "commits": 10,
+      "bytes": 6401280,
+      "seconds": 0.0506555,
+      "rows_s": 197412,
+      "mean_commit_ms": 5.06555,
+      "p50_commit_ms": 4.97664,
+      "p95_commit_ms": 5.95186,
+      "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114",
+      "repeat": 2
+    }
+  ],
+  "runs": {
+    "before": [
+      {
+        "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/minivectordb-before",
+        "binary_sha256": "eb59768a57f14fbc644d757959246f96f0db9eaec1cb8c67827d6b77cad36725",
+        "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/before/write-3mkcdy69",
+        "rows": 10000,
+        "dim": 128,
+        "batch": 100,
+        "index": "before",
+        "repeat": 2,
+        "traced": false,
+        "generation_s": 0.6082603151444346,
+        "setup_s": 0.009951268089935184,
+        "insert_s": 0.7986386271659285,
+        "index_after_s": 0,
+        "checkpoint_s": 0.06384081696160138,
+        "rows_s": 12521.307710204654,
+        "request_count": 100,
+        "request_sha256": "c9189bf5d941d276f0e95be7ea8d4e33769cb768b477079eea51f6713e921937",
+        "request_bytes": 12475048,
+        "vector_bytes": 5120000,
+        "p50_request_ms": 8.03195044863969,
+        "p95_request_ms": 8.262187940999866,
+        "server_cpu_s": 0.36,
+        "peak_rss_kib": 17356,
+        "io_delta": {
+          "rchar": 12475048,
+          "wchar": 5899644,
+          "syscr": 3100,
+          "syscw": 300,
+          "read_bytes": 8192,
+          "write_bytes": 6504448,
+          "cancelled_write_bytes": 0
+        },
+        "files_before_checkpoint": {
+          "wal.log": 776112,
+          "vectors.f32": 5120000
+        },
+        "sample_exact_pass": true
+      },
+      {
+        "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/minivectordb-before",
+        "binary_sha256": "eb59768a57f14fbc644d757959246f96f0db9eaec1cb8c67827d6b77cad36725",
+        "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/before/write-dofxorc1",
+        "rows": 10000,
+        "dim": 128,
+        "batch": 100,
+        "index": "before",
+        "repeat": 0,
+        "traced": false,
+        "generation_s": 0.6082603151444346,
+        "setup_s": 0.011566104833036661,
+        "insert_s": 0.794510506093502,
+        "index_after_s": 0,
+        "checkpoint_s": 0.06460745492950082,
+        "rows_s": 12586.365974150063,
+        "request_count": 100,
+        "request_sha256": "c9189bf5d941d276f0e95be7ea8d4e33769cb768b477079eea51f6713e921937",
+        "request_bytes": 12475048,
+        "vector_bytes": 5120000,
+        "p50_request_ms": 8.027534582652152,
+        "p95_request_ms": 8.09596199542284,
+        "server_cpu_s": 0.34,
+        "peak_rss_kib": 17352,
+        "io_delta": {
+          "rchar": 12475048,
+          "wchar": 5899644,
+          "syscr": 3100,
+          "syscw": 300,
+          "read_bytes": 8192,
+          "write_bytes": 6504448,
+          "cancelled_write_bytes": 0
+        },
+        "files_before_checkpoint": {
+          "wal.log": 776112,
+          "vectors.f32": 5120000
+        },
+        "sample_exact_pass": true
+      },
+      {
+        "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/minivectordb-before",
+        "binary_sha256": "eb59768a57f14fbc644d757959246f96f0db9eaec1cb8c67827d6b77cad36725",
+        "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/before/write-mlbbpihc",
+        "rows": 10000,
+        "dim": 128,
+        "batch": 100,
+        "index": "before",
+        "repeat": 1,
+        "traced": false,
+        "generation_s": 0.6082603151444346,
+        "setup_s": 0.006917281076312065,
+        "insert_s": 0.8006728538312018,
+        "index_after_s": 0,
+        "checkpoint_s": 0.06479760003276169,
+        "rows_s": 12489.495493883953,
+        "request_count": 100,
+        "request_sha256": "c9189bf5d941d276f0e95be7ea8d4e33769cb768b477079eea51f6713e921937",
+        "request_bytes": 12475048,
+        "vector_bytes": 5120000,
+        "p50_request_ms": 8.03086452651769,
+        "p95_request_ms": 9.019772987812757,
+        "server_cpu_s": 0.35,
+        "peak_rss_kib": 17352,
+        "io_delta": {
+          "rchar": 12475048,
+          "wchar": 5899644,
+          "syscr": 3100,
+          "syscw": 300,
+          "read_bytes": 8192,
+          "write_bytes": 6504448,
+          "cancelled_write_bytes": 0
+        },
+        "files_before_checkpoint": {
+          "wal.log": 776112,
+          "vectors.f32": 5120000
+        },
+        "sample_exact_pass": true
+      }
+    ],
+    "before-wide": [
+      {
+        "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/minivectordb-before",
+        "binary_sha256": "eb59768a57f14fbc644d757959246f96f0db9eaec1cb8c67827d6b77cad36725",
+        "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/before-wide/write-czf8xwsu",
+        "rows": 4096,
+        "dim": 1024,
+        "batch": 256,
+        "index": "before",
+        "repeat": 1,
+        "traced": false,
+        "generation_s": 1.8869915830437094,
+        "setup_s": 0.008408011868596077,
+        "insert_s": 0.8567974048200995,
+        "index_after_s": 0,
+        "checkpoint_s": 0.05088345590047538,
+        "rows_s": 4780.593378267797,
+        "request_count": 16,
+        "request_sha256": "835ba72e4d0f869e5e72b7ec26bb0e77e478f1de0b270130d9d4346f568a7ce3",
+        "request_bytes": 40042626,
+        "vector_bytes": 16777216,
+        "p50_request_ms": 53.46211197320372,
+        "p95_request_ms": 62.80402513220906,
+        "server_cpu_s": 0.76,
+        "peak_rss_kib": 52632,
+        "io_delta": {
+          "rchar": 40042626,
+          "wchar": 17091921,
+          "syscr": 9784,
+          "syscw": 64,
+          "read_bytes": 16384,
+          "write_bytes": 17154048,
+          "cancelled_write_bytes": 0
+        },
+        "files_before_checkpoint": {
+          "wal.log": 314536,
+          "vectors.f32": 16777216
+        },
+        "sample_exact_pass": true
+      },
+      {
+        "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/minivectordb-before",
+        "binary_sha256": "eb59768a57f14fbc644d757959246f96f0db9eaec1cb8c67827d6b77cad36725",
+        "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/before-wide/write-dfllnsty",
+        "rows": 4096,
+        "dim": 1024,
+        "batch": 256,
+        "index": "before",
+        "repeat": 0,
+        "traced": false,
+        "generation_s": 1.8869915830437094,
+        "setup_s": 0.011742025148123503,
+        "insert_s": 0.9148415538948029,
+        "index_after_s": 0,
+        "checkpoint_s": 0.05321851000189781,
+        "rows_s": 4477.27804072944,
+        "request_count": 16,
+        "request_sha256": "835ba72e4d0f869e5e72b7ec26bb0e77e478f1de0b270130d9d4346f568a7ce3",
+        "request_bytes": 40042626,
+        "vector_bytes": 16777216,
+        "p50_request_ms": 55.59921555686742,
+        "p95_request_ms": 63.05403378792107,
+        "server_cpu_s": 0.82,
+        "peak_rss_kib": 52700,
+        "io_delta": {
+          "rchar": 40042626,
+          "wchar": 17091921,
+          "syscr": 9784,
+          "syscw": 64,
+          "read_bytes": 12288,
+          "write_bytes": 17154048,
+          "cancelled_write_bytes": 0
+        },
+        "files_before_checkpoint": {
+          "wal.log": 314536,
+          "vectors.f32": 16777216
+        },
+        "sample_exact_pass": true
+      },
+      {
+        "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/minivectordb-before",
+        "binary_sha256": "eb59768a57f14fbc644d757959246f96f0db9eaec1cb8c67827d6b77cad36725",
+        "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/before-wide/write-orzdk7qk",
+        "rows": 4096,
+        "dim": 1024,
+        "batch": 256,
+        "index": "before",
+        "repeat": 2,
+        "traced": false,
+        "generation_s": 1.8869915830437094,
+        "setup_s": 0.007390911923721433,
+        "insert_s": 0.8467379088979214,
+        "index_after_s": 0,
+        "checkpoint_s": 0.05181144503876567,
+        "rows_s": 4837.388236616431,
+        "request_count": 16,
+        "request_sha256": "835ba72e4d0f869e5e72b7ec26bb0e77e478f1de0b270130d9d4346f568a7ce3",
+        "request_bytes": 40042626,
+        "vector_bytes": 16777216,
+        "p50_request_ms": 52.928302669897676,
+        "p95_request_ms": 60.84251985885203,
+        "server_cpu_s": 0.76,
+        "peak_rss_kib": 52632,
+        "io_delta": {
+          "rchar": 40042626,
+          "wchar": 17091921,
+          "syscr": 9784,
+          "syscw": 64,
+          "read_bytes": 4096,
+          "write_bytes": 17154048,
+          "cancelled_write_bytes": 0
+        },
+        "files_before_checkpoint": {
+          "wal.log": 314536,
+          "vectors.f32": 16777216
+        },
+        "sample_exact_pass": true
+      }
+    ],
+    "buffered": [
+      {
+        "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/cmake-build/minivectordb_lite",
+        "binary_sha256": "dfbfca2ff45d01423a785a225bcf44a646cd14616e053badffbcd606b1d77887",
+        "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/buffered/write-zxg11yjm",
+        "rows": 10000,
+        "dim": 128,
+        "batch": 100,
+        "index": "before",
+        "repeat": 0,
+        "traced": false,
+        "generation_s": 0.5620807569939643,
+        "setup_s": 0.00744763296097517,
+        "insert_s": 0.6526540850754827,
+        "index_after_s": 0,
+        "checkpoint_s": 0.06392097007483244,
+        "rows_s": 15322.052261181281,
+        "request_count": 100,
+        "request_sha256": "c9189bf5d941d276f0e95be7ea8d4e33769cb768b477079eea51f6713e921937",
+        "request_bytes": 12475048,
+        "vector_bytes": 5120000,
+        "p50_request_ms": 6.707647116854787,
+        "p95_request_ms": 7.0464820601046085,
+        "server_cpu_s": 0.21,
+        "peak_rss_kib": 17376,
+        "io_delta": {
+          "rchar": 12475048,
+          "wchar": 5899644,
+          "syscr": 1600,
+          "syscw": 300,
+          "read_bytes": 12288,
+          "write_bytes": 6504448,
+          "cancelled_write_bytes": 0
+        },
+        "files_before_checkpoint": {
+          "wal.log": 776112,
+          "vectors.f32": 5120000
+        },
+        "sample_exact_pass": true
+      }
+    ],
+    "buffered-wide": [
+      {
+        "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/cmake-build/minivectordb_lite",
+        "binary_sha256": "dfbfca2ff45d01423a785a225bcf44a646cd14616e053badffbcd606b1d77887",
+        "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/buffered-wide/write-zk302yza",
+        "rows": 4096,
+        "dim": 1024,
+        "batch": 256,
+        "index": "before",
+        "repeat": 0,
+        "traced": false,
+        "generation_s": 1.9186682070139796,
+        "setup_s": 0.011387936072424054,
+        "insert_s": 0.3837447161786258,
+        "index_after_s": 0,
+        "checkpoint_s": 0.05509593104943633,
+        "rows_s": 10673.762601315897,
+        "request_count": 16,
+        "request_sha256": "835ba72e4d0f869e5e72b7ec26bb0e77e478f1de0b270130d9d4346f568a7ce3",
+        "request_bytes": 40042626,
+        "vector_bytes": 16777216,
+        "p50_request_ms": 23.93999497871846,
+        "p95_request_ms": 29.723041923716664,
+        "server_cpu_s": 0.3,
+        "peak_rss_kib": 52660,
+        "io_delta": {
+          "rchar": 40042626,
+          "wchar": 17091921,
+          "syscr": 4899,
+          "syscw": 64,
+          "read_bytes": 12288,
+          "write_bytes": 17154048,
+          "cancelled_write_bytes": 0
+        },
+        "files_before_checkpoint": {
+          "wal.log": 314536,
+          "vectors.f32": 16777216
+        },
+        "sample_exact_pass": true
+      }
+    ],
+    "after": [
+      {
+        "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/cmake-build/minivectordb_lite",
+        "binary_sha256": "956e23a32f590e816c43b887ce5e8d001f99a5f7d89895861c201fbba5e529cc",
+        "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/after/write-0dsfm761",
+        "rows": 10000,
+        "dim": 128,
+        "batch": 100,
+        "index": "before",
+        "repeat": 0,
+        "traced": false,
+        "generation_s": 0.5758773479610682,
+        "setup_s": 0.01115803001448512,
+        "insert_s": 0.6055450770072639,
+        "index_after_s": 0,
+        "checkpoint_s": 0.06561814714223146,
+        "rows_s": 16514.04722737106,
+        "request_count": 100,
+        "request_sha256": "c9189bf5d941d276f0e95be7ea8d4e33769cb768b477079eea51f6713e921937",
+        "request_bytes": 12475048,
+        "vector_bytes": 5120000,
+        "p50_request_ms": 6.029162905178964,
+        "p95_request_ms": 6.998039083555341,
+        "server_cpu_s": 0.16,
+        "peak_rss_kib": 17180,
+        "io_delta": {
+          "rchar": 12475048,
+          "wchar": 5899644,
+          "syscr": 1600,
+          "syscw": 300,
+          "read_bytes": 8192,
+          "write_bytes": 6504448,
+          "cancelled_write_bytes": 0
+        },
+        "files_before_checkpoint": {
+          "wal.log": 776112,
+          "vectors.f32": 5120000
+        },
+        "sample_exact_pass": true
+      },
+      {
+        "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/cmake-build/minivectordb_lite",
+        "binary_sha256": "956e23a32f590e816c43b887ce5e8d001f99a5f7d89895861c201fbba5e529cc",
+        "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/after/write-ke6n7yj4",
+        "rows": 10000,
+        "dim": 128,
+        "batch": 100,
+        "index": "before",
+        "repeat": 1,
+        "traced": false,
+        "generation_s": 0.5758773479610682,
+        "setup_s": 0.0077107900287956,
+        "insert_s": 0.6096073209773749,
+        "index_after_s": 0,
+        "checkpoint_s": 0.06358709512278438,
+        "rows_s": 16404.00247156996,
+        "request_count": 100,
+        "request_sha256": "c9189bf5d941d276f0e95be7ea8d4e33769cb768b477079eea51f6713e921937",
+        "request_bytes": 12475048,
+        "vector_bytes": 5120000,
+        "p50_request_ms": 6.028171046636999,
+        "p95_request_ms": 7.018128875643015,
+        "server_cpu_s": 0.16,
+        "peak_rss_kib": 17184,
+        "io_delta": {
+          "rchar": 12475048,
+          "wchar": 5899644,
+          "syscr": 1600,
+          "syscw": 300,
+          "read_bytes": 32768,
+          "write_bytes": 6504448,
+          "cancelled_write_bytes": 0
+        },
+        "files_before_checkpoint": {
+          "wal.log": 776112,
+          "vectors.f32": 5120000
+        },
+        "sample_exact_pass": true
+      },
+      {
+        "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/cmake-build/minivectordb_lite",
+        "binary_sha256": "956e23a32f590e816c43b887ce5e8d001f99a5f7d89895861c201fbba5e529cc",
+        "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/after/write-sq7mak4t",
+        "rows": 10000,
+        "dim": 128,
+        "batch": 100,
+        "index": "before",
+        "repeat": 2,
+        "traced": false,
+        "generation_s": 0.5758773479610682,
+        "setup_s": 0.007916184840723872,
+        "insert_s": 0.6045988730620593,
+        "index_after_s": 0,
+        "checkpoint_s": 0.06750542507506907,
+        "rows_s": 16539.891894528137,
+        "request_count": 100,
+        "request_sha256": "c9189bf5d941d276f0e95be7ea8d4e33769cb768b477079eea51f6713e921937",
+        "request_bytes": 12475048,
+        "vector_bytes": 5120000,
+        "p50_request_ms": 6.029005511663854,
+        "p95_request_ms": 6.500700954347849,
+        "server_cpu_s": 0.15,
+        "peak_rss_kib": 17208,
+        "io_delta": {
+          "rchar": 12475048,
+          "wchar": 5899644,
+          "syscr": 1600,
+          "syscw": 300,
+          "read_bytes": 12288,
+          "write_bytes": 6504448,
+          "cancelled_write_bytes": 0
+        },
+        "files_before_checkpoint": {
+          "wal.log": 776112,
+          "vectors.f32": 5120000
+        },
+        "sample_exact_pass": true
+      }
+    ],
+    "after-wide": [
+      {
+        "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/cmake-build/minivectordb_lite",
+        "binary_sha256": "956e23a32f590e816c43b887ce5e8d001f99a5f7d89895861c201fbba5e529cc",
+        "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/after-wide/write-9aw2t5_y",
+        "rows": 4096,
+        "dim": 1024,
+        "batch": 256,
+        "index": "before",
+        "repeat": 0,
+        "traced": false,
+        "generation_s": 1.8599603208713233,
+        "setup_s": 0.011081202886998653,
+        "insert_s": 0.26505151903256774,
+        "index_after_s": 0,
+        "checkpoint_s": 0.051450991071760654,
+        "rows_s": 15453.599417012627,
+        "request_count": 16,
+        "request_sha256": "835ba72e4d0f869e5e72b7ec26bb0e77e478f1de0b270130d9d4346f568a7ce3",
+        "request_bytes": 40042626,
+        "vector_bytes": 16777216,
+        "p50_request_ms": 15.967522980645299,
+        "p95_request_ms": 22.84340001642704,
+        "server_cpu_s": 0.18,
+        "peak_rss_kib": 50512,
+        "io_delta": {
+          "rchar": 40042626,
+          "wchar": 17091921,
+          "syscr": 4900,
+          "syscw": 64,
+          "read_bytes": 4096,
+          "write_bytes": 17154048,
+          "cancelled_write_bytes": 0
+        },
+        "files_before_checkpoint": {
+          "wal.log": 314536,
+          "vectors.f32": 16777216
+        },
+        "sample_exact_pass": true
+      },
+      {
+        "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/cmake-build/minivectordb_lite",
+        "binary_sha256": "956e23a32f590e816c43b887ce5e8d001f99a5f7d89895861c201fbba5e529cc",
+        "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/after-wide/write-jzewoyzs",
+        "rows": 4096,
+        "dim": 1024,
+        "batch": 256,
+        "index": "before",
+        "repeat": 1,
+        "traced": false,
+        "generation_s": 1.8599603208713233,
+        "setup_s": 0.007258041063323617,
+        "insert_s": 0.2646101510617882,
+        "index_after_s": 0,
+        "checkpoint_s": 0.05140204192139208,
+        "rows_s": 15479.375917984178,
+        "request_count": 16,
+        "request_sha256": "835ba72e4d0f869e5e72b7ec26bb0e77e478f1de0b270130d9d4346f568a7ce3",
+        "request_bytes": 40042626,
+        "vector_bytes": 16777216,
+        "p50_request_ms": 16.00486447568983,
+        "p95_request_ms": 25.65754996612668,
+        "server_cpu_s": 0.18,
+        "peak_rss_kib": 50544,
+        "io_delta": {
+          "rchar": 40042626,
+          "wchar": 17091921,
+          "syscr": 4898,
+          "syscw": 64,
+          "read_bytes": 4096,
+          "write_bytes": 17154048,
+          "cancelled_write_bytes": 0
+        },
+        "files_before_checkpoint": {
+          "wal.log": 314536,
+          "vectors.f32": 16777216
+        },
+        "sample_exact_pass": true
+      },
+      {
+        "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/cmake-build/minivectordb_lite",
+        "binary_sha256": "956e23a32f590e816c43b887ce5e8d001f99a5f7d89895861c201fbba5e529cc",
+        "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/after-wide/write-subbh2og",
+        "rows": 4096,
+        "dim": 1024,
+        "batch": 256,
+        "index": "before",
+        "repeat": 2,
+        "traced": false,
+        "generation_s": 1.8599603208713233,
+        "setup_s": 0.008418407989665866,
+        "insert_s": 0.2626195470802486,
+        "index_after_s": 0,
+        "checkpoint_s": 0.0511245250236243,
+        "rows_s": 15596.706511524011,
+        "request_count": 16,
+        "request_sha256": "835ba72e4d0f869e5e72b7ec26bb0e77e478f1de0b270130d9d4346f568a7ce3",
+        "request_bytes": 40042626,
+        "vector_bytes": 16777216,
+        "p50_request_ms": 15.997299458831549,
+        "p95_request_ms": 23.80794403143227,
+        "server_cpu_s": 0.17,
+        "peak_rss_kib": 50544,
+        "io_delta": {
+          "rchar": 40042626,
+          "wchar": 17091921,
+          "syscr": 4902,
+          "syscw": 64,
+          "read_bytes": 4096,
+          "write_bytes": 17154048,
+          "cancelled_write_bytes": 0
+        },
+        "files_before_checkpoint": {
+          "wal.log": 314536,
+          "vectors.f32": 16777216
+        },
+        "sample_exact_pass": true
+      }
+    ],
+    "batch1024": [
+      {
+        "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/cmake-build/minivectordb_lite",
+        "binary_sha256": "e44c8c24f2b01ace8a76ccca79bb0521fa63736c54d5666c3f5512e38df94326",
+        "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/batch1024/write-dosz62v1",
+        "rows": 10000,
+        "dim": 128,
+        "batch": 1024,
+        "index": "before",
+        "repeat": 2,
+        "traced": false,
+        "generation_s": 0.5653408491052687,
+        "setup_s": 0.008188436971977353,
+        "insert_s": 0.1306281448341906,
+        "index_after_s": 0,
+        "checkpoint_s": 0.055340569000691175,
+        "rows_s": 76553.18088374627,
+        "request_count": 10,
+        "request_sha256": "8155845ed0128768b14fadd4defd1fbad81d4b2f52b366dd5f828aca41ddb605",
+        "request_bytes": 12467755,
+        "vector_bytes": 5120000,
+        "p50_request_ms": 13.005120912566781,
+        "p95_request_ms": 16.592696076259017,
+        "server_cpu_s": 0.08,
+        "peak_rss_kib": 24444,
+        "io_delta": {
+          "rchar": 12467755,
+          "wchar": 5885442,
+          "syscr": 1524,
+          "syscw": 40,
+          "read_bytes": 12288,
+          "write_bytes": 5922816,
+          "cancelled_write_bytes": 0
+        },
+        "files_before_checkpoint": {
+          "wal.log": 765504,
+          "vectors.f32": 5120000
+        },
+        "sample_exact_pass": true
+      },
+      {
+        "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/cmake-build/minivectordb_lite",
+        "binary_sha256": "e44c8c24f2b01ace8a76ccca79bb0521fa63736c54d5666c3f5512e38df94326",
+        "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/batch1024/write-lib7e2aj",
+        "rows": 10000,
+        "dim": 128,
+        "batch": 1024,
+        "index": "before",
+        "repeat": 0,
+        "traced": false,
+        "generation_s": 0.5653408491052687,
+        "setup_s": 0.011795576894655824,
+        "insert_s": 0.12755997688509524,
+        "index_after_s": 0,
+        "checkpoint_s": 0.05825328710488975,
+        "rows_s": 78394.49523425283,
+        "request_count": 10,
+        "request_sha256": "8155845ed0128768b14fadd4defd1fbad81d4b2f52b366dd5f828aca41ddb605",
+        "request_bytes": 12467755,
+        "vector_bytes": 5120000,
+        "p50_request_ms": 12.673881486989558,
+        "p95_request_ms": 16.797092044726014,
+        "server_cpu_s": 0.08,
+        "peak_rss_kib": 24444,
+        "io_delta": {
+          "rchar": 12467755,
+          "wchar": 5885442,
+          "syscr": 1524,
+          "syscw": 40,
+          "read_bytes": 8192,
+          "write_bytes": 5922816,
+          "cancelled_write_bytes": 0
+        },
+        "files_before_checkpoint": {
+          "wal.log": 765504,
+          "vectors.f32": 5120000
+        },
+        "sample_exact_pass": true
+      },
+      {
+        "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/cmake-build/minivectordb_lite",
+        "binary_sha256": "e44c8c24f2b01ace8a76ccca79bb0521fa63736c54d5666c3f5512e38df94326",
+        "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/batch1024/write-nmog6o43",
+        "rows": 10000,
+        "dim": 128,
+        "batch": 1024,
+        "index": "before",
+        "repeat": 1,
+        "traced": false,
+        "generation_s": 0.5653408491052687,
+        "setup_s": 0.0073788100853562355,
+        "insert_s": 0.1337622250430286,
+        "index_after_s": 0,
+        "checkpoint_s": 0.055017821956425905,
+        "rows_s": 74759.52195609189,
+        "request_count": 10,
+        "request_sha256": "8155845ed0128768b14fadd4defd1fbad81d4b2f52b366dd5f828aca41ddb605",
+        "request_bytes": 12467755,
+        "vector_bytes": 5120000,
+        "p50_request_ms": 13.120589428581297,
+        "p95_request_ms": 16.767289023846388,
+        "server_cpu_s": 0.08,
+        "peak_rss_kib": 24444,
+        "io_delta": {
+          "rchar": 12467755,
+          "wchar": 5885442,
+          "syscr": 1527,
+          "syscw": 40,
+          "read_bytes": 4096,
+          "write_bytes": 5922816,
+          "cancelled_write_bytes": 0
+        },
+        "files_before_checkpoint": {
+          "wal.log": 765504,
+          "vectors.f32": 5120000
+        },
+        "sample_exact_pass": true
+      }
+    ],
+    "final": [
+      {
+        "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/cmake-build/minivectordb_lite",
+        "binary_sha256": "68bd0560eb1d9cb543b1a16177e0f3a07d894ccbfbce1dc92ec7d6bb16355565",
+        "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/final/write-6flz0rme",
+        "rows": 10000,
+        "dim": 128,
+        "batch": 100,
+        "index": "before",
+        "repeat": 0,
+        "traced": false,
+        "generation_s": 0.5530183990485966,
+        "setup_s": 0.011532393982633948,
+        "insert_s": 0.6026124239433557,
+        "index_after_s": 0,
+        "checkpoint_s": 0.06180109712295234,
+        "rows_s": 16594.413926221972,
+        "request_count": 100,
+        "request_sha256": "c9189bf5d941d276f0e95be7ea8d4e33769cb768b477079eea51f6713e921937",
+        "request_bytes": 12475048,
+        "vector_bytes": 5120000,
+        "p50_request_ms": 6.0458340449258685,
+        "p95_request_ms": 6.26976415514946,
+        "server_cpu_s": 0.15,
+        "peak_rss_kib": 17244,
+        "io_delta": {
+          "rchar": 12475048,
+          "wchar": 5899644,
+          "syscr": 1600,
+          "syscw": 300,
+          "read_bytes": 16384,
+          "write_bytes": 6504448,
+          "cancelled_write_bytes": 0
+        },
+        "files_before_checkpoint": {
+          "wal.log": 776112,
+          "vectors.f32": 5120000
+        },
+        "sample_exact_pass": true
+      },
+      {
+        "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/cmake-build/minivectordb_lite",
+        "binary_sha256": "68bd0560eb1d9cb543b1a16177e0f3a07d894ccbfbce1dc92ec7d6bb16355565",
+        "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/final/write-7a65zw62",
+        "rows": 10000,
+        "dim": 128,
+        "batch": 100,
+        "index": "before",
+        "repeat": 2,
+        "traced": false,
+        "generation_s": 0.5530183990485966,
+        "setup_s": 0.007994863903149962,
+        "insert_s": 0.6080019921064377,
+        "index_after_s": 0,
+        "checkpoint_s": 0.06434513395652175,
+        "rows_s": 16447.314531577038,
+        "request_count": 100,
+        "request_sha256": "c9189bf5d941d276f0e95be7ea8d4e33769cb768b477079eea51f6713e921937",
+        "request_bytes": 12475048,
+        "vector_bytes": 5120000,
+        "p50_request_ms": 6.043508532457054,
+        "p95_request_ms": 7.042116951197386,
+        "server_cpu_s": 0.15,
+        "peak_rss_kib": 17244,
+        "io_delta": {
+          "rchar": 12475048,
+          "wchar": 5899644,
+          "syscr": 1600,
+          "syscw": 300,
+          "read_bytes": 4096,
+          "write_bytes": 6504448,
+          "cancelled_write_bytes": 0
+        },
+        "files_before_checkpoint": {
+          "wal.log": 776112,
+          "vectors.f32": 5120000
+        },
+        "sample_exact_pass": true
+      },
+      {
+        "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/cmake-build/minivectordb_lite",
+        "binary_sha256": "68bd0560eb1d9cb543b1a16177e0f3a07d894ccbfbce1dc92ec7d6bb16355565",
+        "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/final/write-mlyyix2j",
+        "rows": 10000,
+        "dim": 128,
+        "batch": 100,
+        "index": "before",
+        "repeat": 1,
+        "traced": false,
+        "generation_s": 0.5530183990485966,
+        "setup_s": 0.006972894072532654,
+        "insert_s": 0.602620440069586,
+        "index_after_s": 0,
+        "checkpoint_s": 0.06338127283379436,
+        "rows_s": 16594.193185424105,
+        "request_count": 100,
+        "request_sha256": "c9189bf5d941d276f0e95be7ea8d4e33769cb768b477079eea51f6713e921937",
+        "request_bytes": 12475048,
+        "vector_bytes": 5120000,
+        "p50_request_ms": 6.043134024366736,
+        "p95_request_ms": 6.516010966151953,
+        "server_cpu_s": 0.15,
+        "peak_rss_kib": 17244,
+        "io_delta": {
+          "rchar": 12475048,
+          "wchar": 5899644,
+          "syscr": 1600,
+          "syscw": 300,
+          "read_bytes": 12288,
+          "write_bytes": 6504448,
+          "cancelled_write_bytes": 0
+        },
+        "files_before_checkpoint": {
+          "wal.log": 776112,
+          "vectors.f32": 5120000
+        },
+        "sample_exact_pass": true
+      }
+    ],
+    "final-wide": [
+      {
+        "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/cmake-build/minivectordb_lite",
+        "binary_sha256": "68bd0560eb1d9cb543b1a16177e0f3a07d894ccbfbce1dc92ec7d6bb16355565",
+        "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/final-wide/write-jl34x917",
+        "rows": 4096,
+        "dim": 1024,
+        "batch": 256,
+        "index": "before",
+        "repeat": 0,
+        "traced": false,
+        "generation_s": 1.8175383580382913,
+        "setup_s": 0.012158978963270783,
+        "insert_s": 0.2589131770655513,
+        "index_after_s": 0,
+        "checkpoint_s": 0.053403443191200495,
+        "rows_s": 15819.975045005069,
+        "request_count": 16,
+        "request_sha256": "835ba72e4d0f869e5e72b7ec26bb0e77e478f1de0b270130d9d4346f568a7ce3",
+        "request_bytes": 40042626,
+        "vector_bytes": 16777216,
+        "p50_request_ms": 15.910158981569111,
+        "p95_request_ms": 22.783598164096475,
+        "server_cpu_s": 0.17,
+        "peak_rss_kib": 50512,
+        "io_delta": {
+          "rchar": 40042626,
+          "wchar": 17091921,
+          "syscr": 4898,
+          "syscw": 64,
+          "read_bytes": 0,
+          "write_bytes": 17154048,
+          "cancelled_write_bytes": 0
+        },
+        "files_before_checkpoint": {
+          "wal.log": 314536,
+          "vectors.f32": 16777216
+        },
+        "sample_exact_pass": true
+      },
+      {
+        "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/cmake-build/minivectordb_lite",
+        "binary_sha256": "68bd0560eb1d9cb543b1a16177e0f3a07d894ccbfbce1dc92ec7d6bb16355565",
+        "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/final-wide/write-nxz8zv66",
+        "rows": 4096,
+        "dim": 1024,
+        "batch": 256,
+        "index": "before",
+        "repeat": 1,
+        "traced": false,
+        "generation_s": 1.8175383580382913,
+        "setup_s": 0.008005718933418393,
+        "insert_s": 0.27674373402260244,
+        "index_after_s": 0,
+        "checkpoint_s": 0.051350630121305585,
+        "rows_s": 14800.69644382795,
+        "request_count": 16,
+        "request_sha256": "835ba72e4d0f869e5e72b7ec26bb0e77e478f1de0b270130d9d4346f568a7ce3",
+        "request_bytes": 40042626,
+        "vector_bytes": 16777216,
+        "p50_request_ms": 16.51650690473616,
+        "p95_request_ms": 24.568486027419567,
+        "server_cpu_s": 0.2,
+        "peak_rss_kib": 50548,
+        "io_delta": {
+          "rchar": 40042626,
+          "wchar": 17091921,
+          "syscr": 4900,
+          "syscw": 64,
+          "read_bytes": 8192,
+          "write_bytes": 17154048,
+          "cancelled_write_bytes": 0
+        },
+        "files_before_checkpoint": {
+          "wal.log": 314536,
+          "vectors.f32": 16777216
+        },
+        "sample_exact_pass": true
+      },
+      {
+        "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/cmake-build/minivectordb_lite",
+        "binary_sha256": "68bd0560eb1d9cb543b1a16177e0f3a07d894ccbfbce1dc92ec7d6bb16355565",
+        "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/final-wide/write-uidzq9xo",
+        "rows": 4096,
+        "dim": 1024,
+        "batch": 256,
+        "index": "before",
+        "repeat": 2,
+        "traced": false,
+        "generation_s": 1.8175383580382913,
+        "setup_s": 0.00827522692270577,
+        "insert_s": 0.2585592311806977,
+        "index_after_s": 0,
+        "checkpoint_s": 0.05009064800105989,
+        "rows_s": 15841.631262963703,
+        "request_count": 16,
+        "request_sha256": "835ba72e4d0f869e5e72b7ec26bb0e77e478f1de0b270130d9d4346f568a7ce3",
+        "request_bytes": 40042626,
+        "vector_bytes": 16777216,
+        "p50_request_ms": 16.012822510674596,
+        "p95_request_ms": 22.577523021027446,
+        "server_cpu_s": 0.17,
+        "peak_rss_kib": 50512,
+        "io_delta": {
+          "rchar": 40042626,
+          "wchar": 17091921,
+          "syscr": 4897,
+          "syscw": 64,
+          "read_bytes": 4096,
+          "write_bytes": 17154048,
+          "cancelled_write_bytes": 0
+        },
+        "files_before_checkpoint": {
+          "wal.log": 314536,
+          "vectors.f32": 16777216
+        },
+        "sample_exact_pass": true
+      }
+    ],
+    "final-batch1024": [
+      {
+        "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/cmake-build/minivectordb_lite",
+        "binary_sha256": "68bd0560eb1d9cb543b1a16177e0f3a07d894ccbfbce1dc92ec7d6bb16355565",
+        "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/final-batch1024/write-f9a6wyma",
+        "rows": 10000,
+        "dim": 128,
+        "batch": 1024,
+        "index": "before",
+        "repeat": 2,
+        "traced": false,
+        "generation_s": 0.5568157350644469,
+        "setup_s": 0.00896220002323389,
+        "insert_s": 0.14084568386897445,
+        "index_after_s": 0,
+        "checkpoint_s": 0.06002557999454439,
+        "rows_s": 70999.69076299685,
+        "request_count": 10,
+        "request_sha256": "8155845ed0128768b14fadd4defd1fbad81d4b2f52b366dd5f828aca41ddb605",
+        "request_bytes": 12467755,
+        "vector_bytes": 5120000,
+        "p50_request_ms": 13.31700396258384,
+        "p95_request_ms": 19.69202677719295,
+        "server_cpu_s": 0.08,
+        "peak_rss_kib": 24440,
+        "io_delta": {
+          "rchar": 12467755,
+          "wchar": 5885442,
+          "syscr": 1524,
+          "syscw": 40,
+          "read_bytes": 12288,
+          "write_bytes": 5922816,
+          "cancelled_write_bytes": 0
+        },
+        "files_before_checkpoint": {
+          "wal.log": 765504,
+          "vectors.f32": 5120000
+        },
+        "sample_exact_pass": true
+      },
+      {
+        "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/cmake-build/minivectordb_lite",
+        "binary_sha256": "68bd0560eb1d9cb543b1a16177e0f3a07d894ccbfbce1dc92ec7d6bb16355565",
+        "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/final-batch1024/write-kv7ltvyx",
+        "rows": 10000,
+        "dim": 128,
+        "batch": 1024,
+        "index": "before",
+        "repeat": 0,
+        "traced": false,
+        "generation_s": 0.5568157350644469,
+        "setup_s": 0.009224348934367299,
+        "insert_s": 0.1380282009486109,
+        "index_after_s": 0,
+        "checkpoint_s": 0.06193288182839751,
+        "rows_s": 72448.96282987189,
+        "request_count": 10,
+        "request_sha256": "8155845ed0128768b14fadd4defd1fbad81d4b2f52b366dd5f828aca41ddb605",
+        "request_bytes": 12467755,
+        "vector_bytes": 5120000,
+        "p50_request_ms": 13.098247931338847,
+        "p95_request_ms": 18.786449916660786,
+        "server_cpu_s": 0.09,
+        "peak_rss_kib": 24408,
+        "io_delta": {
+          "rchar": 12467755,
+          "wchar": 5885442,
+          "syscr": 1527,
+          "syscw": 40,
+          "read_bytes": 0,
+          "write_bytes": 5922816,
+          "cancelled_write_bytes": 0
+        },
+        "files_before_checkpoint": {
+          "wal.log": 765504,
+          "vectors.f32": 5120000
+        },
+        "sample_exact_pass": true
+      },
+      {
+        "binary": "/mnt/SSD1/zzp/seekdb-round2-lite2000/cmake-build/minivectordb_lite",
+        "binary_sha256": "68bd0560eb1d9cb543b1a16177e0f3a07d894ccbfbce1dc92ec7d6bb16355565",
+        "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/final-batch1024/write-kyl3tlbk",
+        "rows": 10000,
+        "dim": 128,
+        "batch": 1024,
+        "index": "before",
+        "repeat": 1,
+        "traced": false,
+        "generation_s": 0.5568157350644469,
+        "setup_s": 0.008781860815361142,
+        "insert_s": 0.14490802981890738,
+        "index_after_s": 0,
+        "checkpoint_s": 0.06382927298545837,
+        "rows_s": 69009.28825336369,
+        "request_count": 10,
+        "request_sha256": "8155845ed0128768b14fadd4defd1fbad81d4b2f52b366dd5f828aca41ddb605",
+        "request_bytes": 12467755,
+        "vector_bytes": 5120000,
+        "p50_request_ms": 14.046050608158112,
+        "p95_request_ms": 18.69378797709942,
+        "server_cpu_s": 0.08,
+        "peak_rss_kib": 24444,
+        "io_delta": {
+          "rchar": 12467755,
+          "wchar": 5885442,
+          "syscr": 1526,
+          "syscw": 40,
+          "read_bytes": 4096,
+          "write_bytes": 5922816,
+          "cancelled_write_bytes": 0
+        },
+        "files_before_checkpoint": {
+          "wal.log": 765504,
+          "vectors.f32": 5120000
+        },
+        "sample_exact_pass": true
+      }
+    ]
+  },
+  "protocol": {
+    "scope": "public-protocol-check",
+    "passed": true,
+    "cases": [
+      {
+        "id": "sql_crud",
+        "status": "PASS",
+        "message": "",
+        "duration_ms": 39
+      },
+      {
+        "id": "sql_comparisons",
+        "status": "PASS",
+        "message": "",
+        "duration_ms": 26
+      },
+      {
+        "id": "sql_ordering",
+        "status": "PASS",
+        "message": "",
+        "duration_ms": 28
+      },
+      {
+        "id": "sql_empty",
+        "status": "PASS",
+        "message": "",
+        "duration_ms": 19
+      },
+      {
+        "id": "sql_primary_key",
+        "status": "PASS",
+        "message": "",
+        "duration_ms": 26
+      },
+      {
+        "id": "sql_unicode",
+        "status": "PASS",
+        "message": "",
+        "duration_ms": 27
+      },
+      {
+        "id": "sql_bigint",
+        "status": "PASS",
+        "message": "",
+        "duration_ms": 27
+      },
+      {
+        "id": "sql_unsupported",
+        "status": "PASS",
+        "message": "",
+        "duration_ms": 17
+      },
+      {
+        "id": "storage_restart",
+        "status": "PASS",
+        "message": "",
+        "duration_ms": 38
+      },
+      {
+        "id": "vector_euclidean",
+        "status": "PASS",
+        "message": "",
+        "duration_ms": 31
+      },
+      {
+        "id": "transaction_commit",
+        "status": "PASS",
+        "message": "",
+        "duration_ms": 31
+      },
+      {
+        "id": "transaction_rollback",
+        "status": "PASS",
+        "message": "",
+        "duration_ms": 27
+      },
+      {
+        "id": "storage_mutations",
+        "status": "PASS",
+        "message": "",
+        "duration_ms": 52
+      },
+      {
+        "id": "storage_multiple_tables",
+        "status": "PASS",
+        "message": "",
+        "duration_ms": 41
+      },
+      {
+        "id": "vector_ties_and_filter",
+        "status": "PASS",
+        "message": "",
+        "duration_ms": 31
+      },
+      {
+        "id": "vector_float32",
+        "status": "PASS",
+        "message": "",
+        "duration_ms": 31
+      },
+      {
+        "id": "vector_index_maintenance",
+        "status": "PASS",
+        "message": "",
+        "duration_ms": 67
+      },
+      {
+        "id": "transaction_failed_insert",
+        "status": "PASS",
+        "message": "",
+        "duration_ms": 46
+      },
+      {
+        "id": "transaction_autocommit_atomic",
+        "status": "PASS",
+        "message": "",
+        "duration_ms": 42
+      },
+      {
+        "id": "transaction_shutdown_rollback",
+        "status": "PASS",
+        "message": "",
+        "duration_ms": 35
+      }
+    ],
+    "note": "Local diagnostic only; no performance/Agent scores or platform callbacks."
+  },
+  "crash": [
+    {
+      "round": 0,
+      "committed_present": true,
+      "uncommitted_absent": true,
+      "vector_valid": true,
+      "ids": [
+        1
+      ]
+    },
+    {
+      "round": 1,
+      "committed_present": true,
+      "uncommitted_absent": true,
+      "vector_valid": true,
+      "ids": [
+        1
+      ]
+    },
+    {
+      "round": 2,
+      "committed_present": true,
+      "uncommitted_absent": true,
+      "vector_valid": true,
+      "ids": [
+        1
+      ]
+    },
+    {
+      "round": 3,
+      "committed_present": true,
+      "uncommitted_absent": true,
+      "vector_valid": true,
+      "ids": [
+        1
+      ]
+    },
+    {
+      "round": 4,
+      "committed_present": true,
+      "uncommitted_absent": true,
+      "vector_valid": true,
+      "ids": [
+        1
+      ]
+    },
+    {
+      "round": 5,
+      "committed_present": true,
+      "uncommitted_absent": true,
+      "vector_valid": true,
+      "ids": [
+        1
+      ]
+    },
+    {
+      "round": 6,
+      "committed_present": true,
+      "uncommitted_absent": true,
+      "vector_valid": true,
+      "ids": [
+        1
+      ]
+    },
+    {
+      "round": 7,
+      "committed_present": true,
+      "uncommitted_absent": true,
+      "vector_valid": true,
+      "ids": [
+        1
+      ]
+    },
+    {
+      "round": 8,
+      "committed_present": true,
+      "uncommitted_absent": true,
+      "vector_valid": true,
+      "ids": [
+        1
+      ]
+    },
+    {
+      "round": 9,
+      "committed_present": true,
+      "uncommitted_absent": true,
+      "vector_valid": true,
+      "ids": [
+        1
+      ]
+    },
+    {
+      "round": 10,
+      "committed_present": true,
+      "uncommitted_absent": true,
+      "vector_valid": true,
+      "ids": [
+        1
+      ]
+    },
+    {
+      "round": 11,
+      "committed_present": true,
+      "uncommitted_absent": true,
+      "vector_valid": true,
+      "ids": [
+        1
+      ]
+    },
+    {
+      "round": 12,
+      "committed_present": true,
+      "uncommitted_absent": true,
+      "vector_valid": true,
+      "ids": [
+        1
+      ]
+    },
+    {
+      "round": 13,
+      "committed_present": true,
+      "uncommitted_absent": true,
+      "vector_valid": true,
+      "ids": [
+        1
+      ]
+    },
+    {
+      "round": 14,
+      "committed_present": true,
+      "uncommitted_absent": true,
+      "vector_valid": true,
+      "ids": [
+        1
+      ]
+    },
+    {
+      "round": 15,
+      "committed_present": true,
+      "uncommitted_absent": true,
+      "vector_valid": true,
+      "ids": [
+        1
+      ]
+    },
+    {
+      "round": 16,
+      "committed_present": true,
+      "uncommitted_absent": true,
+      "vector_valid": true,
+      "ids": [
+        1
+      ]
+    },
+    {
+      "round": 17,
+      "committed_present": true,
+      "uncommitted_absent": true,
+      "vector_valid": true,
+      "ids": [
+        1
+      ]
+    },
+    {
+      "round": 18,
+      "committed_present": true,
+      "uncommitted_absent": true,
+      "vector_valid": true,
+      "ids": [
+        1
+      ]
+    },
+    {
+      "round": 19,
+      "committed_present": true,
+      "uncommitted_absent": true,
+      "vector_valid": true,
+      "ids": [
+        1
+      ]
+    }
+  ],
+  "bulk_recovery": [
+    {
+      "batch": 256,
+      "columns": 8,
+      "checkpoint": false,
+      "recovered_rows": 256,
+      "pass": true
+    },
+    {
+      "batch": 1024,
+      "columns": 8,
+      "checkpoint": false,
+      "recovered_rows": 1024,
+      "pass": true
+    },
+    {
+      "batch": 256,
+      "columns": 8,
+      "checkpoint": true,
+      "recovered_rows": 257,
+      "pass": true
+    },
+    {
+      "batch": 1024,
+      "columns": 8,
+      "checkpoint": true,
+      "recovered_rows": 1025,
+      "pass": true
+    }
+  ],
+  "legacy": {
+    "legacy_v2_clean_upgrade": true,
+    "legacy_nonempty_wal_rejected": true,
+    "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/write-study-20261114/legacy-ljnadocm"
+  },
+  "quoted_string_cases": 2000,
+  "syscall_wall_summary": "% time     seconds  usecs/call     calls    errors syscall\n------ ----------- ----------- --------- --------- ----------------\n 86.09    0.459428        2241       205           fdatasync\n  6.16    0.032870          17      1895           read\n  3.36    0.017927        2240         8           fsync\n  1.24    0.006600          20       317           write\n  0.81    0.004296          13       311           writev\n  0.64    0.003403          14       236         4 openat\n  0.56    0.003002          12       232           close\n  0.28    0.001506          13       114           brk\n  0.26    0.001407          13       106         1 newfstatat\n  0.21    0.001104          10       104           lseek\n  0.11    0.000607          67         9           munmap\n  0.11    0.000600         600         1           execve\n  0.08    0.000425          14        30           mmap\n  0.02    0.000120          14         8         7 mkdir\n  0.02    0.000107          26         4           rename\n  0.01    0.000070          11         6           fstat\n  0.01    0.000067          11         6           mprotect\n  0.00    0.000018          17         1         1 access\n  0.00    0.000017           8         2           getdents64\n  0.00    0.000012           6         2           pread64\n  0.00    0.000007           7         1           futex\n  0.00    0.000007           6         1           arch_prctl\n  0.00    0.000006           6         1           getrandom\n  0.00    0.000006           6         1           set_robust_list\n  0.00    0.000006           6         1           prlimit64\n  0.00    0.000006           6         1           set_tid_address\n  0.00    0.000006           5         1           rseq\n------ ----------- ----------- --------- --------- ----------------\n100.00    0.533632         148      3604        13 total\n",
+  "prior_recovery_failure_log": "wal payload\nTraceback (most recent call last):\n  File \"/mnt/SSD1/zzp/seekdb-round2-lite2000/repo/competition_lite/bench/bulk_recovery_check.py\", line 42, in <module>\n    main()\n    ~~~~^^\n  File \"/mnt/SSD1/zzp/seekdb-round2-lite2000/repo/competition_lite/bench/bulk_recovery_check.py\", line 31, in main\n    session = Session(args.binary, data)\n  File \"/mnt/SSD1/zzp/seekdb-round2-lite2000/repo/competition_lite/bench/protocol_adapter.py\", line 6, in __init__\n    ready=json.loads(self.p.stdout.readline()); assert ready.get('type')=='ready',ready\n  File \"/mnt/HDD1/zzp/miniconda3/lib/python3.14/json/__init__.py\", line 352, in loads\n    return _default_decoder.decode(s)\n           ~~~~~~~~~~~~~~~~~~~~~~~^^^\n  File \"/mnt/HDD1/zzp/miniconda3/lib/python3.14/json/decoder.py\", line 345, in decode\n    obj, end = self.raw_decode(s, idx=_w(s, 0).end())\n               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/mnt/HDD1/zzp/miniconda3/lib/python3.14/json/decoder.py\", line 363, in raw_decode\n    raise JSONDecodeError(\"Expecting value\", s, err.value) from None\njson.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)\n"
+}

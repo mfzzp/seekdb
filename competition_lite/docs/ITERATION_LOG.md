@@ -191,4 +191,13 @@
 - Repeated the official public workload three times: 10,000 rows, 128 dimensions, 500 unfiltered and 500 category-filtered exact requests.
 - Current averages were 0.404 ms median for unfiltered exact, 0.219 ms median for filtered exact, 0.329 s for all 1,000 queries, and 1.304 s for 100 batches of 100-row INSERT requests.
 - The recorded old run was 9.398 ms, 0.774 ms, 5.307 s, and 0.958 s respectively. The current exact query path is therefore about 23.3x faster unfiltered and 3.5x faster with a category filter, while write time is 1.36x higher from durable postings and metadata.
-- This validates the exact-first changes against the official public shape; 100k/300k at 1,024 dimensions remains a separate large-memory/storage workload and is not folded into this speedup claim.
+- This interpretation is superseded by the harness audit below; it is not a controlled old/new C++ comparison.
+
+## 2026-11-14 write hardware boundary, protocol parsing, and bulk recovery
+
+- Audited the previous 1.304 s write measurement: it included Python SQL formatting, used `/tmp` on another NVMe, and compared a direct Python Database harness against C++ JSONL. The earlier strict 23.3x/3.5x comparison and metadata-based explanation for slower writes are withdrawn.
+- Added standalone storage and write probes. SSD1 direct sequential write averaged 4891.68 MB/s; 100 durable two-file B100 commits took 0.404893 s. Thus small synchronous transactions are latency limited long before sequential bandwidth is exhausted.
+- Disabled implicit stdio synchronization/tie and replaced character-at-a-time quoted text appending with bulk scanning. Same-byte JSONL, same SSD, three runs: 10k/128/B100 0.797941 -> 0.604412 s; 4096/1024/B256 0.872792 -> 0.264739 s. No durability synchronization was removed. B1024 is a separate workload at 0.141261 s for 10k/128.
+- Found and fixed two inherited recovery issues: the 4096-token WAL limit rejected valid 8-column B256 commits, and replay used the crash-time vector file end instead of the checkpoint boundary. STATE v3 now persists the boundary. Legacy state without it is accepted only with empty WAL.
+- Current validation: public protocol 20/20; nonzero-vector crash smoke 20/20; wide B256/B1024 recovery with and without checkpoints 4/4; quoted string regression 2000/2000. Earlier ID-only crash checks did not establish vector recovery correctness.
+- Runtime: 2175 physical lines. Full timings, limits, compatibility and reproduction commands are in `docs/WRITE_LIMITS_20261114.md`; per-run evidence is in `results/write_study_20261114.json`.

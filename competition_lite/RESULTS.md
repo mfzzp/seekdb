@@ -2,10 +2,12 @@
 
 ## Current implementation
 
-- Runtime: `competition_lite/src/minivectordb_lite.cpp`, **2168 physical lines** (comments and blank lines included).
+- Runtime: `competition_lite/src/minivectordb_lite.cpp`, **2175 physical lines** (comments and blank lines included).
 - Build: C++17, `-O3 -DNDEBUG -Wall -Wextra`.
 - Storage: private transaction writes, framed CRC WAL, separate float32 vector file with mmap reads, bounded continuous-vector matrix caching for small tables, persisted scalar postings and full-coordinate Block statistics, MemTable/Immutable/SST maintenance, checkpointed recovery state, scalar postings, exact Top-K, IVF with global non-residual PQ and raw-vector reranking, index persistence, and vector GC.
-- There is **no query-result cache**. The plan explicitly excludes one, so every SELECT is computed from current state.\n- WAL frames now use 8-byte alignment, complete-frame CRC rejection, safe incomplete-tail truncation, and the vector cursor keeps only the last complete commit.\n- Manifest and persisted IVF-PQ files are published through temporary files; IVF-PQ files carry a trailing CRC, and a bad index is reported on stderr before rebuilding. `LITE_NPROBE` is exposed for validation and response metrics report probed lists and raw candidates.
+- There is **no query-result cache**. The plan explicitly excludes one, so every SELECT is computed from current state.
+- WAL frames use 8-byte alignment, complete-frame CRC rejection and incomplete-tail truncation. STATE v3 now records the checkpoint vector boundary, and WAL token counts are bounded by encoded payload length.
+- Manifest and persisted IVF-PQ files are published through temporary files; IVF-PQ files carry a trailing CRC, and a bad index is reported on stderr before rebuilding. `LITE_NPROBE` is exposed for validation and response metrics report probed lists and raw candidates.
 - The runtime remains single-writer. The original 2000-line target is exceeded by explicit index/statistics and cache paths; no hidden or generated runtime code is used to reduce the count.
 
 ## Checks completed
@@ -13,11 +15,19 @@
 | Check | Result |
 |---|---:|
 | Official local public protocol cases | 20/20 PASS after latest optimization |
-| Strict packaged protocol check | 20/20 PASS after latest source and query-loop changes |
+| Strict packaged protocol check | Historical 20/20 PASS before current write changes |
 | LSM flush/compaction/restart smoke | PASS, 79 live rows and L0/L1 files |
 | IVF-PQ index persistence/restart | PASS |
-| Crash recovery smoke | 20/20 PASS |
-| Runtime physical-line count | 2168 (current source; comments and blanks included) |
+| Crash recovery smoke with nonzero vector validation | 20/20 PASS after current write changes |
+| Eight-column B256/B1024 WAL recovery with/without checkpoint | 4/4 PASS including vector distances |
+| JSON/SQL quoted-string regression | 2000 cases PASS |
+| Runtime physical-line count | 2175 (current source; comments and blanks included) |
+
+## Current write-path evidence
+
+See [the hardware and write report](docs/WRITE_LIMITS_20261114.md) and [raw measurements](results/write_study_20261114.json). Identical prebuilt JSONL requests, the same SSD, three runs per configuration: 10k/128/B100 INSERT time changed from 0.797941 s to 0.604412 s; 4096/1024/B256 changed from 0.872792 s to 0.264739 s. These compare the previous lite binary with the current lite binary, not the old project. Input preparation and checkpoint times are reported separately. The measured same-shape two-file durable I/O references are 0.404893 s and 0.080258 s respectively.
+
+Increasing the batch to 1024 yields 0.141261 s for 10k/128, but changes commit count and is reported as a separate workload. No WAL or vector sync was removed. The runtime is 2175 physical lines. STATE v2/JSON with a nonempty WAL is explicitly rejected because the old format lacks a reliable checkpoint vector boundary; clean legacy checkpoints can be upgraded.
 
 ## Current exact-first optimization evidence
 
@@ -27,7 +37,7 @@ One 1,024-case exact sweep on the fixed 10k/128-dimension workload measured mean
 
 The optional `LITE_EARLY=1` partial-distance path was tested on the 100k/1024 and 10k/128 banks. It pruned candidates safely but was slower than the full SIMD path on these distributions, so it is disabled by default and remains an ablation.
 
-The official public-shape comparison (10,000 rows, 128 dimensions, 500 unfiltered plus 500 category-filtered exact requests) was repeated three times on the same server. The old binary's recorded run was 9.398 ms median unfiltered, 0.774 ms median filtered, 5.307 s total query time, and 0.958 s writes. The current branch averaged 0.404 ms, 0.219 ms, 0.329 s, and 1.304 s respectively. That is about 23.3x faster for unfiltered exact, 3.5x faster for filtered exact, and 16.1x lower query wall time; writes are 1.36x slower because the new path persists postings, vector metadata, and recovery state. This is the closest apples-to-apples exact result currently available; the large 100k/300k 1,024-dimensional sweep remains a separate memory and storage stress workload.
+Historical public-shape measurements recorded old 9.398 ms median unfiltered, 0.774 ms filtered, 5.307 s query total and 0.958 s writes; lite recorded 0.404 ms, 0.219 ms, 0.329 s and 1.304 s. A later harness audit found that the old script called Python Database directly while lite used JSONL, query generation differed, and write timing included Python SQL formatting. The previously claimed apples-to-apples 23.3x/3.5x speedups and the causal explanation for 36% slower writes are withdrawn. Preserve these only as historical observations, not a controlled old/new C++ comparison. The current write report uses byte-identical JSONL and explicitly separated timing.
 
 The tools under `competition_lite/bench` generate the fixed eight-column schema, write `vectors.f32`, compute a blockwise mmap-backed independent Oracle, exercise S1/B256/B1024/T256, support mixed and pure-random vectors, and emit per-query JSON plus summaries.
 
