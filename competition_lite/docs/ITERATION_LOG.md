@@ -161,3 +161,17 @@
 - Compaction now sorts by logical key and descending sequence, keeps the newest visible record per key, selects only overlapping next-level files, preserves non-overlapping files, and emits L0→L1→L2 output without orphaning retained ranges.
 - Small threshold smoke produced five retained L2 files; `--check`, post-index mutation/restart, strict protocol 20/20, and crash smoke 20/20 passed.
 - Runtime source count is 1980 physical lines. Tombstone safety conditions and manifest byte/range counters remain to be added.
+
+## 2026-11-14 LSM manifest and tombstone pass
+
+- Manifest v2 now records checkpoint, next SST id, bytes in/out, and each file's logical key range while still reading legacy two-field entries.
+- L0/L1/L2 maintenance retains non-overlapping files during range compaction. Bottom-level L2 compaction removes a tombstone only after the selected range has absorbed all older versions; L0/L1 tombstones remain.
+- The 80-row threshold smoke produced five L2 ranges and a manifest with range/byte metadata. Strict protocol and 20 crash rounds remained green.
+- Runtime source count is 1986 physical lines.
+
+## 2026-11-14 checkpoint publication and bounded SST pass
+
+- Auto-commit mutations now update the in-memory IVF/PQ delta immediately and publish the full persisted index once at checkpoint. This removes full index-file rewrites from every UPDATE/DELETE while retaining restart validation through the checkpoint generation.
+- A 100k-row post-index mutation run passed insert, scalar update, vector update, delete, rollback, and restart. For 1,000 rows per mutation class, scalar update took 54.35 s, vector update 59.03 s, and delete 56.12 s; the remaining cost is per-request WAL synchronization rather than index serialization.
+- SST block sidecars are now built with a 32 KiB streaming buffer instead of loading the complete SST into one temporary string. L1 tombstones are retained whenever an overlapping L0 range can still contain an older value; bottom-level removal is conditional on that overlap being absent.
+- The 10k fixed 1,024-dimensional B256 smoke remained green after the changes: insert 5.522 s, IVF-PQ build 0.580 s, exact 1.696 ms/request, ANN 1.119 ms/request.

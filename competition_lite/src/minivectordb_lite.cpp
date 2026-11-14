@@ -553,6 +553,7 @@ namespace lite {
     }
     void checkpoint(){
       flush_sst();
+      for(auto&kv:index_cols){auto it=tabs.find(kv.first);if(it!=tabs.end())save_index(it->second);}
       snapshot();
       std::ofstream z(wal,std::ios::trunc);
       z.flush();
@@ -705,10 +706,6 @@ namespace lite {
       pending_lsm.clear();
       size_t membytes=0;for(auto&x:memtable)membytes+=x.key.size()+x.value.size()+32;
       if(membytes>=(size_t)envint("LITE_MEMTABLE_BYTES",4<<20)||fsize(wal)>=(32u<<20))flush_sst();
-      for(auto&kv:index_cols){
-        auto it=tabs.find(kv.first);
-        if(it!=tabs.end())save_index(it->second);
-      }
     }
     void recover(){
       recovering=true;
@@ -1021,7 +1018,7 @@ namespace lite {
       for(size_t i=0;i<r.size();++i){auto d=[](char c)->int{return c>='0'&&c<='9'?c-'0':c>='a'&&c<='f'?c-'a'+10:c>='A'&&c<='F'?c-'A'+10:-1;};int a=d(s[i*2]),b=d(s[i*2+1]);if(a<0||b<0)throw Err("corruption","sst hex");r[i]=(char)((a<<4)|b);}return r;
     }
     static std::string skey(const Table&q,long long id){
-      std::ostringstream o;o<<q.n<<'|'<<std::hex<<std::setw(16)<<std::setfill('0')<<(((uint64_t)id)^(1ull<<63));return o.str();
+      char b[32];std::snprintf(b,sizeof(b),"%016llx",(unsigned long long)(((uint64_t)id)^(1ull<<63)));return q.n+"|"+b;
     }
     static std::string row_payload(const Table&q,const Row&r){
       std::string s=std::to_string(r.id);
@@ -1052,9 +1049,10 @@ namespace lite {
       if(fd>=0){fsync(fd);close(fd);}
     }
     void seal_sst(const std::string&p){
-      std::ifstream f(p,std::ios::binary);std::string d((std::istreambuf_iterator<char>(f)),{});
-      std::ofstream g(p+".idx",std::ios::binary|std::ios::trunc);uint32_t magic=0x53535449u,ver=1,n=(uint32_t)((d.size()+32767)/32768);wr(g,magic);wr(g,ver);wr(g,n);
-      for(uint32_t i=0;i<n;++i){size_t off=(size_t)i*32768,len=std::min<size_t>(32768,d.size()-off);uint64_t o=off;uint32_t l=(uint32_t)len,c=crc32c(d.data()+off,len);wr(g,o);wr(g,l);wr(g,c);size_t e=d.find('\n',off);ws(g,d.substr(off,e==std::string::npos?len:e-off));}
+      std::ifstream f(p,std::ios::binary);std::ofstream g(p+".idx",std::ios::binary|std::ios::trunc);
+      uint64_t sz=(uint64_t)fsize(p);uint32_t magic=0x53535449u,ver=1,n=(uint32_t)((sz+32767)/32768);wr(g,magic);wr(g,ver);wr(g,n);
+      std::vector<char>b(32768);
+      for(uint32_t i=0;i<n;++i){uint64_t o=(uint64_t)i*32768;size_t want=(size_t)std::min<uint64_t>(32768,sz-o);f.read(b.data(),want);size_t len=(size_t)f.gcount();uint32_t l=(uint32_t)len,c=crc32c(b.data(),len);wr(g,o);wr(g,l);wr(g,c);size_t e=0;while(e<len&&b[e]!='\n')++e;ws(g,std::string(b.data(),e));}
       g.flush();int fd=open((p+".idx").c_str(),O_RDONLY);if(fd>=0){fsync(fd);close(fd);}
     }
     static bool srange(const std::string&p,std::string&lo,std::string&hi){
@@ -1071,6 +1069,8 @@ namespace lite {
         std::string low,high;
         for(auto&x:src){std::string a,b;if(srange(x,a,b)){if(low.empty()||a<low)low=a;if(high.empty()||b>high)high=b;}}
         for(auto&x:levels[lev+1]){std::string a,b;if(!srange(x,a,b)||low.empty()||!(b<low||high<a))in.push_back(x);}
+        bool drop_tomb=lev==1;
+        if(drop_tomb)for(auto&x:levels[0]){std::string a,b;if(srange(x,a,b)&&!(b<low||high<a)){drop_tomb=false;break;}}
         std::vector<SRec>all;
         for(auto&x:in){
           std::ifstream f(x);std::string y;
@@ -1079,7 +1079,7 @@ namespace lite {
         std::sort(all.begin(),all.end(),[](const SRec&a,const SRec&b){if(a.key!=b.key)return a.key<b.key;if(a.seq!=b.seq)return a.seq>b.seq;return a.tomb>b.tomb;});
         std::string p=dir+"/L"+std::to_string(lev+1)+"-"+std::to_string(++sst_seq)+".sst";
         std::ofstream out(p,std::ios::binary);
-        std::string last;for(auto&r:all)if(r.key!=last){last=r.key;if(lev==1&&r.tomb)continue;out<<sline(r)<<'\n';}
+        std::string last;for(auto&r:all)if(r.key!=last){last=r.key;if(drop_tomb&&r.tomb)continue;out<<sline(r)<<'\n';}
         out.flush();
         int fd=open(p.c_str(),O_RDONLY);
         if(fd>=0){
