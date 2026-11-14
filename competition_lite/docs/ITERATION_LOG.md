@@ -184,3 +184,11 @@
 - A 100k-row post-index mutation run passed insert, scalar update, vector update, delete, rollback, and restart. For 1,000 rows per mutation class, scalar update took 54.35 s, vector update 59.03 s, and delete 56.12 s; the remaining cost is per-request WAL synchronization rather than index serialization.
 - SST block sidecars are now built with a 32 KiB streaming buffer instead of loading the complete SST into one temporary string. L1 tombstones are retained whenever an overlapping L0 range can still contain an older value; bottom-level removal is conditional on that overlap being absent.
 - The 10k fixed 1,024-dimensional B256 smoke remained green after the changes: insert 5.522 s, IVF-PQ build 0.580 s, exact 1.696 ms/request, ANN 1.119 ms/request.
+
+
+## 2026-11-14 official exact-shape comparison
+
+- Repeated the official public workload three times: 10,000 rows, 128 dimensions, 500 unfiltered and 500 category-filtered exact requests.
+- Current averages were 0.404 ms median for unfiltered exact, 0.219 ms median for filtered exact, 0.329 s for all 1,000 queries, and 1.304 s for 100 batches of 100-row INSERT requests.
+- The recorded old run was 9.398 ms, 0.774 ms, 5.307 s, and 0.958 s respectively. The current exact query path is therefore about 23.3x faster unfiltered and 3.5x faster with a category filter, while write time is 1.36x higher from durable postings and metadata.
+- This validates the exact-first changes against the official public shape; 100k/300k at 1,024 dimensions remains a separate large-memory/storage workload and is not folded into this speedup claim.

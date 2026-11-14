@@ -27,6 +27,8 @@ One 1,024-case exact sweep on the fixed 10k/128-dimension workload measured mean
 
 The optional `LITE_EARLY=1` partial-distance path was tested on the 100k/1024 and 10k/128 banks. It pruned candidates safely but was slower than the full SIMD path on these distributions, so it is disabled by default and remains an ablation.
 
+The official public-shape comparison (10,000 rows, 128 dimensions, 500 unfiltered plus 500 category-filtered exact requests) was repeated three times on the same server. The old binary's recorded run was 9.398 ms median unfiltered, 0.774 ms median filtered, 5.307 s total query time, and 0.958 s writes. The current branch averaged 0.404 ms, 0.219 ms, 0.329 s, and 1.304 s respectively. That is about 23.3x faster for unfiltered exact, 3.5x faster for filtered exact, and 16.1x lower query wall time; writes are 1.36x slower because the new path persists postings, vector metadata, and recovery state. This is the closest apples-to-apples exact result currently available; the large 100k/300k 1,024-dimensional sweep remains a separate memory and storage stress workload.
+
 The tools under `competition_lite/bench` generate the fixed eight-column schema, write `vectors.f32`, compute a blockwise mmap-backed independent Oracle, exercise S1/B256/B1024/T256, support mixed and pure-random vectors, and emit per-query JSON plus summaries.
 
 ## Small benchmark evidence
