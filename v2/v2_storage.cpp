@@ -35,11 +35,6 @@ void read_all(int fd, void* data, std::size_t size, off_t offset) {
   }
 }
 
-void sync_file(const std::string& path) {
-  const int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);
-  if (fd < 0 || ::fsync(fd) != 0) { if (fd >= 0) ::close(fd); fail("cannot sync file"); }
-  ::close(fd);
-}
 
 void sync_directory(const std::string& path) {
   const int fd = ::open(path.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
@@ -74,7 +69,8 @@ u64 WalV3::append(u64 seq, const std::string& payload) {
   std::string header; put<u32>(header, kWalMagic); put<std::uint16_t>(header, 3); put<std::uint16_t>(header, 0); put<u32>(header, static_cast<u32>(payload.size())); put<u64>(header, seq); put<u32>(header, 0);
   std::string check = header + payload; const u32 crc = crc32c(check.data(), check.size()); std::memcpy(header.data() + 20, &crc, sizeof(crc));
   const u64 offset = size(); write_all(fd_, header.data(), header.size()); write_all(fd_, payload.data(), payload.size());
-  if (::fdatasync(fd_) != 0) fail("cannot sync WAL"); return offset;
+  if (::fdatasync(fd_) != 0) fail("cannot sync WAL");
+  return offset;
 }
 void WalV3::replay(u64 offset, const std::function<void(u64, const std::string&)>& apply) const {
   const u64 end = size(); u64 cursor = offset;
@@ -94,12 +90,25 @@ void WalV3::replay(u64 offset, const std::function<void(u64, const std::string&)
 }
 
 VectorSegmentWriter::VectorSegmentWriter(std::string path, u64 segment_id, u64 generation, u32 dim) : path_(std::move(path)), segment_id_(segment_id), generation_(generation), dim_(dim) {
-  if (!dim_) fail("invalid segment dimension"); stride_ = (dim_ * sizeof(float) + 63u) & ~63u; fd_ = ::open(path_.c_str(), O_RDWR | O_CREAT | O_TRUNC | O_CLOEXEC, 0644); if (fd_ < 0) fail("cannot create segment");
+  if (!dim_) fail("invalid segment dimension");
+  stride_ = (dim_ * sizeof(float) + 63u) & ~63u;
+  fd_ = ::open(path_.c_str(), O_RDWR | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+  if (fd_ < 0) fail("cannot create segment");
   std::string header(64, '\0'); std::memcpy(header.data(), &kSegmentMagic, 8); const u32 version = 2; std::memcpy(header.data()+8, &version, 4); std::memcpy(header.data()+12, &dim_, 4); std::memcpy(header.data()+16, &stride_, 4); std::memcpy(header.data()+24, &segment_id_, 8); std::memcpy(header.data()+32, &generation_, 8); write_all(fd_, header.data(), header.size());
 }
 VectorSegmentWriter::~VectorSegmentWriter() { if (fd_ >= 0) { try { finish(); } catch (...) { ::close(fd_); } } }
 VectorLocation VectorSegmentWriter::append(VectorId id, const std::vector<float>& value) {
-  if (value.size() != dim_) fail("vector dimension mismatch"); const u64 record = 64 + rows_ * (16 + stride_); const u32 bytes = dim_ * sizeof(float); const u32 zero = 0; write_all(fd_, &id.value, 8); write_all(fd_, &bytes, 4); write_all(fd_, &zero, 4); write_all(fd_, value.data(), bytes); if (stride_ > bytes) { std::string padding(stride_ - bytes, '\0'); write_all(fd_, padding.data(), padding.size()); } ++rows_; return {segment_id_, generation_, record + 16, bytes};
+  if (value.size() != dim_) fail("vector dimension mismatch");
+  const u64 record = 64 + rows_ * (16 + stride_);
+  const u32 bytes = dim_ * sizeof(float), zero = 0;
+  write_all(fd_, &id.value, 8); write_all(fd_, &bytes, 4);
+  write_all(fd_, &zero, 4); write_all(fd_, value.data(), bytes);
+  if (stride_ > bytes) {
+    std::string padding(stride_ - bytes, '\0');
+    write_all(fd_, padding.data(), padding.size());
+  }
+  ++rows_;
+  return {segment_id_, generation_, record + 16, bytes};
 }
 void VectorSegmentWriter::finish() { if (fd_ < 0) return; if (::pwrite(fd_, &rows_, 8, 40) != 8) fail("cannot finalize segment"); if (::fsync(fd_) != 0) fail("cannot sync segment"); ::close(fd_); fd_ = -1; }
 
@@ -108,7 +117,13 @@ VectorSegmentReader::VectorSegmentReader(std::string path) {
 }
 VectorSegmentReader::~VectorSegmentReader() { if (fd_ >= 0) ::close(fd_); }
 std::vector<float> VectorSegmentReader::read(const VectorLocation& location, const ReadView& view) const {
-  if ((location.segment_id != 0 && location.segment_id != segment_id_) || location.generation > view.version_generation || location.length != dim_ * sizeof(float)) fail("invalid vector location"); std::vector<float> value(dim_); read_all(fd_, value.data(), location.length, static_cast<off_t>(location.offset)); return value;
+  if ((location.segment_id != 0 && location.segment_id != segment_id_) ||
+      location.generation > view.version_generation ||
+      location.length != dim_ * sizeof(float))
+    fail("invalid vector location");
+  std::vector<float> value(dim_);
+  read_all(fd_, value.data(), location.length, static_cast<off_t>(location.offset));
+  return value;
 }
 
 void ManifestStore::publish(const Manifest& manifest) const {

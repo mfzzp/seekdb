@@ -187,6 +187,16 @@ struct Table {
   bool index = false;
   std::vector<Row> rows;
   std::vector<bool> alive;
+  // Stable MVCC/vector identity carried by every row.  These arrays are kept
+  // parallel with rows and survive compaction/checkpoint boundaries.
+  std::vector<uint64_t> row_ids;
+  std::vector<uint64_t> row_commit_seq;
+  std::vector<uint64_t> row_versions;
+  std::vector<uint64_t> vector_ids;
+  std::vector<uint64_t> location_generations;
+  uint64_t next_row_id = 1;
+  uint64_t next_vector_id = 1;
+  uint64_t index_generation = 0;
   std::unordered_map<int64_t, size_t> keys;
   mutable bool blocks_valid = false;
   mutable size_t blocks_row_count = 0;
@@ -303,6 +313,7 @@ struct Engine {
   bool v2_active = false;
   uint64_t visible_seq = 0;
   uint64_t next_commit_seq = 1;
+  std::optional<mv2::ReadView> tx_read_view;
   explicit Engine(std::string d) : dir(std::move(d)) { mkdir(dir.c_str(), 0755); v2_manifest = std::make_unique<mv2::ManifestStore>(dir); v2_manifest_state = v2_manifest->load(); v2_active = v2_manifest_state.has_value(); v2_wal = std::make_unique<mv2::WalV3>(dir + "/wal.v3"); if (v2_manifest_state) { visible_seq = v2_manifest_state->visible_seq; next_commit_seq = visible_seq + 1; } load(); if (v2_manifest_state) v2_dirty = v2_wal->size() != v2_manifest_state->wal_offset; }
   ~Engine() { if (journal_fd >= 0) ::close(journal_fd); }
   std::string file() const { return dir + "/state.bin"; }
@@ -634,7 +645,7 @@ struct Engine {
     // appends an optional, validated Block metadata section per table.  The
     // metadata is only a query cache: rows remain the source of truth and a
     // stale/absent section is rebuilt normally after loading.
-    uint32_t magic = 0x4d564334, nt = uint32_t(st.tables.size());
+    uint32_t magic = 0x4d564335, nt = uint32_t(st.tables.size());
     put(f, magic); put(f, nt);
     for (auto &kv : st.tables) {
       const Table &t = kv.second;
@@ -656,6 +667,23 @@ struct Engine {
             uint32_t n = uint32_t(v.v.size()); put(f, n);
             f.write(reinterpret_cast<const char *>(v.v.data()), sizeof(float) * n);
           }
+        }
+      }
+      // Row metadata is part of the durable identity layer, not a query cache.
+      // Keep a presence byte so v5 remains extensible and validate it on load.
+      const bool row_metadata_valid = t.row_ids.size() == t.rows.size() &&
+          t.row_commit_seq.size() == t.rows.size() &&
+          t.row_versions.size() == t.rows.size() &&
+          t.vector_ids.size() == t.rows.size() &&
+          t.location_generations.size() == t.rows.size();
+      uint8_t has_row_metadata = row_metadata_valid ? 1 : 0;
+      put(f, has_row_metadata);
+      if (row_metadata_valid) {
+        put(f, t.next_row_id); put(f, t.next_vector_id); put(f, t.index_generation);
+        for (size_t r = 0; r < t.rows.size(); ++r) {
+          put(f, t.row_ids[r]); put(f, t.row_commit_seq[r]);
+          put(f, t.row_versions[r]); put(f, t.vector_ids[r]);
+          put(f, t.location_generations[r]);
         }
       }
       const bool metadata_valid = t.blocks_valid && t.blocks_row_count == t.rows.size();
@@ -698,11 +726,24 @@ struct Engine {
     for (bool value : t.alive) live += value ? 1u : 0u;
     if (live * 4u > t.rows.size() * 3u) return;
     std::vector<Row> rows;
-    rows.reserve(live);
-    for (size_t r = 0; r < t.rows.size(); ++r)
-      if (t.alive[r]) rows.push_back(std::move(t.rows[r]));
+    std::vector<uint64_t> row_ids, row_commit_seq, row_versions, vector_ids,
+        location_generations;
+    rows.reserve(live); row_ids.reserve(live); row_commit_seq.reserve(live);
+    row_versions.reserve(live); vector_ids.reserve(live); location_generations.reserve(live);
+    const bool has_meta = t.row_ids.size() == t.rows.size() &&
+        t.row_commit_seq.size() == t.rows.size() && t.row_versions.size() == t.rows.size() &&
+        t.vector_ids.size() == t.rows.size() && t.location_generations.size() == t.rows.size();
+    for (size_t r = 0; r < t.rows.size(); ++r) if (t.alive[r]) {
+      rows.push_back(std::move(t.rows[r]));
+      if (has_meta) { row_ids.push_back(t.row_ids[r]); row_commit_seq.push_back(t.row_commit_seq[r]);
+        row_versions.push_back(t.row_versions[r]); vector_ids.push_back(t.vector_ids[r]);
+        location_generations.push_back(t.location_generations[r]); }
+    }
     t.rows = std::move(rows);
     t.alive.assign(t.rows.size(), true);
+    if (has_meta) { t.row_ids = std::move(row_ids); t.row_commit_seq = std::move(row_commit_seq);
+      t.row_versions = std::move(row_versions); t.vector_ids = std::move(vector_ids);
+      t.location_generations = std::move(location_generations); }
     rebuild(t);
   }
   void publish_v2_vectors(uint64_t generation) {
@@ -723,10 +764,26 @@ struct Engine {
       for (size_t row = 0; row < table.rows.size(); ++row) {
         const Value &value = table.rows[row][size_t(table.vector_col)];
         if (value.kind != VK_VECTOR || int(value.v.size()) != dim) throw Error("storage_error", "invalid vector segment row");
-        writer.append({static_cast<uint64_t>(row + 1)}, value.v);
+        const uint64_t vector_id = table.vector_ids.size() == table.rows.size()
+            ? table.vector_ids[row] : uint64_t(row + 1);
+        writer.append({vector_id}, value.v);
       }
       writer.finish();
       manifest.vector_segments.push_back(name);
+    }
+    for (const auto &entry : st.tables) {
+      const Table &table = entry.second;
+      manifest.next_row_id = std::max(manifest.next_row_id, table.next_row_id);
+      manifest.next_vector_id = std::max(manifest.next_vector_id, table.next_vector_id);
+    }
+    for (auto &entry : st.tables) {
+      Table &table = entry.second;
+      if (table.vector_col >= 0) {
+        table.index_generation = generation;
+        for (size_t row = 0; row < table.rows.size(); ++row)
+          if (table.location_generations.size() == table.rows.size())
+            table.location_generations[row] = generation;
+      }
     }
     v2_manifest->publish(manifest);
     v2_manifest_state = manifest;
@@ -744,6 +801,16 @@ struct Engine {
     // immutable snapshot so future scans do not pay for deleted rows.
     for (auto &entry : st.tables) compact_tombstones(entry.second);
     const uint64_t generation = checkpoint_generation + 1;
+    // The snapshot and vector segment must carry the same location generation.
+    // Stamp it before the snapshot is serialized so restart preserves the
+    // location metadata instead of relying on a rebuilt in-memory default.
+    for (auto &entry : st.tables) {
+      Table &table = entry.second;
+      if (table.vector_col >= 0 && table.location_generations.size() == table.rows.size()) {
+        table.index_generation = generation;
+        for (auto &value : table.location_generations) value = generation;
+      }
+    }
     const std::string name = "checkpoint-" + std::to_string(generation) + ".sst";
     save_snapshot(snapshot_path(name));
     publish_v2_vectors(generation);
@@ -789,9 +856,10 @@ struct Engine {
     std::ifstream f(path, std::ios::binary);
     if (!f) throw Error("storage_error", "checkpoint snapshot is missing");
     uint32_t magic = 0, nt = 0;
-    if (!get(f, magic) || (magic != 0x4d564332 && magic != 0x4d564333 && magic != 0x4d564334) || !get(f, nt))
+    if (!get(f, magic) || (magic != 0x4d564332 && magic != 0x4d564333 && magic != 0x4d564334 && magic != 0x4d564335) || !get(f, nt))
       throw Error("storage_error", "invalid data");
-    const bool has_block_metadata = magic == 0x4d564333 || magic == 0x4d564334;
+    const bool is_v5 = magic == 0x4d564335;
+    const bool has_block_metadata = magic == 0x4d564333 || magic == 0x4d564334 || is_v5;
     const bool metadata_has_legacy_center = magic == 0x4d564333;
     for (uint32_t z = 0; z < nt; ++z) {
       Table t; t.name = getstr(f); uint32_t nc;
@@ -819,6 +887,45 @@ struct Engine {
           row.push_back(std::move(v));
         }
         t.rows.push_back(std::move(row));
+      }
+      if (is_v5) {
+        uint8_t has_row_metadata = 0;
+        if (!get(f, has_row_metadata) || has_row_metadata > 1)
+          throw Error("storage_error", "invalid row metadata");
+        if (has_row_metadata) {
+          if (!get(f, t.next_row_id) || !get(f, t.next_vector_id) ||
+              !get(f, t.index_generation))
+            throw Error("storage_error", "invalid row metadata");
+          t.row_ids.resize(size_t(nr));
+          t.row_commit_seq.resize(size_t(nr));
+          t.row_versions.resize(size_t(nr));
+          t.vector_ids.resize(size_t(nr));
+          t.location_generations.resize(size_t(nr));
+          for (size_t r = 0; r < size_t(nr); ++r) {
+            if (!get(f, t.row_ids[r]) || !get(f, t.row_commit_seq[r]) ||
+                !get(f, t.row_versions[r]) || !get(f, t.vector_ids[r]) ||
+                !get(f, t.location_generations[r]) || t.row_ids[r] == 0 ||
+                t.vector_ids[r] == 0 || t.row_versions[r] == 0)
+              throw Error("storage_error", "invalid row metadata");
+          }
+          if (t.next_row_id == 0 || t.next_vector_id == 0)
+            throw Error("storage_error", "invalid row metadata");
+        }
+      }
+      if (t.row_ids.size() != t.rows.size()) {
+        t.row_ids.resize(t.rows.size()); t.row_commit_seq.assign(t.rows.size(), 0);
+        t.row_versions.assign(t.rows.size(), 1); t.vector_ids.resize(t.rows.size());
+        t.location_generations.assign(t.rows.size(), 0);
+        uint64_t next_row = 1, next_vector = 1;
+        for (size_t r = 0; r < t.rows.size(); ++r) {
+          t.row_ids[r] = next_row++; t.vector_ids[r] = next_vector++;
+        }
+        t.next_row_id = next_row; t.next_vector_id = next_vector;
+      } else {
+        for (size_t r = 0; r < t.rows.size(); ++r) {
+          t.next_row_id = std::max(t.next_row_id, t.row_ids[r] + 1);
+          t.next_vector_id = std::max(t.next_vector_id, t.vector_ids[r] + 1);
+        }
       }
       bool metadata_valid = false;
       uint64_t metadata_rows = 0;
@@ -1200,14 +1307,26 @@ struct Engine {
   }
   State &working() { return st; }
   const State &view() const { return st; }
-  void begin() { if (tx) throw Error("transaction_active", "transaction already active"); tx = st; tx_log.clear(); invalidate_query_cache(); }
-  void rollback() { if (tx) { st = *tx; tx.reset(); tx_log.clear(); } invalidate_query_cache(); }
+  mv2::ReadView acquire_read_view() const {
+    if (tx_read_view) return *tx_read_view;
+    return {visible_seq, v2_manifest_state ? v2_manifest_state->generation : checkpoint_generation};
+  }
+  void begin() {
+    if (tx) throw Error("transaction_active", "transaction already active");
+    tx = st; tx_log.clear();
+    tx_read_view = mv2::ReadView{visible_seq, v2_manifest_state ? v2_manifest_state->generation : checkpoint_generation};
+    invalidate_query_cache();
+  }
+  void rollback() {
+    if (tx) { st = *tx; tx.reset(); tx_log.clear(); }
+    tx_read_view.reset(); invalidate_query_cache();
+  }
   void commit() {
     if (!tx) return;
     invalidate_query_cache();
     try { append_journal(tx_log); }
     catch (...) { st = State{}; tx.reset(); tx_log.clear(); load(); throw; }
-    tx.reset(); tx_log.clear();
+    tx.reset(); tx_log.clear(); tx_read_view.reset();
     try { maybe_checkpoint(); }
     catch (...) { st = State{}; tx.reset(); tx_log.clear(); load(); throw; }
   }
@@ -1239,7 +1358,7 @@ struct Engine {
     expect(t, p, "table"); std::string name = lower(take_name(t, p)); if (st.tables.count(name)) throw Error("table_exists", "table already exists"); expect(t, p, "("); Table tab; tab.name = name; std::vector<std::string> pks; while (true) { if (p < t.size() && ieq(t[p].text, "primary")) { ++p; expect(t, p, "key"); expect(t, p, "("); pks.push_back(take_name(t, p)); expect(t, p, ")"); } else { Column c; c.name = take_name(t, p); std::string k = lower(take_name(t, p)); if (k == "bigint") c.kind = VK_INT; else if (k == "varchar") c.kind = VK_STRING; else if (k == "vector") c.kind = VK_VECTOR; else throw Error("unsupported_sql", "unsupported column type"); if (c.kind != VK_INT) { expect(t, p, "("); c.width = int(take_int(t, p)); if (c.width <= 0) throw Error("invalid_schema", "nonpositive column width"); expect(t, p, ")"); } if (p < t.size() && ieq(t[p].text, "primary")) { ++p; expect(t, p, "key"); pks.push_back(c.name); } tab.cols.push_back(std::move(c)); } if (p >= t.size() || t[p].text != ",") break; ++p; } expect(t, p, ")"); if (pks.size() != 1) throw Error("invalid_schema", "one primary key is required"); tab.primary = column_of(tab, pks[0]); if (tab.cols[tab.primary].kind != VK_INT) throw Error("invalid_schema", "primary key must be BIGINT"); for (size_t i = 0; i < tab.cols.size(); ++i) if (tab.cols[i].kind == VK_VECTOR) { if (tab.vector_col >= 0) throw Error("invalid_schema", "at most one vector column"); tab.vector_col = int(i); } st.tables.emplace(name, std::move(tab));
   }
   void create_index(std::vector<Token> &t, size_t &p) { expect(t, p, "vector"); expect(t, p, "index"); std::string ignored = take_name(t, p); expect(t, p, "on"); Table &tab = table_of(st, take_name(t, p)); expect(t, p, "("); int c = column_of(tab, take_name(t, p)); expect(t, p, ")"); if (tab.cols[c].kind != VK_VECTOR) throw Error("invalid_schema", "index requires a vector"); if (tab.index) throw Error("index_exists", "vector index already exists"); tab.index = true; }
-  static int64_t apply_insert_rows(Table &tab, std::vector<Row> pending) {
+  int64_t apply_insert_rows(Table &tab, std::vector<Row> pending) {
     std::map<int64_t, bool> seen;
     for (const auto &row : pending) {
       if (row.size() != tab.cols.size()) throw Error("storage_error", "invalid journal row");
@@ -1256,6 +1375,13 @@ struct Engine {
       tab.keys[row[size_t(tab.primary)].i] = pos;
       tab.rows.push_back(std::move(row));
       tab.alive.push_back(true);
+      const uint64_t row_id = tab.next_row_id++;
+      const uint64_t vector_id = tab.next_vector_id++;
+      tab.row_ids.push_back(row_id);
+      tab.row_commit_seq.push_back(v2_active ? next_commit_seq : visible_seq);
+      tab.row_versions.push_back(1);
+      tab.vector_ids.push_back(vector_id);
+      tab.location_generations.push_back(0);
     }
     invalidate_blocks(tab);
     return int64_t(seen.size());
@@ -1478,6 +1604,10 @@ struct Engine {
           if (assignment.first == tab.vector_col && !value_equal(assignment.second, tab.rows[r][tab.vector_col]))
             vector_changed = true;
         tab.rows[r] = std::move(next);
+        if (tab.row_versions.size() == tab.rows.size()) {
+          ++tab.row_versions[r];
+          tab.row_commit_seq[r] = v2_active ? next_commit_seq : visible_seq;
+        }
         ++affected;
       }
     }
@@ -1489,6 +1619,10 @@ struct Engine {
       if (tab.alive[r] && matches(tab.rows[r], terms)) {
         tab.alive[r] = false;
         tab.keys.erase(tab.rows[r][tab.primary].i);
+        if (tab.row_versions.size() == tab.rows.size()) {
+          ++tab.row_versions[r];
+          tab.row_commit_seq[r] = v2_active ? next_commit_seq : visible_seq;
+        }
         ++affected;
       }
     clear_equality_indexes(tab);
@@ -1505,6 +1639,7 @@ struct Engine {
   void erase(std::vector<Token> &t, size_t &p, int64_t &affected, std::string *journal_payload = nullptr) { expect(t, p, "from"); Table &tab = table_of(st, take_name(t, p)); auto terms = parse_where(t, p, tab); if (journal_payload) *journal_payload = encode_delete_payload(tab.name, terms); apply_delete_terms(tab, terms, affected); }
 
   Json select(std::vector<Token> &t, size_t &p, bool ann_mode = false) {
+    const mv2::ReadView query_view = acquire_read_view();
     std::vector<Projection> proj;
     bool star = p < t.size() && t[p].text == "*";
     if (star) {
@@ -1635,7 +1770,7 @@ struct Engine {
           const size_t dim = q.target.size();
           const size_t stride = (dim * sizeof(float) + 63u) & ~size_t(63u);
           const mv2::VectorLocation loc{0, v2_manifest_state->generation, 64 + r * (16 + stride) + 16, static_cast<uint32_t>(dim * sizeof(float))};
-          const auto vector = segment_reader->read(loc, {v2_manifest_state->visible_seq, v2_manifest_state->generation});
+          const auto vector = segment_reader->read(loc, {query_view.snapshot_seq, query_view.version_generation});
           value = distance_fast(vector.data(), q.target.data(), dim);
         } else if (q.col == tab.vector_col && tab.vector_matrix_valid) {
           const size_t dim = size_t(tab.vector_matrix_dim);
@@ -1652,7 +1787,7 @@ struct Engine {
           const size_t dim = q.target.size();
           const size_t stride = (dim * sizeof(float) + 63u) & ~size_t(63u);
           const mv2::VectorLocation loc{0, v2_manifest_state->generation, 64 + r * (16 + stride) + 16, static_cast<uint32_t>(dim * sizeof(float))};
-          const auto value = segment_reader->read(loc, {v2_manifest_state->visible_seq, v2_manifest_state->generation});
+          const auto value = segment_reader->read(loc, {query_view.snapshot_seq, query_view.version_generation});
           distance_cache[qi][r] = distance_fast(value.data(), q.target.data(), dim);
         } else if (q.col == tab.vector_col && tab.vector_matrix_valid) {
           const size_t dim = size_t(tab.vector_matrix_dim);
@@ -1866,7 +2001,11 @@ struct Engine {
     return Json::object({{"columns", Json::array(std::move(cols))}, {"rows", Json::array(std::move(out))}});
   }
   Json select_cached(const std::string &sql, std::vector<Token> &t, size_t &p, bool ann_mode) {
-    const std::string key = std::string(ann_mode ? "A:" : "E:") + sql;
+    const mv2::ReadView read_view = acquire_read_view();
+    const std::string key = std::string(ann_mode ? "A:" : "E:") +
+        std::to_string(read_view.snapshot_seq) + ":" +
+        std::to_string(read_view.version_generation) + ":" +
+        (tx ? "tx:" : "db:") + sql;
     auto it = query_cache.find(key);
     if (it != query_cache.end()) return it->second;
     Json result = select(t, p, ann_mode);
