@@ -149,3 +149,8 @@
 - Replaced whole-file mmap with 256 MiB sliding windows. A 300k exact query under the 1 GiB limit completed in about 0.4 s; the LOWMEM 256-query bank (512 exact/ANN requests) passed with 525,996 KiB peak RSS, exact mean 91.515 ms, ANN mean 73.869 ms.
 - Added `bench/mutate_check.py` for post-index inserts, scalar/vector updates, deletes, rollback, and restart. The 80-row smoke passed after all four mutation classes.
 - Runtime source remains 1937 physical lines. Full 300k build under 1 GiB and large random-kill matrix are still pending.
+
+## 2026-11-14 SST block-directory pass
+
+- Each flushed or compacted SST now emits a 32 KiB sparse sidecar containing block offsets, lengths, first-record markers, and CRCs; old sidecars are removed during compaction.
+- Public strict protocol remained 20/20 PASS. Runtime count is 1945 physical lines.
