@@ -299,7 +299,11 @@ struct Engine {
   std::unique_ptr<mv2::ManifestStore> v2_manifest;
   std::optional<mv2::Manifest> v2_manifest_state;
   bool v2_dirty = true;
-  explicit Engine(std::string d) : dir(std::move(d)) { mkdir(dir.c_str(), 0755); v2_manifest = std::make_unique<mv2::ManifestStore>(dir); v2_manifest_state = v2_manifest->load(); load(); if (v2_manifest_state) { struct stat stbuf {}; v2_dirty = ::stat(journal().c_str(), &stbuf) != 0 || uint64_t(stbuf.st_size) != v2_manifest_state->wal_offset; } }
+  std::unique_ptr<mv2::WalV3> v2_wal;
+  bool v2_active = false;
+  uint64_t visible_seq = 0;
+  uint64_t next_commit_seq = 1;
+  explicit Engine(std::string d) : dir(std::move(d)) { mkdir(dir.c_str(), 0755); v2_manifest = std::make_unique<mv2::ManifestStore>(dir); v2_manifest_state = v2_manifest->load(); v2_active = v2_manifest_state.has_value(); v2_wal = std::make_unique<mv2::WalV3>(dir + "/wal.v3"); if (v2_manifest_state) { visible_seq = v2_manifest_state->visible_seq; next_commit_seq = visible_seq + 1; } load(); if (v2_manifest_state) v2_dirty = v2_wal->size() != v2_manifest_state->wal_offset; }
   ~Engine() { if (journal_fd >= 0) ::close(journal_fd); }
   std::string file() const { return dir + "/state.bin"; }
   std::string journal() const { return dir + "/journal.log"; }
@@ -382,8 +386,38 @@ struct Engine {
     if (journal_fd < 0) throw Error("storage_error", "cannot open journal");
     return journal_fd;
   }
+  void append_v2_journal(const std::vector<JournalEntry> &entries) {
+    if (!v2_wal || entries.empty()) return;
+    std::string payload;
+    append_le32(payload, uint32_t(entries.size()));
+    for (const auto &entry : entries) {
+      append_u8(payload, entry.binary_operation ? 1 : 0);
+      append_blob(payload, entry.binary_operation ? entry.binary : entry.sql);
+    }
+    const uint64_t seq = next_commit_seq++;
+    v2_wal->append(seq, payload);
+    visible_seq = seq;
+  }
+  void replay_v2_payload(const std::string &payload) {
+    size_t pos = 0; uint32_t count = 0;
+    if (!read_le32(payload, pos, count) || count > 1000000) throw Error("storage_error", "invalid v2 WAL batch");
+    for (uint32_t i = 0; i < count; ++i) {
+      uint8_t kind = 0; std::string value;
+      if (!read_u8(payload, pos, kind) || !read_blob(payload, pos, value)) throw Error("storage_error", "invalid v2 WAL batch");
+      if (kind == 1) replay_binary_operation(value); else if (kind == 0) replay_sql(value); else throw Error("storage_error", "invalid v2 WAL operation");
+    }
+    if (pos != payload.size()) throw Error("storage_error", "invalid v2 WAL batch");
+  }
+  void replay_v2_wal() {
+    if (!v2_active || !v2_wal || !v2_manifest_state) return;
+    v2_wal->replay(v2_manifest_state->wal_offset, [&](uint64_t seq, const std::string &payload) {
+      if (seq <= visible_seq) throw Error("storage_error", "non-monotonic commit sequence");
+      replay_v2_payload(payload); visible_seq = seq; next_commit_seq = seq + 1;
+    });
+  }
   void append_journal(const std::vector<JournalEntry> &entries) {
     if (entries.empty()) return;
+    if (v2_active) { append_v2_journal(entries); return; }
     bool all_binary = true;
     size_t binary_bytes = 0, sql_bytes = 0;
     for (const auto &entry : entries) {
@@ -675,10 +709,10 @@ struct Engine {
     if (!v2_manifest) return;
     mv2::Manifest manifest;
     manifest.generation = generation;
-    manifest.visible_seq = generation;
-    manifest.durable_seq = generation;
+    manifest.visible_seq = visible_seq;
+    manifest.durable_seq = visible_seq;
     struct stat wal_stat {};
-    manifest.wal_offset = ::stat(journal().c_str(), &wal_stat) == 0 ? uint64_t(wal_stat.st_size) : checkpoint_offset;
+    manifest.wal_offset = v2_wal ? v2_wal->size() : (::stat(journal().c_str(), &wal_stat) == 0 ? uint64_t(wal_stat.st_size) : checkpoint_offset);
     uint64_t segment_id = generation * 1000000;
     for (const auto &entry : st.tables) {
       const Table &table = entry.second;
@@ -696,6 +730,7 @@ struct Engine {
     }
     v2_manifest->publish(manifest);
     v2_manifest_state = manifest;
+    v2_active = true;
     v2_dirty = false;
   }
   void checkpoint() {
@@ -888,11 +923,13 @@ struct Engine {
     if (!probe) {
       if (has_manifest) throw Error("storage_error", "checkpoint snapshot is missing");
       replay_journal();
+      replay_v2_wal();
       return;
     }
     probe.close();
     load_snapshot(snapshot);
     replay_journal(offset);
+    replay_v2_wal();
   }
   static void rebuild(Table &t) {
     t.keys.clear();
