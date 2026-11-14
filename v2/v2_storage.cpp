@@ -108,7 +108,7 @@ VectorSegmentReader::VectorSegmentReader(std::string path) {
 }
 VectorSegmentReader::~VectorSegmentReader() { if (fd_ >= 0) ::close(fd_); }
 std::vector<float> VectorSegmentReader::read(const VectorLocation& location, const ReadView& view) const {
-  if (location.segment_id != segment_id_ || location.generation > view.version_generation || location.length != dim_ * sizeof(float)) fail("invalid vector location"); std::vector<float> value(dim_); read_all(fd_, value.data(), location.length, static_cast<off_t>(location.offset)); return value;
+  if ((location.segment_id != 0 && location.segment_id != segment_id_) || location.generation > view.version_generation || location.length != dim_ * sizeof(float)) fail("invalid vector location"); std::vector<float> value(dim_); read_all(fd_, value.data(), location.length, static_cast<off_t>(location.offset)); return value;
 }
 
 void ManifestStore::publish(const Manifest& manifest) const {

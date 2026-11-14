@@ -297,7 +297,9 @@ struct Engine {
   std::unordered_map<std::string, std::vector<float>> vector_literal_cache;
   std::unordered_map<std::string, Json> query_cache;
   std::unique_ptr<mv2::ManifestStore> v2_manifest;
-  explicit Engine(std::string d) : dir(std::move(d)) { mkdir(dir.c_str(), 0755); v2_manifest = std::make_unique<mv2::ManifestStore>(dir); load(); }
+  std::optional<mv2::Manifest> v2_manifest_state;
+  bool v2_dirty = true;
+  explicit Engine(std::string d) : dir(std::move(d)) { mkdir(dir.c_str(), 0755); v2_manifest = std::make_unique<mv2::ManifestStore>(dir); v2_manifest_state = v2_manifest->load(); load(); if (v2_manifest_state) { struct stat stbuf {}; v2_dirty = ::stat(journal().c_str(), &stbuf) != 0 || uint64_t(stbuf.st_size) != v2_manifest_state->wal_offset; } }
   ~Engine() { if (journal_fd >= 0) ::close(journal_fd); }
   std::string file() const { return dir + "/state.bin"; }
   std::string journal() const { return dir + "/journal.log"; }
@@ -675,7 +677,8 @@ struct Engine {
     manifest.generation = generation;
     manifest.visible_seq = generation;
     manifest.durable_seq = generation;
-    manifest.wal_offset = checkpoint_offset;
+    struct stat wal_stat {};
+    manifest.wal_offset = ::stat(journal().c_str(), &wal_stat) == 0 ? uint64_t(wal_stat.st_size) : checkpoint_offset;
     uint64_t segment_id = generation * 1000000;
     for (const auto &entry : st.tables) {
       const Table &table = entry.second;
@@ -692,6 +695,8 @@ struct Engine {
       manifest.vector_segments.push_back(name);
     }
     v2_manifest->publish(manifest);
+    v2_manifest_state = manifest;
+    v2_dirty = false;
   }
   void checkpoint() {
     if (tx) return;
@@ -1171,6 +1176,7 @@ struct Engine {
   }
   void autocommit(bool changed, const std::string &sql, const std::string *binary_payload = nullptr) {
     if (!changed) return;
+    v2_dirty = true;
     invalidate_query_cache();
     JournalEntry entry;
     entry.sql = sql;
@@ -1489,6 +1495,14 @@ struct Engine {
     }
     expect(t, p, "from");
     Table &tab = table_of(st, take_name(t, p));
+    std::unique_ptr<mv2::VectorSegmentReader> segment_reader;
+    if (!v2_dirty && v2_manifest_state && tab.vector_col >= 0) {
+      const std::string name = "vectors-" + tab.name + "-" + std::to_string(v2_manifest_state->generation) + ".seg";
+      const std::string path = dir + "/" + name;
+      if (::access(path.c_str(), R_OK) == 0) {
+        try { segment_reader = std::make_unique<mv2::VectorSegmentReader>(path); } catch (const std::exception&) { segment_reader.reset(); }
+      }
+    }
     if (star) for (size_t i = 0; i < tab.cols.size(); ++i) proj.push_back({int(i), false, tab.cols[i].name, tab.cols[i].name, {}, {}});
     for (auto &q : proj) {
       q.col = column_of(tab, q.col_name);
@@ -1580,7 +1594,13 @@ struct Engine {
         if (cached != cache.end()) return cached->second;
         const Projection &q = proj[qi];
         double value = 0.0;
-        if (q.col == tab.vector_col && tab.vector_matrix_valid) {
+        if (segment_reader && q.col == tab.vector_col) {
+          const size_t dim = q.target.size();
+          const size_t stride = (dim * sizeof(float) + 63u) & ~size_t(63u);
+          const mv2::VectorLocation loc{0, v2_manifest_state->generation, 64 + r * (16 + stride) + 16, static_cast<uint32_t>(dim * sizeof(float))};
+          const auto vector = segment_reader->read(loc, {v2_manifest_state->visible_seq, v2_manifest_state->generation});
+          value = distance_fast(vector.data(), q.target.data(), dim);
+        } else if (q.col == tab.vector_col && tab.vector_matrix_valid) {
           const size_t dim = size_t(tab.vector_matrix_dim);
           value = distance_fast(tab.vector_matrix.data() + r * dim, q.target.data(), dim);
         } else {
@@ -1591,10 +1611,15 @@ struct Engine {
       }
       if (std::isnan(distance_cache[qi][r])) {
         const Projection &q = proj[qi];
-        if (q.col == tab.vector_col && tab.vector_matrix_valid) {
+        if (segment_reader && q.col == tab.vector_col) {
+          const size_t dim = q.target.size();
+          const size_t stride = (dim * sizeof(float) + 63u) & ~size_t(63u);
+          const mv2::VectorLocation loc{0, v2_manifest_state->generation, 64 + r * (16 + stride) + 16, static_cast<uint32_t>(dim * sizeof(float))};
+          const auto value = segment_reader->read(loc, {v2_manifest_state->visible_seq, v2_manifest_state->generation});
+          distance_cache[qi][r] = distance_fast(value.data(), q.target.data(), dim);
+        } else if (q.col == tab.vector_col && tab.vector_matrix_valid) {
           const size_t dim = size_t(tab.vector_matrix_dim);
-          distance_cache[qi][r] = distance_fast(tab.vector_matrix.data() + r * dim,
-                                                 q.target.data(), dim);
+          distance_cache[qi][r] = distance_fast(tab.vector_matrix.data() + r * dim, q.target.data(), dim);
         } else {
           distance_cache[qi][r] = distance_squared(tab.rows[r][q.col], q.target);
         }
