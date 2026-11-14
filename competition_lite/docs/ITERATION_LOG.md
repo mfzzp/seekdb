@@ -75,3 +75,9 @@
 
 - Exact and ANN ranking now keep squared L2 distances internally and apply the square root only when serializing the projected distance. This removes one square-root per scanned row while preserving the public Euclidean result and tie order.
 - The 20-case public harness remained at 0 failures after the change. The three-round comparison stayed within run noise at new exact 0.00911 s and ANN 0.00544 s, so this pass is kept for the cleaner ranking invariant rather than claimed as a standalone speed win.
+
+## 2026-11-14 hash-addressed row lookup pass
+
+- Switched the row map to `unordered_map<id, Row>` while retaining the explicit `order` vector for deterministic query ordering and snapshot reconstruction. Rebuilt IVF/PQ by `order` instead of hash iteration, preserving stable training and candidate order.
+- Public harness: 20 cases, 0 failures; strict protocol package: 20 cases, all PASS.
+- Same 2,000 x 1,024 benchmark, three rounds: new exact mean 0.00815 s, new ANN mean 0.00512 s, old exact mean 0.00315 s; new insert 1.665 s vs old 1.696 s. Compared with the previous 0.00911 s exact / 0.00544 s ANN run, this is another measured improvement without changing returned IDs.
