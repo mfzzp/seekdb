@@ -234,10 +234,11 @@ def run(args):
         t = time.perf_counter(); client.ask('CREATE VECTOR INDEX idx ON docs(embedding);')
         index_s = time.perf_counter() - t
         rng = random.Random(928313); t = time.perf_counter()
+        public_shape = meta['columns'] == ['id', 'category', 'content']
         for i in range(18):
             values = struct.unpack('<%df' % meta['dim'], struct.pack('<%df' % meta['dim'], *[rng.gauss(0,1) for _ in range(meta['dim'])]))
-            case = {'vector': values, 'filter': ('category' if i%2 else 'none') if meta['dim']==128 else FILTERS[i%9]}
-            if meta['dim']==128: case['category']='cat%d'%(i%20)
+            case = {'vector': values, 'filter': ('category' if i%2 else 'none') if public_shape else FILTERS[i%9]}
+            if public_shape: case['category']='cat%d'%(i%20)
             sql = query_sql(case)
             for mode in meta['modes']: client.ask(sql, 100000+i, mode)
         warmup_s = time.perf_counter() - t

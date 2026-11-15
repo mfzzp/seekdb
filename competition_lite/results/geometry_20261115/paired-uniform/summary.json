@@ -1,0 +1,329 @@
+{
+  "runs": [
+    {
+      "variant": "frozen",
+      "round": 1,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/geo-dev01/paired-uniform/frozen-r1.json",
+      "engine_env": []
+    },
+    {
+      "variant": "scan",
+      "round": 1,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/geo-dev01/paired-uniform/scan-r1.json",
+      "engine_env": [
+        "LITE_EXACT_PATH=scan"
+      ]
+    },
+    {
+      "variant": "block",
+      "round": 1,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/geo-dev01/paired-uniform/block-r1.json",
+      "engine_env": [
+        "LITE_EXACT_PATH=block"
+      ]
+    },
+    {
+      "variant": "geo",
+      "round": 1,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/geo-dev01/paired-uniform/geo-r1.json",
+      "engine_env": [
+        "LITE_EXACT_PATH=geo"
+      ]
+    },
+    {
+      "variant": "scan",
+      "round": 2,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/geo-dev01/paired-uniform/scan-r2.json",
+      "engine_env": [
+        "LITE_EXACT_PATH=scan"
+      ]
+    },
+    {
+      "variant": "block",
+      "round": 2,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/geo-dev01/paired-uniform/block-r2.json",
+      "engine_env": [
+        "LITE_EXACT_PATH=block"
+      ]
+    },
+    {
+      "variant": "geo",
+      "round": 2,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/geo-dev01/paired-uniform/geo-r2.json",
+      "engine_env": [
+        "LITE_EXACT_PATH=geo"
+      ]
+    },
+    {
+      "variant": "frozen",
+      "round": 2,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/geo-dev01/paired-uniform/frozen-r2.json",
+      "engine_env": []
+    },
+    {
+      "variant": "block",
+      "round": 3,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/geo-dev01/paired-uniform/block-r3.json",
+      "engine_env": [
+        "LITE_EXACT_PATH=block"
+      ]
+    },
+    {
+      "variant": "geo",
+      "round": 3,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/geo-dev01/paired-uniform/geo-r3.json",
+      "engine_env": [
+        "LITE_EXACT_PATH=geo"
+      ]
+    },
+    {
+      "variant": "frozen",
+      "round": 3,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/geo-dev01/paired-uniform/frozen-r3.json",
+      "engine_env": []
+    },
+    {
+      "variant": "scan",
+      "round": 3,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/geo-dev01/paired-uniform/scan-r3.json",
+      "engine_env": [
+        "LITE_EXACT_PATH=scan"
+      ]
+    }
+  ],
+  "summary_medians": {
+    "frozen": {
+      "insert_wall_s": 0.6284682720433921,
+      "insert_request_s": 0.6062141726724803,
+      "index_s": 0.0026768508832901716,
+      "warmup_s": 0.02713706996291876,
+      "query_wall_s": 0.32650460000149906,
+      "checkpoint_s": 0.03864113497547805,
+      "final_file_bytes": 7071529,
+      "exact_mean_ms": 0.27917387150228024,
+      "filters_mean_ms": {
+        "category": 0.19223425118252635,
+        "none": 0.3661134918220341
+      },
+      "peak_bytes": 24485888,
+      "ranges": {
+        "insert_wall_s": [
+          0.6237765899859369,
+          0.6306816230062395
+        ],
+        "query_wall_s": [
+          0.31980668706819415,
+          0.400102281011641
+        ],
+        "index_s": [
+          0.0022277121897786856,
+          0.002876135054975748
+        ]
+      },
+      "filters": {
+        "category": {
+          "n": 500,
+          "request_total_s": 0.09611712559126318,
+          "qps": 5201.986606697369,
+          "mean_ms": 0.19223425118252635,
+          "p50_ms": 0.18397450912743807,
+          "p95_ms": 0.21222885698080063,
+          "filtered_candidates_mean": 500,
+          "full_distance_evaluations_mean": 500,
+          "distance_dimensions_mean": 64000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "none": {
+          "n": 500,
+          "request_total_s": 0.18305674591101706,
+          "qps": 2731.3934677012526,
+          "mean_ms": 0.3661134918220341,
+          "p50_ms": 0.36233547143638134,
+          "p95_ms": 0.4026039969176054,
+          "filtered_candidates_mean": 10000,
+          "full_distance_evaluations_mean": 10000,
+          "distance_dimensions_mean": 1280000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        }
+      }
+    },
+    "scan": {
+      "insert_wall_s": 0.6266822649631649,
+      "insert_request_s": 0.6039882386103272,
+      "index_s": 0.002882604021579027,
+      "warmup_s": 0.02740517701022327,
+      "query_wall_s": 0.32927327300421894,
+      "checkpoint_s": 0.040171398781239986,
+      "final_file_bytes": 7071529,
+      "exact_mean_ms": 0.2817378838080913,
+      "filters_mean_ms": {
+        "category": 0.19410080183297396,
+        "none": 0.3693749657832086
+      },
+      "peak_bytes": 24981504,
+      "ranges": {
+        "insert_wall_s": [
+          0.6258036680519581,
+          0.6308640919160098
+        ],
+        "query_wall_s": [
+          0.3123742318712175,
+          0.3903424988966435
+        ],
+        "index_s": [
+          0.0027446181047707796,
+          0.0030526770278811455
+        ]
+      },
+      "filters": {
+        "category": {
+          "n": 500,
+          "request_total_s": 0.09705040091648698,
+          "qps": 5151.96223074087,
+          "mean_ms": 0.19410080183297396,
+          "p50_ms": 0.1843619393184781,
+          "p95_ms": 0.2128619235008955,
+          "filtered_candidates_mean": 500,
+          "full_distance_evaluations_mean": 500,
+          "distance_dimensions_mean": 64000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "none": {
+          "n": 500,
+          "request_total_s": 0.1846874828916043,
+          "qps": 2707.2760545091032,
+          "mean_ms": 0.3693749657832086,
+          "p50_ms": 0.36060542333871126,
+          "p95_ms": 0.41170697659254074,
+          "filtered_candidates_mean": 10000,
+          "full_distance_evaluations_mean": 10000,
+          "distance_dimensions_mean": 1280000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        }
+      }
+    },
+    "block": {
+      "insert_wall_s": 0.6457494739443064,
+      "insert_request_s": 0.6226225006394088,
+      "index_s": 0.0030694438610225916,
+      "warmup_s": 0.031027165008708835,
+      "query_wall_s": 0.4306531511247158,
+      "checkpoint_s": 0.039304828038439155,
+      "final_file_bytes": 7071529,
+      "exact_mean_ms": 0.38329783477820456,
+      "filters_mean_ms": {
+        "category": 0.24203505832701921,
+        "none": 0.5245606112293899
+      },
+      "peak_bytes": 24772608,
+      "ranges": {
+        "insert_wall_s": [
+          0.6296510801184922,
+          0.7060610549524426
+        ],
+        "query_wall_s": [
+          0.41925039514899254,
+          0.4685408400837332
+        ],
+        "index_s": [
+          0.0028370781801640987,
+          0.003338512033224106
+        ]
+      },
+      "filters": {
+        "category": {
+          "n": 500,
+          "request_total_s": 0.12101752916350961,
+          "qps": 4131.632858942595,
+          "mean_ms": 0.24203505832701921,
+          "p50_ms": 0.2226873766630888,
+          "p95_ms": 0.32247696071863174,
+          "filtered_candidates_mean": 500,
+          "full_distance_evaluations_mean": 500,
+          "distance_dimensions_mean": 64000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "none": {
+          "n": 500,
+          "request_total_s": 0.26228030561469495,
+          "qps": 1906.357394346372,
+          "mean_ms": 0.5245606112293899,
+          "p50_ms": 0.5005854181945324,
+          "p95_ms": 0.6823381409049034,
+          "filtered_candidates_mean": 10000,
+          "full_distance_evaluations_mean": 10000,
+          "distance_dimensions_mean": 1280000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        }
+      }
+    },
+    "geo": {
+      "insert_wall_s": 0.6450916980393231,
+      "insert_request_s": 0.6226382975000888,
+      "index_s": 0.0029453709721565247,
+      "warmup_s": 0.08905719988979399,
+      "query_wall_s": 0.5294144949875772,
+      "checkpoint_s": 0.03997401590459049,
+      "final_file_bytes": 7071529,
+      "exact_mean_ms": 0.4801041290629655,
+      "filters_mean_ms": {
+        "category": 0.22092303028330207,
+        "none": 0.739285227842629
+      },
+      "peak_bytes": 24248320,
+      "ranges": {
+        "insert_wall_s": [
+          0.6277826861478388,
+          0.6497139260172844
+        ],
+        "query_wall_s": [
+          0.46434705797582865,
+          0.5656595809850842
+        ],
+        "index_s": [
+          0.0028602879028767347,
+          0.002950862981379032
+        ]
+      },
+      "filters": {
+        "category": {
+          "n": 500,
+          "request_total_s": 0.11046151514165103,
+          "qps": 4526.463351139279,
+          "mean_ms": 0.22092303028330207,
+          "p50_ms": 0.1979864900931716,
+          "p95_ms": 0.2972870133817196,
+          "filtered_candidates_mean": 500,
+          "full_distance_evaluations_mean": 500,
+          "distance_dimensions_mean": 64000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "none": {
+          "n": 500,
+          "request_total_s": 0.3696426139213145,
+          "qps": 1352.657894867161,
+          "mean_ms": 0.739285227842629,
+          "p50_ms": 0.6770190084353089,
+          "p95_ms": 1.0235868394374847,
+          "filtered_candidates_mean": 10000,
+          "full_distance_evaluations_mean": 10000,
+          "distance_dimensions_mean": 1280000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        }
+      }
+    }
+  },
+  "caveats": [
+    "Local synthetic workload, not the official scorer.",
+    "Timing includes JSONL transport and response decoding; query_wall_s also includes driver SQL generation.",
+    "Memory includes the container and page cache; unavailable io.stat is not zero I/O."
+  ]
+}

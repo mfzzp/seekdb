@@ -1,0 +1,5 @@
+{
+  "all_required_checks_passed": true,
+  "production_changed": false,
+  "harness_fix": "schema-based warmup; retained failed baseline attempt"
+}

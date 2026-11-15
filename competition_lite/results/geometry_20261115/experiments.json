@@ -1,0 +1,147 @@
+[
+  {
+    "name": "generate",
+    "returncode": 0,
+    "seconds": 0.0647719579283148
+  },
+  {
+    "name": "build-runtime",
+    "returncode": 0,
+    "seconds": 14.584516643779352
+  },
+  {
+    "name": "build-bounds",
+    "returncode": 0,
+    "seconds": 14.797472130972892
+  },
+  {
+    "name": "build-oracle",
+    "returncode": 0,
+    "seconds": 0.9654130430426449
+  },
+  {
+    "name": "bounds",
+    "returncode": 0,
+    "seconds": 0.4145995650906116
+  },
+  {
+    "name": "geo-paths-2048",
+    "returncode": 0,
+    "seconds": 2.517467158846557
+  },
+  {
+    "name": "geo-paths-1",
+    "returncode": 0,
+    "seconds": 2.518672534963116
+  },
+  {
+    "name": "odd-paths-auto",
+    "returncode": 0,
+    "seconds": 9.790673382114619
+  },
+  {
+    "name": "odd-paths-avx2",
+    "returncode": 0,
+    "seconds": 10.342290417058393
+  },
+  {
+    "name": "odd-paths-scalar",
+    "returncode": 0,
+    "seconds": 9.786985127953812
+  },
+  {
+    "name": "prepare-128",
+    "returncode": 0,
+    "seconds": 1.1173309828154743
+  },
+  {
+    "name": "oracle-128",
+    "returncode": 0,
+    "seconds": 0.11459292517974973
+  },
+  {
+    "name": "prepare-3",
+    "returncode": 0,
+    "seconds": 0.11484623001888394
+  },
+  {
+    "name": "oracle-3",
+    "returncode": 0,
+    "seconds": 0.015716379042714834
+  },
+  {
+    "name": "paired-uniform",
+    "returncode": 0,
+    "seconds": 47.47326151304878
+  },
+  {
+    "name": "profile-uniform-scan",
+    "returncode": 0,
+    "seconds": 1.617826757952571
+  },
+  {
+    "name": "profile-uniform-block",
+    "returncode": 0,
+    "seconds": 1.719383531017229
+  },
+  {
+    "name": "profile-uniform-geo",
+    "returncode": 0,
+    "seconds": 1.819499977864325
+  },
+  {
+    "name": "paired-cluster128",
+    "returncode": 0,
+    "seconds": 37.29703153506853
+  },
+  {
+    "name": "profile-cluster128-scan",
+    "returncode": 0,
+    "seconds": 1.4178131350781769
+  },
+  {
+    "name": "profile-cluster128-block",
+    "returncode": 0,
+    "seconds": 1.4179029508959502
+  },
+  {
+    "name": "profile-cluster128-geo",
+    "returncode": 0,
+    "seconds": 1.418400265974924
+  },
+  {
+    "name": "paired-cluster3",
+    "returncode": 1,
+    "seconds": 1.1675685639493167
+  },
+  {
+    "name": "paired-cluster3-retry",
+    "returncode": 0,
+    "seconds": 21.612246395088732
+  },
+  {
+    "name": "profile-cluster3-scan",
+    "returncode": 0,
+    "seconds": 1.1170192579738796
+  },
+  {
+    "name": "profile-cluster3-block",
+    "returncode": 0,
+    "seconds": 1.1167490461375564
+  },
+  {
+    "name": "profile-cluster3-geo",
+    "returncode": 0,
+    "seconds": 1.1671506280545145
+  },
+  {
+    "name": "sanitizer-build",
+    "returncode": 0,
+    "seconds": 66.15946528990753
+  },
+  {
+    "name": "sanitizer-paths",
+    "returncode": 0,
+    "seconds": 4.42759859492071
+  }
+]

@@ -1,0 +1,92 @@
+[
+  {
+    "variant": "frozen",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/geo-dev01/paired-uniform/frozen-r1.json",
+    "engine_env": []
+  },
+  {
+    "variant": "scan",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/geo-dev01/paired-uniform/scan-r1.json",
+    "engine_env": [
+      "LITE_EXACT_PATH=scan"
+    ]
+  },
+  {
+    "variant": "block",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/geo-dev01/paired-uniform/block-r1.json",
+    "engine_env": [
+      "LITE_EXACT_PATH=block"
+    ]
+  },
+  {
+    "variant": "geo",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/geo-dev01/paired-uniform/geo-r1.json",
+    "engine_env": [
+      "LITE_EXACT_PATH=geo"
+    ]
+  },
+  {
+    "variant": "scan",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/geo-dev01/paired-uniform/scan-r2.json",
+    "engine_env": [
+      "LITE_EXACT_PATH=scan"
+    ]
+  },
+  {
+    "variant": "block",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/geo-dev01/paired-uniform/block-r2.json",
+    "engine_env": [
+      "LITE_EXACT_PATH=block"
+    ]
+  },
+  {
+    "variant": "geo",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/geo-dev01/paired-uniform/geo-r2.json",
+    "engine_env": [
+      "LITE_EXACT_PATH=geo"
+    ]
+  },
+  {
+    "variant": "frozen",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/geo-dev01/paired-uniform/frozen-r2.json",
+    "engine_env": []
+  },
+  {
+    "variant": "block",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/geo-dev01/paired-uniform/block-r3.json",
+    "engine_env": [
+      "LITE_EXACT_PATH=block"
+    ]
+  },
+  {
+    "variant": "geo",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/geo-dev01/paired-uniform/geo-r3.json",
+    "engine_env": [
+      "LITE_EXACT_PATH=geo"
+    ]
+  },
+  {
+    "variant": "frozen",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/geo-dev01/paired-uniform/frozen-r3.json",
+    "engine_env": []
+  },
+  {
+    "variant": "scan",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/geo-dev01/paired-uniform/scan-r3.json",
+    "engine_env": [
+      "LITE_EXACT_PATH=scan"
+    ]
+  }
+]

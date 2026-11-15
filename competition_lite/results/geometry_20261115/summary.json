@@ -1,0 +1,401 @@
+{
+  "medians": {
+    "uniform": {
+      "frozen": {
+        "mean": 0.27917387150228024,
+        "groups": {
+          "category": 0.19223425118252635,
+          "none": 0.3661134918220341
+        },
+        "warmup": 0.02713706996291876,
+        "workflow": 1.0226235811132938,
+        "peak": 24485888
+      },
+      "scan": {
+        "mean": 0.2817378838080913,
+        "groups": {
+          "category": 0.19410080183297396,
+          "none": 0.3693749657832086
+        },
+        "warmup": 0.02740517701022327,
+        "workflow": 1.0253349982667714,
+        "peak": 24981504
+      },
+      "block": {
+        "mean": 0.38329783477820456,
+        "groups": {
+          "category": 0.24203505832701921,
+          "none": 0.5245606112293899
+        },
+        "warmup": 0.031027165008708835,
+        "workflow": 1.1891316827386618,
+        "peak": 24772608
+      },
+      "geo": {
+        "mean": 0.4801041290629655,
+        "groups": {
+          "category": 0.22092303028330207,
+          "none": 0.739285227842629
+        },
+        "warmup": 0.08905719988979399,
+        "workflow": 1.311684689950198,
+        "peak": 24248320
+      }
+    },
+    "cluster128": {
+      "frozen": {
+        "mean": 0.5667040419454376,
+        "groups": {
+          "category": 0.20378774497658014,
+          "large": 1.1124653625302017,
+          "none": 0.3771518962457776
+        },
+        "warmup": 0.029102802043780684,
+        "workflow": 0.8838043450377882,
+        "peak": 25157632
+      },
+      "scan": {
+        "mean": 0.5686733522452414,
+        "groups": {
+          "category": 0.21316100377589464,
+          "large": 1.10619603889063,
+          "none": 0.3856706409715116
+        },
+        "warmup": 0.02808404713869095,
+        "workflow": 0.8848229465074837,
+        "peak": 24805376
+      },
+      "block": {
+        "mean": 0.6202900689095259,
+        "groups": {
+          "category": 0.24548071203753352,
+          "large": 1.1064709071069956,
+          "none": 0.5089185875840485
+        },
+        "warmup": 0.03240485303103924,
+        "workflow": 0.9065618508029729,
+        "peak": 25292800
+      },
+      "geo": {
+        "mean": 0.470502816606313,
+        "groups": {
+          "category": 0.20475387573242188,
+          "large": 0.9622242883779109,
+          "none": 0.2459277748130262
+        },
+        "warmup": 0.0753272760193795,
+        "workflow": 0.9031555913388729,
+        "peak": 25174016
+      }
+    },
+    "cluster3-retry": {
+      "frozen": {
+        "mean": 0.4057652992196381,
+        "groups": {
+          "category": 0.15569862676784396,
+          "large": 0.8637276338413358,
+          "none": 0.2011805074289441
+        },
+        "warmup": 0.022251076065003872,
+        "workflow": 0.615253180032596,
+        "peak": 13795328
+      },
+      "scan": {
+        "mean": 0.40127868376051384,
+        "groups": {
+          "category": 0.14855567598715425,
+          "large": 0.8617873978801072,
+          "none": 0.19349297741428018
+        },
+        "warmup": 0.02199239912442863,
+        "workflow": 0.6118916291743517,
+        "peak": 13959168
+      },
+      "block": {
+        "mean": 0.4616169654764235,
+        "groups": {
+          "category": 0.16875614412128925,
+          "large": 0.9485002560541034,
+          "none": 0.2675944962538779
+        },
+        "warmup": 0.023917636135593057,
+        "workflow": 0.6344334736932069,
+        "peak": 14405632
+      },
+      "geo": {
+        "mean": 0.4154655849561095,
+        "groups": {
+          "category": 0.16056242398917675,
+          "large": 0.8963070204481483,
+          "none": 0.1938147284090519
+        },
+        "warmup": 0.02430545794777572,
+        "workflow": 0.6351767289452255,
+        "peak": 14479360
+      }
+    }
+  },
+  "profiles": {
+    "profile-cluster128-scan": {
+      "summary": {
+        "category": {
+          "block_build": 0.0,
+          "bounds": 0.0,
+          "block_sort": 0.0,
+          "prepare": 0.046028,
+          "vector_distance": 0.0184655,
+          "full_distance_evaluations_mean": 500,
+          "blocks_pruned_mean": 0
+        },
+        "large": {
+          "block_build": 0.0,
+          "bounds": 0.0,
+          "block_sort": 0.0,
+          "prepare": 0.6231800000000001,
+          "vector_distance": 0.200306,
+          "full_distance_evaluations_mean": 8000,
+          "blocks_pruned_mean": 0
+        },
+        "none": {
+          "block_build": 0.0,
+          "bounds": 0.0,
+          "block_sort": 0.0,
+          "prepare": 0.018642,
+          "vector_distance": 0.18360499999999996,
+          "full_distance_evaluations_mean": 10000,
+          "blocks_pruned_mean": 0
+        }
+      },
+      "first_build_ms": 0.0
+    },
+    "profile-uniform-geo": {
+      "summary": {
+        "category": {
+          "block_build": 0.0,
+          "bounds": 0.0,
+          "block_sort": 0.0,
+          "prepare": 0.035768,
+          "vector_distance": 0.019708499999999997,
+          "full_distance_evaluations_mean": 500,
+          "blocks_pruned_mean": 0
+        },
+        "none": {
+          "block_build": 0.000122,
+          "bounds": 0.017152,
+          "block_sort": 0.0051565,
+          "prepare": 0.055926500000000004,
+          "vector_distance": 0.38723900000000006,
+          "full_distance_evaluations_mean": 10000,
+          "blocks_pruned_mean": 0
+        }
+      },
+      "first_build_ms": 55.664187
+    },
+    "profile-cluster3-block": {
+      "summary": {
+        "category": {
+          "block_build": 7.25e-05,
+          "bounds": 0.0030265,
+          "block_sort": 6.15e-05,
+          "prepare": 0.0254635,
+          "vector_distance": 0.006966499999999996,
+          "full_distance_evaluations_mean": 495.73,
+          "blocks_pruned_mean": 1.24
+        },
+        "large": {
+          "block_build": 0.000147,
+          "bounds": 0.007237,
+          "block_sort": 7.85e-05,
+          "prepare": 0.6293070000000001,
+          "vector_distance": 0.0421305,
+          "full_distance_evaluations_mean": 7777.38,
+          "blocks_pruned_mean": 4.4
+        },
+        "none": {
+          "block_build": 0.000103,
+          "bounds": 0.0059165,
+          "block_sort": 7.65e-05,
+          "prepare": 0.039319,
+          "vector_distance": 0.05125900000000002,
+          "full_distance_evaluations_mean": 9698.88,
+          "blocks_pruned_mean": 4.75
+        }
+      },
+      "first_build_ms": 0.158178
+    },
+    "profile-cluster128-geo": {
+      "summary": {
+        "category": {
+          "block_build": 0.0,
+          "bounds": 0.0,
+          "block_sort": 0.0,
+          "prepare": 0.041774,
+          "vector_distance": 0.019955,
+          "full_distance_evaluations_mean": 500,
+          "blocks_pruned_mean": 0
+        },
+        "large": {
+          "block_build": 0.000135,
+          "bounds": 0.017472,
+          "block_sort": 0.036743,
+          "prepare": 0.667271,
+          "vector_distance": 0.02533,
+          "full_distance_evaluations_mean": 458.76,
+          "blocks_pruned_mean": 148.02
+        },
+        "none": {
+          "block_build": 5.25e-05,
+          "bounds": 0.0149805,
+          "block_sort": 0.0042474999999999995,
+          "prepare": 0.055900000000000005,
+          "vector_distance": 0.028946,
+          "full_distance_evaluations_mean": 573.28,
+          "blocks_pruned_mean": 148.02
+        }
+      },
+      "first_build_ms": 47.43678
+    },
+    "profile-cluster3-scan": {
+      "summary": {
+        "category": {
+          "block_build": 0.0,
+          "bounds": 0.0,
+          "block_sort": 0.0,
+          "prepare": 0.024581,
+          "vector_distance": 0.0029205,
+          "full_distance_evaluations_mean": 500,
+          "blocks_pruned_mean": 0
+        },
+        "large": {
+          "block_build": 0.0,
+          "bounds": 0.0,
+          "block_sort": 0.0,
+          "prepare": 0.580784,
+          "vector_distance": 0.04133400000000001,
+          "full_distance_evaluations_mean": 8000,
+          "blocks_pruned_mean": 0
+        },
+        "none": {
+          "block_build": 0.0,
+          "bounds": 0.0,
+          "block_sort": 0.0,
+          "prepare": 0.0039615,
+          "vector_distance": 0.050693,
+          "full_distance_evaluations_mean": 10000,
+          "blocks_pruned_mean": 0
+        }
+      },
+      "first_build_ms": 0.0
+    },
+    "profile-cluster128-block": {
+      "summary": {
+        "category": {
+          "block_build": 0.00017900000000000001,
+          "bounds": 0.0233745,
+          "block_sort": 7.3e-05,
+          "prepare": 0.047,
+          "vector_distance": 0.0280735,
+          "full_distance_evaluations_mean": 498.53,
+          "blocks_pruned_mean": 0.39
+        },
+        "large": {
+          "block_build": 0.000192,
+          "bounds": 0.027575,
+          "block_sort": 8.7e-05,
+          "prepare": 0.671775,
+          "vector_distance": 0.21904849999999998,
+          "full_distance_evaluations_mean": 7928.21,
+          "blocks_pruned_mean": 1.39
+        },
+        "none": {
+          "block_build": 0.000191,
+          "bounds": 0.0263995,
+          "block_sort": 8.2e-05,
+          "prepare": 0.055539000000000005,
+          "vector_distance": 0.2421585,
+          "full_distance_evaluations_mean": 9911.04,
+          "blocks_pruned_mean": 1.39
+        }
+      },
+      "first_build_ms": 1.159989
+    },
+    "profile-uniform-scan": {
+      "summary": {
+        "category": {
+          "block_build": 0.0,
+          "bounds": 0.0,
+          "block_sort": 0.0,
+          "prepare": 0.035678,
+          "vector_distance": 0.019482,
+          "full_distance_evaluations_mean": 500,
+          "blocks_pruned_mean": 0
+        },
+        "none": {
+          "block_build": 0.0,
+          "bounds": 0.0,
+          "block_sort": 0.0,
+          "prepare": 0.019992999999999997,
+          "vector_distance": 0.189296,
+          "full_distance_evaluations_mean": 10000,
+          "blocks_pruned_mean": 0
+        }
+      },
+      "first_build_ms": 0.0
+    },
+    "profile-uniform-block": {
+      "summary": {
+        "category": {
+          "block_build": 0.000131,
+          "bounds": 0.028545,
+          "block_sort": 5.4e-05,
+          "prepare": 0.035212,
+          "vector_distance": 0.029011499999999996,
+          "full_distance_evaluations_mean": 500,
+          "blocks_pruned_mean": 0
+        },
+        "none": {
+          "block_build": 8.9e-05,
+          "bounds": 0.030588999999999998,
+          "block_sort": 4.8e-05,
+          "prepare": 0.056233000000000005,
+          "vector_distance": 0.23149750000000002,
+          "full_distance_evaluations_mean": 10000,
+          "blocks_pruned_mean": 0
+        }
+      },
+      "first_build_ms": 0.610175
+    },
+    "profile-cluster3-geo": {
+      "summary": {
+        "category": {
+          "block_build": 0.0,
+          "bounds": 0.0,
+          "block_sort": 0.0,
+          "prepare": 0.04317,
+          "vector_distance": 0.0065935,
+          "full_distance_evaluations_mean": 500,
+          "blocks_pruned_mean": 0
+        },
+        "large": {
+          "block_build": 0.000198,
+          "bounds": 0.0182555,
+          "block_sort": 0.050594,
+          "prepare": 0.7773749999999999,
+          "vector_distance": 0.0034215,
+          "full_distance_evaluations_mean": 214.98,
+          "blocks_pruned_mean": 152.79
+        },
+        "none": {
+          "block_build": 0.000148,
+          "bounds": 0.0155695,
+          "block_sort": 0.005618,
+          "prepare": 0.058408,
+          "vector_distance": 0.003653,
+          "full_distance_evaluations_mean": 250.24,
+          "blocks_pruned_mean": 153.09
+        }
+      },
+      "first_build_ms": 2.571657
+    }
+  }
+}

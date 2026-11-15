@@ -1,0 +1,28 @@
+{
+  "data": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/geo-dev01/cluster128/data",
+  "rows": 10000,
+  "dim": 128,
+  "batch": 100,
+  "requests": 100,
+  "request_bytes": 11513834,
+  "max_request_bytes": 116211,
+  "insert_sha256": "ae6948275886ac187596fe4d52fc6d8cfc2f9c7b520e7b4c0ff537e5071028cf",
+  "query_cases_sha256": "23bae785ddf8207b4baf921630076e0f92b4e581647b84e24aba7317c60eb934",
+  "input_manifest": {
+    "kind": "shuffled-clustered",
+    "rows": 10000,
+    "dimension": 128,
+    "seed": 77112,
+    "clusters": 32
+  },
+  "prepare_s": 0.5396592209581286,
+  "modes": [
+    "exact"
+  ],
+  "columns": [
+    "id",
+    "category",
+    "content"
+  ],
+  "schema_sql": "CREATE TABLE docs (id BIGINT PRIMARY KEY, category VARCHAR(32), content VARCHAR(1024), embedding VECTOR(128));"
+}

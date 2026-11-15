@@ -1,0 +1,12 @@
+{
+  "geo_experiment.py": "1f4bb68b0921fd890e9790aab19f1c5edc6d0b85c91578c9dbbf738fd4f600f3",
+  "geo_bound_check.cpp": "4b063489105285d50ef94fed87faacb50b2342fe6c1305f91fbdbb9a145ce960",
+  "geo_paths_check.py": "fa5f883200f83d2db8965f8190713942952261b5310e688f475bd163e0367377",
+  "prepare_geometry.py": "31c74749f750ca18d77b9002e7c584f909c6255e86f45ca2654cb04247766af9",
+  "compare_run.py": "e41d9b6cfdd7c35f749991110e51c25815f818dbf8555f7fa0f83c9423b79b79",
+  "profile_queries.py": "5f3f9609a28a07cebc7441b4d4037f9b939b5409aff3572e843dbcefe300b074",
+  "exact_paths_check.py": "a8fd2e5e5bdabddd4db6245929ae4913e977a086f1e29a630654de0dd3f5a579",
+  "exact_kernel_paths_check.py": "d94bd811787b833b78e2c97370d92c0c0c685274d2ef39a86d9cdbd7d79b057f",
+  "paired_compare.py": "298c69aebf57804833c43457343bd68e686b3613159f517935f4d2b64b9f143d",
+  "exact_oracle.cpp": "580f8f8c532d19f6466fb2d7c8b603e88e004969bc5c06be387927ac625b230b"
+}

@@ -1,0 +1,52 @@
+{
+  "geo_experiment.py": {
+    "tested_sha256": "1f4bb68b0921fd890e9790aab19f1c5edc6d0b85c91578c9dbbf738fd4f600f3",
+    "git_lf_sha256": "1f4bb68b0921fd890e9790aab19f1c5edc6d0b85c91578c9dbbf738fd4f600f3",
+    "line_endings_only": false
+  },
+  "geo_bound_check.cpp": {
+    "tested_sha256": "4b063489105285d50ef94fed87faacb50b2342fe6c1305f91fbdbb9a145ce960",
+    "git_lf_sha256": "4b063489105285d50ef94fed87faacb50b2342fe6c1305f91fbdbb9a145ce960",
+    "line_endings_only": false
+  },
+  "geo_paths_check.py": {
+    "tested_sha256": "fa5f883200f83d2db8965f8190713942952261b5310e688f475bd163e0367377",
+    "git_lf_sha256": "fa5f883200f83d2db8965f8190713942952261b5310e688f475bd163e0367377",
+    "line_endings_only": false
+  },
+  "prepare_geometry.py": {
+    "tested_sha256": "31c74749f750ca18d77b9002e7c584f909c6255e86f45ca2654cb04247766af9",
+    "git_lf_sha256": "31c74749f750ca18d77b9002e7c584f909c6255e86f45ca2654cb04247766af9",
+    "line_endings_only": false
+  },
+  "compare_run.py": {
+    "tested_sha256": "e41d9b6cfdd7c35f749991110e51c25815f818dbf8555f7fa0f83c9423b79b79",
+    "git_lf_sha256": "9ad15b405ee6688ef4b80fd3df812af46902870b9bc2b0bb9898965b6df0bcc4",
+    "line_endings_only": true
+  },
+  "profile_queries.py": {
+    "tested_sha256": "5f3f9609a28a07cebc7441b4d4037f9b939b5409aff3572e843dbcefe300b074",
+    "git_lf_sha256": "5f3f9609a28a07cebc7441b4d4037f9b939b5409aff3572e843dbcefe300b074",
+    "line_endings_only": false
+  },
+  "exact_paths_check.py": {
+    "tested_sha256": "a8fd2e5e5bdabddd4db6245929ae4913e977a086f1e29a630654de0dd3f5a579",
+    "git_lf_sha256": "a8fd2e5e5bdabddd4db6245929ae4913e977a086f1e29a630654de0dd3f5a579",
+    "line_endings_only": false
+  },
+  "exact_kernel_paths_check.py": {
+    "tested_sha256": "d94bd811787b833b78e2c97370d92c0c0c685274d2ef39a86d9cdbd7d79b057f",
+    "git_lf_sha256": "d94bd811787b833b78e2c97370d92c0c0c685274d2ef39a86d9cdbd7d79b057f",
+    "line_endings_only": false
+  },
+  "paired_compare.py": {
+    "tested_sha256": "298c69aebf57804833c43457343bd68e686b3613159f517935f4d2b64b9f143d",
+    "git_lf_sha256": "298c69aebf57804833c43457343bd68e686b3613159f517935f4d2b64b9f143d",
+    "line_endings_only": false
+  },
+  "exact_oracle.cpp": {
+    "tested_sha256": "580f8f8c532d19f6466fb2d7c8b603e88e004969bc5c06be387927ac625b230b",
+    "git_lf_sha256": "b32481c6bc7571ef05f718049e2760be27669e1d97faaf7776838edd68e7b2b5",
+    "line_endings_only": true
+  }
+}
