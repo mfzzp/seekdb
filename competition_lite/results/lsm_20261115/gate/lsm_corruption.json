@@ -1,0 +1,45 @@
+{
+  "passed": true,
+  "cases": [
+    {
+      "case": "manifest_checksum",
+      "passed": true,
+      "stderr": "storage checksum"
+    },
+    {
+      "case": "sst_block_checksum",
+      "passed": true,
+      "stderr": "storage checksum"
+    },
+    {
+      "case": "sst_index_checksum",
+      "passed": true,
+      "stderr": "storage checksum"
+    },
+    {
+      "case": "sst_missing",
+      "passed": true,
+      "stderr": "missing referenced SST"
+    },
+    {
+      "case": "sst_truncated",
+      "passed": true,
+      "stderr": "SST size mismatch"
+    },
+    {
+      "case": "vectors_truncated",
+      "passed": true,
+      "stderr": "committed vector file is incomplete"
+    },
+    {
+      "case": "wal_missing",
+      "passed": true,
+      "stderr": "open referenced WAL"
+    },
+    {
+      "case": "wal_checksum",
+      "passed": true,
+      "stderr": "storage checksum"
+    }
+  ]
+}

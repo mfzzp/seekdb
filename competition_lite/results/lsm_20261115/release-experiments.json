@@ -1,0 +1,72 @@
+[
+  {
+    "name": "paired-release",
+    "returncode": 0,
+    "seconds": 47.913128265878186
+  },
+  {
+    "name": "selectivity-release",
+    "returncode": 0,
+    "seconds": 32.13482524291612
+  },
+  {
+    "name": "diagnostic-generate",
+    "returncode": 0,
+    "seconds": 0.0644968799315393
+  },
+  {
+    "name": "diagnostic-build",
+    "returncode": 0,
+    "seconds": 12.998878336977214
+  },
+  {
+    "name": "profile-writes-release",
+    "returncode": 0,
+    "seconds": 2.9200043720193207
+  },
+  {
+    "name": "profile-queries-release",
+    "returncode": 0,
+    "seconds": 1.9198798350989819
+  },
+  {
+    "name": "capacity-release",
+    "returncode": 0,
+    "seconds": 22.020079795038328
+  },
+  {
+    "name": "migration-release",
+    "returncode": 0,
+    "seconds": 1.416875904193148
+  },
+  {
+    "name": "sanitizer-build",
+    "returncode": 0,
+    "seconds": 58.26062828791328
+  },
+  {
+    "name": "sanitizer-model",
+    "returncode": 1,
+    "seconds": 0.6155069540254772
+  },
+  {
+    "name": "sanitizer-nopie-build",
+    "returncode": 0,
+    "seconds": 57.12148674600758
+  },
+  {
+    "name": "sanitizer-nopie-startup",
+    "returncode": 0,
+    "seconds": 0.8160479092039168
+  },
+  {
+    "name": "sanitizer-model-nopie",
+    "returncode": 0,
+    "seconds": 5.378938263980672
+  },
+  {
+    "name": "sanitizer-exact-nopie",
+    "returncode": 0,
+    "seconds": 11.345066639827564
+  }
+]

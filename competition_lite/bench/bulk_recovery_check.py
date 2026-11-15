@@ -33,7 +33,10 @@ def main():
         assert session.ask('INSERT INTO docs VALUES ' + ','.join(values))['affected_rows'] == batch
         session.p.kill()
         session.p.wait(timeout=10)
-        assert (Path(data) / 'STATE').exists() == checkpoint
+        if (Path(data)/'LSM-MANIFEST').exists():
+            assert bool(list(Path(data).glob('lsm-*.sst'))) == checkpoint
+        else:
+            assert (Path(data) / 'STATE').exists() == checkpoint
         session = Session(args.binary, data)
         found = session.ask('SELECT id FROM docs ORDER BY id LIMIT %d;' % (batch + 2))['rows']
         assert found == [[i] for i in range(0 if checkpoint else 1, batch + 1)], found

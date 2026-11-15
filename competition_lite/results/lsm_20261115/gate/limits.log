@@ -1,0 +1,8 @@
+200000 100000
+2147483648
+0
+cpu memory pids
+g++ (Debian 12.2.0-14+deb12u1) 12.2.0
+0a311659ff2b4b42f903f2835a6f20e40b2cffee572c4e772a8fc013674dc4e6  /app/minivectordb
+a18757f1aea4ec73b6d1f8a480a0ae46181f5bc2338f672761b8d99a0122a758  /app/minivectordb_lite.cpp
+d4a6ee4538c053f19614d58c324ab06a7ab03ca1cf513ce06fa2012fab6ac25f  /app/lsm_store.hpp

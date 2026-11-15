@@ -1,0 +1,226 @@
+[
+  {
+    "binary": "asan-smoke",
+    "round": 0,
+    "rc": 0,
+    "stdout": "ready\n",
+    "stderr_start": ""
+  },
+  {
+    "binary": "asan-smoke",
+    "round": 1,
+    "rc": -11,
+    "stdout": "",
+    "stderr_start": "AddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\n"
+  },
+  {
+    "binary": "asan-smoke",
+    "round": 2,
+    "rc": 0,
+    "stdout": "ready\n",
+    "stderr_start": ""
+  },
+  {
+    "binary": "asan-smoke",
+    "round": 3,
+    "rc": 0,
+    "stdout": "ready\n",
+    "stderr_start": ""
+  },
+  {
+    "binary": "asan-smoke",
+    "round": 4,
+    "rc": 0,
+    "stdout": "ready\n",
+    "stderr_start": ""
+  },
+  {
+    "binary": "asan-smoke",
+    "round": 5,
+    "rc": 0,
+    "stdout": "ready\n",
+    "stderr_start": ""
+  },
+  {
+    "binary": "asan-smoke",
+    "round": 6,
+    "rc": 0,
+    "stdout": "ready\n",
+    "stderr_start": ""
+  },
+  {
+    "binary": "asan-smoke",
+    "round": 7,
+    "rc": -11,
+    "stdout": "",
+    "stderr_start": "AddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\n"
+  },
+  {
+    "binary": "asan-smoke",
+    "round": 8,
+    "rc": 0,
+    "stdout": "ready\n",
+    "stderr_start": ""
+  },
+  {
+    "binary": "asan-smoke",
+    "round": 9,
+    "rc": 0,
+    "stdout": "ready\n",
+    "stderr_start": ""
+  },
+  {
+    "binary": "asan-smoke",
+    "round": 10,
+    "rc": 0,
+    "stdout": "ready\n",
+    "stderr_start": ""
+  },
+  {
+    "binary": "asan-smoke",
+    "round": 11,
+    "rc": 0,
+    "stdout": "ready\n",
+    "stderr_start": ""
+  },
+  {
+    "binary": "asan-smoke",
+    "round": 12,
+    "rc": -11,
+    "stdout": "",
+    "stderr_start": "AddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\n"
+  },
+  {
+    "binary": "asan-smoke",
+    "round": 13,
+    "rc": -11,
+    "stdout": "",
+    "stderr_start": "AddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\n"
+  },
+  {
+    "binary": "asan-smoke",
+    "round": 14,
+    "rc": 0,
+    "stdout": "ready\n",
+    "stderr_start": ""
+  },
+  {
+    "binary": "asan-smoke",
+    "round": 15,
+    "rc": 0,
+    "stdout": "ready\n",
+    "stderr_start": ""
+  },
+  {
+    "binary": "lsm-sanitized",
+    "round": 0,
+    "rc": 0,
+    "stdout": "{\"ok\":true,\"tables\":0}\n",
+    "stderr_start": ""
+  },
+  {
+    "binary": "lsm-sanitized",
+    "round": 1,
+    "rc": 0,
+    "stdout": "{\"ok\":true,\"tables\":0}\n",
+    "stderr_start": ""
+  },
+  {
+    "binary": "lsm-sanitized",
+    "round": 2,
+    "rc": 0,
+    "stdout": "{\"ok\":true,\"tables\":0}\n",
+    "stderr_start": ""
+  },
+  {
+    "binary": "lsm-sanitized",
+    "round": 3,
+    "rc": -11,
+    "stdout": "",
+    "stderr_start": "AddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\n"
+  },
+  {
+    "binary": "lsm-sanitized",
+    "round": 4,
+    "rc": 0,
+    "stdout": "{\"ok\":true,\"tables\":0}\n",
+    "stderr_start": ""
+  },
+  {
+    "binary": "lsm-sanitized",
+    "round": 5,
+    "rc": -11,
+    "stdout": "",
+    "stderr_start": "AddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\n"
+  },
+  {
+    "binary": "lsm-sanitized",
+    "round": 6,
+    "rc": 0,
+    "stdout": "{\"ok\":true,\"tables\":0}\n",
+    "stderr_start": ""
+  },
+  {
+    "binary": "lsm-sanitized",
+    "round": 7,
+    "rc": -11,
+    "stdout": "",
+    "stderr_start": "AddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\n"
+  },
+  {
+    "binary": "lsm-sanitized",
+    "round": 8,
+    "rc": 0,
+    "stdout": "{\"ok\":true,\"tables\":0}\n",
+    "stderr_start": ""
+  },
+  {
+    "binary": "lsm-sanitized",
+    "round": 9,
+    "rc": -11,
+    "stdout": "",
+    "stderr_start": "AddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\n"
+  },
+  {
+    "binary": "lsm-sanitized",
+    "round": 10,
+    "rc": -11,
+    "stdout": "",
+    "stderr_start": "AddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\n"
+  },
+  {
+    "binary": "lsm-sanitized",
+    "round": 11,
+    "rc": -11,
+    "stdout": "",
+    "stderr_start": "AddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\n"
+  },
+  {
+    "binary": "lsm-sanitized",
+    "round": 12,
+    "rc": 0,
+    "stdout": "{\"ok\":true,\"tables\":0}\n",
+    "stderr_start": ""
+  },
+  {
+    "binary": "lsm-sanitized",
+    "round": 13,
+    "rc": -11,
+    "stdout": "",
+    "stderr_start": "AddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\nAddressSanitizer:DEADLYSIGNAL\n"
+  },
+  {
+    "binary": "lsm-sanitized",
+    "round": 14,
+    "rc": 0,
+    "stdout": "{\"ok\":true,\"tables\":0}\n",
+    "stderr_start": ""
+  },
+  {
+    "binary": "lsm-sanitized",
+    "round": 15,
+    "rc": 0,
+    "stdout": "{\"ok\":true,\"tables\":0}\n",
+    "stderr_start": ""
+  }
+]

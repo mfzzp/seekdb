@@ -1,0 +1,356 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 559B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.12.10-slim-bookworm
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 168B done
+#3 DONE 0.0s
+
+#4 [1/5] FROM docker.io/library/python:3.12.10-slim-bookworm
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 73.88kB done
+#5 DONE 0.0s
+
+#6 [2/5] WORKDIR /app
+#6 CACHED
+
+#7 [3/5] RUN apt-get update     && apt-get install -y --no-install-recommends g++     && rm -rf /var/lib/apt/lists/*
+#7 CACHED
+
+#8 [4/5] COPY competition_lite/src/ ./
+#8 DONE 0.1s
+
+#9 [5/5] RUN g++ -O3 -DNDEBUG -std=c++17 -Wall -Wextra -o minivectordb minivectordb_lite.cpp
+#9 1.073 minivectordb_lite.cpp: In lambda function:
+#9 1.073 minivectordb_lite.cpp:117:7: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+#9 1.073   117 |       if(d<0)throw Err("invalid_request","unicode escape");v=(v<<4)|d;}return v;};
+#9 1.073       |       ^~
+#9 1.073 minivectordb_lite.cpp:117:60: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+#9 1.073   117 |       if(d<0)throw Err("invalid_request","unicode escape");v=(v<<4)|d;}return v;};
+#9 1.073       |                                                            ^
+#9 1.073 minivectordb_lite.cpp: In function ‘std::string lite::jstr(const std::string&, size_t&)’:
+#9 1.073 minivectordb_lite.cpp:122:7: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+#9 1.073   122 |       if(p==s.size())break;char e=s[p++];
+#9 1.073       |       ^~
+#9 1.073 minivectordb_lite.cpp:122:28: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+#9 1.073   122 |       if(p==s.size())break;char e=s[p++];
+#9 1.073       |                            ^~~~
+#9 1.129 In file included from minivectordb_lite.cpp:413:
+#9 1.129 lsm_store.hpp: In member function ‘void lite::lsm::Writer::add(const lite::SRec&)’:
+#9 1.129 lsm_store.hpp:58:5: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+#9 1.129    58 |     if(!count)first=r.key;if(file->lo.empty())file->lo=r.key;file->hi=r.key;last=r.key;
+#9 1.129       |     ^~
+#9 1.129 lsm_store.hpp:58:27: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+#9 1.129    58 |     if(!count)first=r.key;if(file->lo.empty())file->lo=r.key;file->hi=r.key;last=r.key;
+#9 1.129       |                           ^~
+#9 1.158 lsm_store.hpp: In member function ‘virtual void lite::lsm::Merge::next()’:
+#9 1.158 lsm_store.hpp:99:7: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+#9 1.158    99 |       if(live&&best.tomb)continue;row=std::move(best);valid=true;return;}valid=false;}
+#9 1.158       |       ^~
+#9 1.158 lsm_store.hpp:99:35: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+#9 1.158    99 |       if(live&&best.tomb)continue;row=std::move(best);valid=true;return;}valid=false;}
+#9 1.158       |                                   ^~~
+#9 1.209 lsm_store.hpp: In member function ‘bool lite::lsm::Store::get(const std::string&, lite::SRec&) const’:
+#9 1.209 lsm_store.hpp:171:5: warning: this ‘for’ clause does not guard... [-Wmisleading-indentation]
+#9 1.209   171 |     for(auto&f:files)if(key>=f->lo&&key<=f->hi&&(!found||f->maxseq>best.seq)){DiskCursor c(f,key);if(c.valid&&c.row.key==key&&(!found||c.row.seq>best.seq)){best=c.row;found=true;}}return found;
+#9 1.209       |     ^~~
+#9 1.209 lsm_store.hpp:171:181: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘for’
+#9 1.209   171 |     for(auto&f:files)if(key>=f->lo&&key<=f->hi&&(!found||f->maxseq>best.seq)){DiskCursor c(f,key);if(c.valid&&c.row.key==key&&(!found||c.row.seq>best.seq)){best=c.row;found=true;}}return found;
+#9 1.209       |                                                                                                                                                                                     ^~~~~~
+#9 1.217 lsm_store.hpp: In member function ‘void lite::lsm::Store::compact(bool)’:
+#9 1.217 lsm_store.hpp:185:7: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+#9 1.217   185 |       if((level==0&&src.size()<4)||(level>0&&bytes<=budget))continue;if(src.empty())continue;
+#9 1.217       |       ^~
+#9 1.217 lsm_store.hpp:185:70: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+#9 1.217   185 |       if((level==0&&src.size()<4)||(level>0&&bytes<=budget))continue;if(src.empty())continue;
+#9 1.217       |                                                                      ^~
+#9 1.284 minivectordb_lite.cpp: In member function ‘void lite::Engine::row_put(lite::Table&, const lite::Row*, const lite::Row*)’:
+#9 1.284 minivectordb_lite.cpp:488:7: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+#9 1.284   488 |       if(!before)++q.count;if(!r)--q.count;
+#9 1.284       |       ^~
+#9 1.284 minivectordb_lite.cpp:488:28: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+#9 1.284   488 |       if(!before)++q.count;if(!r)--q.count;
+#9 1.284       |                            ^~
+#9 1.291 minivectordb_lite.cpp: In member function ‘void lite::Engine::gc()’:
+#9 1.291 minivectordb_lite.cpp:509:7: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+#9 1.291   509 |       if(in)throw Err("transaction_active","GC during transaction");checkpoint();
+#9 1.291       |       ^~
+#9 1.291 minivectordb_lite.cpp:509:69: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+#9 1.291   509 |       if(in)throw Err("transaction_active","GC during transaction");checkpoint();
+#9 1.291       |                                                                     ^~~~~~~~~~
+#9 1.292 minivectordb_lite.cpp:517:9: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+#9 1.292   517 |         if(w)out.push_back(w->finish());lsm::sync(vf.n);store->replace(out,name,end);
+#9 1.292       |         ^~
+#9 1.292 minivectordb_lite.cpp:517:41: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+#9 1.292   517 |         if(w)out.push_back(w->finish());lsm::sync(vf.n);store->replace(out,name,end);
+#9 1.292       |                                         ^~~
+#9 1.292 minivectordb_lite.cpp:518:9: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+#9 1.292   518 |         if(vmap&&mapsz)munmap(vmap,mapsz);vmap=nullptr;mapsz=0;mapoff=0;close(vfd);vecfile=path;vfd=open(path.c_str(),O_RDWR|O_APPEND);lsm::io(vfd>=0,"open compacted vectors");vec_end=end;vecbuf_base=end;load_catalog();
+#9 1.292       |         ^~
+#9 1.292 minivectordb_lite.cpp:518:43: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+#9 1.292   518 |         if(vmap&&mapsz)munmap(vmap,mapsz);vmap=nullptr;mapsz=0;mapoff=0;close(vfd);vecfile=path;vfd=open(path.c_str(),O_RDWR|O_APPEND);lsm::io(vfd>=0,"open compacted vectors");vec_end=end;vecbuf_base=end;load_catalog();
+#9 1.292       |                                           ^~~~
+#9 1.293 minivectordb_lite.cpp: In member function ‘lite::J lite::Engine::exec(const std::string&)’:
+#9 1.293 minivectordb_lite.cpp:522:7: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+#9 1.293   522 |       if(failed_io||store->failed)throw Err("io_error","restart required after failed commit");auto t=tok(sql);if(t.empty())throw Err("invalid_request","empty");std::string k=up(t[0]);
+#9 1.293       |       ^~
+#9 1.293 minivectordb_lite.cpp:522:96: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+#9 1.293   522 |       if(failed_io||store->failed)throw Err("io_error","restart required after failed commit");auto t=tok(sql);if(t.empty())throw Err("invalid_request","empty");std::string k=up(t[0]);
+#9 1.293       |                                                                                                ^~~~
+#9 1.331 minivectordb_lite.cpp: In lambda function:
+#9 1.331 minivectordb_lite.cpp:816:9: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+#9 1.331   816 |         if(x!=y)return x<y;return a->id<b->id;
+#9 1.331       |         ^~
+#9 1.331 minivectordb_lite.cpp:816:28: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+#9 1.331   816 |         if(x!=y)return x<y;return a->id<b->id;
+#9 1.331       |                            ^~~~~~
+#9 1.340 minivectordb_lite.cpp: In member function ‘lite::J lite::Engine::insert(const std::vector<std::__cxx11::basic_string<char> >&, bool)’:
+#9 1.340 minivectordb_lite.cpp:896:7: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+#9 1.340   896 |       if(t.size()<6||up(t[1])!="INTO"||up(t[3])!="VALUES")throw Err("unsupported_sql","insert");auto&q=tabs.at(t[2]);cool(q);
+#9 1.340       |       ^~
+#9 1.340 minivectordb_lite.cpp:896:97: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+#9 1.340   896 |       if(t.size()<6||up(t[1])!="INTO"||up(t[3])!="VALUES")throw Err("unsupported_sql","insert");auto&q=tabs.at(t[2]);cool(q);
+#9 1.340       |                                                                                                 ^~~~
+#9 1.349 minivectordb_lite.cpp:904:9: warning: this ‘for’ clause does not guard... [-Wmisleading-indentation]
+#9 1.349   904 |         for(size_t c=1;c<v.size();++c)if(q.c[c].t=="VECTOR"){if(recovering&&v[c]=="@"){r.voff[c]=vec_cursor;vec_cursor+=q.c[c].d*4;}else r.voff[c]=append_vec(v[c],q.c[c].d);r.v[c-1].clear();}row_put(q,&r,nullptr);}
+#9 1.349       |         ^~~
+#9 1.349 minivectordb_lite.cpp:904:192: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘for’
+#9 1.349   904 |         for(size_t c=1;c<v.size();++c)if(q.c[c].t=="VECTOR"){if(recovering&&v[c]=="@"){r.voff[c]=vec_cursor;vec_cursor+=q.c[c].d*4;}else r.voff[c]=append_vec(v[c],q.c[c].d);r.v[c-1].clear();}row_put(q,&r,nullptr);}
+#9 1.349       |                                                                                                                                                                                                ^~~~~~~
+#9 1.351 minivectordb_lite.cpp: In member function ‘void lite::Engine::each_row(const lite::Table&, const std::vector<lite::Cond>&, Fn) const’:
+#9 1.351 minivectordb_lite.cpp:913:7: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+#9 1.351   913 |       if(!hi.empty()&&lo>=hi)return;auto c=scan(lo,hi);while(c->valid){Row r;if(secondary_col>=0){long long id=(long long)(lsm::number_value(c->row.key,c->row.key.size()-8)^(1ull<<63));if(!row_get(q,id,r))throw Err("corruption","dangling scalar index");}else r=decode_row(q,c->row.value);if(match(q,r,cs))fn(r);c->next();}
+#9 1.351       |       ^~
+#9 1.351 minivectordb_lite.cpp:913:37: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+#9 1.351   913 |       if(!hi.empty()&&lo>=hi)return;auto c=scan(lo,hi);while(c->valid){Row r;if(secondary_col>=0){long long id=(long long)(lsm::number_value(c->row.key,c->row.key.size()-8)^(1ull<<63));if(!row_get(q,id,r))throw Err("corruption","dangling scalar index");}else r=decode_row(q,c->row.value);if(match(q,r,cs))fn(r);c->next();}
+#9 1.351       |                                     ^~~~
+#9 1.352 minivectordb_lite.cpp: In member function ‘lite::J lite::Engine::update(const std::vector<std::__cxx11::basic_string<char> >&, bool)’:
+#9 1.352 minivectordb_lite.cpp:916:7: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+#9 1.352   916 |       if(t.size()<6||up(t[2])!="SET")throw Err("unsupported_sql","update");auto&q=tabs.at(t[1]);cool(q);size_t p=3;std::vector<std::pair<int,std::string>>as;
+#9 1.352       |       ^~
+#9 1.352 minivectordb_lite.cpp:916:76: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+#9 1.352   916 |       if(t.size()<6||up(t[2])!="SET")throw Err("unsupported_sql","update");auto&q=tabs.at(t[1]);cool(q);size_t p=3;std::vector<std::pair<int,std::string>>as;
+#9 1.352       |                                                                            ^~~~
+#9 1.361 minivectordb_lite.cpp: In member function ‘void lite::Engine::migrate_legacy()’:
+#9 1.361 minivectordb_lite.cpp:937:11: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+#9 1.361   937 |           if(!rd(f,nr)||nr>1000000000ull)throw Err("corruption","legacy row count");for(uint64_t j=0;j<nr;++j){Row r;if(!rd(f,r.id))throw Err("corruption","legacy row");r.voff.push_back(-1);for(size_t c=1;c<q.c.size();++c){std::string v;int64_t off;if(!rs(f,v)||!rd(f,off))throw Err("corruption","legacy row field");r.v.push_back(std::move(v));r.voff.push_back((off_t)off);}import_row(q,r);}
+#9 1.361       |           ^~
+#9 1.361 minivectordb_lite.cpp:937:85: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+#9 1.361   937 |           if(!rd(f,nr)||nr>1000000000ull)throw Err("corruption","legacy row count");for(uint64_t j=0;j<nr;++j){Row r;if(!rd(f,r.id))throw Err("corruption","legacy row");r.voff.push_back(-1);for(size_t c=1;c<q.c.size();++c){std::string v;int64_t off;if(!rs(f,v)||!rd(f,off))throw Err("corruption","legacy row field");r.v.push_back(std::move(v));r.voff.push_back((off_t)off);}import_row(q,r);}
+#9 1.361       |                                                                                     ^~~
+#9 1.362 minivectordb_lite.cpp:941:9: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+#9 1.362   941 |         if(!rd(f,n)||n>1000000u)throw Err("corruption","legacy index columns");for(uint32_t i=0;i<n;++i){std::string s;int c;if(!rs(f,s)||!rd(f,c))throw Err("corruption","legacy index column");index_cols[s]=c;}
+#9 1.362       |         ^~
+#9 1.362 minivectordb_lite.cpp:941:80: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+#9 1.362   941 |         if(!rd(f,n)||n>1000000u)throw Err("corruption","legacy index columns");for(uint32_t i=0;i<n;++i){std::string s;int c;if(!rs(f,s)||!rd(f,c))throw Err("corruption","legacy index column");index_cols[s]=c;}
+#9 1.362       |                                                                                ^~~
+#9 1.364 minivectordb_lite.cpp:945:9: warning: this ‘for’ clause does not guard... [-Wmisleading-indentation]
+#9 1.364   945 |         for(auto&i:z.o["i"].a)indexes.insert(i.s);for(auto&i:z.o["c"].o)index_cols[i.first]=(int)i.second.i;
+#9 1.364       |         ^~~
+#9 1.364 minivectordb_lite.cpp:945:51: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘for’
+#9 1.364   945 |         for(auto&i:z.o["i"].a)indexes.insert(i.s);for(auto&i:z.o["c"].o)index_cols[i.first]=(int)i.second.i;
+#9 1.364       |                                                   ^~~
+#9 1.374 minivectordb_lite.cpp: In lambda function:
+#9 1.374 minivectordb_lite.cpp:983:9: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+#9 1.374   983 |         if(held>(64u<<20))throw Err("resource_limit","query result exceeds 64 MiB; use LIMIT");top.push(std::move(h));++updates;
+#9 1.374       |         ^~
+#9 1.374 minivectordb_lite.cpp:983:96: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+#9 1.374   983 |         if(held>(64u<<20))throw Err("resource_limit","query result exceeds 64 MiB; use LIMIT");top.push(std::move(h));++updates;
+#9 1.374       |                                                                                                ^~~
+#9 1.408 minivectordb_lite.cpp: In lambda function:
+#9 1.408 minivectordb_lite.cpp:1264:11: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+#9 1.408  1264 |           if(cmp)return desc?cmp>0:cmp<0;return a.id<b.id;
+#9 1.408       |           ^~
+#9 1.408 minivectordb_lite.cpp:1264:42: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+#9 1.408  1264 |           if(cmp)return desc?cmp>0:cmp<0;return a.id<b.id;
+#9 1.408       |                                          ^~~~~~
+#9 2.282 minivectordb_lite.cpp: At global scope:
+#9 2.282 minivectordb_lite.cpp:271:22: warning: ‘std::string lite::sqltok(const std::string&)’ defined but not used [-Wunused-function]
+#9 2.282   271 |   static std::string sqltok(const std::string&s){
+#9 2.282       |                      ^~~~~~
+#9 4.112 In file included from /usr/lib/gcc/x86_64-linux-gnu/12/include/immintrin.h:49,
+#9 4.112                  from minivectordb_lite.cpp:8:
+#9 4.112 In function ‘__m512d _mm512_cvtps_pd(__m256)’,
+#9 4.112     inlined from ‘double lite::l2_avx512(const float*, const float*, int)’ at minivectordb_lite.cpp:372:30:
+#9 4.112 /usr/lib/gcc/x86_64-linux-gnu/12/include/avx512fintrin.h:14589:10: warning: ‘__Y’ may be used uninitialized [-Wmaybe-uninitialized]
+#9 4.112 14589 |   return (__m512d) __builtin_ia32_cvtps2pd512_mask ((__v8sf) __A,
+#9 4.112       |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#9 4.112 14590 |                                                     (__v8df)
+#9 4.112       |                                                     ~~~~~~~~
+#9 4.112 14591 |                                                     _mm512_undefined_pd (),
+#9 4.112       |                                                     ~~~~~~~~~~~~~~~~~~~~~~~
+#9 4.112 14592 |                                                     (__mmask8) -1,
+#9 4.112       |                                                     ~~~~~~~~~~~~~~
+#9 4.112 14593 |                                                     _MM_FROUND_CUR_DIRECTION);
+#9 4.112       |                                                     ~~~~~~~~~~~~~~~~~~~~~~~~~
+#9 4.112 /usr/lib/gcc/x86_64-linux-gnu/12/include/avx512fintrin.h: In function ‘double lite::l2_avx512(const float*, const float*, int)’:
+#9 4.112 /usr/lib/gcc/x86_64-linux-gnu/12/include/avx512fintrin.h:198:11: note: ‘__Y’ was declared here
+#9 4.112   198 |   __m512d __Y = __Y;
+#9 4.112       |           ^~~
+#9 4.112 In function ‘__m512d _mm512_cvtps_pd(__m256)’,
+#9 4.112     inlined from ‘double lite::l2_avx512(const float*, const float*, int)’ at minivectordb_lite.cpp:372:30:
+#9 4.112 /usr/lib/gcc/x86_64-linux-gnu/12/include/avx512fintrin.h:14589:10: warning: ‘__Y’ may be used uninitialized [-Wmaybe-uninitialized]
+#9 4.112 14589 |   return (__m512d) __builtin_ia32_cvtps2pd512_mask ((__v8sf) __A,
+#9 4.112       |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#9 4.112 14590 |                                                     (__v8df)
+#9 4.112       |                                                     ~~~~~~~~
+#9 4.112 14591 |                                                     _mm512_undefined_pd (),
+#9 4.112       |                                                     ~~~~~~~~~~~~~~~~~~~~~~~
+#9 4.112 14592 |                                                     (__mmask8) -1,
+#9 4.112       |                                                     ~~~~~~~~~~~~~~
+#9 4.112 14593 |                                                     _MM_FROUND_CUR_DIRECTION);
+#9 4.112       |                                                     ~~~~~~~~~~~~~~~~~~~~~~~~~
+#9 4.112 /usr/lib/gcc/x86_64-linux-gnu/12/include/avx512fintrin.h: In function ‘double lite::l2_avx512(const float*, const float*, int)’:
+#9 4.112 /usr/lib/gcc/x86_64-linux-gnu/12/include/avx512fintrin.h:198:11: note: ‘__Y’ was declared here
+#9 4.112   198 |   __m512d __Y = __Y;
+#9 4.112       |           ^~~
+#9 4.112 In function ‘__m512d _mm512_cvtps_pd(__m256)’,
+#9 4.112     inlined from ‘double lite::l2_avx512(const float*, const float*, int)’ at minivectordb_lite.cpp:374:22:
+#9 4.112 /usr/lib/gcc/x86_64-linux-gnu/12/include/avx512fintrin.h:14589:10: warning: ‘__Y’ may be used uninitialized [-Wmaybe-uninitialized]
+#9 4.112 14589 |   return (__m512d) __builtin_ia32_cvtps2pd512_mask ((__v8sf) __A,
+#9 4.112       |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#9 4.112 14590 |                                                     (__v8df)
+#9 4.112       |                                                     ~~~~~~~~
+#9 4.112 14591 |                                                     _mm512_undefined_pd (),
+#9 4.112       |                                                     ~~~~~~~~~~~~~~~~~~~~~~~
+#9 4.112 14592 |                                                     (__mmask8) -1,
+#9 4.112       |                                                     ~~~~~~~~~~~~~~
+#9 4.112 14593 |                                                     _MM_FROUND_CUR_DIRECTION);
+#9 4.112       |                                                     ~~~~~~~~~~~~~~~~~~~~~~~~~
+#9 4.112 /usr/lib/gcc/x86_64-linux-gnu/12/include/avx512fintrin.h: In function ‘double lite::l2_avx512(const float*, const float*, int)’:
+#9 4.112 /usr/lib/gcc/x86_64-linux-gnu/12/include/avx512fintrin.h:198:11: note: ‘__Y’ was declared here
+#9 4.112   198 |   __m512d __Y = __Y;
+#9 4.112       |           ^~~
+#9 4.112 In function ‘__m512d _mm512_cvtps_pd(__m256)’,
+#9 4.112     inlined from ‘double lite::l2_avx512(const float*, const float*, int)’ at minivectordb_lite.cpp:374:22:
+#9 4.112 /usr/lib/gcc/x86_64-linux-gnu/12/include/avx512fintrin.h:14589:10: warning: ‘__Y’ may be used uninitialized [-Wmaybe-uninitialized]
+#9 4.112 14589 |   return (__m512d) __builtin_ia32_cvtps2pd512_mask ((__v8sf) __A,
+#9 4.112       |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#9 4.112 14590 |                                                     (__v8df)
+#9 4.112       |                                                     ~~~~~~~~
+#9 4.112 14591 |                                                     _mm512_undefined_pd (),
+#9 4.112       |                                                     ~~~~~~~~~~~~~~~~~~~~~~~
+#9 4.112 14592 |                                                     (__mmask8) -1,
+#9 4.112       |                                                     ~~~~~~~~~~~~~~
+#9 4.112 14593 |                                                     _MM_FROUND_CUR_DIRECTION);
+#9 4.112       |                                                     ~~~~~~~~~~~~~~~~~~~~~~~~~
+#9 4.112 /usr/lib/gcc/x86_64-linux-gnu/12/include/avx512fintrin.h: In function ‘double lite::l2_avx512(const float*, const float*, int)’:
+#9 4.112 /usr/lib/gcc/x86_64-linux-gnu/12/include/avx512fintrin.h:198:11: note: ‘__Y’ was declared here
+#9 4.112   198 |   __m512d __Y = __Y;
+#9 4.112       |           ^~~
+#9 4.113 In function ‘__m512d _mm512_cvtps_pd(__m256)’,
+#9 4.113     inlined from ‘double lite::l2_avx512(const float*, const float*, int)’ at minivectordb_lite.cpp:376:22:
+#9 4.113 /usr/lib/gcc/x86_64-linux-gnu/12/include/avx512fintrin.h:14589:10: warning: ‘__Y’ may be used uninitialized [-Wmaybe-uninitialized]
+#9 4.113 14589 |   return (__m512d) __builtin_ia32_cvtps2pd512_mask ((__v8sf) __A,
+#9 4.113       |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#9 4.113 14590 |                                                     (__v8df)
+#9 4.113       |                                                     ~~~~~~~~
+#9 4.113 14591 |                                                     _mm512_undefined_pd (),
+#9 4.113       |                                                     ~~~~~~~~~~~~~~~~~~~~~~~
+#9 4.113 14592 |                                                     (__mmask8) -1,
+#9 4.113       |                                                     ~~~~~~~~~~~~~~
+#9 4.113 14593 |                                                     _MM_FROUND_CUR_DIRECTION);
+#9 4.113       |                                                     ~~~~~~~~~~~~~~~~~~~~~~~~~
+#9 4.113 /usr/lib/gcc/x86_64-linux-gnu/12/include/avx512fintrin.h: In function ‘double lite::l2_avx512(const float*, const float*, int)’:
+#9 4.113 /usr/lib/gcc/x86_64-linux-gnu/12/include/avx512fintrin.h:198:11: note: ‘__Y’ was declared here
+#9 4.113   198 |   __m512d __Y = __Y;
+#9 4.113       |           ^~~
+#9 4.113 In function ‘__m512d _mm512_cvtps_pd(__m256)’,
+#9 4.113     inlined from ‘double lite::l2_avx512(const float*, const float*, int)’ at minivectordb_lite.cpp:376:22:
+#9 4.113 /usr/lib/gcc/x86_64-linux-gnu/12/include/avx512fintrin.h:14589:10: warning: ‘__Y’ may be used uninitialized [-Wmaybe-uninitialized]
+#9 4.113 14589 |   return (__m512d) __builtin_ia32_cvtps2pd512_mask ((__v8sf) __A,
+#9 4.113       |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#9 4.113 14590 |                                                     (__v8df)
+#9 4.113       |                                                     ~~~~~~~~
+#9 4.113 14591 |                                                     _mm512_undefined_pd (),
+#9 4.113       |                                                     ~~~~~~~~~~~~~~~~~~~~~~~
+#9 4.113 14592 |                                                     (__mmask8) -1,
+#9 4.113       |                                                     ~~~~~~~~~~~~~~
+#9 4.113 14593 |                                                     _MM_FROUND_CUR_DIRECTION);
+#9 4.113       |                                                     ~~~~~~~~~~~~~~~~~~~~~~~~~
+#9 4.113 /usr/lib/gcc/x86_64-linux-gnu/12/include/avx512fintrin.h: In function ‘double lite::l2_avx512(const float*, const float*, int)’:
+#9 4.113 /usr/lib/gcc/x86_64-linux-gnu/12/include/avx512fintrin.h:198:11: note: ‘__Y’ was declared here
+#9 4.113   198 |   __m512d __Y = __Y;
+#9 4.113       |           ^~~
+#9 4.113 In function ‘__m512d _mm512_cvtps_pd(__m256)’,
+#9 4.113     inlined from ‘double lite::l2_avx512(const float*, const float*, int)’ at minivectordb_lite.cpp:378:22:
+#9 4.113 /usr/lib/gcc/x86_64-linux-gnu/12/include/avx512fintrin.h:14589:10: warning: ‘__Y’ may be used uninitialized [-Wmaybe-uninitialized]
+#9 4.113 14589 |   return (__m512d) __builtin_ia32_cvtps2pd512_mask ((__v8sf) __A,
+#9 4.113       |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#9 4.113 14590 |                                                     (__v8df)
+#9 4.113       |                                                     ~~~~~~~~
+#9 4.113 14591 |                                                     _mm512_undefined_pd (),
+#9 4.113       |                                                     ~~~~~~~~~~~~~~~~~~~~~~~
+#9 4.113 14592 |                                                     (__mmask8) -1,
+#9 4.113       |                                                     ~~~~~~~~~~~~~~
+#9 4.113 14593 |                                                     _MM_FROUND_CUR_DIRECTION);
+#9 4.113       |                                                     ~~~~~~~~~~~~~~~~~~~~~~~~~
+#9 4.113 /usr/lib/gcc/x86_64-linux-gnu/12/include/avx512fintrin.h: In function ‘double lite::l2_avx512(const float*, const float*, int)’:
+#9 4.113 /usr/lib/gcc/x86_64-linux-gnu/12/include/avx512fintrin.h:198:11: note: ‘__Y’ was declared here
+#9 4.113   198 |   __m512d __Y = __Y;
+#9 4.113       |           ^~~
+#9 4.113 In function ‘__m512d _mm512_cvtps_pd(__m256)’,
+#9 4.113     inlined from ‘double lite::l2_avx512(const float*, const float*, int)’ at minivectordb_lite.cpp:378:22:
+#9 4.113 /usr/lib/gcc/x86_64-linux-gnu/12/include/avx512fintrin.h:14589:10: warning: ‘__Y’ may be used uninitialized [-Wmaybe-uninitialized]
+#9 4.113 14589 |   return (__m512d) __builtin_ia32_cvtps2pd512_mask ((__v8sf) __A,
+#9 4.113       |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#9 4.113 14590 |                                                     (__v8df)
+#9 4.113       |                                                     ~~~~~~~~
+#9 4.113 14591 |                                                     _mm512_undefined_pd (),
+#9 4.113       |                                                     ~~~~~~~~~~~~~~~~~~~~~~~
+#9 4.113 14592 |                                                     (__mmask8) -1,
+#9 4.113       |                                                     ~~~~~~~~~~~~~~
+#9 4.113 14593 |                                                     _MM_FROUND_CUR_DIRECTION);
+#9 4.113       |                                                     ~~~~~~~~~~~~~~~~~~~~~~~~~
+#9 4.113 /usr/lib/gcc/x86_64-linux-gnu/12/include/avx512fintrin.h: In function ‘double lite::l2_avx512(const float*, const float*, int)’:
+#9 4.113 /usr/lib/gcc/x86_64-linux-gnu/12/include/avx512fintrin.h:198:11: note: ‘__Y’ was declared here
+#9 4.113   198 |   __m512d __Y = __Y;
+#9 4.113       |           ^~~
+#9 4.113 In function ‘__m512d _mm512_cvtps_pd(__m256)’,
+#9 4.113     inlined from ‘double lite::l2_avx512(const float*, const float*, int)’ at minivectordb_lite.cpp:383:30:
+#9 4.113 /usr/lib/gcc/x86_64-linux-gnu/12/include/avx512fintrin.h:14589:10: warning: ‘__Y’ may be used uninitialized [-Wmaybe-uninitialized]
+#9 4.113 14589 |   return (__m512d) __builtin_ia32_cvtps2pd512_mask ((__v8sf) __A,
+#9 4.113       |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#9 4.113 14590 |                                                     (__v8df)
+#9 4.113       |                                                     ~~~~~~~~
+#9 4.113 14591 |                                                     _mm512_undefined_pd (),
+#9 4.113       |                                                     ~~~~~~~~~~~~~~~~~~~~~~~
+#9 4.113 14592 |                                                     (__mmask8) -1,
+#9 4.113       |                                                     ~~~~~~~~~~~~~~
+#9 4.113 14593 |                                                     _MM_FROUND_CUR_DIRECTION);
+#9 4.113       |                                                     ~~~~~~~~~~~~~~~~~~~~~~~~~
+#9 4.113 /usr/lib/gcc/x86_64-linux-gnu/12/include/avx512fintrin.h: In function ‘double lite::l2_avx512(const float*, const float*, int)’:
+#9 4.113 /usr/lib/gcc/x86_64-linux-gnu/12/include/avx512fintrin.h:198:11: note: ‘__Y’ was declared here
+#9 4.113   198 |   __m512d __Y = __Y;
+#9 4.113       |           ^~~
+#9 4.113 In function ‘__m512d _mm512_cvtps_pd(__m256)’,
+#9 4.113     inlined from ‘double lite::l2_avx512(const float*, const float*, int)’ at minivectordb_lite.cpp:383:30:
+#9 4.113 /usr/lib/gcc/x86_64-linux-gnu/12/include/avx512fintrin.h:14589:10: warning: ‘__Y’ may be used uninitialized [-Wmaybe-uninitialized]
+#9 4.113 14589 |   return (__m512d) __builtin_ia32_cvtps2pd512_mask ((__v8sf) __A,
+#9 4.113       |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#9 4.113 14590 |                                                     (__v8df)
+#9 4.113       |                                                     ~~~~~~~~
+#9 4.113 14591 |                                                     _mm512_undefined_pd (),
+#9 4.113       |                                                     ~~~~~~~~~~~~~~~~~~~~~~~
+#9 4.113 14592 |                                                     (__mmask8) -1,
+#9 4.113       |                                                     ~~~~~~~~~~~~~~
+#9 4.113 14593 |                                                     _MM_FROUND_CUR_DIRECTION);
+#9 4.113       |                                                     ~~~~~~~~~~~~~~~~~~~~~~~~~
+#9 4.113 /usr/lib/gcc/x86_64-linux-gnu/12/include/avx512fintrin.h: In function ‘double lite::l2_avx512(const float*, const float*, int)’:
+#9 4.113 /usr/lib/gcc/x86_64-linux-gnu/12/include/avx512fintrin.h:198:11: note: ‘__Y’ was declared here
+#9 4.113   198 |   __m512d __Y = __Y;
+#9 4.113       |           ^~~
+#9 DONE 13.0s
+
+#10 exporting to image
+#10 exporting layers 0.1s done
+#10 writing image sha256:737d11733625d2a1f9b56a88d5baaf1b05a124a6c9dc336bd1084f8563b1ed45 done
+#10 naming to docker.io/library/lite:lsm-final-20261115 done
+#10 DONE 0.1s

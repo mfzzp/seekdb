@@ -9,6 +9,11 @@ static bool injected=false,vector_synced=false,order_ok=true;
 extern "C" ssize_t __real_write(int,const void*,size_t);
 extern "C" int __real_fdatasync(int);
 extern "C" ssize_t __wrap_write(int fd,const void*p,size_t n){
+  if(fault=="lsm_failure"){
+    char path[4096];std::string link="/proc/self/fd/"+std::to_string(fd);
+    ssize_t len=readlink(link.c_str(),path,sizeof(path));
+    if(len>4&&std::string(path+(len-4),4)==".sst"){injected=true;errno=EIO;return -1;}
+  }
   if(!fault.empty()&&(fd==vector_fd||fd==wal_fd)){
     ++writes;
     if(fd==wal_fd&&!vector_synced)order_ok=false;
@@ -65,18 +70,18 @@ int main(int argc,char**argv){
     if(mode=="statement_undo"){
       e.exec("BEGIN;");e.exec("INSERT INTO docs VALUES (2,'it''works','[2,3]');");
       bool rejected=false;try{e.exec("INSERT INTO docs VALUES (3,'bad','[3,4]'),(4,'bad','[4]');");}catch(const lite::Err&){rejected=true;}
-      require(rejected&&e.tabs.at("docs").r.size()==2,"failed statement leaked rows");
+      require(rejected&&e.exec("SELECT id FROM docs;").o.at("rows").a.size()==2,"failed statement leaked rows");
       require(e.in,"failed statement ended explicit transaction");
       e.exec("INSERT INTO docs VALUES (3,'it''works','[3,4]');");e.exec("COMMIT;");
-      size_t bytes=0;for(auto&r:e.memtable)bytes+=r.key.size()+r.value.size()+32;
-      require(e.memtable_bytes==bytes,"MemTable accounting mismatch");
-      require(e.wal_bytes==e.fsize(e.wal),"WAL byte accounting mismatch");
-      e.flush_sst();require(e.memtable_bytes==0,"MemTable counter not reset");
-      e.checkpoint();require(e.wal_bytes==0&&e.fsize(e.wal)==0,"WAL counter not reset");
+      size_t bytes=0;for(auto&kv:e.store->mem){auto&r=kv.second;bytes+=r.key.size()+r.value.size()+96;}
+      require(e.store->mem_bytes==bytes,"MemTable accounting mismatch");
+      require(e.store->wal_bytes==(uint64_t)e.fsize(e.dir+"/"+e.store->wal_name),"WAL byte accounting mismatch");
+      e.flush_sst();require(e.store->mem_bytes==0,"MemTable counter not reset");
+      e.checkpoint();require(e.store->wal_bytes==0&&e.fsize(e.dir+"/"+e.store->wal_name)==0,"WAL counter not reset");
       std::cout<<"PASS statement undo and MemTable bytes\n";return 0;
     }
-    vector_fd=e.vfd;wal_fd=e.wfd;
-    if(mode=="lsm_failure"){setenv("LITE_MEMTABLE_BYTES","1",1);mkdir((e.dir+"/MANIFEST.tmp").c_str(),0755);}
+    vector_fd=e.vfd;wal_fd=e.store->wfd;
+    if(mode=="lsm_failure")e.store->limit=1;
     fault=mode;bool failed=false;
     try{e.exec("INSERT INTO docs VALUES (2,'it''works','[2,3]'),(3,'it''works','[3,4]');");}catch(const lite::Err&){failed=true;}
     bool expect_failure=mode=="partial_vector"||mode=="partial_wal"||mode=="vector_sync"||mode=="wal_sync"||mode=="lsm_failure";

@@ -1,0 +1,5 @@
+CREATE TABLE docs (id BIGINT PRIMARY KEY, g BIGINT, v VECTOR(2));
+INSERT INTO docs VALUES (1,10,'[0,0]'),(2,20,'[1,0]'),(3,20,'[0,1]'),(4,30,'[2,2]');
+SELECT id FROM docs WHERE g >= 20 ORDER BY id;
+SELECT id FROM docs WHERE g = 20 AND id >= 3 ORDER BY id;
+SELECT id, L2_DISTANCE(v,'[0,0]') AS d FROM docs WHERE g >= 20 ORDER BY d;

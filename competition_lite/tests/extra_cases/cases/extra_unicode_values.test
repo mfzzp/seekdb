@@ -1,0 +1,4 @@
+CREATE TABLE docs (id BIGINT PRIMARY KEY, s VARCHAR(8));
+INSERT INTO docs VALUES (1,'你好'),(2,'😀😀');
+SELECT s FROM docs ORDER BY id;
+SELECT id FROM docs WHERE s = '你好';

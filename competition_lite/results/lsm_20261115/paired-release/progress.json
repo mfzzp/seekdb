@@ -1,0 +1,62 @@
+[
+  {
+    "variant": "old-f885",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/lsm-20261115-final/paired-release/old-f885-r1.json"
+  },
+  {
+    "variant": "ce497",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/lsm-20261115-final/paired-release/ce497-r1.json"
+  },
+  {
+    "variant": "lsm",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/lsm-20261115-final/paired-release/lsm-r1.json"
+  },
+  {
+    "variant": "lsm-block",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/lsm-20261115-final/paired-release/lsm-block-r1.json"
+  },
+  {
+    "variant": "ce497",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/lsm-20261115-final/paired-release/ce497-r2.json"
+  },
+  {
+    "variant": "lsm",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/lsm-20261115-final/paired-release/lsm-r2.json"
+  },
+  {
+    "variant": "lsm-block",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/lsm-20261115-final/paired-release/lsm-block-r2.json"
+  },
+  {
+    "variant": "old-f885",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/lsm-20261115-final/paired-release/old-f885-r2.json"
+  },
+  {
+    "variant": "lsm",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/lsm-20261115-final/paired-release/lsm-r3.json"
+  },
+  {
+    "variant": "lsm-block",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/lsm-20261115-final/paired-release/lsm-block-r3.json"
+  },
+  {
+    "variant": "old-f885",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/lsm-20261115-final/paired-release/old-f885-r3.json"
+  },
+  {
+    "variant": "ce497",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/lsm-20261115-final/paired-release/ce497-r3.json"
+  }
+]

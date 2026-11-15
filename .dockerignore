@@ -3,3 +3,4 @@
 !competition_lite/
 !competition_lite/src/
 !competition_lite/src/minivectordb_lite.cpp
+!competition_lite/src/lsm_store.hpp

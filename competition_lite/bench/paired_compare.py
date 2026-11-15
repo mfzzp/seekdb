@@ -50,7 +50,7 @@ def main():
     for label, _, _ in variants:
         group = [json.loads(Path(r['report']).read_text()) for r in runs if r['variant'] == label]
         summary[label] = {k: statistics.median(r[k] for r in group)
-                          for k in ['insert_wall_s', 'insert_request_s', 'index_s', 'query_wall_s', 'checkpoint_s', 'final_file_bytes']}
+                          for k in ['insert_wall_s', 'insert_request_s', 'index_s', 'warmup_s', 'query_wall_s', 'checkpoint_s', 'final_file_bytes']}
         summary[label]['exact_mean_ms'] = statistics.median(r['verification']['exact']['mean_ms'] for r in group)
         summary[label]['filters_mean_ms'] = {k: statistics.median(r['verification']['exact']['filters'][k]['mean_ms'] for r in group)
                                              for k in group[0]['verification']['exact']['filters']}

@@ -71,11 +71,38 @@ def main():
         ('    J insert(const std::vector<std::string>&t,bool rec){', '    J insert(const std::vector<std::string>&t,bool rec){\n      diagnostic::Timer timing("insert_inclusive");'),
         ('    static void parse_into(const std::string&s,int want,std::vector<float>&v){', '    static void parse_into(const std::string&s,int want,std::vector<float>&v){\n      diagnostic::Timer timing("vector_parse");'),
     ]
+    header = a.source.with_name('lsm_store.hpp')
+    if '#include "lsm_store.hpp"' in src:
+        # LSM write sets replace the old copies. Instrument an independent copy
+        # of both runtime sources; no clocks are added to the submission binary.
+        edits = edits[:5] + [
+            ('    void sync_commit(int fd){', '    void sync_commit(int fd){diagnostic::Timer timing("vector_sync");'),
+            ('    void write_all(int fd,const char*p,size_t n){', '    void write_all(int fd,const char*p,size_t n){diagnostic::Timer timing("vector_write");diagnostic::stats["vector_write"].logical_bytes+=n;'),
+            ('    J insert(const std::vector<std::string>&t,bool){', '    J insert(const std::vector<std::string>&t,bool){diagnostic::Timer timing("insert_inclusive");'),
+            ('    static void parse_into(const std::string&s,int want,std::vector<float>&v){', '    static void parse_into(const std::string&s,int want,std::vector<float>&v){diagnostic::Timer timing("vector_parse");'),
+            ('    void begin(bool=true){', '    void begin(bool=true){diagnostic::Timer timing("begin_write_set");'),
+            ('try{tx->absorb(*statement);}catch', 'try{diagnostic::Timer timing("statement_merge");tx->absorb(*statement);}catch'),
+        ]
+        edits[0]=(edits[0][0],edits[0][1].replace('stats.clear();start=', 'stats.clear();stats["begin_copy"];stats["statement_copy"];start='))
+        h=header.read_text()
+        header_edits=[
+            ('sync(wfd,true);', 'DIAG_EXPR("wal_sync",sync(wfd,true));'),
+            ('  void frame(unsigned char kind,const std::string& data){', '  void frame(unsigned char kind,const std::string& data){diagnostic::Timer timing("wal_encode_write");diagnostic::stats["wal_encode_write"].logical_bytes+=data.size()+9;'),
+            ('  void flush(){if(mem.empty())return;', '  void flush(){if(mem.empty())return;diagnostic::Timer timing("memtable_flush_inclusive");'),
+            ('  void compact(bool full=false){', '  void compact(bool full=false){diagnostic::Timer timing("compaction_inclusive");'),
+            ('  void commit(Batch& batch,uint64_t vend){', '  void commit(Batch& batch,uint64_t vend){diagnostic::Timer timing("lsm_commit_inclusive");'),
+        ]
+        for before,after in header_edits:
+            assert h.count(before)==1,('LSM instrumentation anchor changed',before,h.count(before))
+            h=h.replace(before,after,1)
+        a.out.parent.mkdir(parents=True,exist_ok=True)
+        a.out.with_name('lsm_store.hpp').write_text(h)
     for old, new in edits:
         assert src.count(old) == 1, ('instrumentation anchor changed', old, src.count(old))
         src = src.replace(old, new, 1)
     a.out.write_text(src)
     a.out.with_suffix('.json').write_text(json.dumps({'production_source_sha256': original_hash,
+        'production_lsm_sha256': hashlib.sha256(header.read_bytes()).hexdigest() if header.exists() else None,
         'diagnostic_source_sha256': hashlib.sha256(a.out.read_bytes()).hexdigest(),
         'caveats': ['Diagnostic timings include instrumentation overhead.',
                     'insert_inclusive includes vector_parse and any buffered writes; do not sum nested stages.',

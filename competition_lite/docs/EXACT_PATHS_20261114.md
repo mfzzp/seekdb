@@ -82,8 +82,8 @@ g++ -O3 -DNDEBUG -std=c++17 /tmp/lite-before.cpp -o /tmp/lite-before
 python3 competition_lite/bench/exact_paths_bench.py --baseline /tmp/lite-before --candidate /tmp/lite-exact --root /tmp/exact-10k-new --rows 10000 --dim 128 --queries 1000 --rounds 3
 python3 competition_lite/bench/exact_paths_bench.py --baseline /tmp/lite-before --candidate /tmp/lite-exact --root /tmp/exact-100k-new --rows 100000 --dim 1024 --queries 180 --rounds 3
 python3 competition_lite/bench/exact_paths_check.py --binary /tmp/lite-exact --root /tmp/exact-check-new
-g++ -O1 -std=c++17 competition_lite/bench/manifest_publish_check.cpp -Wl,--wrap=rename -Wl,--wrap=fsync -o /tmp/manifest-check
-python3 competition_lite/bench/manifest_publish_check.py --binary /tmp/manifest-check --root /tmp/manifest-check-new
+g++ -O1 -std=c++17 competition_lite/bench/lsm_storage_check.cpp -Wl,--wrap=write -Wl,--wrap=rename -Wl,--wrap=fsync -o /tmp/manifest-check
+python3 competition_lite/bench/lsm_storage_check.py --binary /tmp/manifest-check --root /tmp/manifest-check-new
 docker build -t lite-exact .
 python3 protocol_check/run.py --image lite-exact --output /tmp/public-lite-new
 ```

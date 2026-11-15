@@ -1,0 +1,36 @@
+AddressSanitizer:DEADLYSIGNAL
+AddressSanitizer:DEADLYSIGNAL
+AddressSanitizer:DEADLYSIGNAL
+AddressSanitizer:DEADLYSIGNAL
+AddressSanitizer:DEADLYSIGNAL
+AddressSanitizer:DEADLYSIGNAL
+AddressSanitizer:DEADLYSIGNAL
+AddressSanitizer:DEADLYSIGNAL
+AddressSanitizer:DEADLYSIGNAL
+AddressSanitizer:DEADLYSIGNAL
+AddressSanitizer:DEADLYSIGNAL
+AddressSanitizer:DEADLYSIGNAL
+AddressSanitizer:DEADLYSIGNAL
+AddressSanitizer:DEADLYSIGNAL
+AddressSanitizer:DEADLYSIGNAL
+AddressSanitizer:DEADLYSIGNAL
+AddressSanitizer:DEADLYSIGNAL
+AddressSanitizer:DEADLYSIGNAL
+AddressSanitizer:DEADLYSIGNAL
+AddressSanitizer:DEADLYSIGNAL
+Traceback (most recent call last):
+  File "/work/release-source/competition_lite/bench/lsm_model_check.py", line 36, in <module>
+    data=str((a.root/'model').resolve());s=Session(a.binary,data)
+                                           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/work/release-source/competition_lite/bench/protocol_adapter.py", line 6, in __init__
+    ready=json.loads(self.p.stdout.readline()); assert ready.get('type')=='ready',ready
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)

@@ -1,0 +1,10 @@
+{
+  "production_source_sha256": "a18757f1aea4ec73b6d1f8a480a0ae46181f5bc2338f672761b8d99a0122a758",
+  "production_lsm_sha256": "d4a6ee4538c053f19614d58c324ab06a7ab03ca1cf513ce06fa2012fab6ac25f",
+  "diagnostic_source_sha256": "89d10ce9d6cd0b1071bec8bd1c91e1b0c9631afbff8c1fef429690d43361256f",
+  "caveats": [
+    "Diagnostic timings include instrumentation overhead.",
+    "insert_inclusive includes vector_parse and any buffered writes; do not sum nested stages.",
+    "copy logical_bytes excludes map-node allocation, spare capacity and allocator overhead."
+  ]
+}

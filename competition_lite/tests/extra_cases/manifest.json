@@ -1,0 +1,90 @@
+{
+  "version": "minivectordb-extra-v1",
+  "scope": "extra-samples",
+  "cases": [
+    {
+      "id": "extra_range_and",
+      "group": "extra",
+      "test": "cases/extra_range_and.test",
+      "result": "cases/extra_range_and.result",
+      "statements": 5
+    },
+    {
+      "id": "extra_restart_index",
+      "group": "extra",
+      "test": "cases/extra_restart_index.test",
+      "result": "cases/extra_restart_index.result",
+      "statements": 6
+    },
+    {
+      "id": "extra_transaction_failure",
+      "group": "extra",
+      "test": "cases/extra_transaction_failure.test",
+      "result": "cases/extra_transaction_failure.result",
+      "statements": 7
+    },
+    {
+      "id": "extra_limit_edge",
+      "group": "extra",
+      "test": "cases/extra_limit_edge.test",
+      "result": "cases/extra_limit_edge.result",
+      "statements": 5
+    },
+    {
+      "id": "extra_unicode_values",
+      "group": "extra",
+      "test": "cases/extra_unicode_values.test",
+      "result": "cases/extra_unicode_values.result",
+      "statements": 4
+    },
+    {
+      "id": "extra_ann_modes",
+      "group": "extra",
+      "test": "cases/extra_ann_modes.test",
+      "result": "cases/extra_ann_modes.result",
+      "statements": 5
+    },
+    {
+      "id": "extra_row_order",
+      "group": "extra",
+      "test": "cases/extra_row_order.test",
+      "result": "cases/extra_row_order.result",
+      "statements": 8
+    },
+    {
+      "id": "extra_multi_table_restart",
+      "group": "extra",
+      "test": "cases/extra_multi_table_restart.test",
+      "result": "cases/extra_multi_table_restart.result",
+      "statements": 11
+    },
+    {
+      "id": "extra_transaction_delete_all",
+      "group": "extra",
+      "test": "cases/extra_transaction_delete_all.test",
+      "result": "cases/extra_transaction_delete_all.result",
+      "statements": 13
+    },
+    {
+      "id": "extra_vector_mutation_paths",
+      "group": "extra",
+      "test": "cases/extra_vector_mutation_paths.test",
+      "result": "cases/extra_vector_mutation_paths.result",
+      "statements": 9
+    },
+    {
+      "id": "extra_batch_atomic",
+      "group": "extra",
+      "test": "cases/extra_batch_atomic.test",
+      "result": "cases/extra_batch_atomic.result",
+      "statements": 7
+    },
+    {
+      "id": "extra_update_rollback_restart",
+      "group": "extra",
+      "test": "cases/extra_update_rollback_restart.test",
+      "result": "cases/extra_update_rollback_restart.result",
+      "statements": 8
+    }
+  ]
+}

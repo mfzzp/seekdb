@@ -1,0 +1,27 @@
+[
+  {},
+  {
+    "affected_rows": 1
+  },
+  {},
+  {
+    "affected_rows": 1
+  },
+  {
+    "error": "duplicate_key"
+  },
+  {},
+  {
+    "columns": [
+      "id"
+    ],
+    "rows": [
+      [
+        1
+      ],
+      [
+        2
+      ]
+    ]
+  }
+]

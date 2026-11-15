@@ -1,0 +1,21 @@
+{
+  "image_id": "sha256:737d11733625d2a1f9b56a88d5baaf1b05a124a6c9dc336bd1084f8563b1ed45",
+  "binary_sha256": "0a311659ff2b4b42f903f2835a6f20e40b2cffee572c4e772a8fc013674dc4e6",
+  "runtime_sources": {
+    "lsm_store.hpp": "d4a6ee4538c053f19614d58c324ab06a7ab03ca1cf513ce06fa2012fab6ac25f",
+    "minivectordb_lite.cpp": "a18757f1aea4ec73b6d1f8a480a0ae46181f5bc2338f672761b8d99a0122a758"
+  },
+  "baseline_commits": [
+    "f885c285606e9c0b62806d92f29b96977e2badf8",
+    "ce497c68f0122026c909d3f315cc2e4d1453c0bc"
+  ],
+  "required_release_checks_passed": true,
+  "sanitizer_environment": {
+    "initial_pie_run_passed": false,
+    "minimal_ready_program_startup_failures": 4,
+    "minimal_ready_program_runs": 16,
+    "nonpie_diagnostic_startups_passed": 16,
+    "nonpie_model_and_exact_passed": true,
+    "production_build_flags_unchanged": true
+  }
+}

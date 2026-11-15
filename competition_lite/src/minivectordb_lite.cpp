@@ -1,4 +1,7 @@
 #include <algorithm>
+#include <functional>
+#include <memory>
+#include <sys/file.h>
 #include <cmath>
 #include <chrono>
 #include <limits>
@@ -277,6 +280,7 @@ namespace lite {
   };
   struct Row{
     long long id=0;
+    uint64_t ordinal=0;
     std::vector<std::string>v;
     std::vector<off_t>voff;
   };
@@ -286,6 +290,8 @@ namespace lite {
     std::unordered_map<long long,Row>r;
     std::vector<long long>order;
     std::vector<Row*>fast;
+    uint64_t count=0,row_bytes=0;
+    bool hot=false;
   };
   struct Cond{
     int col=-1;
@@ -404,34 +410,23 @@ namespace lite {
     return false;
   }
   #endif
+  #include "lsm_store.hpp"
+
   struct Engine{
-    std::string dir,wal,vecfile;
-    std::map<std::string,Table>tabs,save;
-    std::set<std::string>indexes,saved_indexes;
-    std::map<std::string,int>saved_index_cols;
-    std::vector<std::string>pending;
-    std::vector<SRec>memtable,pending_lsm;
-    size_t memtable_bytes=0;
-    int wfd=-1;
-    off_t wal_bytes=0;
-    bool failed_io=false;
-    bool in=false,recovering=false;
+    std::string dir,vecfile;
+    std::map<std::string,Table>tabs;
+    std::set<std::string>indexes;
+    std::map<std::string,int>index_cols;
+    std::unique_ptr<lsm::Store> store;
+    std::unique_ptr<lsm::Batch> tx,statement;
+    bool failed_io=false,in=false,recovering=false,ann_mode=false;
     off_t vec_mark=0,vec_end=0,vec_cursor=0;
-    size_t vecbuf_mark=0;
+    uint64_t ordinal=0;
     int vfd=-1;
     std::string vecbuf;
     off_t vecbuf_base=0;
     std::vector<float>scratch;
     std::unordered_map<std::string,std::string>vcache;
-    std::vector<SRec>immutable;
-    std::map<int,std::vector<std::string>>levels;
-    unsigned sst_seq=0;
-    uint64_t lsm_bytes_in=0,lsm_bytes_out=0;
-    uint64_t wal_txid=0;
-    bool ann_mode=false;
-    std::map<std::string,int>index_cols;
-    std::map<std::string,std::map<int,std::vector<long long>>>buckets;
-    std::map<std::string,PQ>pqs;
     std::map<std::string,std::vector<VBlock>>vblocks;
     std::map<std::string,std::map<std::string,std::vector<long long>>>sindex;
     std::map<std::string,std::map<long long,std::vector<long long>>>nindex;
@@ -441,297 +436,117 @@ namespace lite {
     mutable void*vmap=nullptr;
     mutable size_t mapsz=0;
     mutable off_t mapoff=0;
-    explicit Engine(std::string d):dir(std::move(d)),wal(dir+"/wal.log"),vecfile(dir+"/vectors.f32"){
-      for(size_t p=1;p<dir.size();++p)if(dir[p]==char(47))mkdir(dir.substr(0,p).c_str(),0755);
-      mkdir(dir.c_str(),0755);
-      vfd=open(vecfile.c_str(),O_RDWR|O_CREAT|O_APPEND,0644);
-      if(vfd<0)throw Err("io_error","cannot open vector file in data directory");
-      vec_end=fsize(vecfile);
-      load_manifest();
-      recover();
+    explicit Engine(std::string d):dir(std::move(d)){
+      for(size_t p=1;p<dir.size();++p)if(dir[p]=='/')mkdir(dir.substr(0,p).c_str(),0755);
+      lsm::io(mkdir(dir.c_str(),0755)==0||errno==EEXIST,"create data directory");
+      bool fresh=!lsm::exists(dir+"/LSM-MANIFEST");
+      bool legacy=fresh&&(lsm::exists(dir+"/STATE")||lsm::exists(dir+"/wal.log")||lsm::exists(dir+"/MANIFEST"));
+      if(fresh&&!lsm::exists(dir+"/vectors.f32")){lsm::FD f(open((dir+"/vectors.f32").c_str(),O_WRONLY|O_CREAT|O_EXCL,0644));lsm::io(f.n>=0,"create vector file");lsm::sync(f.n);lsm::sync_dir(dir);}
+      store=std::make_unique<lsm::Store>(dir,legacy);
+      vecfile=dir+"/"+store->vector_name;
+      vfd=open(vecfile.c_str(),O_RDWR|O_APPEND);lsm::io(vfd>=0,"open referenced vector file");vec_end=(off_t)lsm::file_size(vfd);vecbuf_base=vec_end;
+      if(legacy)migrate_legacy();
+      if(store->vector_end>(uint64_t)vec_end)throw Err("corruption","committed vector file is incomplete");
+      if(store->vector_end!=(uint64_t)vec_end)trunc_vec((off_t)store->vector_end);
+      vecbuf_base=vec_end;load_catalog();store->cleanup();
     }
-    void load_manifest(){
-      std::ifstream f(dir+"/MANIFEST");
-      std::string x;
-      while(std::getline(f,x)){
-        if(x.empty())continue;
-        if(x[0]=='#')continue;
-        int lev=0;
-        std::string p=x;
-        size_t sp=x.find(' ');
-        if(sp!=std::string::npos){
-          try{
-            lev=std::stoi(x.substr(0,sp));
-            std::istringstream z(x.substr(sp+1));z>>p;
-          }
-          catch(...){
-            lev=0;
-            p=x;
-          }
-        }
-        if(p.find('/')==std::string::npos)p=dir+"/"+p;
-        levels[lev].push_back(p);
-      }
-      DIR*d=opendir(dir.c_str());
-      if(!d)return;
-      while(auto*e=readdir(d)){
-        std::string n=e->d_name;
-        if(n.size()<6||n.find(".sst")==std::string::npos)continue;
-        size_t p=n.find_last_of('-');
-        if(p==std::string::npos)continue;
-        unsigned v=0;
-        bool ok=false;
-        for(size_t i=p+1;i<n.size()&&std::isdigit((unsigned char)n[i]);++i){
-          v=v*10+(unsigned)(n[i]-'0');
-          ok=true;
-        }
-        if(ok&&v>sst_seq)sst_seq=v;
-      }
-      closedir(d);
-    }
-    static off_t fsize(const std::string&p){
-      struct stat st{
-      };
-      return stat(p.c_str(),&st)==0?st.st_size:0;
-    }
-    template<class T> static void wr(std::ofstream&f,const T&v){f.write((const char*)&v,sizeof(v));}
+    ~Engine(){if(vmap&&mapsz)munmap(vmap,mapsz);if(vfd>=0)close(vfd);}
+    static off_t fsize(const std::string&p){struct stat s{};return stat(p.c_str(),&s)==0?s.st_size:0;}
     template<class T> static bool rd(std::ifstream&f,T&v){return bool(f.read((char*)&v,sizeof(v)));}
-    static void ws(std::ofstream&f,const std::string&s){uint32_t n=(uint32_t)s.size();wr(f,n);f.write(s.data(),n);}
-    static bool rs(std::ifstream&f,std::string&s){uint32_t n=0;if(!rd(f,n)||n>(1u<<20))return false;s.resize(n);return bool(f.read(s.data(),n));}
-    void trunc_vec(off_t n){
-      // Drop views of rolled-back bytes before truncation (also required by MSYS).
-      if(vmap&&mapsz){munmap(vmap,mapsz);vmap=nullptr;mapsz=0;mapoff=0;}
-      if(vfd>=0){if(ftruncate(vfd,n)!=0)throw Err("io_error","truncate vectors");}
-      else{
-        int fd=open(vecfile.c_str(),O_WRONLY|O_CREAT,0644);
-        if(fd<0)throw Err("io_error","open vectors for truncate");
-        int rc=ftruncate(fd,n);close(fd);
-        if(rc!=0)throw Err("io_error","truncate vectors");
-      }
-      vec_end=n;
+    static bool rs(std::ifstream&f,std::string&s){uint32_t n=0;if(!rd(f,n)||n>(16u<<20))return false;s.resize(n);return bool(f.read(s.data(),n));}
+    void trunc_vec(off_t n){if(vmap&&mapsz){munmap(vmap,mapsz);vmap=nullptr;mapsz=0;mapoff=0;}lsm::io(ftruncate(vfd,n)==0,"truncate uncommitted vectors");vec_end=n;}
+    [[noreturn]] void commit_io_error(const char*what){failed_io=true;throw Err("io_error",what);}
+    void write_all(int fd,const char*p,size_t n){try{lsm::write_all(fd,p,n);}catch(...){failed_io=true;throw;}}
+    void sync_commit(int fd){try{lsm::sync(fd,true);}catch(...){failed_io=true;throw;}}
+    void flush_vecbuf(){if(vecbuf.empty())return;write_all(vfd,vecbuf.data(),vecbuf.size());vecbuf.clear();vecbuf_base=vec_end;}
+    static std::string prefix(const Table&q){return "R"+lsm::part(q.n);}
+    static std::string skey(const Table&q,long long id){return prefix(q)+lsm::number(uint64_t(id)^(1ull<<63));}
+    static std::string row_payload(const Table&q,const Row&r){std::string s;lsm::u64(s,uint64_t(r.id));lsm::u64(s,r.ordinal);for(size_t i=1;i<q.c.size();++i){lsm::str(s,r.v.at(i-1));lsm::u64(s,uint64_t(r.voff.at(i)));}return s;}
+    Row decode_row(const Table&q,const std::string&s)const{lsm::Decode d{s};Row r;r.id=(long long)d.u64();r.ordinal=d.u64();r.voff.push_back(-1);for(size_t i=1;i<q.c.size();++i){r.v.push_back(d.str());r.voff.push_back((off_t)d.u64());if(q.c[i].t=="VECTOR"&&(r.voff.back()<0||uint64_t(r.voff.back())+uint64_t(q.c[i].d)*4>(uint64_t)vec_end))throw Err("corruption","row vector offset");}d.end();return r;}
+    static std::string catalog_key(const Table&q){return "C"+lsm::part(q.n);}
+    static std::string catalog(const Table&q){std::string s;lsm::str(s,q.n);lsm::u32(s,(uint32_t)q.c.size());for(auto&c:q.c){lsm::str(s,c.n);lsm::str(s,c.t);lsm::u32(s,(uint32_t)c.d);}lsm::u64(s,q.count);lsm::u64(s,q.row_bytes);return s;}
+    static Table decode_catalog(const std::string&s){lsm::Decode d{s};Table q;q.n=d.str();uint32_t n=d.u32();if(n>1024)throw Err("corruption","schema columns");for(uint32_t i=0;i<n;++i){Col c;c.n=d.str();c.t=d.str();c.d=(int)d.u32();q.c.push_back(std::move(c));}q.count=d.u64();q.row_bytes=d.u64();d.end();if(q.c.empty()||q.c[0].t!="BIGINT")throw Err("corruption","schema primary key");return q;}
+    bool get(const std::string&key,SRec&r)const{if(tx&&tx->get(key,r))return !r.tomb;return store->get(key,r)&&!r.tomb;}
+    std::unique_ptr<lsm::Merge> scan(const std::string&lo,const std::string&hi)const{
+      std::vector<std::unique_ptr<lsm::Cursor>> cs;cs.push_back(store->scan(lo,hi,false));if(tx&&!tx->empty())cs.push_back(std::make_unique<lsm::Overlay>(tx->scan(lo,hi)));return std::make_unique<lsm::Merge>(std::move(cs),true);
     }
-    ~Engine(){
-      if(!failed_io)try{flush_sst();}catch(const std::exception&x){std::cerr<<"flush failed: "<<x.what()<<'\n';}
-      if(wfd>=0)close(wfd);
-      if(vmap&&mapsz)munmap(vmap,mapsz);
-      if(vfd>=0){
-        fsync(vfd);
-        close(vfd);
-      }
+    bool row_get(const Table&q,long long id,Row&r)const{SRec x;if(!get(skey(q,id),x))return false;r=decode_row(q,x.value);return true;}
+    void load_catalog(){
+      tabs.clear();indexes.clear();index_cols.clear();clear_caches();
+      auto c=scan("C","D");while(c->valid){Table q=decode_catalog(c->row.value);tabs.emplace(q.n,std::move(q));c->next();}
+      c=scan("X","Y");while(c->valid){lsm::Decode d{c->row.value};std::string name=d.str(),table=d.str();int col=(int)d.u32();d.end();if(!table.empty()&&(!tabs.count(table)||col<=0||col>=(int)tabs.at(table).c.size()))throw Err("corruption","index catalog");indexes.insert(name);c->next();}
+      c=scan("V","W");while(c->valid){lsm::Decode d{c->row.value};std::string table=d.str();int col=(int)d.u32();d.end();if(!tabs.count(table)||col<=0||col>=(int)tabs.at(table).c.size())throw Err("corruption","vector index catalog");index_cols[table]=col;c->next();}
+      SRec r;ordinal=0;if(get("O",r)){lsm::Decode d{r.value};ordinal=d.u64();d.end();}
     }
-    void snapshot(){
-      std::string p=dir+"/STATE.tmp";
-      std::ofstream f(p,std::ios::binary|std::ios::trunc);
-      uint32_t magic=0x4c535432u,ver=3,nt=(uint32_t)tabs.size();
-      int64_t vector_end=vec_end;
-      wr(f,magic);wr(f,ver);wr(f,wal_txid);wr(f,vector_end);wr(f,nt);
-      for(auto&tk:tabs){
-        auto&q=tk.second;ws(f,q.n);uint32_t nc=(uint32_t)q.c.size();wr(f,nc);
-        for(auto&c:q.c){ws(f,c.n);ws(f,c.t);wr(f,c.d);}
-        uint64_t nr=q.order.size();wr(f,nr);
-        for(auto id:q.order){auto&row=q.r.at(id);wr(f,row.id);for(size_t i=1;i<q.c.size();++i){ws(f,row.v[i-1]);int64_t o=i<row.voff.size()?row.voff[i]:-1;wr(f,o);}}
-      }
-      uint32_t ni=(uint32_t)indexes.size();wr(f,ni);for(auto&s:indexes)ws(f,s);
-      uint32_t nc=(uint32_t)index_cols.size();wr(f,nc);for(auto&v:index_cols){ws(f,v.first);wr(f,v.second);}
-      f.flush();
-      int fd=open(p.c_str(),O_RDONLY);
-      if(fd>=0){
-        fsync(fd);
-        close(fd);
-      }
-      rename(p.c_str(),(dir+"/STATE").c_str());
+    static std::string index_prefix(const Table&q,int c){return "I"+lsm::part(q.n)+lsm::number((uint64_t)c);}
+    static std::string scalar_key(const Col&c,const std::string&v){return c.t=="BIGINT"?lsm::number(uint64_t(std::stoll(unq(v)))^(1ull<<63)):lsm::part(unq(v));}
+    static std::string secondary(const Table&q,const Row&r,int c){return index_prefix(q,c)+scalar_key(q.c[c],r.v.at(c-1))+lsm::number(uint64_t(r.id)^(1ull<<63));}
+    void row_put(Table&q,const Row*r,const Row*before){
+      if(before){for(size_t c=1;c<q.c.size();++c)if(q.c[c].t!="VECTOR"&&(!r||r->v[c-1]!=before->v[c-1]))statement->put(secondary(q,*before,(int)c),{},true);q.row_bytes-=row_payload(q,*before).size();}
+      if(r){for(size_t c=1;c<q.c.size();++c)if(q.c[c].t!="VECTOR"&&(!before||r->v[c-1]!=before->v[c-1]))statement->put(secondary(q,*r,(int)c),{});std::string s=row_payload(q,*r);q.row_bytes+=s.size();statement->put(skey(q,r->id),std::move(s));}
+      else statement->put(skey(q,before->id),{},true);
+      if(!before)++q.count;if(!r)--q.count;
     }
-    std::string vstats_path(const Table&q)const{return dir+"/VSTATS-"+q.n+".bin";}
-    void save_vstats(Table&q){
-      int c=-1;for(size_t i=1;i<q.c.size();++i)if(q.c[i].t=="VECTOR"){c=(int)i;break;}
-      if(c<0||q.order.empty())return;
-      build_vblocks(q,c);auto&bs=vblocks[q.n];if(bs.empty())return;vblock_col[q.n]=c;
-      std::string p=vstats_path(q)+".tmp";std::ofstream f(p,std::ios::binary|std::ios::trunc);
-      uint32_t magic=0x56535432u,ver=4,d=q.c[c].d,sd=(uint32_t)(bs[0].lo.size()),n=(uint32_t)bs.size();uint64_t rows=q.order.size();
-      wr(f,magic);wr(f,ver);wr(f,wal_txid);wr(f,rows);wr(f,c);wr(f,d);wr(f,sd);wr(f,n);
-      for(auto&w:bs){uint64_t a=w.begin,b=w.end;wr(f,a);wr(f,b);for(float x:w.lo)wr(f,x);for(float x:w.hi)wr(f,x);for(float x:w.center)wr(f,x);wr(f,w.radius);}
-      f.flush();f.close();std::ifstream r(p,std::ios::binary);std::string raw((std::istreambuf_iterator<char>(r)),{});uint32_t sum=crc32c(raw.data(),raw.size());std::ofstream a(p,std::ios::binary|std::ios::app);wr(a,sum);a.flush();int fd=open(p.c_str(),O_RDONLY);if(fd>=0){fsync(fd);close(fd);}rename(p.c_str(),vstats_path(q).c_str());
+    void clear_caches(){sindex.clear();nindex.clear();fast_pos.clear();matrices.clear();vblocks.clear();vblock_col.clear();}
+    void cool(Table&q){q.r.clear();q.r.rehash(0);q.order.clear();q.order.shrink_to_fit();q.fast.clear();q.fast.shrink_to_fit();q.hot=false;matrices.erase(q.n);fast_pos.erase(q.n);vblocks.erase(q.n);for(auto&c:q.c){sindex.erase(q.n+"."+c.n);nindex.erase(q.n+"."+c.n);}}
+    bool ensure_hot(Table&q){
+      if(q.hot)return true;
+      const char*e=std::getenv("LITE_ROW_CACHE_MB");size_t cap=e?size_t(std::max(0,std::atoi(e)))<<20:32u<<20;
+      uint64_t estimate=q.row_bytes+q.count*(384+uint64_t(q.c.size())*160);if(estimate>cap)return false;
+      for(auto&t:tabs)if(t.second.hot)cool(t.second);
+      auto p=prefix(q);auto c=scan(p,lsm::upper(p));size_t bytes=0;
+      while(c->valid){auto r=decode_row(q,c->row.value);bytes+=c->row.value.size()+384+q.c.size()*160;if(bytes>cap){cool(q);return false;}q.order.push_back(r.id);q.r.emplace(r.id,std::move(r));c->next();}
+      if(q.r.size()!=q.count)throw Err("corruption","catalog row count mismatch");
+      std::sort(q.order.begin(),q.order.end(),[&](long long a,long long b){return q.r.at(a).ordinal<q.r.at(b).ordinal;});q.hot=true;rebuild_scalar(q);return true;
     }
-    bool load_vstats(Table&q){
-      std::ifstream f(vstats_path(q),std::ios::binary);if(!f)return false;std::ifstream ck(vstats_path(q),std::ios::binary);std::string raw((std::istreambuf_iterator<char>(ck)),{});if(raw.size()<4)return false;uint32_t want=0;std::memcpy(&want,raw.data()+raw.size()-4,4);if(crc32c(raw.data(),raw.size()-4)!=want)return false;
-      uint32_t magic=0,ver=0,d=0,sd=0,n=0;uint64_t tx=0,rows=0;int c=-1;if(!rd(f,magic)||!rd(f,ver)||!rd(f,tx)||!rd(f,rows)||!rd(f,c)||!rd(f,d)||!rd(f,sd)||!rd(f,n)||magic!=0x56535432u||ver!=4||tx!=wal_txid||rows!=q.order.size()||c<=0||c>=(int)q.c.size()||d!=(uint32_t)q.c[c].d||sd==0||sd>2048||n>10000000u)return false;
-      std::vector<VBlock>bs;bs.reserve(n);for(uint32_t i=0;i<n;++i){VBlock w;uint64_t a=0,b=0;if(!rd(f,a)||!rd(f,b)||b<a||b>rows)return false;w.begin=a;w.end=b;w.lo.resize(sd);w.hi.resize(sd);w.center.resize(sd);for(float&x:w.lo)if(!rd(f,x))return false;for(float&x:w.hi)if(!rd(f,x))return false;for(float&x:w.center)if(!rd(f,x))return false;if(!rd(f,w.radius))return false;bs.push_back(std::move(w));}vblocks[q.n]=std::move(bs);vblock_col[q.n]=c;return true;
-    }
-    void save_postings(){
-      std::string p=dir+"/POSTINGS.tmp";std::ofstream f(p,std::ios::binary|std::ios::trunc);uint32_t magic=0x504f5332u,ver=2,n=(uint32_t)sindex.size();wr(f,magic);wr(f,ver);wr(f,wal_txid);wr(f,n);
-      for(auto&k:sindex){ws(f,k.first);uint32_t m=(uint32_t)k.second.size();wr(f,m);for(auto&v:k.second){ws(f,v.first);uint32_t z=(uint32_t)v.second.size();wr(f,z);for(auto id:v.second)wr(f,id);}}
-      f.flush();f.close();std::ifstream r(p,std::ios::binary);std::string raw((std::istreambuf_iterator<char>(r)),{});uint32_t sum=crc32c(raw.data(),raw.size());std::ofstream a(p,std::ios::binary|std::ios::app);wr(a,sum);a.flush();int fd=open(p.c_str(),O_RDONLY);if(fd>=0){fsync(fd);close(fd);}rename(p.c_str(),(dir+"/POSTINGS").c_str());
-    }
-    bool load_postings(){
-      std::ifstream f(dir+"/POSTINGS",std::ios::binary);if(!f)return false;std::ifstream ck(dir+"/POSTINGS",std::ios::binary);std::string raw((std::istreambuf_iterator<char>(ck)),{});if(raw.size()<4)return false;uint32_t want=0;std::memcpy(&want,raw.data()+raw.size()-4,4);if(crc32c(raw.data(),raw.size()-4)!=want)return false;
-      uint32_t magic=0,ver=0,n=0;uint64_t tx=0;if(!rd(f,magic)||!rd(f,ver)||!rd(f,tx)||!rd(f,n)||magic!=0x504f5332u||ver!=2||tx!=wal_txid||n>1000000u)return false;sindex.clear();nindex.clear();
-      for(uint32_t i=0;i<n;++i){std::string k;if(!rs(f,k))return false;uint32_t m=0;if(!rd(f,m)||m>10000000u)return false;auto&dst=sindex[k];for(uint32_t j=0;j<m;++j){std::string v;if(!rs(f,v))return false;uint32_t z=0;if(!rd(f,z)||z>100000000u)return false;auto&ids=dst[v];ids.resize(z);for(auto&id:ids)if(!rd(f,id))return false;}}
-      for(auto&k:sindex){size_t p=k.first.find('.');if(p==std::string::npos)continue;auto t=tabs.find(k.first.substr(0,p));if(t==tabs.end())return false;int c=-1;for(size_t i=0;i<t->second.c.size();++i)if(t->second.c[i].n==k.first.substr(p+1)){c=(int)i;break;}if(c<0)return false;if(t->second.c[c].t=="BIGINT")for(auto&v:k.second)nindex[k.first][std::stoll(v.first)]=v.second;}
-      return true;
-    }
-    std::string index_path(const Table&q)const{
-      return dir+"/INDEX-"+q.n+".bin";
-    }
-    void save_index(const Table&q){
-      auto z=pqs.find(q.n);
-      if(z==pqs.end())return;
-      std::ofstream f(index_path(q)+".tmp",std::ios::binary|std::ios::trunc);
-      uint32_t magic=0x4d564950,ver=2,d=z->second.d,m=z->second.m,ks=z->second.ks,nl=z->second.nlist,n=(uint32_t)z->second.code.size();
-      wr(f,magic);
-      wr(f,ver);
-      wr(f,wal_txid);
-      wr(f,d);
-      wr(f,m);
-      wr(f,ks);
-      wr(f,nl);
-      wr(f,n);
-      for(float v:z->second.coarse)wr(f,v);
-      for(float v:z->second.book)wr(f,v);
-      std::vector<std::pair<uint32_t,long long>>ord;ord.reserve(n);std::vector<uint32_t>counts(nl);
-      for(auto&kv:z->second.code){uint32_t cell=z->second.cell.count(kv.first)?(uint32_t)z->second.cell.at(kv.first):0;if(cell>=nl)cell=0;ord.push_back({cell,kv.first});++counts[cell];}
-      std::sort(ord.begin(),ord.end());uint64_t first=0;for(uint32_t c=0;c<nl;++c){wr(f,first);wr(f,counts[c]);first+=counts[c];}
-      for(auto&ok:ord){auto&kv=*z->second.code.find(ok.second);
-        uint64_t id=kv.first;
-        uint32_t len=(uint32_t)kv.second.size(),cell=ok.first;
-        wr(f,id);
-        wr(f,cell);
-        wr(f,len);
-        f.write((char*)kv.second.data(),len);
-      }
-      f.flush();
-      f.close();
-      std::ifstream r(index_path(q)+".tmp",std::ios::binary);
-      std::string raw((std::istreambuf_iterator<char>(r)),{});
-      uint32_t sum=crc32c(raw.data(),raw.size());
-      std::ofstream a(index_path(q)+".tmp",std::ios::binary|std::ios::app);
-      wr(a,sum);
-      a.flush();
-      int fd=open((index_path(q)+".tmp").c_str(),O_RDONLY);
-      if(fd>=0){
-        fsync(fd);
-        close(fd);
-      }
-      rename((index_path(q)+".tmp").c_str(),index_path(q).c_str());
-    }
-    bool load_index(Table&q){
-      auto it=index_cols.find(q.n);
-      if(it==index_cols.end())return false;
-      std::ifstream f(index_path(q),std::ios::binary);
-      if(!f)return false;
-      std::ifstream ck(index_path(q),std::ios::binary);
-      std::string raw((std::istreambuf_iterator<char>(ck)),{});
-      if(raw.size()<sizeof(uint32_t))return false;
-      uint32_t want=0;
-      std::memcpy(&want,raw.data()+raw.size()-sizeof(uint32_t),sizeof(want));
-      if(crc32c(raw.data(),raw.size()-sizeof(uint32_t))!=want){std::cerr<<"index_corrupt\n";return false;}
-      uint32_t magic=0,ver=0,d=0,m=0,ks=0,nl=0,n=0;
-      uint64_t seq=0;
-      if(!rd(f,magic)||!rd(f,ver)||!rd(f,seq)||!rd(f,d)||!rd(f,m)||!rd(f,ks)||!rd(f,nl)||!rd(f,n)||magic!=0x4d564950||!(ver==1||ver==2)||seq!=wal_txid||n>q.r.size())return false;
-      PQ z;
-      z.d=(int)d;
-      z.m=(int)m;
-      z.ks=(int)ks;
-      z.nlist=(int)nl;
-      if(z.d!=q.c[it->second].d||!z.d||!z.m||!z.ks||!z.nlist)return false;
-      z.coarse.resize((size_t)z.nlist*z.d);
-      z.book.resize((size_t)z.m*z.ks*((z.d+z.m-1)/z.m));
-      for(float&v:z.coarse)if(!rd(f,v))return false;
-      for(float&v:z.book)if(!rd(f,v))return false;
-      std::vector<uint64_t>first;std::vector<uint32_t>counts;
-      if(ver==2){uint32_t dn=0;if(!rd(f,dn)||dn!=(uint32_t)z.nlist)return false;first.resize(dn);counts.resize(dn);uint64_t total=0;for(uint32_t i=0;i<dn;++i){if(!rd(f,first[i])||!rd(f,counts[i])||first[i]!=total)return false;total+=counts[i];}if(total!=n)return false;}
-      buckets[q.n].clear();
-      for(uint32_t i=0;i<n;++i){
-        uint64_t id=0;
-        uint32_t cell=0,len=0;
-        if(!rd(f,id)||!rd(f,cell)||!rd(f,len)||cell>=(uint32_t)z.nlist||len!=(uint32_t)z.m)return false;
-        if(ver==2&&(i<first[cell]||i>=first[cell]+counts[cell]))return false;
-        std::vector<unsigned char>code(len);
-        if(!f.read((char*)code.data(),len)||!q.r.count((long long)id))return false;
-        auto&row=q.r[(long long)id];
-        if(it->second>=(int)row.voff.size()||row.voff[it->second]<0)return false;
-        buckets[q.n][cell].push_back((long long)id);
-        z.cell[(long long)id]=(int)cell;
-        z.code[(long long)id]=std::move(code);
-      }
-      pqs[q.n]=std::move(z);
-      return true;
-    }
+    void begin(bool=true){if(in)throw Err("transaction_active","already active");tx=store->batch();vec_mark=vec_end;in=true;}
+    void rollback(){if(failed_io||store->failed)throw Err("io_error","restart required after failed commit");if(!in)return;statement.reset();tx.reset();vecbuf.clear();trunc_vec(vec_mark);vecbuf_base=vec_end;in=false;load_catalog();}
+    void commit(){if(!in)return;try{if(!tx->empty()){flush_vecbuf();sync_commit(vfd);store->commit(*tx,(uint64_t)vec_end);}tx.reset();in=false;vcache.clear();}catch(...){failed_io=true;throw;}}
+    void flush_sst(){if(failed_io||store->failed)throw Err("io_error","restart required after failed commit");try{store->flush();}catch(...){failed_io=true;throw;}}
+    void compact(){if(in)throw Err("transaction_active","maintenance during transaction");try{store->compact(true);}catch(...){failed_io=true;throw;}}
+    void checkpoint(){if(failed_io||store->failed)throw Err("io_error","restart required after failed commit");if(in)throw Err("transaction_active","checkpoint during transaction");try{store->checkpoint();}catch(...){failed_io=true;throw;}}
     void gc(){
-      flush_vecbuf();
-      std::string tmp=vecfile+".gc";
-      int out=open(tmp.c_str(),O_WRONLY|O_CREAT|O_TRUNC,0644);
-      if(out<0)throw Err("io_error","gc output");
-      off_t n=0;
-      for(auto&tk:tabs)for(auto&rk:tk.second.r)for(size_t c=1;c<tk.second.c.size();++c){
-        if(tk.second.c[c].t!="VECTOR"||c>=rk.second.voff.size()||rk.second.voff[c]<0)continue;
-        auto v=read_vec(rk.second.voff[c],tk.second.c[c].d);
-        size_t bytes=v.size()*sizeof(float);
-        if(write(out,v.data(),bytes)!=(ssize_t)bytes){
-          close(out);
-          throw Err("io_error","gc write");
-        }
-        rk.second.voff[c]=n;
-        n+=(off_t)bytes;
-      }
-      fsync(out);
-      close(out);
-      if(vmap&&mapsz){
-        munmap(vmap,mapsz);
-        vmap=nullptr;
-        mapsz=0;
-      }
-      if(vfd>=0)close(vfd);
-      if(rename(tmp.c_str(),vecfile.c_str())!=0)throw Err("io_error","gc publish");
-      vfd=open(vecfile.c_str(),O_RDWR|O_APPEND);
-      if(vfd<0)throw Err("io_error","gc reopen");
-      vec_end=n;
-      vblocks.clear();matrices.clear();fast_pos.clear();
-      ensure_map();
+      if(in)throw Err("transaction_active","GC during transaction");checkpoint();
+      std::string name=store->fresh("vectors");std::string path=dir+"/"+name;lsm::FD vf(open(path.c_str(),O_WRONLY|O_CREAT|O_EXCL,0644));lsm::io(vf.n>=0,"create vector generation");off_t end=0;
+      auto c=store->scan();std::unique_ptr<lsm::Writer>w;std::vector<lsm::F> out;
+      try{while(c->valid){SRec r=c->row;if(!r.key.empty()&&r.key[0]=='R'){
+          // Row keys are schema-qualified; locate the small catalog entry.
+          Table*q=nullptr;for(auto&t:tabs){auto p=prefix(t.second);if(r.key.compare(0,p.size(),p)==0){q=&t.second;break;}}if(!q)throw Err("corruption","orphan row schema");
+          Row row=decode_row(*q,r.value);for(size_t i=1;i<q->c.size();++i)if(q->c[i].t=="VECTOR"){auto v=read_vec(row.voff[i],q->c[i].d);lsm::write_all(vf.n,(const char*)v.data(),v.size()*4);row.voff[i]=end;end+=v.size()*4;}r.value=row_payload(*q,row);
+        }if(!w)w=std::make_unique<lsm::Writer>(store->allocate(1));w->add(r);if(w->file->bytes+w->block.size()>=(size_t)envint("LITE_SST_BYTES",8<<20)){out.push_back(w->finish());w.reset();}c->next();}
+        if(w)out.push_back(w->finish());lsm::sync(vf.n);store->replace(out,name,end);
+        if(vmap&&mapsz)munmap(vmap,mapsz);vmap=nullptr;mapsz=0;mapoff=0;close(vfd);vecfile=path;vfd=open(path.c_str(),O_RDWR|O_APPEND);lsm::io(vfd>=0,"open compacted vectors");vec_end=end;vecbuf_base=end;load_catalog();
+      }catch(...){failed_io=true;throw;}
     }
-    void checkpoint(){
-      if(failed_io)throw Err("io_error","restart required after failed commit");
-      flush_sst();
-      for(auto&kv:tabs)save_vstats(kv.second);
-      for(auto&kv:index_cols){auto it=tabs.find(kv.first);if(it!=tabs.end())save_index(it->second);}
-      save_postings();
-      snapshot();
-      std::ofstream z(wal,std::ios::trunc);
-      z.flush();
-      z.close();
-      if(!z)commit_io_error("truncate wal");
-      wal_bytes=0;
-      if(wfd>=0)sync_commit(wfd);
-      else{int fd=open(wal.c_str(),O_RDWR);if(fd<0)commit_io_error("open checkpoint wal");
-        try{sync_commit(fd);}catch(...){close(fd);throw;}close(fd);}
+    J exec(const std::string&sql){
+      if(failed_io||store->failed)throw Err("io_error","restart required after failed commit");auto t=tok(sql);if(t.empty())throw Err("invalid_request","empty");std::string k=up(t[0]);
+      if(k=="BEGIN"){begin();return jo();}if(k=="COMMIT"){commit();return jo();}if(k=="ROLLBACK"){rollback();return jo();}
+      if(k=="SELECT"){try{flush_vecbuf();return select(t);}catch(const Err&e){if(e.code=="io_error"||e.code=="corruption")failed_io=true;throw;}}
+      bool autocommit=!in;if(autocommit)begin();flush_vecbuf();off_t mark=vec_end;statement=store->batch();
+      try{J result=dispatch(t);std::string o;lsm::u64(o,ordinal);statement->put("O",std::move(o));
+        // The statement is private until every row has passed validation.
+        try{tx->absorb(*statement);}catch(...){failed_io=true;throw;}statement.reset();if(autocommit)commit();return result;
+      }catch(const Err&e){if(e.code=="io_error"||e.code=="corruption")failed_io=true;if(failed_io||store->failed)throw;statement.reset();vecbuf.clear();trunc_vec(mark);vecbuf_base=vec_end;load_catalog();if(autocommit)rollback();throw;}
+      catch(...){if(failed_io||store->failed)throw;statement.reset();vecbuf.clear();trunc_vec(mark);vecbuf_base=vec_end;load_catalog();if(autocommit)rollback();throw;}
     }
-    void load_state(){
-      auto finish=[&](){vec_end=fsize(vecfile);ensure_map();sindex.clear();nindex.clear();bool post=load_postings();for(auto&t:tabs){if(post){t.second.fast.clear();refresh_fast(t.second);}else rebuild_scalar(t.second);load_vstats(t.second);rebuild_index(t.second);}};
-      std::ifstream b(dir+"/STATE",std::ios::binary);uint32_t magic=0;
-      if(b.read((char*)&magic,4)&&magic==0x4c535432u){
-        uint32_t ver=0,nt=0;uint64_t w=0;int64_t vector_end=0;
-        if(!rd(b,ver)||(ver!=2&&ver!=3)||!rd(b,w))throw Err("corruption","state header");
-        if(ver==3&&(!rd(b,vector_end)||vector_end<0||vector_end>vec_end))throw Err("corruption","state vector boundary");
-        if(ver==2&&fsize(wal)!=0)throw Err("corruption","legacy state without vector boundary has nonempty WAL");
-        if(!rd(b,nt))throw Err("corruption","state header");
-        wal_txid=w;
-        for(uint32_t ti=0;ti<nt;++ti){
-          Table q;uint32_t nc=0;uint64_t nr=0;if(!rs(b,q.n)||!rd(b,nc))throw Err("corruption","state table");
-          for(uint32_t ci=0;ci<nc;++ci){Col c;if(!rs(b,c.n)||!rs(b,c.t)||!rd(b,c.d))throw Err("corruption","state column");q.c.push_back(c);}
-          if(!rd(b,nr)||nr>1000000000ull)throw Err("corruption","state rows");
-          for(uint64_t ri=0;ri<nr;++ri){Row r;if(!rd(b,r.id))throw Err("corruption","state row");r.voff.push_back(-1);for(size_t ci=1;ci<q.c.size();++ci){std::string v;int64_t o=0;if(!rs(b,v)||!rd(b,o))throw Err("corruption","state value");r.v.push_back(std::move(v));r.voff.push_back((off_t)o);}q.order.push_back(r.id);q.r.emplace(r.id,std::move(r));}
-          tabs.emplace(q.n,std::move(q));
-        }
-        uint32_t ni=0,nc=0;if(!rd(b,ni)||ni>1000000u)throw Err("corruption","state indexes");for(uint32_t i=0;i<ni;++i){std::string x;if(!rs(b,x))throw Err("corruption","state index");indexes.insert(std::move(x));}
-        if(!rd(b,nc)||nc>1000000u)throw Err("corruption","state index columns");for(uint32_t i=0;i<nc;++i){std::string x;int c=0;if(!rs(b,x)||!rd(b,c))throw Err("corruption","state index column");index_cols.emplace(std::move(x),c);}
-        if(ver==2)vector_end=vec_end;
-        vec_cursor=(off_t)vector_end;finish();return;
+    J dispatch(const std::vector<std::string>&t){auto k=up(t.at(0));if(k=="CREATE"&&t.size()>1&&up(t[1])=="VECTOR")return create_index(t);if(k=="CREATE")return create(t,true);if(k=="INSERT")return insert(t,true);if(k=="UPDATE")return update(t,true);if(k=="DELETE")return erase(t,true);throw Err("unsupported_sql","statement");}
+    static bool inttok(const std::string&x){
+      size_t p=!x.empty()&&(x[0]=='-'||x[0]=='+');
+      if(p==x.size())return false;
+      for(;p<x.size();++p)if(!std::isdigit((unsigned char)x[p]))return false;
+      return true;
+    }
+    static long long integer(const std::string&s){
+      if(!inttok(s))throw Err("invalid_value","BIGINT requires an integer");
+      try{return std::stoll(s);}catch(...){throw Err("invalid_value","BIGINT out of range");}
+    }
+    static void normalize_scalar(const Col&c,std::string&v){
+      if(c.t=="BIGINT")v=std::to_string(integer(v));
+      else if(c.t=="VARCHAR"){
+        if(v.size()<2||v.front()!='\''||v.back()!='\'')throw Err("invalid_value","VARCHAR requires a string");
+        size_t chars=0;for(size_t i=1;i+1<v.size();++i)if(((unsigned char)v[i]&0xc0)!=0x80)++chars;
+        if(chars>(size_t)c.d)throw Err("invalid_value","VARCHAR length");
       }
-      b.close();std::ifstream f(dir+"/STATE");std::string line;if(!std::getline(f,line)||line.empty())return;
-      if(fsize(wal)!=0)throw Err("corruption","legacy state without vector boundary has nonempty WAL");
-      vec_cursor=vec_end;
-      J z=parse(line);if(z.o.count("w"))wal_txid=(uint64_t)z.o["w"].i;
-      for(auto&x:z.o["t"].a){Table q;q.n=x.o["name"].s;for(auto&c:x.o["c"].a){Col y;y.n=c.o["n"].s;y.t=c.o["t"].s;y.d=(int)c.o["d"].i;q.c.push_back(y);}for(auto&y:x.o["r"].a){Row r;r.id=y.o["id"].i;for(auto&v:y.o["v"].a)r.v.push_back(v.s);r.voff.push_back(-1);for(auto&o:y.o["o"].a)r.voff.push_back((off_t)o.i);q.r[r.id]=r;q.order.push_back(r.id);}tabs[q.n]=q;}
-      indexes.clear();for(auto&i:z.o["i"].a)indexes.insert(i.s);index_cols.clear();for(auto&i:z.o["c"].o)index_cols[i.first]=(int)i.second.i;finish();
     }
     static void put32(std::string&o,uint32_t v){
       for(int i=0;i<4;++i)o.push_back((char)(v>>(i*8)));
@@ -752,49 +567,6 @@ namespace lite {
       for(int i=0;i<8;++i)v|=(uint64_t)(unsigned char)s[p+i]<<(i*8);
       p+=8;
       return true;
-    }
-    static bool inttok(const std::string&x){
-      size_t p=!x.empty()&&(x[0]=='-'||x[0]=='+');
-      if(p==x.size())return false;
-      for(;p<x.size();++p)if(!std::isdigit((unsigned char)x[p]))return false;
-      return true;
-    }
-    static long long integer(const std::string&s){
-      if(!inttok(s))throw Err("invalid_value","BIGINT requires an integer");
-      try{return std::stoll(s);}catch(...){throw Err("invalid_value","BIGINT out of range");}
-    }
-    static void normalize_scalar(const Col&c,std::string&v){
-      if(c.t=="BIGINT")v=std::to_string(integer(v));
-      else if(c.t=="VARCHAR"){
-        if(v.size()<2||v.front()!='\''||v.back()!='\'')throw Err("invalid_value","VARCHAR requires a string");
-        size_t chars=0;for(size_t i=1;i+1<v.size();++i)if(((unsigned char)v[i]&0xc0)!=0x80)++chars;
-        if(chars>(size_t)c.d)throw Err("invalid_value","VARCHAR length");
-      }
-    }
-    std::string encode_tokens(const std::string&s)const{
-      auto t=tok(s);
-      if(t.empty())return {};
-      std::string k=up(t[0]);
-      uint8_t op=0;
-      if(k=="CREATE"&&t.size()>1&&up(t[1])=="TABLE")op=1;
-      else if(k=="CREATE"&&t.size()>2&&up(t[1])=="VECTOR")op=2;
-      else if(k=="INSERT")op=3;
-      else if(k=="UPDATE")op=4;
-      else if(k=="DELETE")op=5;
-      if(!op)return {};
-      std::string o(1,(char)op);
-      put32(o,(uint32_t)t.size());
-      for(auto&x:t){
-        uint8_t tag=inttok(x)?1:(x.size()>=2&&x.front()==char(39)&&x.back()==char(39)?2:
-          (!x.empty()&&x.front()=='['?3:4));
-        o.push_back((char)tag);
-        if(tag==1)put64(o,(uint64_t)std::stoll(x));
-        else{
-          put32(o,(uint32_t)x.size());
-          o+=x;
-        }
-      }
-      return o;
     }
     bool decode_tokens(const std::string&s,std::vector<std::string>&t)const{
       if(s.size()<5)return false;
@@ -826,106 +598,6 @@ namespace lite {
       if(op==4&&k!="UPDATE")return false;
       if(op==5&&k!="DELETE")return false;
       return true;
-    }
-    void frame(std::string&f,const std::string&s,uint64_t tx,uint16_t kind){
-      uint32_t n=(uint32_t)s.size(),magic=WAL_MAGIC,crc=crc32c(s.data(),s.size());
-      uint16_t flags=0;
-      f.append((char*)&magic,4).append((char*)&n,4).append((char*)&tx,8).append((char*)&kind,2).append((char*)&flags,2).append((char*)&crc,4).append(s);
-      f.append((8-(24+n)%8)%8,'\0');
-    }
-    [[noreturn]] void commit_io_error(const char*operation){
-      failed_io=true;throw Err("io_error",std::string(operation)+": restart required");
-    }
-    void write_all(int fd,const char*p,size_t n){
-      while(n){ssize_t done=write(fd,p,n);if(done<0&&errno==EINTR)continue;
-        if(done<=0)commit_io_error("write");
-        p+=done;n-=(size_t)done;}
-    }
-    void sync_commit(int fd){
-      int rc;do{rc=fdatasync(fd);}while(rc!=0&&errno==EINTR);
-      if(rc!=0)commit_io_error("fdatasync");
-    }
-    void flush_vecbuf(){
-      if(!vecbuf.empty()){
-        write_all(vfd,vecbuf.data(),vecbuf.size());
-        vecbuf.clear();
-        vecbuf_base=vec_end;
-      }
-    }
-    void persist(){
-      if(pending.empty())return;
-      uint64_t tx=++wal_txid;
-      std::string f;
-      frame(f,"",tx,1);
-      for(auto&s:pending){
-        auto x=encode_tokens(s);
-        if(!x.empty())frame(f,x,tx,2);
-      }
-      frame(f,"",tx,3);
-      if(wfd<0){wfd=open(wal.c_str(),O_RDWR|O_CREAT|O_APPEND,0644);wal_bytes=fsize(wal);}
-      if(wfd<0)commit_io_error("open wal");
-      // Persist vector bytes before publishing their offsets in a committed WAL.
-      // A failed/partial WAL write can then recover to either whole transaction.
-      flush_vecbuf();
-      sync_commit(vfd);
-      write_all(wfd,f.data(),f.size());
-      wal_bytes+=(off_t)f.size();
-      sync_commit(wfd);
-      try{
-        for(auto&r:pending_lsm){r.seq=tx;memtable_bytes+=r.key.size()+r.value.size()+32;memtable.push_back(std::move(r));}
-        pending.clear();pending_lsm.clear();
-        if(memtable_bytes>=(size_t)envint("LITE_MEMTABLE_BYTES",4<<20)||wal_bytes>=(32u<<20))flush_sst();
-      }catch(...){failed_io=true;throw;}
-    }
-    void recover(){
-      recovering=true;
-      load_state();
-      uint64_t base=wal_txid;
-      std::ifstream f(wal,std::ios::binary);
-      uint32_t magic,n,crc;
-      uint64_t tx=0,active_tx=0;
-      uint16_t kind=0,flags=0;
-      std::string x;
-      std::vector<std::vector<std::string>>b;
-      bool active=false;
-      off_t committed_vec=vec_cursor;
-      off_t wal_good=0;
-      while(f.read((char*)&magic,4)){
-        if(!f.read((char*)&n,4)||!f.read((char*)&tx,8)||!f.read((char*)&kind,2)||!f.read((char*)&flags,2)||!f.read((char*)&crc,4))break;
-        if(magic!=WAL_MAGIC||n>(1u<<20))throw Err("corruption","wal header");
-        x.assign(n,0);
-        if(!f.read(x.data(),n))break;
-        if(crc32c(x.data(),x.size())!=crc)throw Err("corruption","wal checksum");
-        size_t pad=(8-(24+n)%8)%8;
-        if(pad&&!f.ignore((std::streamsize)pad))break;
-        wal_good=(off_t)f.tellg();
-        wal_txid=std::max(wal_txid,tx);
-        bool current=tx>base;
-        if(kind==1){
-          b.clear();
-          active=current;
-          active_tx=tx;
-        }
-        else if(kind==2&&active&&tx==active_tx){
-          std::vector<std::string>t;
-          if(!decode_tokens(x,t))throw Err("corruption","wal payload");
-          b.push_back(std::move(t));
-        }
-        else if(kind==3&&active&&tx==active_tx){
-          for(auto&t:b)apply_tokens(t);
-          committed_vec=vec_cursor;
-          b.clear();
-          active=false;
-        }
-      }
-      if(committed_vec>vec_end)throw Err("corruption","committed vector file is incomplete");
-      if(committed_vec!=vec_end)trunc_vec(committed_vec);
-      vecbuf_base=vec_end;
-      if(wal_good<(off_t)fsize(wal)){
-        int fd=open(wal.c_str(),O_WRONLY);
-        if(fd>=0){ftruncate(fd,wal_good);close(fd);}
-      }
-      recovering=false;
     }
     int ci(const Table&q,const std::string&n)const{
       for(size_t i=0;i<q.c.size();++i)if(up(q.c[i].n)==up(n))return (int)i;
@@ -960,6 +632,7 @@ namespace lite {
       return v;
     }
     off_t append_vec(const std::string&s,int d){
+      if(vecbuf.size()>=(1u<<20))flush_vecbuf();
       auto it=vcache.find(s);
       off_t off=vec_end;
       if(vecbuf.empty())vecbuf_base=vec_end;
@@ -970,7 +643,7 @@ namespace lite {
       }
       parse_into(s,d,scratch);
       std::string raw((char*)scratch.data(),scratch.size()*4);
-      if(vcache.size()<2048)vcache.emplace(s,raw);
+      if(vcache.size()<256&&s.size()<8192)vcache.emplace(s,raw);
       vecbuf.append(raw);
       vec_end+=raw.size();
       return off;
@@ -982,7 +655,7 @@ namespace lite {
       mapsz=0;
       mapoff=0;
       if(vec_end&&vfd>=0){
-        size_t win=256u<<20;off_t base=(off/(off_t)win)*(off_t)win;
+        size_t win=(size_t)envint("LITE_MMAP_MB",32)<<20;off_t base=(off/(off_t)win)*(off_t)win;
         size_t len=(size_t)std::min<off_t>((off_t)win,vec_end-base);
         if(len<need)len=(size_t)std::min<off_t>(vec_end-base,(off_t)need);
         void*p=mmap(nullptr,len,PROT_READ,MAP_SHARED,vfd,base);
@@ -1021,7 +694,7 @@ namespace lite {
       }
       if(vfd>=0){
         std::vector<float>v(d);
-        pread(vfd,v.data(),d*4,off);
+        auto bytes=lsm::read_at(vfd,off,(size_t)d*4);std::memcpy(v.data(),bytes.data(),bytes.size());
         if(d>=64&&has_avx512())return l2_avx512(v.data(),q.data(),d);
         if(d>=32&&has_avx2())return l2_avx2(v.data(),q.data(),d);
         double z=0;
@@ -1043,7 +716,7 @@ namespace lite {
       if(off<0)return v;
       if(const float*p=vptr(off,d)){std::memcpy(v.data(),p,d*4);return v;}
       if(vfd<0)return v;
-      pread(vfd,v.data(),d*4,off);
+      auto bytes=lsm::read_at(vfd,off,(size_t)d*4);std::memcpy(v.data(),bytes.data(),bytes.size());
       return v;
     }
     void ensure_matrix(Table&q,int c){
@@ -1063,19 +736,6 @@ namespace lite {
       auto m=matrices.find(q.n);if(m==matrices.end()||m->second.col!=c)return nullptr;
       auto p=fast_pos.find(q.n);if(p==fast_pos.end())return nullptr;auto i=p->second.find(id);if(i==p->second.end())return nullptr;
       size_t off=i->second*(size_t)m->second.dim;if(off+m->second.dim>m->second.v.size())return nullptr;return m->second.v.data()+off;
-    }
-    std::string canon_insert(const Table&q,const std::vector<std::vector<std::string>>&rows)const{
-      std::string s="INSERT INTO "+q.n+" VALUES ";
-      for(size_t i=0;i<rows.size();++i){
-        if(i)s+=",";
-        s+='(';
-        for(size_t j=0;j<rows[i].size();++j){
-          if(j)s+=',';
-          s+=(j>0&&q.c[j].t=="VECTOR"?"@":sqltok(rows[i][j]));
-        }
-        s+=')';
-      }
-      return s+";";
     }
     bool match(const Table&q,const Row&r,const std::vector<Cond>&cs,size_t proven=std::numeric_limits<size_t>::max())const{
       for(size_t j=0;j<cs.size();++j){
@@ -1122,387 +782,9 @@ namespace lite {
       }
       return r;
     }
-    void apply_tokens(const std::vector<std::string>&t){
-      if(t.empty())return;
-      std::string k=up(t[0]);
-      if(k=="CREATE"&&t.size()>1&&up(t[1])=="TABLE"){
-        create(t,false);
-        return;
-      }
-      if(k=="CREATE"&&t.size()>2&&up(t[1])=="VECTOR"){
-        auto&q=tabs.at(t[5]);
-        int c=ci(q,t[7]);
-        indexes.insert(t[3]);
-        index_cols[q.n]=c;
-        rebuild_index(q);
-        return;
-      }
-      if(k=="INSERT"){
-        insert(t,false);
-        return;
-      }
-      if(k=="UPDATE"){
-        update(t,false);
-        return;
-      }
-      if(k=="DELETE"){
-        erase(t,false);
-        return;
-      }
-    }
-    void apply(const std::string&s){
-      apply_tokens(tok(s));
-    }
-    void begin(bool snapshot=true){
-      if(in)throw Err("transaction_active","already active");
-      if(snapshot)save=tabs;
-      else save.clear();
-      saved_indexes=indexes;saved_index_cols=index_cols;
-      pending.clear();
-      pending_lsm.clear();
-      vec_mark=vec_end;
-      vecbuf_mark=vecbuf.size();
-      in=true;
-    }
-    void rollback(){
-      if(failed_io)throw Err("io_error","restart required after failed commit");
-      if(!in)return;
-      tabs=save;
-      save.clear();indexes=saved_indexes;index_cols=saved_index_cols;
-      pending.clear();
-      pending_lsm.clear();
-      vecbuf.resize(vecbuf_mark);
-      trunc_vec(vec_mark);
-      in=false;
-      sindex.clear();nindex.clear();buckets.clear();pqs.clear();vblocks.clear();matrices.clear();fast_pos.clear();
-      for(auto&kv:tabs){
-        rebuild_scalar(kv.second);
-        rebuild_index(kv.second);
-      }
-    }
-    void commit(){
-      if(!in)return;
-      persist();
-      in=false;
-      save.clear();saved_indexes.clear();saved_index_cols.clear();
-    }
-    static std::string hexenc(const std::string&s){
-      static const char*h="0123456789abcdef";std::string r;r.reserve(s.size()*2);
-      for(unsigned char c:s){r.push_back(h[c>>4]);r.push_back(h[c&15]);}return r;
-    }
-    static std::string hexdec(const std::string&s){
-      if(s.size()%2)throw Err("corruption","sst hex");std::string r;r.resize(s.size()/2);
-      for(size_t i=0;i<r.size();++i){auto d=[](char c)->int{return c>='0'&&c<='9'?c-'0':c>='a'&&c<='f'?c-'a'+10:c>='A'&&c<='F'?c-'A'+10:-1;};int a=d(s[i*2]),b=d(s[i*2+1]);if(a<0||b<0)throw Err("corruption","sst hex");r[i]=(char)((a<<4)|b);}return r;
-    }
-    static std::string skey(const Table&q,long long id){
-      char b[32];std::snprintf(b,sizeof(b),"%016llx",(unsigned long long)(((uint64_t)id)^(1ull<<63)));return q.n+"|"+b;
-    }
-    static std::string row_payload(const Table&q,const Row&r){
-      std::string s=std::to_string(r.id);
-      for(size_t i=1;i<q.c.size();++i){s.push_back('\x1f');s+=i<r.v.size()?r.v[i-1]:"";s.push_back('\x1f');s+=std::to_string(i<r.voff.size()?r.voff[i]:-1);}
-      return s;
-    }
-    static std::string sline(const SRec&r){return std::to_string(r.seq)+"|"+(r.tomb?"T":"P")+"|"+hexenc(r.key)+"|"+hexenc(r.value);}
-    static bool sread(const std::string&line,SRec&r){
-      size_t a=line.find('|'),b=a==std::string::npos?std::string::npos:line.find('|',a+1),c=b==std::string::npos?std::string::npos:line.find('|',b+1);
-      if(a!=std::string::npos&&b!=std::string::npos&&c!=std::string::npos){try{r.seq=std::stoull(line.substr(0,a));r.tomb=line[a+1]=='T';r.key=hexdec(line.substr(b+1,c-b-1));r.value=hexdec(line.substr(c+1));return true;}catch(...){return false;}}
-      if(line.size()>2&&(line[0]=='P'||line[0]=='T')&&line[1]==' '){r.seq=0;r.tomb=line[0]=='T';r.key=line.substr(2);r.value=line.substr(2);return true;}return false;
-    }
-    void lsm_put(const Table&q,const Row&r){if(!recovering)pending_lsm.push_back({skey(q,r.id),row_payload(q,r),0,false});}
-    void lsm_del(const Table&q,long long id){if(!recovering)pending_lsm.push_back({skey(q,id),{},0,true});}
-    void record(const std::string&s){
-      pending.push_back(s);
-    }
-    static void sync_path(const std::string&p){
-      struct stat st{};
-      if(stat(p.c_str(),&st)!=0)throw Err("io_error","stat for sync: "+p);
-      int fd=open(p.c_str(),S_ISDIR(st.st_mode)?O_RDONLY:O_RDWR);
-      if(fd<0)throw Err("io_error","open for sync: "+p);
-      int rc=fsync(fd),error=errno,closed=close(fd);
-      if(rc!=0||closed!=0)throw Err("io_error","sync: "+p+": "+std::strerror(rc!=0?error:errno));
-    }
-    static void finish_file(std::ofstream&f,const std::string&p){
-      f.flush();if(!f)throw Err("io_error","write: "+p);
-      f.close();if(!f)throw Err("io_error","close: "+p);
-      sync_path(p);
-    }
-    void write_manifest(std::map<int,std::vector<std::string>> next){
-      std::string tmp=dir+"/MANIFEST.tmp";
-      std::ofstream m(tmp,std::ios::trunc);
-      m<<"#v2 checkpoint "<<wal_txid<<" next_sst "<<sst_seq<<" bytes_in "<<lsm_bytes_in<<" bytes_out "<<lsm_bytes_out<<'\n';
-      for(auto&kv:next)for(auto&x:kv.second){std::string a,b;srange(x,a,b);m<<kv.first<<" "<<x<<" "<<a<<" "<<b<<'\n';}
-      finish_file(m,tmp);
-      sync_path(dir); // Persist new SST and sidecar directory entries before publication.
-      if(rename(tmp.c_str(),(dir+"/MANIFEST").c_str())!=0)throw Err("io_error","manifest publish");
-      levels.swap(next); // Single writer: the published view is now the current view.
-      sync_path(dir); // On failure keep ALL old files; restart may see either manifest.
-    }
-    void seal_sst(const std::string&p){
-      std::ifstream f(p,std::ios::binary);std::ofstream g(p+".idx",std::ios::binary|std::ios::trunc);
-      uint64_t sz=(uint64_t)fsize(p);uint32_t magic=0x53535449u,ver=1,n=(uint32_t)((sz+32767)/32768);wr(g,magic);wr(g,ver);wr(g,n);
-      std::vector<char>b(32768);
-      for(uint32_t i=0;i<n;++i){uint64_t o=(uint64_t)i*32768;size_t want=(size_t)std::min<uint64_t>(32768,sz-o);f.read(b.data(),want);size_t len=(size_t)f.gcount();uint32_t l=(uint32_t)len,c=crc32c(b.data(),len);wr(g,o);wr(g,l);wr(g,c);size_t e=0;while(e<len&&b[e]!='\n')++e;ws(g,std::string(b.data(),e));}
-      if(!f)throw Err("io_error","sst read: "+p);
-      finish_file(g,p+".idx");
-    }
-    static bool srange(const std::string&p,std::string&lo,std::string&hi){
-      std::ifstream f(p);std::string x;SRec r;bool ok=false;
-      while(std::getline(f,x))if(sread(x,r)){if(!ok)lo=r.key;hi=r.key;ok=true;}
-      return ok;
-    }
-    void compact(){
-      for(int lev=0;lev<2;++lev){
-        auto&src=levels[lev];
-        if(src.size()<4)continue;
-        std::vector<std::string>in=src;
-        for(auto&x:in)lsm_bytes_in+=(uint64_t)fsize(x);
-        std::string low,high;
-        for(auto&x:src){std::string a,b;if(srange(x,a,b)){if(low.empty()||a<low)low=a;if(high.empty()||b>high)high=b;}}
-        for(auto&x:levels[lev+1]){std::string a,b;if(!srange(x,a,b)||low.empty()||!(b<low||high<a))in.push_back(x);}
-        bool drop_tomb=lev==1;
-        if(drop_tomb)for(auto&x:levels[0]){std::string a,b;if(srange(x,a,b)&&!(b<low||high<a)){drop_tomb=false;break;}}
-        std::vector<SRec>all;
-        for(auto&x:in){
-          std::ifstream f(x);std::string y;
-          if(!f)throw Err("io_error","sst open: "+x);
-          while(std::getline(f,y)){SRec r;if(!sread(y,r))throw Err("corruption","sst record");all.push_back(std::move(r));}
-          if(!f.eof())throw Err("io_error","sst read: "+x);
-        }
-        std::sort(all.begin(),all.end(),[](const SRec&a,const SRec&b){if(a.key!=b.key)return a.key<b.key;if(a.seq!=b.seq)return a.seq>b.seq;return a.tomb>b.tomb;});
-        std::string p=dir+"/L"+std::to_string(lev+1)+"-"+std::to_string(++sst_seq)+".sst";
-        std::ofstream out(p,std::ios::binary);
-        std::string last;for(auto&r:all)if(r.key!=last){last=r.key;if(drop_tomb&&r.tomb)continue;out<<sline(r)<<'\n';}
-        finish_file(out,p);
-        seal_sst(p);
-        lsm_bytes_out+=(uint64_t)fsize(p);
-        std::set<std::string>selected(in.begin(),in.end());
-        auto next=levels;
-        next[lev].clear();
-        auto&dst=next[lev+1];
-        dst.erase(std::remove_if(dst.begin(),dst.end(),[&](const std::string&x){return selected.count(x);}),dst.end());
-        dst.push_back(p);
-        write_manifest(std::move(next));
-        // No concurrent readers retain SST references in this single-writer engine.
-        for(auto&x:in){std::remove(x.c_str());std::remove((x+".idx").c_str());}
-      }
-    }
-    void flush_sst(){
-      if(memtable.empty())return;
-      immutable=memtable;
-      std::sort(immutable.begin(),immutable.end(),[](const SRec&a,const SRec&b){if(a.key!=b.key)return a.key<b.key;return a.seq>b.seq;});
-      std::string p=dir+"/L0-"+std::to_string(++sst_seq)+".sst";
-      std::ofstream f(p,std::ios::binary);
-      for(auto&r:immutable)f<<sline(r)<<'\n';
-      finish_file(f,p);
-      seal_sst(p);
-      lsm_bytes_out+=(uint64_t)fsize(p);
-      auto next=levels;next[0].push_back(p);
-      write_manifest(std::move(next));
-      immutable.clear();
-      memtable.clear();
-      memtable_bytes=0;
-      compact();
-    }
-    J exec(const std::string&sql){
-      if(failed_io)throw Err("io_error","restart required after failed commit");
-      auto t=tok(sql);
-      if(t.empty())throw Err("invalid_request","empty");
-      std::string k=up(t[0]);
-      if(k=="BEGIN"){
-        begin();
-        return jo();
-      }
-      if(k=="ROLLBACK"){
-        rollback();
-        return jo();
-      }
-      if(k=="COMMIT"){
-        commit();
-        return jo();
-      }
-      bool readonly=k=="SELECT";
-      bool auto_tx=!in&&!readonly;
-      bool lean_insert=k=="INSERT";
-      if(auto_tx)begin(!lean_insert);
-      std::map<std::string,Table>before;
-      if(!readonly&&!lean_insert)before=tabs;
-      auto old_indexes=indexes;auto old_index_cols=index_cols;
-      std::vector<long long>new_ids;
-      std::set<long long>old_ids;
-      size_t np=pending.size();
-      size_t nl=pending_lsm.size();
-      off_t vm=vec_end,disk_mark=vecbuf.empty()?vec_end:vecbuf_base;
-      size_t vb=vecbuf.size();
-      try{
-        if(lean_insert)for(size_t p=4;p<t.size();++p)if(t[p]=="("&&p+1<t.size()){
-          long long id=std::stoll(t[p+1]);
-          new_ids.push_back(id);
-          auto it=tabs.find(t[2]);
-          if(it!=tabs.end()&&it->second.r.count(id))old_ids.insert(id);
-        }
-        J r;
-        if(k=="CREATE"&&t.size()>1&&up(t[1])=="VECTOR")r=create_index(t);
-        else if(k=="CREATE")r=create(t,true);
-        else if(k=="INSERT")r=insert(t,true);
-        else if(k=="UPDATE")r=update(t,true);
-        else if(k=="DELETE")r=erase(t,true);
-        else if(k=="SELECT"){
-          flush_vecbuf();
-          r=select(t);
-        }
-        else throw Err("unsupported_sql","statement");
-        if(auto_tx)commit();
-        return r;
-      }
-      catch(...){
-        // A completed WAL may already describe this transaction. Never truncate
-        // its vectors after an ambiguous I/O failure; freeze until recovery.
-        if(failed_io)throw;
-        if(lean_insert){
-          auto it=t.size()>2?tabs.find(t[2]):tabs.end();
-          if(it!=tabs.end()){
-            for(auto id:new_ids)if(!old_ids.count(id)&&it->second.r.count(id)){
-              scalar_remove(it->second,id);
-              index_remove(it->second,id);
-              it->second.r.erase(id);
-            }
-            it->second.order.erase(std::remove_if(it->second.order.begin(),it->second.order.end(),[&](long long id){return !it->second.r.count(id);}),it->second.order.end());
-            it->second.fast.clear();fast_pos.erase(it->first);matrices.erase(it->first);
-          }
-          pending.resize(np);
-          pending_lsm.resize(nl);
-          vecbuf.resize(vb);
-          trunc_vec(disk_mark);vec_end=vm;
-          sindex.clear();nindex.clear();
-          buckets.clear();
-          for(auto&kv:tabs){
-            rebuild_scalar(kv.second);
-            rebuild_index(kv.second);
-          }
-        }
-        else if(!readonly){
-          tabs=before;
-          indexes=old_indexes;index_cols=old_index_cols;
-          pending.resize(np);
-          pending_lsm.resize(nl);
-          vecbuf.resize(vb);
-          trunc_vec(disk_mark);vec_end=vm;
-          sindex.clear();nindex.clear();
-          buckets.clear();
-          pqs.clear();vblocks.clear();matrices.clear();fast_pos.clear();
-          for(auto&kv:tabs){
-            rebuild_scalar(kv.second);
-            rebuild_index(kv.second);
-          }
-        }
-        if(auto_tx){
-          if(lean_insert)in=false;
-          else rollback();
-        }
-        throw;
-      }
-    }
-    int bucket_code(const std::vector<float>&v)const{
-      if(v.empty())return 0;
-      int b=(int)std::floor((v[0]+2.0f)*8.0f);
-      return std::max(0,std::min(31,b));
-    }
-    double coarse_dist(const PQ&z,const std::vector<float>&v,int k)const{
-      int cp=std::min(128,z.d);
-      double s=0;
-      for(int j=0;j<cp;++j){
-        int x=(j*z.d)/cp;
-        float a=v[x]-z.coarse[k*z.d+x];
-        s+=a*a;
-      }
-      return s;
-    }
-    int coarse_pick(const PQ&z,const std::vector<float>&v)const{
-      int b=0;
-      double best=coarse_dist(z,v,0);
-      for(int k=1;k<z.nlist;++k){
-        double d=coarse_dist(z,v,k);
-        if(d<best){
-          best=d;
-          b=k;
-        }
-      }
-      return b;
-    }
-    void pq_encode(const PQ&z,const std::vector<float>&v,int&b,std::vector<unsigned char>&out)const{
-      b=coarse_pick(z,v);
-      int sub=(z.d+z.m-1)/z.m;
-      out.assign(z.m,0);
-      for(int mi=0;mi<z.m;++mi){
-        int best=0;
-        double bd=1e300;
-        for(int k=0;k<z.ks;++k){
-          double d=0;
-          for(int j=0;j<sub;++j){
-            int x=mi*sub+j;
-            if(x<z.d){
-              float a=v[x]-z.book[(mi*z.ks+k)*sub+j];
-              d+=a*a;
-            }
-          }
-          if(d<bd){
-            bd=d;
-            best=k;
-          }
-        }
-        out[mi]=(unsigned char)best;
-      }
-    }
-    double pq_adc(const PQ&z,long long id,const std::vector<float>&v)const{
-      auto it=z.code.find(id);
-      if(it==z.code.end())return 1e300;
-      int sub=(z.d+z.m-1)/z.m;
-      double d=0;
-      for(int mi=0;mi<z.m;++mi){
-        int k=it->second[mi];
-        for(int j=0;j<sub;++j){
-          int x=mi*sub+j;
-          if(x<z.d){
-            float a=v[x]-z.book[(mi*z.ks+k)*sub+j];
-            d+=a*a;
-          }
-        }
-      }
-      return d;
-    }
-    void index_add(Table&q,long long id){
-      vblocks.erase(q.n);
-      auto it=index_cols.find(q.n);
-      if(it==index_cols.end()||!q.r.count(id))return;
-      int c=it->second;
-      if(q.r[id].voff[c]<0)return;
-      auto z=pqs.find(q.n);
-      if(z==pqs.end())return;
-      auto v=read_vec(q.r[id].voff[c],q.c[c].d);
-      int b;
-      std::vector<unsigned char>code;
-      pq_encode(z->second,v,b,code);
-      buckets[q.n][b].push_back(id);
-      z->second.code[id]=std::move(code);
-      z->second.cell[id]=b;
-    }
-    void index_remove(Table&q,long long id){
-      vblocks.erase(q.n);
-      auto it=index_cols.find(q.n);
-      if(it==index_cols.end())return;
-      for(auto&kv:buckets[q.n]){
-        auto&v=kv.second;
-        v.erase(std::remove(v.begin(),v.end(),id),v.end());
-      }
-      auto z=pqs.find(q.n);
-      if(z!=pqs.end()){
-        z->second.code.erase(id);
-        z->second.cell.erase(id);
-      }
-    }
     void scalar_add(Table&q,long long id){
       auto&row=q.r[id];
-      sindex[q.n+".id"][std::to_string(id)].push_back(id);nindex[q.n+".id"][id].push_back(id);
+      sindex[q.n+"."+q.c[0].n][std::to_string(id)].push_back(id);nindex[q.n+"."+q.c[0].n][id].push_back(id);
       for(size_t c=1;c<q.c.size();++c)if(q.c[c].t!="VECTOR"){
         std::string k=q.n+"."+q.c[c].n,v=unq(row.v[c-1]);
         sindex[k][v].push_back(id);
@@ -1512,7 +794,7 @@ namespace lite {
     void scalar_remove(Table&q,long long id){
       if(!q.r.count(id))return;
       auto&row=q.r[id];
-      auto&iv=sindex[q.n+".id"][std::to_string(id)];iv.erase(std::remove(iv.begin(),iv.end(),id),iv.end());auto&iw=nindex[q.n+".id"][id];iw.erase(std::remove(iw.begin(),iw.end(),id),iw.end());
+      auto&iv=sindex[q.n+"."+q.c[0].n][std::to_string(id)];iv.erase(std::remove(iv.begin(),iv.end(),id),iv.end());auto&iw=nindex[q.n+"."+q.c[0].n][id];iw.erase(std::remove(iw.begin(),iw.end(),id),iw.end());
       for(size_t c=1;c<q.c.size();++c)if(q.c[c].t!="VECTOR"){
         std::string k=q.n+"."+q.c[c].n,v0=unq(row.v[c-1]);
         auto&v=sindex[k][v0];
@@ -1539,7 +821,7 @@ namespace lite {
     void rebuild_scalar(Table&q){
       q.fast.clear();
       fast_pos.erase(q.n);matrices.erase(q.n);vblocks.erase(q.n);
-      sindex.erase(q.n+".id");nindex.erase(q.n+".id");
+      sindex.erase(q.n+"."+q.c[0].n);nindex.erase(q.n+"."+q.c[0].n);
       for(size_t c=1;c<q.c.size();++c)if(q.c[c].t!="VECTOR"){sindex.erase(q.n+"."+q.c[c].n);nindex.erase(q.n+"."+q.c[c].n);}
       for(auto&kv:q.r)scalar_add(q,kv.first);
     }
@@ -1559,101 +841,7 @@ namespace lite {
         w.center.assign(sd,0);double rr=0;if(any)for(int j=0;j<sd;++j){w.center[j]=(w.lo[j]+w.hi[j])*.5f;double e=(w.hi[j]-w.lo[j])*.5;rr+=e*e;}w.radius=(float)std::sqrt(rr);bs.push_back(std::move(w));
       }
     }
-    void rebuild_index(Table&q){
-      // Exact and ANN fallback do not consume PQ codes. Keep training/loading
-      // out of requests and recovery until an approximate executor is validated.
-      buckets.erase(q.n);pqs.erase(q.n);
-    }
-    void train_pq_index(Table&q){
-      ensure_map();
-      buckets[q.n].clear();
-      pqs.erase(q.n);
-      auto it=index_cols.find(q.n);
-      if(it==index_cols.end())return;
-      int c=it->second;
-      if(c<0||c>=(int)q.c.size()||q.c[c].t!="VECTOR")return;
-      std::vector<long long>ids;
-      std::vector<std::vector<float>>sample;
-      size_t stride=std::max<size_t>(1,q.r.size()/4096),seen=0;
-      for(auto id:q.order){
-        auto ri=q.r.find(id);
-        if(ri==q.r.end())continue;
-        auto&row=ri->second;
-        if(row.voff.size()>=(size_t)q.c.size()&&row.voff[c]>=0){
-          ids.push_back(id);
-          if(sample.size()<4096&&seen%stride==0)sample.push_back(read_vec(row.voff[c],q.c[c].d));
-          ++seen;
-        }
-      }
-      if(ids.empty())return;
-      PQ z;
-      z.d=q.c[c].d;
-      z.nlist=std::min(envint("LITE_NLIST",std::min(32,std::max(1,(int)std::sqrt((double)ids.size())))),(int)ids.size());
-      z.m=std::min(envint("LITE_PQ_M",16),z.d);
-      z.ks=std::min(envint("LITE_PQ_KS",16),std::max(1,(int)sample.size()));
-      int iters=envint("LITE_KMEANS_ITERS",3);
-      int sub=(z.d+z.m-1)/z.m;
-      z.coarse.resize(z.nlist*z.d);
-      for(int k=0;k<z.nlist;++k)z.coarse[k*z.d]=sample[k%sample.size()][0];
-      for(int k=0;k<z.nlist;++k)for(int j=0;j<z.d;++j)z.coarse[k*z.d+j]=sample[k%sample.size()][j];
-      for(int itn=0;itn<iters;++itn){
-        std::vector<float>sum(z.nlist*z.d);
-        std::vector<int>cnt(z.nlist);
-        for(auto&v:sample){
-          int b=coarse_pick(z,v);
-          ++cnt[b];
-          for(int j=0;j<z.d;++j)sum[b*z.d+j]+=v[j];
-        }
-        for(int k=0;k<z.nlist;++k)if(cnt[k])for(int j=0;j<z.d;++j)z.coarse[k*z.d+j]=sum[k*z.d+j]/cnt[k];
-      }
-      z.book.resize(z.m*z.ks*sub);
-      for(int mi=0;mi<z.m;++mi){
-        for(int k=0;k<z.ks;++k)for(int j=0;j<sub;++j){
-          int x=mi*sub+j;
-          z.book[(mi*z.ks+k)*sub+j]=x<z.d?sample[k%sample.size()][x]:0;
-        }
-        for(int itn=0;itn<iters;++itn){
-          std::vector<float>sum(z.ks*sub);
-          std::vector<int>cnt(z.ks);
-          for(auto&v:sample){
-            int best=0;
-            double bd=1e300;
-            for(int k=0;k<z.ks;++k){
-              double d0=0;
-              for(int j=0;j<sub;++j){
-                int x=mi*sub+j;
-                if(x<z.d){
-                  float a=v[x]-z.book[(mi*z.ks+k)*sub+j];
-                  d0+=a*a;
-                }
-              }
-              if(d0<bd){
-                bd=d0;
-                best=k;
-              }
-            }
-            ++cnt[best];
-            for(int j=0;j<sub;++j){
-              int x=mi*sub+j;
-              if(x<z.d)sum[best*sub+j]+=v[x];
-            }
-          }
-          for(int k=0;k<z.ks;++k)if(cnt[k])for(int j=0;j<sub;++j)z.book[(mi*z.ks+k)*sub+j]=sum[k*sub+j]/cnt[k];
-        }
-      }
-      pqs[q.n]=std::move(z);
-      auto&pq=pqs[q.n];
-      for(auto id:ids){
-        auto v=read_vec(q.r[id].voff[c],q.c[c].d);
-        int b;
-        std::vector<unsigned char>code;
-        pq_encode(pq,v,b,code);
-        buckets[q.n][b].push_back(id);
-        pq.code[id]=std::move(code);
-        pq.cell[id]=b;
-      }
-      save_index(q);
-    }
+    void rebuild_index(Table&q){vblocks.erase(q.n);}
     J create_index(const std::vector<std::string>&t){
       if(t.size()!=9||up(t[1])!="VECTOR"||up(t[2])!="INDEX"||up(t[4])!="ON"||t[8]!=")")throw Err("unsupported_sql","index");
       if(indexes.count(t[3]))throw Err("duplicate_index","index");
@@ -1664,7 +852,8 @@ namespace lite {
       indexes.insert(t[3]);
       index_cols[q.n]=c;
       rebuild_index(q);
-      record("CREATE VECTOR INDEX "+t[3]+" ON "+t[5]+"("+t[7]+");");
+      std::string s;lsm::str(s,t[3]);lsm::str(s,q.n);lsm::u32(s,(uint32_t)c);statement->put("X"+lsm::part(t[3]),std::move(s));
+      s.clear();lsm::str(s,q.n);lsm::u32(s,(uint32_t)c);statement->put("V"+lsm::part(q.n),std::move(s));
       return jo();
     }
     J create(const std::vector<std::string>&t,bool rec){
@@ -1697,171 +886,110 @@ namespace lite {
         q.c.push_back(c);
       }
       if(q.c.empty()||q.c.front().t!="BIGINT")throw Err("invalid_request","BIGINT primary key required");
+      if(q.c.size()>1024)throw Err("invalid_request","at most 1024 columns");
       tabs[name]=q;
-      if(rec){
-        std::string s="CREATE TABLE "+name+" (";
-        for(size_t i=0;i<q.c.size();++i){
-          if(i)s+=",";
-          s+=q.c[i].n+" "+q.c[i].t;
-          if(q.c[i].d)s+="("+std::to_string(q.c[i].d)+")";
-        }
-        record(s+");");
-      }
+      (void)rec;statement->put(catalog_key(q),catalog(q));
       return jo();
     }
-    J insert(const std::vector<std::string>&t,bool rec){
-      if(t.size()<6||up(t[1])!="INTO"||up(t[3])!="VALUES")throw Err("unsupported_sql","insert");
-      auto&q=tabs.at(t[2]);
-      q.fast.clear();fast_pos.erase(q.n);matrices.erase(q.n);vblocks.erase(q.n);
-      std::vector<std::vector<std::string>> rows;
-      for(size_t p=4;p<t.size();){
-        if(t[p]!="(")throw Err("invalid_request","values");
-        ++p;
-        std::vector<std::string>v;
-        while(p<t.size()&&t[p]!=")"){
-          if(t[p]==","){
-            ++p;
-            continue;
-          }
-          v.push_back(t[p++]);
-        }
-        if(p>=t.size())throw Err("invalid_request","values");
-        ++p;
-        if(v.size()!=q.c.size())throw Err("column_count","values");
-        rows.push_back(v);
-        while(p<t.size()&&t[p]!="(")++p;
-      }
+
+    J insert(const std::vector<std::string>&t,bool){
+      if(t.size()<6||up(t[1])!="INTO"||up(t[3])!="VALUES")throw Err("unsupported_sql","insert");auto&q=tabs.at(t[2]);cool(q);
+      std::vector<std::vector<std::string>>rows;
+      for(size_t p=4;p<t.size();){if(t[p++]!="(")throw Err("invalid_request","values");std::vector<std::string>v;while(p<t.size()&&t[p]!=")"){if(t[p]==","){++p;continue;}v.push_back(t[p++]);}if(p==t.size())throw Err("invalid_request","values");++p;if(v.size()!=q.c.size())throw Err("column_count","values");rows.push_back(std::move(v));while(p<t.size()&&t[p]!="(")++p;}
       std::set<long long>seen;
-      for(auto&v:rows){
-        long long id=integer(v[0]);v[0]=std::to_string(id);
-        if(q.r.count(id)||!seen.insert(id).second)throw Err("duplicate_key","key");
-        for(size_t i=1;i<v.size();++i){
-          normalize_scalar(q.c[i],v[i]);
-        }
-      }
-      for(auto&v:rows){
-        long long id=std::stoll(v[0]);
-        Row r;
-        r.id=id;
-        r.v.assign(v.begin()+1,v.end());
-        r.voff.assign(q.c.size(),-1);
-        for(size_t i=1;i<v.size();++i)if(q.c[i].t=="VECTOR"){
-          if(recovering&&v[i]=="@"){
-            r.voff[i]=vec_cursor;
-            vec_cursor+=q.c[i].d*4;
-          }
-          else r.voff[i]=append_vec(v[i],q.c[i].d);
-          r.v[i-1].clear();
-        }
-        q.r[id]=r;
-        q.order.push_back(id);
-        scalar_add(q,id);
-        index_add(q,id);
-        if(rec)lsm_put(q,r);
-      }
-      if(rec)record(canon_insert(q,rows));
-      J x=jo();
-      x.o["affected_rows"]=ji((long long)rows.size());
-      return x;
+      for(auto&v:rows){long long id=integer(v[0]);v[0]=std::to_string(id);Row r;if(row_get(q,id,r)||!seen.insert(id).second)throw Err("duplicate_key","key");for(size_t c=1;c<v.size();++c)normalize_scalar(q.c[c],v[c]);}
+      // Vector validation and encoding happen together in append_vec. A failed
+      // row discards the private statement and truncates only its vector tail.
+      for(auto&v:rows){Row r;r.id=integer(v[0]);r.ordinal=++ordinal;r.v.assign(v.begin()+1,v.end());r.voff.assign(q.c.size(),-1);
+        for(size_t c=1;c<v.size();++c)if(q.c[c].t=="VECTOR"){if(recovering&&v[c]=="@"){r.voff[c]=vec_cursor;vec_cursor+=q.c[c].d*4;}else r.voff[c]=append_vec(v[c],q.c[c].d);r.v[c-1].clear();}row_put(q,&r,nullptr);}
+      statement->put(catalog_key(q),catalog(q));J x=jo();x.o["affected_rows"]=ji(rows.size());return x;
     }
-    J update(const std::vector<std::string>&t,bool rec){
-      if(t.size()<6||up(t[0])!="UPDATE"||up(t[2])!="SET")throw Err("unsupported_sql","update");
-      auto&q=tabs.at(t[1]);
-      q.fast.clear();fast_pos.erase(q.n);matrices.erase(q.n);vblocks.erase(q.n);
-      size_t p=3;
-      std::vector<std::pair<int,std::string>>as;
-      while(p<t.size()&&up(t[p])!="WHERE"){
-        if(t[p]==","){
-          ++p;
-          continue;
-        }
-        int c=ci(q,t[p++]);
-        if(c<0)throw Err("unknown_column","set");
-        if(p>=t.size()||t[p++]!="=")throw Err("invalid_request","set");
-        if(p>=t.size())throw Err("invalid_request","assignment value");
-        if(c==0)throw Err("immutable_key","id");
-        std::string value=t[p++];normalize_scalar(q.c[c],value);
-        if(q.c[c].t=="VECTOR"&&!(recovering&&value=="@"))parse_into(value,q.c[c].d,scratch);
-        as.push_back({
-          c,std::move(value)
-        });
-      }
-      std::vector<Cond>cs;
-      if(p<t.size())cs=conditions(q,t,p+1,t.size());
-      std::vector<long long>ids;
-      for(auto id:q.order)if(q.r.count(id)&&match(q,q.r[id],cs))ids.push_back(id);
-      for(auto id:ids){
-        Row&r=q.r[id];
-        scalar_remove(q,id);
-        for(auto&a:as){
-          if(a.first==0)throw Err("immutable_key","id");
-          auto&c=q.c[a.first];
-          if(c.t=="BIGINT")std::stoll(unq(a.second));
-          if(c.t=="VECTOR"){
-            index_remove(q,id);
-            r.v[a.first-1].clear();
-            if(r.voff.size()<q.c.size())r.voff.assign(q.c.size(),-1);
-            if(recovering&&a.second=="@"){
-              r.voff[a.first]=vec_cursor;
-              vec_cursor+=c.d*4;
-            }
-            else r.voff[a.first]=append_vec(a.second,c.d);
-            index_add(q,id);
-          }
-          else r.v[a.first-1]=a.second;
-        }
-        scalar_add(q,id);
-        if(rec)lsm_put(q,r);
-      }
-      if(rec){
-        std::string s="UPDATE "+q.n+" SET ";
-        for(size_t i=0;i<as.size();++i){
-          if(i)s+=",";
-          s+=q.c[as[i].first].n+"="+(q.c[as[i].first].t=="VECTOR"?"@":sqltok(as[i].second));
-        }
-        if(!cs.empty()){
-          s+=" WHERE ";
-          for(size_t i=0;i<cs.size();++i){
-            if(i)s+=" AND ";
-            s+=q.c[cs[i].col].n+cs[i].op+sqltok(cs[i].val);
-          }
-        }
-        record(s+";");
-      }
-      J x=jo();
-      x.o["affected_rows"]=ji((long long)ids.size());
-      return x;
+    template<class Fn> void each_row(const Table&q,const std::vector<Cond>&cs,Fn fn)const{
+      // Primary equality needs no range iterator or row-cache materialization.
+      for(auto&c:cs)if(c.col==0&&c.op=="="){Row r;if(row_get(q,integer(c.val),r)&&match(q,r,cs))fn(r);return;}
+      std::string lo=prefix(q),hi=lsm::upper(lo);int secondary_col=-1;
+      for(auto&c:cs)if(c.col>0&&q.c[c.col].t!="VECTOR"&&c.op=="="){lo=index_prefix(q,c.col)+scalar_key(q.c[c.col],c.val);hi=lsm::upper(lo);secondary_col=c.col;break;}
+      if(secondary_col<0)for(auto&c:cs)if(c.col==0&&c.op!="!="){auto k=skey(q,integer(c.val));if(c.op==">=")lo=std::max(lo,k);else if(c.op==">")lo=std::max(lo,lsm::upper(k));else if(c.op=="<")hi=std::min(hi,k);else if(c.op=="<=")hi=std::min(hi,lsm::upper(k));}
+      if(!hi.empty()&&lo>=hi)return;auto c=scan(lo,hi);while(c->valid){Row r;if(secondary_col>=0){long long id=(long long)(lsm::number_value(c->row.key,c->row.key.size()-8)^(1ull<<63));if(!row_get(q,id,r))throw Err("corruption","dangling scalar index");}else r=decode_row(q,c->row.value);if(match(q,r,cs))fn(r);c->next();}
     }
-    J erase(const std::vector<std::string>&t,bool rec){
-      if(t.size()<3||up(t[0])!="DELETE"||up(t[1])!="FROM")throw Err("unsupported_sql","delete");
-      auto&q=tabs.at(t[2]);
-      q.fast.clear();fast_pos.erase(q.n);matrices.erase(q.n);vblocks.erase(q.n);
-      size_t p=3;
-      std::vector<Cond>cs;
-      if(p<t.size()&&up(t[p])=="WHERE")cs=conditions(q,t,p+1,t.size());
-      std::vector<long long>ids;
-      for(auto id:q.order)if(q.r.count(id)&&match(q,q.r[id],cs))ids.push_back(id);
-      for(auto id:ids){
-        if(rec)lsm_del(q,id);
-        scalar_remove(q,id);
-        index_remove(q,id);
-        q.r.erase(id);
-        q.order.erase(std::remove(q.order.begin(),q.order.end(),id),q.order.end());
-      }
-      if(rec){
-        std::string s="DELETE FROM "+q.n;
-        if(!cs.empty()){
-          s+=" WHERE ";
-          for(size_t i=0;i<cs.size();++i){
-            if(i)s+=" AND ";
-            s+=q.c[cs[i].col].n+cs[i].op+sqltok(cs[i].val);
-          }
+    J update(const std::vector<std::string>&t,bool){
+      if(t.size()<6||up(t[2])!="SET")throw Err("unsupported_sql","update");auto&q=tabs.at(t[1]);cool(q);size_t p=3;std::vector<std::pair<int,std::string>>as;
+      while(p<t.size()&&up(t[p])!="WHERE"){if(t[p]==","){++p;continue;}int c=ci(q,t[p++]);if(c<0)throw Err("unknown_column","set");if(!c)throw Err("immutable_key","id");if(p>=t.size()||t[p++]!="="||p>=t.size())throw Err("invalid_request","assignment");std::string v=t[p++];normalize_scalar(q.c[c],v);if(q.c[c].t=="VECTOR"&&!(recovering&&v=="@"))parse_into(v,q.c[c].d,scratch);as.emplace_back(c,std::move(v));}
+      std::vector<Cond>cs;if(p<t.size())cs=conditions(q,t,p+1,t.size());uint64_t n=0;
+      each_row(q,cs,[&](const Row&before){Row r=before;for(auto&a:as){if(q.c[a.first].t=="VECTOR"){r.v[a.first-1].clear();if(recovering&&a.second=="@"){r.voff[a.first]=vec_cursor;vec_cursor+=q.c[a.first].d*4;}else r.voff[a.first]=append_vec(a.second,q.c[a.first].d);}else r.v[a.first-1]=a.second;}row_put(q,&r,&before);++n;});
+      statement->put(catalog_key(q),catalog(q));J x=jo();x.o["affected_rows"]=ji(n);return x;
+    }
+    J erase(const std::vector<std::string>&t,bool){if(t.size()<3||up(t[1])!="FROM")throw Err("unsupported_sql","delete");auto&q=tabs.at(t[2]);cool(q);std::vector<Cond>cs;if(t.size()>3){if(up(t[3])!="WHERE")throw Err("invalid_request","delete predicate");cs=conditions(q,t,4,t.size());}uint64_t n=0;each_row(q,cs,[&](const Row&r){row_put(q,nullptr,&r);++n;});statement->put(catalog_key(q),catalog(q));J x=jo();x.o["affected_rows"]=ji(n);return x;}
+    void migrate_legacy(){
+      // The old STATE/WAL remain untouched until a new authoritative manifest
+      // is durable. Interrupted imports have only unreachable generation files.
+      recovering=true;uint64_t legacy_tx=0;off_t boundary=0;
+      auto put=[&](std::string key,std::string value){SRec r{std::move(key),std::move(value),store->seq+1,false};store->apply(r);};
+      auto import_row=[&](Table&q,Row&r){r.ordinal=++ordinal;std::string s=row_payload(q,r);q.row_bytes+=s.size();++q.count;put(skey(q,r.id),std::move(s));for(size_t c=1;c<q.c.size();++c)if(q.c[c].t!="VECTOR")put(secondary(q,r,(int)c),{});};
+      std::ifstream f(dir+"/STATE",std::ios::binary);uint32_t magic=0;
+      if(f.read((char*)&magic,4)&&magic==0x4c535432u){uint32_t ver=0,nt=0;int64_t end=0;
+        if(!rd(f,ver)||(ver!=2&&ver!=3)||!rd(f,legacy_tx))throw Err("corruption","legacy state header");
+        if(ver==3){if(!rd(f,end)||end<0||end>vec_end)throw Err("corruption","legacy vector boundary");boundary=end;}
+        else{if(fsize(dir+"/wal.log"))throw Err("corruption","legacy v2 STATE has nonempty WAL");boundary=vec_end;}
+        store->vector_end=boundary;if(!rd(f,nt)||nt>1000000u)throw Err("corruption","legacy table count");
+        for(uint32_t i=0;i<nt;++i){Table q;uint32_t nc=0;uint64_t nr=0;if(!rs(f,q.n)||!rd(f,nc)||nc==0||nc>1024)throw Err("corruption","legacy schema");
+          for(uint32_t j=0;j<nc;++j){Col c;if(!rs(f,c.n)||!rs(f,c.t)||!rd(f,c.d))throw Err("corruption","legacy column");q.c.push_back(std::move(c));}
+          if(!rd(f,nr)||nr>1000000000ull)throw Err("corruption","legacy row count");for(uint64_t j=0;j<nr;++j){Row r;if(!rd(f,r.id))throw Err("corruption","legacy row");r.voff.push_back(-1);for(size_t c=1;c<q.c.size();++c){std::string v;int64_t off;if(!rs(f,v)||!rd(f,off))throw Err("corruption","legacy row field");r.v.push_back(std::move(v));r.voff.push_back((off_t)off);}import_row(q,r);}
+          put(catalog_key(q),catalog(q));tabs.emplace(q.n,std::move(q));
         }
-        record(s+";");
+        uint32_t n=0;if(!rd(f,n)||n>1000000u)throw Err("corruption","legacy indexes");for(uint32_t i=0;i<n;++i){std::string s;if(!rs(f,s))throw Err("corruption","legacy index name");indexes.insert(s);}
+        if(!rd(f,n)||n>1000000u)throw Err("corruption","legacy index columns");for(uint32_t i=0;i<n;++i){std::string s;int c;if(!rs(f,s)||!rd(f,c))throw Err("corruption","legacy index column");index_cols[s]=c;}
+      }else if(fsize(dir+"/STATE")){
+        f.close();std::ifstream json(dir+"/STATE");std::string line;std::getline(json,line);J z=parse(line);if(fsize(dir+"/wal.log"))throw Err("corruption","legacy JSON STATE has nonempty WAL");boundary=vec_end;store->vector_end=boundary;
+        for(auto&x:z.o["t"].a){Table q;q.n=x.o["name"].s;for(auto&c:x.o["c"].a)q.c.push_back({c.o["n"].s,c.o["t"].s,(int)c.o["d"].i});for(auto&y:x.o["r"].a){Row r;r.id=y.o["id"].i;for(auto&v:y.o["v"].a)r.v.push_back(v.s);r.voff.push_back(-1);for(auto&o:y.o["o"].a)r.voff.push_back((off_t)o.i);import_row(q,r);}put(catalog_key(q),catalog(q));tabs.emplace(q.n,std::move(q));}
+        for(auto&i:z.o["i"].a)indexes.insert(i.s);for(auto&i:z.o["c"].o)index_cols[i.first]=(int)i.second.i;
       }
-      J x=jo();
-      x.o["affected_rows"]=ji((long long)ids.size());
-      return x;
+      // Preserve the information the legacy format actually stored: reserved
+      // names and each table's selected vector column, without inventing owners.
+      for(auto&name:indexes){std::string s;lsm::str(s,name);lsm::str(s,{});lsm::u32(s,0);put("X"+lsm::part(name),s);}
+      for(auto&kv:index_cols){std::string s;lsm::str(s,kv.first);lsm::u32(s,kv.second);put("V"+lsm::part(kv.first),s);}
+      std::string o;lsm::u64(o,ordinal);put("O",o);store->flush();vec_cursor=boundary;
+      std::ifstream w(dir+"/wal.log",std::ios::binary);
+      struct OldFrame{uint64_t tx=0;uint16_t kind=0;std::string payload;};
+      auto frame=[&](OldFrame& a){uint32_t m,n,crc;uint16_t flags;if(!w.read((char*)&m,4))return false;if(!rd(w,n)||!rd(w,a.tx)||!rd(w,a.kind)||!rd(w,flags)||!rd(w,crc))return false;if(m!=WAL_MAGIC||n>(1u<<20))throw Err("corruption","legacy WAL header");a.payload.assign(n,0);if(!w.read(a.payload.data(),n))return false;if(crc32c(a.payload.data(),n)!=crc)throw Err("corruption","legacy WAL checksum");size_t pad=(8-(24+n)%8)%8;if(pad&&!w.ignore((std::streamsize)pad))return false;return true;};
+      OldFrame a;std::streampos begin=0;uint64_t active=0;
+      while(frame(a)){
+        if(a.kind==1){active=a.tx;begin=w.tellg();}
+        else if(a.kind==3&&active==a.tx){if(a.tx>legacy_tx){auto end=w.tellg();w.seekg(begin);begin_transaction_import();OldFrame b;
+            while(frame(b)&&b.kind==2){std::vector<std::string>t;if(!decode_tokens(b.payload,t))throw Err("corruption","legacy WAL payload");statement=store->batch();dispatch(t);std::string order;lsm::u64(order,ordinal);statement->put("O",order);tx->absorb(*statement);statement.reset();}
+            if(!w||b.kind!=3||b.tx!=active||vec_cursor>vec_end)throw Err("corruption","legacy WAL transaction");
+            store->commit(*tx,(uint64_t)vec_cursor);tx.reset();in=false;boundary=vec_cursor;w.seekg(end);
+          }active=0;}
+      }
+      store->vector_end=boundary;store->finish_migration();recovering=false;in=false;tx.reset();statement.reset();
+    }
+    void begin_transaction_import(){tx=store->batch();in=true;}
+    J cold_select(Table&q,const std::vector<Cond>&cs,const std::vector<std::string>&proj,bool metric,int mc,const std::vector<float>&qv,size_t dp,const std::string&alias,bool ordered,bool distance_order,int oc,bool desc,uint64_t limit,bool profile){
+      using Clock=std::chrono::steady_clock;auto start=profile?Clock::now():Clock::time_point{};
+      struct Hit {Row row;double d=0;};
+      auto better=[&](const Hit&a,const Hit&b){int c=0;
+        if(!ordered)return a.row.ordinal<b.row.ordinal;
+        if(distance_order)c=(a.d>b.d)-(a.d<b.d);
+        else if(oc==0)c=(a.row.id>b.row.id)-(a.row.id<b.row.id);
+        else if(q.c[oc].t=="BIGINT"){auto x=integer(unq(a.row.v[oc-1])),y=integer(unq(b.row.v[oc-1]));c=(x>y)-(x<y);}
+        else{auto x=unq(a.row.v[oc-1]),y=unq(b.row.v[oc-1]);c=(x>y)-(x<y);}
+        return c?(desc?c>0:c<0):a.row.id<b.row.id;
+      };
+      std::priority_queue<Hit,std::vector<Hit>,decltype(better)> top(better);uint64_t candidates=0,distances=0,updates=0;size_t held=0;
+      if(limit)each_row(q,cs,[&](const Row&r){++candidates;Hit h{r,0};if(metric){h.d=l2(r.voff[mc],q.c[mc].d,qv);++distances;}
+        if(top.size()>=limit&&!better(h,top.top()))return;
+        if(top.size()>=limit){held-=row_payload(q,top.top().row).size()+256;top.pop();}
+        held+=row_payload(q,r).size()+256;
+        if(held>(64u<<20))throw Err("resource_limit","query result exceeds 64 MiB; use LIMIT");top.push(std::move(h));++updates;
+      });
+      double scan_ms=profile?std::chrono::duration<double,std::milli>(Clock::now()-start).count():0;auto phase=profile?Clock::now():Clock::time_point{};
+      std::vector<Hit> hits;hits.reserve(top.size());while(!top.empty()){hits.push_back(top.top());top.pop();}std::reverse(hits.begin(),hits.end());
+      J out=jo(),cols=ja(),rows=ja();for(auto&p:proj)cols.a.push_back(js(p));if(metric)cols.a.insert(cols.a.begin()+dp,js(alias));size_t output_bytes=0;
+      for(auto&h:hits){J a=ja();for(auto&p:proj){int c=ci(q,p);if(!c)a.a.push_back(ji(h.row.id));else if(q.c[c].t=="BIGINT")a.a.push_back(ji(integer(unq(h.row.v[c-1]))));else if(q.c[c].t=="VECTOR"){J ar=ja();auto v=read_vec(h.row.voff[c],q.c[c].d);output_bytes+=v.size()*sizeof(J);if(output_bytes>(64u<<20))throw Err("resource_limit","query result exceeds 64 MiB; use LIMIT");for(float x:v)ar.a.push_back(jd(x));a.a.push_back(std::move(ar));}else{output_bytes+=h.row.v[c-1].size();a.a.push_back(js(unq(h.row.v[c-1])));}}if(metric)a.a.insert(a.a.begin()+dp,jd(std::sqrt(h.d)));rows.a.push_back(std::move(a));}
+      out.o["columns"]=std::move(cols);out.o["rows"]=std::move(rows);J mt=jo();mt.o["planner_path"]=js("exact_scan");mt.o["storage_path"]=js("lsm");mt.o["exact_path"]=js(metric?"scan":"generic");if(ann_mode)mt.o["ann_fallback"]=jb(true);
+      mt.o["candidate_count"]=ji(candidates);mt.o["filtered_candidates"]=ji(candidates);mt.o["raw_candidates"]=ji(candidates);mt.o["exact_evaluations"]=ji(distances);mt.o["full_distance_evaluations"]=ji(distances);mt.o["distance_dimensions"]=ji(metric?distances*q.c[mc].d:0);mt.o["heap_updates"]=ji(updates);
+      for(auto k:{"probed_lists","distance_pruned","blocks_considered","blocks_pruned","block_pruned_candidates"})mt.o[k]=ji(0);
+      if(profile){J times=jo();for(auto k:{"prepare","matrix","block_build","bounds","block_sort","vector_distance","topk"})times.o[k]=jd(0);times.o["scan_total"]=jd(scan_ms);times.o["result"]=jd(std::chrono::duration<double,std::milli>(Clock::now()-phase).count());times.o["select_total"]=jd(std::chrono::duration<double,std::milli>(Clock::now()-start).count());mt.o["profile_ms"]=std::move(times);}out.o["metrics"]=std::move(mt);return out;
     }
     std::vector<float> query_vec(const std::vector<std::string>&t)const{
       for(auto&x:t)if(x.find("[")!=std::string::npos)return vec(x);
@@ -1924,7 +1052,7 @@ namespace lite {
           break;
         }
       }
-      if(metric&&q.fast.size()!=q.order.size())refresh_fast(q);
+
       if(proj.size()==1&&proj[0]=="*"){
         proj.clear();
         for(auto&c:q.c)proj.push_back(c.n);
@@ -1938,6 +1066,8 @@ namespace lite {
         qv=query_vec(t);
         if(mcol<=0||mcol>=(int)q.c.size()||(int)qv.size()!=q.c[mcol].d)throw Err("dimension_mismatch","query");
       }
+      if(!ensure_hot(q))return cold_select(q,cs,proj,metric,mcol,qv,distance_projection,alias,oi<t.size(),distance_order,order_col,oi+3<t.size()&&up(t[oi+3])=="DESC",li<t.size()?std::stoull(t[li+1]):UINT64_MAX,profile);
+      if(metric&&q.fast.size()!=q.order.size())refresh_fast(q);
       struct H{
         long long id;
         double d;
@@ -2208,6 +1338,7 @@ int main(int argc,char**argv){
   try{
     lite::Engine e(d);
     if(check){
+      e.store->verify();
       std::cout<<"{\"ok\":true,\"tables\":"<<e.tabs.size()<<"}\n";
       return 0;
     }
@@ -2266,4 +1397,5 @@ int main(int argc,char**argv){
     std::cerr<<x.what()<<"\n";
     return 1;
   }
+  return 0;
 }
