@@ -1,0 +1,12 @@
+{
+  "production_source_sha256": "ff96de563e09399ce67e8d24990355b19bb46a7b4ff2b72338119ad8f3c66312",
+  "production_lsm_sha256": "f87edd798afffb069e0a6b5dbcfac940cd46e12b259bf77ee2437884a07710b7",
+  "diagnostic_source_sha256": "9a8d4569aba85510c449ed8cf85aba35b91457bb1ab3fa5874400c29fecdc0d5",
+  "caveats": [
+    "Diagnostic timings include instrumentation overhead.",
+    "io_* bytes count successful write/pwrite return values; they are application bytes, not device I/O.",
+    "io_* timing includes wrappers and nested logical counters; do not sum inclusive stages.",
+    "insert_inclusive includes vector_parse and any buffered writes; do not sum nested stages.",
+    "copy logical_bytes excludes map-node allocation, spare capacity and allocator overhead."
+  ]
+}

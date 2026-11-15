@@ -1,0 +1,1 @@
+Logs and disassembly are compressed without changing their bytes. raw-log-sha256.json records the SHA256 of decompressed content. SHA256.json covers the files committed here. git-inputs.json records the exact staged build/test sources used for the verified Docker image. Timed and instrumented runs are separate.

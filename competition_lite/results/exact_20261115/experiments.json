@@ -1,0 +1,112 @@
+[
+  {
+    "name": "gate",
+    "returncode": 0,
+    "seconds": 94.60975710395724
+  },
+  {
+    "name": "paired",
+    "returncode": 0,
+    "seconds": 78.57272650394589
+  },
+  {
+    "name": "selectivity",
+    "returncode": 0,
+    "seconds": 20.166704796953127
+  },
+  {
+    "name": "query-profile-current",
+    "returncode": 0,
+    "seconds": 1.6186927021481097
+  },
+  {
+    "name": "query-profile-baseline",
+    "returncode": 0,
+    "seconds": 1.6682913259137422
+  },
+  {
+    "name": "diagnostic-generate-current",
+    "returncode": 0,
+    "seconds": 0.06437167897820473
+  },
+  {
+    "name": "diagnostic-build-current",
+    "returncode": 0,
+    "seconds": 14.098659362876788
+  },
+  {
+    "name": "profile-current",
+    "returncode": 0,
+    "seconds": 2.3699960140511394
+  },
+  {
+    "name": "diagnostic-generate-baseline",
+    "returncode": 0,
+    "seconds": 0.06436394504271448
+  },
+  {
+    "name": "diagnostic-build-baseline",
+    "returncode": 0,
+    "seconds": 13.551315761171281
+  },
+  {
+    "name": "profile-baseline",
+    "returncode": 0,
+    "seconds": 2.9224355751648545
+  },
+  {
+    "name": "capacity",
+    "returncode": 0,
+    "seconds": 22.73342570802197
+  },
+  {
+    "name": "migration-state",
+    "returncode": 0,
+    "seconds": 1.3691940440330654
+  },
+  {
+    "name": "migration-lsm3",
+    "returncode": 0,
+    "seconds": 1.3686156459152699
+  },
+  {
+    "name": "sanitizer-build",
+    "returncode": 0,
+    "seconds": 61.75174437183887
+  },
+  {
+    "name": "sanitizer-model",
+    "returncode": 0,
+    "seconds": 5.934398858807981
+  },
+  {
+    "name": "sanitizer-exact",
+    "returncode": 0,
+    "seconds": 11.451568230986595
+  },
+  {
+    "name": "sanitizer-kernel-paths",
+    "returncode": 0,
+    "seconds": 12.755796808050945
+  },
+  {
+    "name": "sanitizer-kernel-build",
+    "returncode": 0,
+    "seconds": 63.4104060230311
+  },
+  {
+    "name": "sanitizer-kernel",
+    "returncode": 0,
+    "seconds": 1.1674097669310868
+  },
+  {
+    "name": "sanitizer-wal-build",
+    "returncode": 0,
+    "seconds": 64.46871015313081
+  },
+  {
+    "name": "sanitizer-wal",
+    "returncode": 0,
+    "seconds": 10.549797984072939
+  }
+]

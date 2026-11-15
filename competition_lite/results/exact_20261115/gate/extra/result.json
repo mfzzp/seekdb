@@ -1,0 +1,79 @@
+{
+  "scope": "public-protocol-check",
+  "passed": true,
+  "cases": [
+    {
+      "id": "extra_range_and",
+      "status": "PASS",
+      "message": "",
+      "duration_ms": 373
+    },
+    {
+      "id": "extra_restart_index",
+      "status": "PASS",
+      "message": "",
+      "duration_ms": 674
+    },
+    {
+      "id": "extra_transaction_failure",
+      "status": "PASS",
+      "message": "",
+      "duration_ms": 375
+    },
+    {
+      "id": "extra_limit_edge",
+      "status": "PASS",
+      "message": "",
+      "duration_ms": 347
+    },
+    {
+      "id": "extra_unicode_values",
+      "status": "PASS",
+      "message": "",
+      "duration_ms": 374
+    },
+    {
+      "id": "extra_ann_modes",
+      "status": "PASS",
+      "message": "",
+      "duration_ms": 357
+    },
+    {
+      "id": "extra_row_order",
+      "status": "PASS",
+      "message": "",
+      "duration_ms": 378
+    },
+    {
+      "id": "extra_multi_table_restart",
+      "status": "PASS",
+      "message": "",
+      "duration_ms": 701
+    },
+    {
+      "id": "extra_transaction_delete_all",
+      "status": "PASS",
+      "message": "",
+      "duration_ms": 372
+    },
+    {
+      "id": "extra_vector_mutation_paths",
+      "status": "PASS",
+      "message": "",
+      "duration_ms": 373
+    },
+    {
+      "id": "extra_batch_atomic",
+      "status": "PASS",
+      "message": "",
+      "duration_ms": 366
+    },
+    {
+      "id": "extra_update_rollback_restart",
+      "status": "PASS",
+      "message": "",
+      "duration_ms": 668
+    }
+  ],
+  "note": "Local diagnostic only; no performance/Agent scores or platform callbacks."
+}

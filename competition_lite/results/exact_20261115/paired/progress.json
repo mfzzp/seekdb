@@ -1,0 +1,122 @@
+[
+  {
+    "variant": "baseline-899",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/baseline-899-r1.json",
+    "engine_env": []
+  },
+  {
+    "variant": "old-f885",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/old-f885-r1.json",
+    "engine_env": []
+  },
+  {
+    "variant": "wal-323",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/wal-323-r1.json",
+    "engine_env": []
+  },
+  {
+    "variant": "exact",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/exact-r1.json",
+    "engine_env": []
+  },
+  {
+    "variant": "old-f885",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/old-f885-r2.json",
+    "engine_env": []
+  },
+  {
+    "variant": "wal-323",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/wal-323-r2.json",
+    "engine_env": []
+  },
+  {
+    "variant": "exact",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/exact-r2.json",
+    "engine_env": []
+  },
+  {
+    "variant": "baseline-899",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/baseline-899-r2.json",
+    "engine_env": []
+  },
+  {
+    "variant": "wal-323",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/wal-323-r3.json",
+    "engine_env": []
+  },
+  {
+    "variant": "exact",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/exact-r3.json",
+    "engine_env": []
+  },
+  {
+    "variant": "baseline-899",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/baseline-899-r3.json",
+    "engine_env": []
+  },
+  {
+    "variant": "old-f885",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/old-f885-r3.json",
+    "engine_env": []
+  },
+  {
+    "variant": "exact",
+    "round": 4,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/exact-r4.json",
+    "engine_env": []
+  },
+  {
+    "variant": "baseline-899",
+    "round": 4,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/baseline-899-r4.json",
+    "engine_env": []
+  },
+  {
+    "variant": "old-f885",
+    "round": 4,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/old-f885-r4.json",
+    "engine_env": []
+  },
+  {
+    "variant": "wal-323",
+    "round": 4,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/wal-323-r4.json",
+    "engine_env": []
+  },
+  {
+    "variant": "baseline-899",
+    "round": 5,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/baseline-899-r5.json",
+    "engine_env": []
+  },
+  {
+    "variant": "old-f885",
+    "round": 5,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/old-f885-r5.json",
+    "engine_env": []
+  },
+  {
+    "variant": "wal-323",
+    "round": 5,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/wal-323-r5.json",
+    "engine_env": []
+  },
+  {
+    "variant": "exact",
+    "round": 5,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/exact-r5.json",
+    "engine_env": []
+  }
+]

@@ -1,0 +1,47 @@
+[
+  {
+    "name": "build-runtime",
+    "returncode": 0,
+    "seconds": 13.351344302063808
+  },
+  {
+    "name": "build-kernel-check",
+    "returncode": 0,
+    "seconds": 13.651793689932674
+  },
+  {
+    "name": "kernel",
+    "returncode": 0,
+    "seconds": 0.4651353571098298
+  },
+  {
+    "name": "exact-pair",
+    "returncode": 0,
+    "seconds": 5.579364934936166
+  },
+  {
+    "name": "exact-quad",
+    "returncode": 0,
+    "seconds": 5.629085999913514
+  },
+  {
+    "name": "exact-early",
+    "returncode": 0,
+    "seconds": 5.679571540793404
+  },
+  {
+    "name": "exact-avx2",
+    "returncode": 0,
+    "seconds": 5.6795218382030725
+  },
+  {
+    "name": "exact-early-avx2",
+    "returncode": 0,
+    "seconds": 5.679646949982271
+  },
+  {
+    "name": "paired",
+    "returncode": 0,
+    "seconds": 79.6576189592015
+  }
+]

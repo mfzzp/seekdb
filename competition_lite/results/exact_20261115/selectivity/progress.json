@@ -1,0 +1,38 @@
+[
+  {
+    "variant": "wal-323",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/selectivity/wal-323-r1.json",
+    "engine_env": []
+  },
+  {
+    "variant": "exact",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/selectivity/exact-r1.json",
+    "engine_env": []
+  },
+  {
+    "variant": "exact",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/selectivity/exact-r2.json",
+    "engine_env": []
+  },
+  {
+    "variant": "wal-323",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/selectivity/wal-323-r2.json",
+    "engine_env": []
+  },
+  {
+    "variant": "wal-323",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/selectivity/wal-323-r3.json",
+    "engine_env": []
+  },
+  {
+    "variant": "exact",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/selectivity/exact-r3.json",
+    "engine_env": []
+  }
+]

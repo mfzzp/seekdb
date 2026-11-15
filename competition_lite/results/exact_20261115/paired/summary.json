@@ -1,0 +1,351 @@
+{
+  "runs": [
+    {
+      "variant": "baseline-899",
+      "round": 1,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/baseline-899-r1.json",
+      "engine_env": []
+    },
+    {
+      "variant": "old-f885",
+      "round": 1,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/old-f885-r1.json",
+      "engine_env": []
+    },
+    {
+      "variant": "wal-323",
+      "round": 1,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/wal-323-r1.json",
+      "engine_env": []
+    },
+    {
+      "variant": "exact",
+      "round": 1,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/exact-r1.json",
+      "engine_env": []
+    },
+    {
+      "variant": "old-f885",
+      "round": 2,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/old-f885-r2.json",
+      "engine_env": []
+    },
+    {
+      "variant": "wal-323",
+      "round": 2,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/wal-323-r2.json",
+      "engine_env": []
+    },
+    {
+      "variant": "exact",
+      "round": 2,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/exact-r2.json",
+      "engine_env": []
+    },
+    {
+      "variant": "baseline-899",
+      "round": 2,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/baseline-899-r2.json",
+      "engine_env": []
+    },
+    {
+      "variant": "wal-323",
+      "round": 3,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/wal-323-r3.json",
+      "engine_env": []
+    },
+    {
+      "variant": "exact",
+      "round": 3,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/exact-r3.json",
+      "engine_env": []
+    },
+    {
+      "variant": "baseline-899",
+      "round": 3,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/baseline-899-r3.json",
+      "engine_env": []
+    },
+    {
+      "variant": "old-f885",
+      "round": 3,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/old-f885-r3.json",
+      "engine_env": []
+    },
+    {
+      "variant": "exact",
+      "round": 4,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/exact-r4.json",
+      "engine_env": []
+    },
+    {
+      "variant": "baseline-899",
+      "round": 4,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/baseline-899-r4.json",
+      "engine_env": []
+    },
+    {
+      "variant": "old-f885",
+      "round": 4,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/old-f885-r4.json",
+      "engine_env": []
+    },
+    {
+      "variant": "wal-323",
+      "round": 4,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/wal-323-r4.json",
+      "engine_env": []
+    },
+    {
+      "variant": "baseline-899",
+      "round": 5,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/baseline-899-r5.json",
+      "engine_env": []
+    },
+    {
+      "variant": "old-f885",
+      "round": 5,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/old-f885-r5.json",
+      "engine_env": []
+    },
+    {
+      "variant": "wal-323",
+      "round": 5,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/wal-323-r5.json",
+      "engine_env": []
+    },
+    {
+      "variant": "exact",
+      "round": 5,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-release/paired/exact-r5.json",
+      "engine_env": []
+    }
+  ],
+  "summary_medians": {
+    "baseline-899": {
+      "insert_wall_s": 0.9227262858767062,
+      "insert_request_s": 0.888329012086615,
+      "index_s": 0.0030989600345492363,
+      "warmup_s": 0.028170655947178602,
+      "query_wall_s": 0.3814909008797258,
+      "checkpoint_s": 0.03819350781850517,
+      "final_file_bytes": 7071529,
+      "exact_mean_ms": 0.3294455867726356,
+      "filters_mean_ms": {
+        "category": 0.203766749240458,
+        "none": 0.46246817940846086
+      },
+      "peak_bytes": 26443776,
+      "ranges": {
+        "insert_wall_s": [
+          0.921638848958537,
+          0.9305165850091726
+        ],
+        "query_wall_s": [
+          0.35639602108858526,
+          0.40612799511291087
+        ],
+        "index_s": [
+          0.0030669497791677713,
+          0.0034597928170114756
+        ]
+      },
+      "filters": {
+        "category": {
+          "n": 500,
+          "request_total_s": 0.101883374620229,
+          "qps": 4907.572033845105,
+          "mean_ms": 0.203766749240458,
+          "p50_ms": 0.19609194714576006,
+          "p95_ms": 0.22098002955317497,
+          "filtered_candidates_mean": 500,
+          "full_distance_evaluations_mean": 500,
+          "distance_dimensions_mean": 64000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "none": {
+          "n": 500,
+          "request_total_s": 0.23123408970423043,
+          "qps": 2162.3109319198816,
+          "mean_ms": 0.46246817940846086,
+          "p50_ms": 0.4524375544860959,
+          "p95_ms": 0.5115868989378214,
+          "filtered_candidates_mean": 10000,
+          "full_distance_evaluations_mean": 10000,
+          "distance_dimensions_mean": 1280000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        }
+      }
+    },
+    "old-f885": {
+      "insert_wall_s": 0.7663165801204741,
+      "insert_request_s": 0.7381259696558118,
+      "index_s": 0.00229645986109972,
+      "warmup_s": 0.015844550216570497,
+      "query_wall_s": 0.4309035469777882,
+      "checkpoint_s": 0.030401024036109447,
+      "final_file_bytes": 11054085,
+      "exact_mean_ms": 0.37968018907122314,
+      "filters_mean_ms": {
+        "category": 0.23040572321042418,
+        "none": 0.5309690395370126
+      },
+      "peak_bytes": 32931840,
+      "ranges": {
+        "insert_wall_s": [
+          0.7443596259690821,
+          0.7764557399787009
+        ],
+        "query_wall_s": [
+          0.4122586559969932,
+          0.4562856429256499
+        ],
+        "index_s": [
+          0.0022302470169961452,
+          0.002396930009126663
+        ]
+      },
+      "filters": {
+        "category": {
+          "n": 500,
+          "request_total_s": 0.11520286160521209,
+          "qps": 4340.16996655384,
+          "mean_ms": 0.23040572321042418,
+          "p50_ms": 0.2229548990726471,
+          "p95_ms": 0.2633640542626381,
+          "recall": 1.0
+        },
+        "none": {
+          "n": 500,
+          "request_total_s": 0.2654845197685063,
+          "qps": 1883.3489818388787,
+          "mean_ms": 0.5309690395370126,
+          "p50_ms": 0.5199935985729098,
+          "p95_ms": 0.6015200633555651,
+          "recall": 1.0
+        }
+      }
+    },
+    "wal-323": {
+      "insert_wall_s": 0.6296988329850137,
+      "insert_request_s": 0.6077342880889773,
+      "index_s": 0.0027917418628931046,
+      "warmup_s": 0.028145903954282403,
+      "query_wall_s": 0.3648046900052577,
+      "checkpoint_s": 0.03967752703465521,
+      "final_file_bytes": 7071529,
+      "exact_mean_ms": 0.31742357672192156,
+      "filters_mean_ms": {
+        "category": 0.19822716433554888,
+        "none": 0.43661998910829425
+      },
+      "peak_bytes": 24563712,
+      "ranges": {
+        "insert_wall_s": [
+          0.624497507000342,
+          0.6412587380036712
+        ],
+        "query_wall_s": [
+          0.3521755621768534,
+          0.371020836988464
+        ],
+        "index_s": [
+          0.002703217091038823,
+          0.0029673869721591473
+        ]
+      },
+      "filters": {
+        "category": {
+          "n": 500,
+          "request_total_s": 0.09911358216777444,
+          "qps": 5044.717273497647,
+          "mean_ms": 0.19822716433554888,
+          "p50_ms": 0.1885824603959918,
+          "p95_ms": 0.21192897111177444,
+          "filtered_candidates_mean": 500,
+          "full_distance_evaluations_mean": 500,
+          "distance_dimensions_mean": 64000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "none": {
+          "n": 500,
+          "request_total_s": 0.21830999455414712,
+          "qps": 2290.321160151858,
+          "mean_ms": 0.43661998910829425,
+          "p50_ms": 0.42821699753403664,
+          "p95_ms": 0.4812469705939293,
+          "filtered_candidates_mean": 10000,
+          "full_distance_evaluations_mean": 10000,
+          "distance_dimensions_mean": 1280000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        }
+      }
+    },
+    "exact": {
+      "insert_wall_s": 0.6307218309957534,
+      "insert_request_s": 0.6078771078027785,
+      "index_s": 0.0028454200364649296,
+      "warmup_s": 0.02740535419434309,
+      "query_wall_s": 0.32242303900420666,
+      "checkpoint_s": 0.03801517095416784,
+      "final_file_bytes": 7071529,
+      "exact_mean_ms": 0.27301589539274573,
+      "filters_mean_ms": {
+        "category": 0.1893706824630499,
+        "none": 0.35829774057492614
+      },
+      "peak_bytes": 22986752,
+      "ranges": {
+        "insert_wall_s": [
+          0.6273290300741792,
+          0.6356380691286176
+        ],
+        "query_wall_s": [
+          0.3145516309887171,
+          0.3286598839331418
+        ],
+        "index_s": [
+          0.002812890103086829,
+          0.0031531178392469883
+        ]
+      },
+      "filters": {
+        "category": {
+          "n": 500,
+          "request_total_s": 0.09468534123152494,
+          "qps": 5280.648445649028,
+          "mean_ms": 0.1893706824630499,
+          "p50_ms": 0.18097145948559046,
+          "p95_ms": 0.2045168075710535,
+          "filtered_candidates_mean": 500,
+          "full_distance_evaluations_mean": 500,
+          "distance_dimensions_mean": 64000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "none": {
+          "n": 500,
+          "request_total_s": 0.17914887028746307,
+          "qps": 2790.9748981263338,
+          "mean_ms": 0.35829774057492614,
+          "p50_ms": 0.3518216544762254,
+          "p95_ms": 0.39565679617226124,
+          "filtered_candidates_mean": 10000,
+          "full_distance_evaluations_mean": 10000,
+          "distance_dimensions_mean": 1280000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        }
+      }
+    }
+  },
+  "caveats": [
+    "Local synthetic workload, not the official scorer.",
+    "Timing includes JSONL transport and response decoding; query_wall_s also includes driver SQL generation.",
+    "Memory includes the container and page cache; unavailable io.stat is not zero I/O."
+  ]
+}

@@ -1,0 +1,122 @@
+[
+  {
+    "id": "sql_crud",
+    "status": "PASS",
+    "message": "",
+    "duration_ms": 387
+  },
+  {
+    "id": "sql_comparisons",
+    "status": "PASS",
+    "message": "",
+    "duration_ms": 370
+  },
+  {
+    "id": "sql_ordering",
+    "status": "PASS",
+    "message": "",
+    "duration_ms": 369
+  },
+  {
+    "id": "sql_empty",
+    "status": "PASS",
+    "message": "",
+    "duration_ms": 371
+  },
+  {
+    "id": "sql_primary_key",
+    "status": "PASS",
+    "message": "",
+    "duration_ms": 364
+  },
+  {
+    "id": "sql_unicode",
+    "status": "PASS",
+    "message": "",
+    "duration_ms": 357
+  },
+  {
+    "id": "sql_bigint",
+    "status": "PASS",
+    "message": "",
+    "duration_ms": 374
+  },
+  {
+    "id": "sql_unsupported",
+    "status": "PASS",
+    "message": "",
+    "duration_ms": 361
+  },
+  {
+    "id": "storage_restart",
+    "status": "PASS",
+    "message": "",
+    "duration_ms": 670
+  },
+  {
+    "id": "vector_euclidean",
+    "status": "PASS",
+    "message": "",
+    "duration_ms": 372
+  },
+  {
+    "id": "transaction_commit",
+    "status": "PASS",
+    "message": "",
+    "duration_ms": 372
+  },
+  {
+    "id": "transaction_rollback",
+    "status": "PASS",
+    "message": "",
+    "duration_ms": 368
+  },
+  {
+    "id": "storage_mutations",
+    "status": "PASS",
+    "message": "",
+    "duration_ms": 679
+  },
+  {
+    "id": "storage_multiple_tables",
+    "status": "PASS",
+    "message": "",
+    "duration_ms": 686
+  },
+  {
+    "id": "vector_ties_and_filter",
+    "status": "PASS",
+    "message": "",
+    "duration_ms": 354
+  },
+  {
+    "id": "vector_float32",
+    "status": "PASS",
+    "message": "",
+    "duration_ms": 379
+  },
+  {
+    "id": "vector_index_maintenance",
+    "status": "PASS",
+    "message": "",
+    "duration_ms": 681
+  },
+  {
+    "id": "transaction_failed_insert",
+    "status": "PASS",
+    "message": "",
+    "duration_ms": 671
+  },
+  {
+    "id": "transaction_autocommit_atomic",
+    "status": "PASS",
+    "message": "",
+    "duration_ms": 654
+  },
+  {
+    "id": "transaction_shutdown_rollback",
+    "status": "PASS",
+    "message": "",
+    "duration_ms": 713
+  }
+]

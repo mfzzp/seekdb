@@ -344,7 +344,8 @@ namespace lite {
   static const uint32_t WAL_MAGIC=0x4d564c32u;
   #if defined(__x86_64__) || defined(__i386__)
   #if defined(__GNUC__) || defined(__clang__)
-  __attribute__((target("avx2"))) static double l2_avx2(const float*a,const float*b,int d){
+  template<bool Early=false> __attribute__((target("avx2"),always_inline)) static inline double l2_avx2_core(const float*a,const float*b,int d,double lim=0,int*used=nullptr){
+    if constexpr(Early)*used=d;
     __m256d s0=_mm256_setzero_pd(),s1=s0,s2=s0,s3=s0;
     int i=0;
     for(;i+16<=d;i+=16){
@@ -356,6 +357,11 @@ namespace lite {
       s2=_mm256_add_pd(s2,_mm256_mul_pd(x,x));
       x=_mm256_sub_pd(_mm256_cvtps_pd(_mm_loadu_ps(a+i+12)),_mm256_cvtps_pd(_mm_loadu_ps(b+i+12)));
       s3=_mm256_add_pd(s3,_mm256_mul_pd(x,x));
+      if constexpr(Early)if((i+16)%64==0&&i+16<d){
+        alignas(32) double z[4];_mm256_store_pd(z,_mm256_add_pd(_mm256_add_pd(s0,s1),_mm256_add_pd(s2,s3)));
+        double partial=0;for(double value:z)partial+=value;
+        if(partial>lim){*used=i+16;return partial;}
+      }
     }
     s0=_mm256_add_pd(s0,s1);s2=_mm256_add_pd(s2,s3);s0=_mm256_add_pd(s0,s2);
     for(;i+4<=d;i+=4){
@@ -365,7 +371,8 @@ namespace lite {
     alignas(32) double z[4];_mm256_store_pd(z,s0);double s=0;for(double x:z)s+=x;
     for(;i<d;++i){double x=double(a[i])-double(b[i]);s+=x*x;}return s;
   }
-  __attribute__((target("avx512f"))) static double l2_avx512(const float*a,const float*b,int d){
+  template<bool Early=false> __attribute__((target("avx512f"),always_inline)) static inline double l2_avx512_core(const float*a,const float*b,int d,double lim=0,int*used=nullptr){
+    if constexpr(Early)*used=d;
     __m512d s0=_mm512_setzero_pd(),s1=s0,s2=s0,s3=s0;
     int i=0;
     for(;i+32<=d;i+=32){
@@ -377,6 +384,11 @@ namespace lite {
       s2=_mm512_add_pd(s2,_mm512_mul_pd(x,x));
       x=_mm512_sub_pd(_mm512_cvtps_pd(_mm256_loadu_ps(a+i+24)),_mm512_cvtps_pd(_mm256_loadu_ps(b+i+24)));
       s3=_mm512_add_pd(s3,_mm512_mul_pd(x,x));
+      if constexpr(Early)if((i+32)%64==0&&i+32<d){
+        alignas(64) double z[8];_mm512_store_pd(z,_mm512_add_pd(_mm512_add_pd(s0,s1),_mm512_add_pd(s2,s3)));
+        double partial=0;for(double value:z)partial+=value;
+        if(partial>lim){*used=i+32;return partial;}
+      }
     }
     s0=_mm512_add_pd(s0,s1);s2=_mm512_add_pd(s2,s3);s0=_mm512_add_pd(s0,s2);
     for(;i+8<=d;i+=8){
@@ -386,12 +398,101 @@ namespace lite {
     alignas(64) double z[8];_mm512_store_pd(z,s0);double s=0;for(double x:z)s+=x;
     for(;i<d;++i){double x=double(a[i])-double(b[i]);s+=x*x;}return s;
   }
+  template<bool Early=false> __attribute__((target("avx2"))) static double l2_avx2(const float*a,const float*b,int d,double lim=0,int*used=nullptr){return l2_avx2_core<Early>(a,b,d,lim,used);}
+  template<bool Early=false> __attribute__((target("avx512f"))) static double l2_avx512(const float*a,const float*b,int d,double lim=0,int*used=nullptr){return l2_avx512_core<Early>(a,b,d,lim,used);}
+  template<int N> __attribute__((target("avx2"))) static void l2_avx2_many(const float*const*a,const float*b,int d,double*out){
+    __m256d s0[N],s1[N],s2[N],s3[N];
+    #pragma GCC unroll 4
+    for(int k=0;k<N;++k)s0[k]=s1[k]=s2[k]=s3[k]=_mm256_setzero_pd();
+    int i=0;
+    for(;i+16<=d;i+=16){
+      __m256d q0=_mm256_cvtps_pd(_mm_loadu_ps(b+i));
+    #pragma GCC unroll 4
+      for(int k=0;k<N;++k){__m256d x=_mm256_sub_pd(_mm256_cvtps_pd(_mm_loadu_ps(a[k]+i)),q0);s0[k]=_mm256_add_pd(s0[k],_mm256_mul_pd(x,x));}
+      __m256d q1=_mm256_cvtps_pd(_mm_loadu_ps(b+i+4));
+    #pragma GCC unroll 4
+      for(int k=0;k<N;++k){__m256d x=_mm256_sub_pd(_mm256_cvtps_pd(_mm_loadu_ps(a[k]+i+4)),q1);s1[k]=_mm256_add_pd(s1[k],_mm256_mul_pd(x,x));}
+      __m256d q2=_mm256_cvtps_pd(_mm_loadu_ps(b+i+8));
+    #pragma GCC unroll 4
+      for(int k=0;k<N;++k){__m256d x=_mm256_sub_pd(_mm256_cvtps_pd(_mm_loadu_ps(a[k]+i+8)),q2);s2[k]=_mm256_add_pd(s2[k],_mm256_mul_pd(x,x));}
+      __m256d q3=_mm256_cvtps_pd(_mm_loadu_ps(b+i+12));
+    #pragma GCC unroll 4
+      for(int k=0;k<N;++k){__m256d x=_mm256_sub_pd(_mm256_cvtps_pd(_mm_loadu_ps(a[k]+i+12)),q3);s3[k]=_mm256_add_pd(s3[k],_mm256_mul_pd(x,x));}
+    }
+    #pragma GCC unroll 4
+    for(int k=0;k<N;++k)s0[k]=_mm256_add_pd(_mm256_add_pd(s0[k],s1[k]),_mm256_add_pd(s2[k],s3[k]));
+    for(;i+4<=d;i+=4){
+      __m256d q=_mm256_cvtps_pd(_mm_loadu_ps(b+i));
+    #pragma GCC unroll 4
+      for(int k=0;k<N;++k){__m256d x=_mm256_sub_pd(_mm256_cvtps_pd(_mm_loadu_ps(a[k]+i)),q);s0[k]=_mm256_add_pd(s0[k],_mm256_mul_pd(x,x));}
+    }
+    #pragma GCC unroll 4
+    for(int k=0;k<N;++k){
+      alignas(32) double z[4];_mm256_store_pd(z,s0[k]);double s=0;for(double x:z)s+=x;
+      for(int j=i;j<d;++j){double x=double(a[k][j])-double(b[j]);s+=x*x;}out[k]=s;
+    }
+  }
+  template<int N> __attribute__((target("avx512f"))) static void l2_avx512_many(const float*const*a,const float*b,int d,double*out){
+    __m512d s0[N],s1[N],s2[N],s3[N];
+    #pragma GCC unroll 4
+    for(int k=0;k<N;++k)s0[k]=s1[k]=s2[k]=s3[k]=_mm512_setzero_pd();
+    int i=0;
+    for(;i+32<=d;i+=32){
+      __m512d q0=_mm512_cvtps_pd(_mm256_loadu_ps(b+i));
+    #pragma GCC unroll 4
+      for(int k=0;k<N;++k){__m512d x=_mm512_sub_pd(_mm512_cvtps_pd(_mm256_loadu_ps(a[k]+i)),q0);s0[k]=_mm512_add_pd(s0[k],_mm512_mul_pd(x,x));}
+      __m512d q1=_mm512_cvtps_pd(_mm256_loadu_ps(b+i+8));
+    #pragma GCC unroll 4
+      for(int k=0;k<N;++k){__m512d x=_mm512_sub_pd(_mm512_cvtps_pd(_mm256_loadu_ps(a[k]+i+8)),q1);s1[k]=_mm512_add_pd(s1[k],_mm512_mul_pd(x,x));}
+      __m512d q2=_mm512_cvtps_pd(_mm256_loadu_ps(b+i+16));
+    #pragma GCC unroll 4
+      for(int k=0;k<N;++k){__m512d x=_mm512_sub_pd(_mm512_cvtps_pd(_mm256_loadu_ps(a[k]+i+16)),q2);s2[k]=_mm512_add_pd(s2[k],_mm512_mul_pd(x,x));}
+      __m512d q3=_mm512_cvtps_pd(_mm256_loadu_ps(b+i+24));
+    #pragma GCC unroll 4
+      for(int k=0;k<N;++k){__m512d x=_mm512_sub_pd(_mm512_cvtps_pd(_mm256_loadu_ps(a[k]+i+24)),q3);s3[k]=_mm512_add_pd(s3[k],_mm512_mul_pd(x,x));}
+    }
+    #pragma GCC unroll 4
+    for(int k=0;k<N;++k)s0[k]=_mm512_add_pd(_mm512_add_pd(s0[k],s1[k]),_mm512_add_pd(s2[k],s3[k]));
+    for(;i+8<=d;i+=8){
+      __m512d q=_mm512_cvtps_pd(_mm256_loadu_ps(b+i));
+    #pragma GCC unroll 4
+      for(int k=0;k<N;++k){__m512d x=_mm512_sub_pd(_mm512_cvtps_pd(_mm256_loadu_ps(a[k]+i)),q);s0[k]=_mm512_add_pd(s0[k],_mm512_mul_pd(x,x));}
+    }
+    #pragma GCC unroll 4
+    for(int k=0;k<N;++k){
+      alignas(64) double z[8];_mm512_store_pd(z,s0[k]);double s=0;for(double x:z)s+=x;
+      for(int j=i;j<d;++j){double x=double(a[k][j])-double(b[j]);s+=x*x;}out[k]=s;
+    }
+  }
+  __attribute__((target("avx2"))) static void l2_avx2_scan(const float*a,const float*b,int d,size_t n,double*out){
+    for(size_t i=0;i<n;++i)out[i]=l2_avx2_core(a+i*(size_t)d,b,d);
+  }
+  __attribute__((target("avx512f"))) static void l2_avx512_scan(const float*a,const float*b,int d,size_t n,double*out){
+    for(size_t i=0;i<n;++i)out[i]=l2_avx512_core(a+i*(size_t)d,b,d);
+  }
+  __attribute__((target("avx512f"))) static void l2_avx512_query128(const float*a,const float*b,int,size_t n,double*out){
+    __m512d query[16];
+    #pragma GCC unroll 16
+    for(int j=0;j<16;++j)query[j]=_mm512_cvtps_pd(_mm256_loadu_ps(b+j*8));
+    for(size_t i=0;i<n;++i){
+      const float*p=a+i*128;__m512d s0=_mm512_setzero_pd(),s1=s0,s2=s0,s3=s0;
+      #pragma GCC unroll 4
+      for(int j=0;j<16;j+=4){
+        __m512d x0=_mm512_sub_pd(_mm512_cvtps_pd(_mm256_loadu_ps(p+(j+0)*8)),query[j+0]);s0=_mm512_add_pd(s0,_mm512_mul_pd(x0,x0));
+        __m512d x1=_mm512_sub_pd(_mm512_cvtps_pd(_mm256_loadu_ps(p+(j+1)*8)),query[j+1]);s1=_mm512_add_pd(s1,_mm512_mul_pd(x1,x1));
+        __m512d x2=_mm512_sub_pd(_mm512_cvtps_pd(_mm256_loadu_ps(p+(j+2)*8)),query[j+2]);s2=_mm512_add_pd(s2,_mm512_mul_pd(x2,x2));
+        __m512d x3=_mm512_sub_pd(_mm512_cvtps_pd(_mm256_loadu_ps(p+(j+3)*8)),query[j+3]);s3=_mm512_add_pd(s3,_mm512_mul_pd(x3,x3));
+      }
+      alignas(64) double z[8];_mm512_store_pd(z,_mm512_add_pd(_mm512_add_pd(s0,s1),_mm512_add_pd(s2,s3)));
+      double s=0;for(double x:z)s+=x;out[i]=s;
+    }
+  }
   static bool has_avx2(){
-    static const bool v=__builtin_cpu_supports("avx2");
+    static const bool v=__builtin_cpu_supports("avx2")&&(!std::getenv("LITE_SIMD")||std::string(std::getenv("LITE_SIMD"))!="scalar");
     return v;
   }
   static bool has_avx512(){
-    static const bool v=__builtin_cpu_supports("avx512f");
+    static const bool v=__builtin_cpu_supports("avx512f")&&(!std::getenv("LITE_SIMD")||std::string(std::getenv("LITE_SIMD"))=="auto");
     return v;
   }
   #else
@@ -707,10 +808,12 @@ namespace lite {
       }
       return 0;
     }
-    double l2_limit(off_t off,int d,const std::vector<float>&q,double lim,bool&cut,int&used)const{
-      const float*p=vptr(off,d);if(!p){cut=false;used=d;return l2(off,d,q);}
-      double z=0;for(int i=0;i<d;++i){double x=p[i]-q[i];z+=x*x;if((i&63)==63&&z>lim){cut=true;used=i+1;return z;}}
-      cut=false;used=d;return z;
+    double l2_limit(const float*p,off_t off,int d,const std::vector<float>&q,double lim,int&used)const{
+      used=d;if(!p)p=vptr(off,d);if(!p)return l2(off,d,q);
+      if(d>=64&&has_avx512())return l2_avx512<true>(p,q.data(),d,lim,&used);
+      if(d>=32&&has_avx2())return l2_avx2<true>(p,q.data(),d,lim,&used);
+      double z=0;for(int i=0;i<d;++i){double x=double(p[i])-double(q[i]);z+=x*x;}
+      return z;
     }
     std::vector<float> read_vec(off_t off,int d)const{
       std::vector<float>v(d);
@@ -722,7 +825,8 @@ namespace lite {
     }
     void ensure_matrix(Table&q,int c){
       if(c<=0||c>=(int)q.c.size()||q.c[c].t!="VECTOR")return;
-      size_t bytes=q.order.size()*(size_t)q.c[c].d*sizeof(float),lim=(size_t)envint("LITE_MATRIX_MB",64)<<20;
+      const char*setting=std::getenv("LITE_MATRIX_MB");size_t lim=(size_t)(setting?std::max(0,std::atoi(setting)):64)<<20;
+      size_t bytes=q.order.size()*(size_t)q.c[c].d*sizeof(float);if(!lim)return;
       auto it=matrices.find(q.n);if(it!=matrices.end()&&it->second.col==c&&it->second.v.size()*sizeof(float)==bytes)return;
       if(bytes>lim)return;
       if(q.fast.size()!=q.order.size())refresh_fast(q);
@@ -1134,7 +1238,7 @@ namespace lite {
       if(metric&&(exact_topk?(ask&&filtered_candidates>2048):(cs.empty()||scan->size()>2048)))ensure_matrix(q,mcol);
       matrix_ms=elapsed(phase);
       std::vector<H>h;
-      uint64_t early_pruned=0,early_dims=0,distance_calls=0;
+      uint64_t early_pruned=0,early_dims=0,distance_calls=0,batched_vectors=0,matrix_scan_vectors=0;
       const Matrix*matrix=nullptr;auto mci=matrices.find(q.n);if(mci!=matrices.end()&&mci->second.col==mcol)matrix=&mci->second;
       auto worse=[](const H&a,const H&b){
         if(a.d!=b.d)return a.d<b.d;
@@ -1155,7 +1259,6 @@ namespace lite {
             ++distance_calls;
             int used=q.c[mcol].d;bool cut=false;const float*mp=matrix_ptr(q,mcol,row->id);
             if(mp)d=l2p(mp,q.c[mcol].d,qv);
-            else if(block_exact&&ask&&top.size()>=ask&&std::getenv("LITE_EARLY")&&std::atoi(std::getenv("LITE_EARLY"))!=0)d=l2_limit(row->voff[mcol],q.c[mcol].d,qv,top.top().d,cut,used);
             else d=l2(row->voff[mcol],q.c[mcol].d,qv);
             early_dims+=used;if(cut){++early_pruned;return;}
           }
@@ -1187,19 +1290,52 @@ namespace lite {
         else h.push_back(hh);
       };
       if(exact_topk){
-        // Both paths use the same batched SIMD distances and bounded heap.
+        const char*batch_setting=std::getenv("LITE_L2_BATCH");int width=!batch_setting||std::string(batch_setting)=="auto"?(dense?1:2):envint("LITE_L2_BATCH",1);
+        if(width!=1&&width!=2&&width!=4)throw Err("invalid_request","LITE_L2_BATCH must be auto, 1, 2 or 4");
+        bool early=std::getenv("LITE_EARLY")&&std::atoi(std::getenv("LITE_EARLY"))!=0;
+        bool late_id=!std::getenv("LITE_LATE_ID")||std::atoi(std::getenv("LITE_LATE_ID"))!=0;
+        int dim=q.c[mcol].d;if(early||!(dim>=32&&has_avx2()))width=1;
+        bool matrix_scan=dense&&matrix&&late_id&&!early&&width==1&&dim>=32&&has_avx2()&&(!std::getenv("LITE_MATRIX_SCAN")||std::atoi(std::getenv("LITE_MATRIX_SCAN"))!=0);
+        auto scan_kernel=dim>=64&&has_avx512()?l2_avx512_scan:l2_avx2_scan;
+        if(dim==128&&has_avx512()&&(!std::getenv("LITE_QUERY_WIDE")||std::atoi(std::getenv("LITE_QUERY_WIDE"))))scan_kernel=l2_avx512_query128;
+        // Interleave independent vectors, retaining each ISA's original double reduction order.
         // Diagnostic clocks run once per batch, never once per vector.
         auto score=[&](size_t begin,size_t end){
           for(size_t base=begin;base<end;base+=256){
             H batch[256];size_t count=0;auto dt=stamp();
-            for(size_t i=base;i<std::min(end,base+256);++i){
-              size_t p=dense?i:positions[i];if(!q.fast[p])continue;const Row&r=*q.fast[p];
+            size_t stop=std::min(end,base+256);double limit=top.size()>=ask?top.top().d:std::numeric_limits<double>::infinity();
+            if(matrix_scan){
+              double ds[256];scan_kernel(matrix->v.data()+base*(size_t)dim,qv.data(),dim,stop-base,ds);
+              for(size_t i=base;i<stop;++i)if(q.fast[i])batch[count++]={(long long)i,ds[i-base],ds[i-base]};
+              matrix_scan_vectors+=stop-base;distance_calls+=stop-base;early_dims+=(stop-base)*(size_t)dim;
+            }else for(size_t i=base;i<stop;){
+              size_t p=dense?i:positions[i];if(!q.fast[p]){++i;continue;}const Row&r=*q.fast[p];
               const float*mp=matrix?matrix->v.data()+p*(size_t)matrix->dim:nullptr;
-              double d=mp?l2p(mp,q.c[mcol].d,qv):l2(r.voff[mcol],q.c[mcol].d,qv);
-              batch[count++]={r.id,d,d};++distance_calls;early_dims+=q.c[mcol].d;
+              if(width>1&&i+(size_t)width<=stop){
+                const Row*rows[4];const float*ptrs[4];double ds[4];bool ready=true;
+                if(!matrix)vptr(r.voff[mcol],dim);
+                for(int k=0;k<width;++k){
+                  size_t pos=dense?i+k:positions[i+k];rows[k]=q.fast[pos];if(!rows[k]){ready=false;break;}
+                  if(matrix)ptrs[k]=matrix->v.data()+pos*(size_t)dim;
+                  else{off_t off=rows[k]->voff[mcol];
+                  if(off>=vecbuf_base&&size_t(off-vecbuf_base+dim*4)<=vecbuf.size())ptrs[k]=(const float*)(vecbuf.data()+off-vecbuf_base);
+                  else if(vmap&&off>=mapoff&&size_t(off-mapoff+dim*4)<=mapsz)ptrs[k]=(const float*)((const char*)vmap+off-mapoff);
+                  else{ready=false;break;}}
+                }
+                if(ready){
+                  if(dim>=64&&has_avx512()){if(width==4)l2_avx512_many<4>(ptrs,qv.data(),dim,ds);else l2_avx512_many<2>(ptrs,qv.data(),dim,ds);}
+                  else{if(width==4)l2_avx2_many<4>(ptrs,qv.data(),dim,ds);else l2_avx2_many<2>(ptrs,qv.data(),dim,ds);}
+                  for(int k=0;k<width;++k)batch[count++]={late_id?(long long)(dense?i+k:positions[i+k]):rows[k]->id,ds[k],ds[k]};
+                  batched_vectors+=width;distance_calls+=width;early_dims+=(uint64_t)width*dim;i+=width;continue;
+                }
+              }
+              int used=dim;double d=early?l2_limit(mp,r.voff[mcol],dim,qv,limit,used):mp?l2p(mp,dim,qv):l2(r.voff[mcol],dim,qv);
+              ++distance_calls;early_dims+=used;++i;if(used<dim){++early_pruned;continue;}
+              batch[count++]={late_id?(long long)p:r.id,d,d};
             }
             distance_ms+=elapsed(dt);dt=stamp();
             for(size_t i=0;i<count;++i){
+              if(late_id){if(top.size()>=ask&&batch[i].d>top.top().d)continue;batch[i].id=q.fast[(size_t)batch[i].id]->id;}
               if(top.size()<ask){top.push(batch[i]);++heap_updates;}
               else if(worse(batch[i],top.top())){top.pop();top.push(batch[i]);++heap_updates;}
             }
@@ -1310,6 +1446,9 @@ namespace lite {
       mt.o["block_pruned_candidates"]=ji(block_pruned_candidates);
       mt.o["heap_updates"]=ji(heap_updates);
       if(profile){
+        mt.o["batched_vectors"]=ji(batched_vectors);mt.o["matrix_enabled"]=jb(matrix!=nullptr);
+        mt.o["matrix_scan_vectors"]=ji(matrix_scan_vectors);
+        mt.o["distance_isa"]=js(metric&&q.c[mcol].d>=64&&has_avx512()?"avx512":metric&&q.c[mcol].d>=32&&has_avx2()?"avx2":"scalar");
         J times=jo();
         times.o["prepare"]=jd(prepare_ms);times.o["matrix"]=jd(matrix_ms);
         times.o["block_build"]=jd(block_build_ms);times.o["bounds"]=jd(bounds_ms);times.o["block_sort"]=jd(block_sort_ms);

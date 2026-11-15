@@ -1,0 +1,62 @@
+[
+  {
+    "name": "build-runtime",
+    "returncode": 0,
+    "seconds": 13.798068322008476
+  },
+  {
+    "name": "build-kernel-check",
+    "returncode": 0,
+    "seconds": 14.046442776918411
+  },
+  {
+    "name": "kernel",
+    "returncode": 0,
+    "seconds": 0.5152353609446436
+  },
+  {
+    "name": "paths-matrix",
+    "returncode": 0,
+    "seconds": 8.832925770897418
+  },
+  {
+    "name": "paths-avx2-matrix",
+    "returncode": 0,
+    "seconds": 8.98177624703385
+  },
+  {
+    "name": "paths-scalar",
+    "returncode": 0,
+    "seconds": 8.982501179911196
+  },
+  {
+    "name": "paired",
+    "returncode": 0,
+    "seconds": 57.02057199901901
+  },
+  {
+    "name": "profile-baseline",
+    "returncode": 0,
+    "seconds": 1.6186490301042795
+  },
+  {
+    "name": "profile-late",
+    "returncode": 0,
+    "seconds": 1.568338830024004
+  },
+  {
+    "name": "profile-pair-late",
+    "returncode": 0,
+    "seconds": 1.568905238993466
+  },
+  {
+    "name": "profile-matrix",
+    "returncode": 0,
+    "seconds": 1.618426688015461
+  },
+  {
+    "name": "profile-avx2-matrix",
+    "returncode": 0,
+    "seconds": 1.6184823520015925
+  }
+]

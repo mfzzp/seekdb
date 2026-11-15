@@ -1,0 +1,10 @@
+{
+  "image_id": "sha256:b28de6861a3421a947eb391b788d3ff29aeff6c3df11da1c6b35980aa0644366",
+  "binary_sha256": "8d5b256b66892e43eba049972f1bdaf14f0e5116895db81b895807c448c8956a",
+  "runtime_sources": {
+    "lsm_store.hpp": "f87edd798afffb069e0a6b5dbcfac940cd46e12b259bf77ee2437884a07710b7",
+    "minivectordb_lite.cpp": "ff96de563e09399ce67e8d24990355b19bb46a7b4ff2b72338119ad8f3c66312"
+  },
+  "baseline_commit": "32364de54e1d6c31aa412e2babf2563c50582102",
+  "required_checks_passed": true
+}

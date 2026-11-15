@@ -1,0 +1,173 @@
+[
+  {
+    "variant": "baseline",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-dev01/paired/baseline-r1.json",
+    "engine_env": []
+  },
+  {
+    "variant": "single",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-dev01/paired/single-r1.json",
+    "engine_env": [
+      "LITE_L2_BATCH=1"
+    ]
+  },
+  {
+    "variant": "pair",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-dev01/paired/pair-r1.json",
+    "engine_env": [
+      "LITE_L2_BATCH=2"
+    ]
+  },
+  {
+    "variant": "quad",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-dev01/paired/quad-r1.json",
+    "engine_env": [
+      "LITE_L2_BATCH=4"
+    ]
+  },
+  {
+    "variant": "early",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-dev01/paired/early-r1.json",
+    "engine_env": [
+      "LITE_L2_BATCH=1",
+      "LITE_EARLY=1"
+    ]
+  },
+  {
+    "variant": "mmap",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-dev01/paired/mmap-r1.json",
+    "engine_env": [
+      "LITE_L2_BATCH=1",
+      "LITE_MATRIX_MB=0"
+    ]
+  },
+  {
+    "variant": "avx2-pair",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-dev01/paired/avx2-pair-r1.json",
+    "engine_env": [
+      "LITE_L2_BATCH=2",
+      "LITE_SIMD=avx2"
+    ]
+  },
+  {
+    "variant": "single",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-dev01/paired/single-r2.json",
+    "engine_env": [
+      "LITE_L2_BATCH=1"
+    ]
+  },
+  {
+    "variant": "pair",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-dev01/paired/pair-r2.json",
+    "engine_env": [
+      "LITE_L2_BATCH=2"
+    ]
+  },
+  {
+    "variant": "quad",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-dev01/paired/quad-r2.json",
+    "engine_env": [
+      "LITE_L2_BATCH=4"
+    ]
+  },
+  {
+    "variant": "early",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-dev01/paired/early-r2.json",
+    "engine_env": [
+      "LITE_L2_BATCH=1",
+      "LITE_EARLY=1"
+    ]
+  },
+  {
+    "variant": "mmap",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-dev01/paired/mmap-r2.json",
+    "engine_env": [
+      "LITE_L2_BATCH=1",
+      "LITE_MATRIX_MB=0"
+    ]
+  },
+  {
+    "variant": "avx2-pair",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-dev01/paired/avx2-pair-r2.json",
+    "engine_env": [
+      "LITE_L2_BATCH=2",
+      "LITE_SIMD=avx2"
+    ]
+  },
+  {
+    "variant": "baseline",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-dev01/paired/baseline-r2.json",
+    "engine_env": []
+  },
+  {
+    "variant": "pair",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-dev01/paired/pair-r3.json",
+    "engine_env": [
+      "LITE_L2_BATCH=2"
+    ]
+  },
+  {
+    "variant": "quad",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-dev01/paired/quad-r3.json",
+    "engine_env": [
+      "LITE_L2_BATCH=4"
+    ]
+  },
+  {
+    "variant": "early",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-dev01/paired/early-r3.json",
+    "engine_env": [
+      "LITE_L2_BATCH=1",
+      "LITE_EARLY=1"
+    ]
+  },
+  {
+    "variant": "mmap",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-dev01/paired/mmap-r3.json",
+    "engine_env": [
+      "LITE_L2_BATCH=1",
+      "LITE_MATRIX_MB=0"
+    ]
+  },
+  {
+    "variant": "avx2-pair",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-dev01/paired/avx2-pair-r3.json",
+    "engine_env": [
+      "LITE_L2_BATCH=2",
+      "LITE_SIMD=avx2"
+    ]
+  },
+  {
+    "variant": "baseline",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-dev01/paired/baseline-r3.json",
+    "engine_env": []
+  },
+  {
+    "variant": "single",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/exact-dev01/paired/single-r3.json",
+    "engine_env": [
+      "LITE_L2_BATCH=1"
+    ]
+  }
+]

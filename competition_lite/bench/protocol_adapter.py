@@ -6,6 +6,7 @@ class Session:
   ready=json.loads(self.p.stdout.readline()); assert ready.get('type')=='ready',ready
  def ask(self,sql,mode='exact'):
   self.n+=1; self.p.stdin.write(json.dumps({'id':self.n,'op':'execute','sql':sql,'search_mode':mode},separators=(',',':'))+'\n'); self.p.stdin.flush(); r=json.loads(self.p.stdout.readline())
+  if r.get('id')!=self.n: raise RuntimeError(('response id mismatch',self.n,r))
   if not r.get('ok',False): raise RuntimeError(r)
   return r
  def close(self):

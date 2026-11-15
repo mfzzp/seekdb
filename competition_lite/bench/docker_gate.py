@@ -47,12 +47,16 @@ def main():
         run('extra', ['python3', 'protocol_check/run.py', '--image', tag, '--package', 'competition_lite/tests/extra_cases', '--output', str(out/'extra')])
         for name, tool, root in [('edges', 'admission_edges_check.py', 'edges'),
                                  ('exact', 'exact_paths_check.py', 'exact'),
+                                 ('exact_kernel_paths', 'exact_kernel_paths_check.py', 'exact_kernel_paths'),
                                  ('bulk', 'bulk_recovery_check.py', 'zzp/bulk'),
                                  ('quotes', 'sql_literal_check.py', 'zzp/quotes'),
                                  ('lsm_model', 'lsm_model_check.py', 'lsm_model'),
                                  ('lsm_corruption', 'lsm_corruption_check.py', 'lsm_corruption')]:
             run(name, docker+['--entrypoint', 'python3', tag, '-B', '/checks/competition_lite/bench/'+tool,
                               '--binary', '/app/minivectordb', '--root', '/data/'+root])
+        run('kernel', docker+['--tmpfs', '/tmp', '--entrypoint', 'sh', tag, '-c',
+            'g++ -O3 -DNDEBUG -std=c++17 /checks/competition_lite/bench/l2_kernel_check.cpp '
+            '-o /data/kernel-check && /data/kernel-check'])
         run('commit_faults', docker+['--tmpfs', '/tmp', '--entrypoint', 'sh', tag, '-c',
             'g++ -O1 -std=c++17 /checks/competition_lite/bench/write_commit_check.cpp '
             '-Wl,--wrap=write -Wl,--wrap=fdatasync -o /data/commit-check && '
