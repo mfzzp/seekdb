@@ -574,6 +574,10 @@ namespace lite {
       std::vector<std::unique_ptr<lsm::Cursor>> cs;cs.push_back(store->scan(lo,hi,false));if(tx&&!tx->empty())cs.push_back(std::make_unique<lsm::Overlay>(tx->scan(lo,hi)));return std::make_unique<lsm::Merge>(std::move(cs),true);
     }
     bool row_get(const Table&q,long long id,Row&r)const{SRec x;if(!get(skey(q,id),x))return false;r=decode_row(q,x.value);return true;}
+    std::unique_ptr<lsm::Merge> rows_get(std::vector<std::string> keys)const{
+      std::sort(keys.begin(),keys.end());keys.erase(std::unique(keys.begin(),keys.end()),keys.end());auto shared=std::make_shared<const std::vector<std::string>>(std::move(keys));
+      std::vector<std::unique_ptr<lsm::Cursor>> cs;cs.push_back(lsm::selected(store->mem,store->files,shared));if(tx&&!tx->empty())cs.push_back(std::make_unique<lsm::Overlay>(lsm::selected(tx->mem,tx->runs,shared)));return std::make_unique<lsm::Merge>(std::move(cs),true);
+    }
     void load_catalog(){
       tabs.clear();indexes.clear();index_cols.clear();clear_caches();
       auto c=scan("C","D");while(c->valid){Table q=decode_catalog(c->row.value);tabs.emplace(q.n,std::move(q));c->next();}
@@ -1016,7 +1020,11 @@ namespace lite {
       std::string lo=prefix(q),hi=lsm::upper(lo);int secondary_col=-1;const char*mode=getenv("LITE_LSM_READ");bool sequential=mode&&std::string(mode)=="scan";
       for(auto&c:cs)if(!sequential&&c.col>0&&q.c[c.col].t!="VECTOR"&&c.op=="="){lo=index_prefix(q,c.col)+scalar_key(q.c[c.col],c.val);hi=lsm::upper(lo);secondary_col=c.col;break;}
       if(secondary_col<0)for(auto&c:cs)if(c.col==0&&c.op!="!="){auto k=skey(q,integer(c.val));if(c.op==">=")lo=std::max(lo,k);else if(c.op==">")lo=std::max(lo,lsm::upper(k));else if(c.op=="<")hi=std::min(hi,k);else if(c.op=="<=")hi=std::min(hi,lsm::upper(k));}
-      if(!hi.empty()&&lo>=hi)return;auto c=scan(lo,hi);while(c->valid){Row r;if(secondary_col>=0){long long id=(long long)(lsm::number_value(c->row.key,c->row.key.size()-8)^(1ull<<63));if(!row_get(q,id,r))throw Err("corruption","dangling scalar index");}else r=decode_row(q,c->row.value);if(match(q,r,cs))fn(r);c->next();}
+      if(!hi.empty()&&lo>=hi)return;auto c=scan(lo,hi);while(c->valid){
+        if(secondary_col<0){auto r=decode_row(q,c->row.value);if(match(q,r,cs))fn(r);c->next();continue;}
+        std::vector<std::string> keys;keys.reserve(1024);while(c->valid&&keys.size()<1024){long long id=(long long)(lsm::number_value(c->row.key,c->row.key.size()-8)^(1ull<<63));keys.push_back(skey(q,id));c->next();}
+        size_t count=0;auto rows=rows_get(keys);while(rows->valid){auto r=decode_row(q,rows->row.value);if(match(q,r,cs))fn(r);++count;rows->next();}if(count!=keys.size())throw Err("corruption","dangling scalar index");
+      }
     }
     J update(const std::vector<std::string>&t,bool){
       if(t.size()<6||up(t[2])!="SET")throw Err("unsupported_sql","update");auto&q=tabs.at(t[1]);cool(q);size_t p=3;std::vector<std::pair<int,std::string>>as;

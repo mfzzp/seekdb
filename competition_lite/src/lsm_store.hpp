@@ -153,6 +153,22 @@ inline void add_files(std::vector<std::unique_ptr<Cursor>>& cs,const std::vector
   for(auto&l:levels){auto&v=l.second;std::sort(v.begin(),v.end(),[](const F&a,const F&b){return a->lo<b->lo;});cs.push_back(std::make_unique<ConcatCursor>(std::move(v),lo,hi));}
 }
 
+using Keys=std::shared_ptr<const std::vector<std::string>>;
+struct SelectedCursor:Cursor {
+  Keys keys;size_t pos,end;std::unique_ptr<DiskCursor> disk;bool sequential=false;
+  SelectedCursor(F f,Keys k):keys(std::move(k)),pos(std::lower_bound(keys->begin(),keys->end(),f->lo)-keys->begin()),end(std::upper_bound(keys->begin(),keys->end(),f->hi)-keys->begin()){
+    if(pos==end)return;disk=std::make_unique<DiskCursor>(f,keys->at(pos));auto&r=*disk->reader;size_t first=r.locate(keys->at(pos)),last=first,distinct=1;
+    for(size_t i=pos+1;i<end;++i){size_t block=r.locate(keys->at(i));if(block!=last){++distinct;last=block;}}
+    const char*mode=getenv("LITE_LSM_READ");sequential=(!mode||std::string(mode)=="auto")&&distinct*5>=(last-first+1)*4&&end-pos>=distinct*32;next();
+  }
+  void next()override{while(pos<end){const auto&key=keys->at(pos++);if(sequential){while(disk->valid&&disk->row.key<key)disk->next();}else disk->seek(key);if(disk->valid&&disk->row.key==key){row=disk->row;valid=true;return;}}valid=false;}
+};
+inline std::unique_ptr<Merge> selected(const std::map<std::string,SRec>&mem,const std::vector<F>&files,Keys keys){
+  std::vector<std::unique_ptr<Cursor>> cs;std::map<std::string,SRec> subset;
+  for(auto&key:*keys){auto it=mem.find(key);if(it!=mem.end())subset.emplace(*it);}if(!subset.empty())cs.push_back(std::make_unique<MemCursor>(std::move(subset),std::string{},std::string{}));
+  if(!keys->empty())for(auto&f:files)if(f->hi>=keys->front()&&f->lo<=keys->back())cs.push_back(std::make_unique<SelectedCursor>(f,keys));return std::make_unique<Merge>(std::move(cs),false);
+}
+
 // Private, spillable write sets. Sequence numbers here are private ordering only;
 // committed versions are assigned once, in the checksummed WAL batch.
 struct Batch {
