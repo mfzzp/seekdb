@@ -1,0 +1,44 @@
+{
+  "passed": true,
+  "archived_files_verified": 450,
+  "same_frozen_input_and_main_query_order": true,
+  "main_runs": [
+    {
+      "label": "100000-readpath-r1",
+      "binary_sha256": "86d8a27867fd8583e9d5f8e9bdcb6169e9d18a809fc5bf551f943f494a0cc1e2",
+      "full_restore_rows": 100000,
+      "restore_verifier": "open-ended-primary-range-v1"
+    },
+    {
+      "label": "100000-readpath-r2",
+      "binary_sha256": "86d8a27867fd8583e9d5f8e9bdcb6169e9d18a809fc5bf551f943f494a0cc1e2",
+      "full_restore_rows": 100000,
+      "restore_verifier": "open-ended-primary-range-v1"
+    },
+    {
+      "label": "100000-readpath-r3",
+      "binary_sha256": "86d8a27867fd8583e9d5f8e9bdcb6169e9d18a809fc5bf551f943f494a0cc1e2",
+      "full_restore_rows": 100000,
+      "restore_verifier": "open-ended-primary-range-v1"
+    },
+    {
+      "label": "300000-readpath-r1",
+      "binary_sha256": "86d8a27867fd8583e9d5f8e9bdcb6169e9d18a809fc5bf551f943f494a0cc1e2",
+      "full_restore_rows": 300000,
+      "restore_verifier": "open-ended-primary-range-v1"
+    },
+    {
+      "label": "300000-readpath-r2",
+      "binary_sha256": "86d8a27867fd8583e9d5f8e9bdcb6169e9d18a809fc5bf551f943f494a0cc1e2",
+      "full_restore_rows": 300000,
+      "restore_verifier": "open-ended-primary-range-v1"
+    },
+    {
+      "label": "300000-readpath-r3",
+      "binary_sha256": "86d8a27867fd8583e9d5f8e9bdcb6169e9d18a809fc5bf551f943f494a0cc1e2",
+      "full_restore_rows": 300000,
+      "restore_verifier": "bounded-primary-ranges-v2"
+    }
+  ],
+  "official_device_io": "unavailable; not replaced with process counters"
+}

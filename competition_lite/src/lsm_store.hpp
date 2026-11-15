@@ -66,7 +66,7 @@ struct Writer {
     write_all(fd.n,x.data(),x.size());std::string foot;u64(foot,x.size());foot+="LSMEND03";write_all(fd.n,foot.data(),foot.size());file->bytes+=x.size()+foot.size();if(durable)sync(fd.n);return file;}
 };
 struct Cursor {SRec row;bool valid=false;virtual void next()=0;virtual ~Cursor()=default;};
-struct ReadStats {uint64_t readers=0,index_bytes=0,blocks=0,block_bytes=0,decodes=0,hits=0,seeks=0,live=0,peak=0,handles=0;};
+struct ReadStats {uint64_t readers=0,index_bytes=0,blocks=0,block_bytes=0,decodes=0,hits=0,seeks=0,live=0,peak=0,handles=0,cursors=0,requests=0;};
 struct Cached {
   std::shared_ptr<ReadStats> stats;size_t charge=0;
   explicit Cached(std::shared_ptr<ReadStats> s):stats(std::move(s)){}
@@ -96,21 +96,22 @@ struct TableReader:Cached {
 };
 struct ReadCache {
   using Key=std::pair<uint64_t,size_t>;struct Entry{std::shared_ptr<Cached> value;std::list<Key>::iterator pos;};
-  std::shared_ptr<ReadStats> stats=std::make_shared<ReadStats>();std::map<Key,Entry> entries;std::list<Key> lru;size_t used=0,limit;
+  std::shared_ptr<ReadStats> stats=std::make_shared<ReadStats>();std::map<Key,Entry> entries;std::list<Key> lru;size_t used=0,limit,reader_entries=0;bool tracking=false,trace_full=false;std::set<Key> touched;
   ReadCache(){const char*e=getenv("LITE_READ_CACHE_MB");limit=(e?size_t(std::max(0,std::atoi(e))):16)<<20;}
-  void remove(std::map<Key,Entry>::iterator it){used-=it->second.value->charge+160;lru.erase(it->second.pos);entries.erase(it);}
+  void begin_trace(bool enabled){tracking=enabled;trace_full=false;touched.clear();}
+  void remove(std::map<Key,Entry>::iterator it){used-=it->second.value->charge+160;if(!it->first.second)--reader_entries;lru.erase(it->second.pos);entries.erase(it);}
   void retire(uint64_t id){auto it=entries.lower_bound({id,0});while(it!=entries.end()&&it->first.first==id){auto old=it++;remove(old);}}
   template<class T,class Load> std::shared_ptr<T> fetch(Key key,bool retain,Load load){
     auto it=entries.find(key);if(it!=entries.end()){lru.splice(lru.end(),lru,it->second.pos);if(key.second)++stats->hits;return std::static_pointer_cast<T>(it->second.value);}
-    auto value=load();size_t n=value->charge+160;if(retain&&n<=limit){while(used>limit-n)remove(entries.find(lru.front()));lru.push_back(key);entries.emplace(key,Entry{value,std::prev(lru.end())});used+=n;}return value;
+    auto value=load();size_t n=value->charge+160;if(retain&&n<=limit){while(used>limit-n||(!key.second&&reader_entries>=64))remove(entries.find(lru.front()));lru.push_back(key);entries.emplace(key,Entry{value,std::prev(lru.end())});if(!key.second)++reader_entries;used+=n;}stats->peak=std::max(stats->peak,stats->live+entries.size()*160);return value;
   }
   std::shared_ptr<TableReader> reader(F f){return fetch<TableReader>({f->identity,0},!f->retired,[&](){return std::make_shared<TableReader>(f,stats);});}
-  std::shared_ptr<ReadBlock> block(const std::shared_ptr<TableReader>&r,size_t bi){return fetch<ReadBlock>({r->file->identity,bi+1},!r->file->retired,[&](){return r->read(bi);});}
+  std::shared_ptr<ReadBlock> block(const std::shared_ptr<TableReader>&r,size_t bi){++stats->requests;Key key{r->file->identity,bi+1};if(tracking){if(touched.size()<65536)touched.insert(key);else if(!touched.count(key))trace_full=true;}return fetch<ReadBlock>(key,!r->file->retired,[&](){return r->read(bi);});}
 };
 struct DiskCursor:Cursor {
   std::shared_ptr<ReadCache> cache;std::shared_ptr<TableReader> reader;std::shared_ptr<ReadBlock> block;size_t bi=0,pos=0;std::string high;
   DiskCursor(F f,const std::string&low={},std::string hi={},bool reuse=true):cache(reuse?f->cache.lock():nullptr),high(std::move(hi)){
-    reader=cache?cache->reader(f):std::make_shared<TableReader>(f,std::make_shared<ReadStats>());seek(low);
+    reader=cache?cache->reader(f):std::make_shared<TableReader>(f,std::make_shared<ReadStats>());++reader->stats->cursors;seek(low);
   }
   void seek(const std::string&low){++reader->stats->seeks;size_t next=reader->locate(low);if(!block||bi!=next){bi=next;block.reset();if(bi<reader->index.size())block=cache?cache->block(reader,bi):reader->read(bi);}if(!block){valid=false;return;}
     pos=std::lower_bound(block->rows.begin(),block->rows.end(),low,[](const SRec&r,const std::string&key){return r.key<key;})-block->rows.begin();next_row();
@@ -122,7 +123,8 @@ struct DiskCursor:Cursor {
 };
 struct MemCursor:Cursor {
   std::map<std::string,SRec> rows;std::map<std::string,SRec>::iterator it;std::string high;
-  MemCursor(std::map<std::string,SRec> m,const std::string& lo,std::string hi):rows(std::move(m)),it(rows.lower_bound(lo)),high(std::move(hi)){next();}
+  MemCursor(std::map<std::string,SRec>&& m,const std::string& lo,std::string hi):rows(std::move(m)),it(rows.lower_bound(lo)),high(std::move(hi)){next();}
+  MemCursor(const std::map<std::string,SRec>&m,const std::string&lo,const std::string&hi):MemCursor(hi.empty()||lo<hi?std::map<std::string,SRec>(m.lower_bound(lo),hi.empty()?m.end():m.lower_bound(hi)):std::map<std::string,SRec>{},lo,hi){}
   void next()override{valid=it!=rows.end()&&(high.empty()||it->first<high);if(valid)row=(it++)->second;}
 };
 struct ConcatCursor:Cursor {

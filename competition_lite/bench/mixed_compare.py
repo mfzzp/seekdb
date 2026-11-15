@@ -135,8 +135,9 @@ def run(a):
  # Warm the common request stream equally outside the database's timing/cgroup.
  with (prep/'insert.jsonl').open('rb') as f:
   while f.read(4<<20):pass
- out={'label':a.label,'diagnostic':a.diagnostic,'binary_sha256':sha(a.binary),'prepared_sha256':meta['sha256'],'rows':meta['rows'],'batch':100,'limits':{'cpus':2,'engine_affinity':[0,1],'memory_bytes':2<<30,'swap':0},'passed':False,'resources':{},'queries':[],'phase':'startup'}
- client=None;probe=Probe(a.root/'data',a.diagnostic);env=['LITE_PROFILE=1','LITE_SYNC_PROBE=/data/sync-probe.bin'] if a.diagnostic else []
+ out={'label':a.label,'diagnostic':a.diagnostic,'binary_sha256':sha(a.binary),'prepared_sha256':meta['sha256'],'rows':meta['rows'],'batch':100,'limits':{'cpus':2,'engine_affinity':[0,1],'memory_bytes':2<<30,'swap':0},'passed':False,'resources':{},'queries':[],'phase':'startup','restore_verifier':'bounded-primary-ranges-v2'}
+ client=None;probe=Probe(a.root/'data',a.diagnostic);env=['LITE_PROFILE=1','LITE_SYNC_PROBE=/data/sync-probe.bin'] if a.diagnostic else [];env+=getattr(a,'engine_env',[])
+ out['engine_env']=env
  def save():
   (a.root/'progress.json').write_text(json.dumps({k:v for k,v in out.items() if k not in ['queries','warmup','grouped_queries']},indent=2)+'\n')
  with (a.root/'stderr.log').open('wb') as err:
@@ -174,12 +175,12 @@ def run(a):
     for d in DIMS:
      with (prep/f'vectors{d}.f32').open('rb') as raw:
       for begin in range(0,n,128):
-       rows=client.ask(f'SELECT id,category,content,embedding FROM docs{d} WHERE id>{begin} ORDER BY id LIMIT 128;',400000+begin+d)['rows'];assert len(rows)==min(128,n-begin),('restored length',d,begin,len(rows))
+       rows=client.ask(f'SELECT id,category,content,embedding FROM docs{d} WHERE id>{begin} AND id<={min(begin+128,n)} ORDER BY id LIMIT 128;',400000+begin+d)['rows'];assert len(rows)==min(128,n-begin),('restored length',d,begin,len(rows))
        for i,row in enumerate(rows,begin+1):
         assert row[:3]==[i,f'cat{i%20}',f'doc{d}-{i}'],('restored scalars',d,i)
         assert struct.pack(f'<{d}f',*row[3])==raw.read(d*4),('restored float32',d,i)
         checked+=1
-       if checked%12800==0:out['verified_rows']=checked;save()
+       if (begin//128+1)%100==0:out['verified_rows']=checked;save()
       assert not client.ask(f'SELECT id FROM docs{d} WHERE id>{n} ORDER BY id LIMIT 1;')['rows']
     out['verified_rows']=checked;assert checked==meta['rows'];out['restore_check_s']=time.perf_counter()-start;out['resources']['after_restore']=client.close();client=None;out['restart_pass']=True
    out['final_file_bytes']=sum(p.stat().st_size for p in (a.root/'data').rglob('*') if p.is_file());out['passed']=True;out['phase']='complete'
@@ -198,6 +199,6 @@ def run(a):
 def main():
  p=argparse.ArgumentParser(description=__doc__);sub=p.add_subparsers(dest='command',required=True)
  x=sub.add_parser('prepare');x.add_argument('--root',type=Path,required=True);x.add_argument('--rows',type=int,required=True);x.add_argument('--queries',type=int,default=1000)
- x=sub.add_parser('run');x.add_argument('--prepared',type=Path,required=True);x.add_argument('--root',type=Path,required=True);x.add_argument('--binary',type=Path,required=True);x.add_argument('--image',required=True);x.add_argument('--label',required=True);x.add_argument('--diagnostic',action='store_true')
+ x=sub.add_parser('run');x.add_argument('--prepared',type=Path,required=True);x.add_argument('--root',type=Path,required=True);x.add_argument('--binary',type=Path,required=True);x.add_argument('--image',required=True);x.add_argument('--label',required=True);x.add_argument('--diagnostic',action='store_true');x.add_argument('--engine-env',action='append',default=[])
  a=p.parse_args();return prepare(a) if a.command=='prepare' else run(a)
 if __name__=='__main__':raise SystemExit(main())

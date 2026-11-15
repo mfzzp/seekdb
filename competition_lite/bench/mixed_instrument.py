@@ -60,7 +60,10 @@ else:
  hreplace('  void commit(Batch& batch,uint64_t vend){','  void commit(Batch& batch,uint64_t vend){MixedStage mixed_stage(9);')
  hreplace('io(fd.n>=0,"open referenced SST");','mixed_counter(2,1);io(fd.n>=0,"open referenced SST");')
  hreplace('std::string b=read_at(fd.n,i.off,i.bytes);','std::string b=read_at(fd.n,i.off,i.bytes);mixed_counter(3,1);mixed_counter(4,i.bytes);')
- hreplace('row=decode(d);p=d.p;','row=decode(d);mixed_counter(5,1);p=d.p;')
+ if 'struct TableReader:Cached' in h:
+  hreplace('auto r=decode(d);++stats->decodes;','auto r=decode(d);mixed_counter(5,1);++stats->decodes;')
+ else:
+  hreplace('row=decode(d);p=d.p;','row=decode(d);mixed_counter(5,1);p=d.p;')
  hreplace('for(auto&f:out)bytes_out+=f->bytes;compact(false);','for(auto&f:out){bytes_out+=f->bytes;mixed_counter(6,f->bytes);}compact(false);')
  hreplace('for(auto&f:out)bytes_out+=f->bytes;','for(auto&f:out){bytes_out+=f->bytes;mixed_counter(7,f->bytes);}',2)
  hreplace('wal_bytes+=h.size()+b.size();','wal_bytes+=h.size()+b.size();mixed_counter(8,h.size()+b.size());')
