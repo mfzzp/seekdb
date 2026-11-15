@@ -41,8 +41,11 @@ inline std::string part(const std::string& s){std::string z;for(char c:s){z+=c;i
 inline std::string number(uint64_t x){std::string s;for(int i=7;i>=0;--i)s+=char(x>>(8*i));return s;}
 inline uint64_t number_value(const std::string& s,size_t p){if(p+8>s.size())throw Err("corruption","storage key");uint64_t x=0;for(int i=0;i<8;++i)x=(x<<8)|(unsigned char)s[p+i];return x;}
 
+struct ReadCache;
+inline uint64_t file_identity(){static uint64_t next=0;return ++next;}
 struct File {
   std::string path,lo,hi;uint64_t bytes=0,maxseq=0;int level=0;bool retired=false;
+  uint64_t identity=file_identity();std::weak_ptr<ReadCache> cache;
   ~File(){if(retired)unlink(path.c_str());}
 };
 using F=std::shared_ptr<File>;
@@ -63,21 +66,58 @@ struct Writer {
     write_all(fd.n,x.data(),x.size());std::string foot;u64(foot,x.size());foot+="LSMEND03";write_all(fd.n,foot.data(),foot.size());file->bytes+=x.size()+foot.size();if(durable)sync(fd.n);return file;}
 };
 struct Cursor {SRec row;bool valid=false;virtual void next()=0;virtual ~Cursor()=default;};
-struct DiskCursor:Cursor {
-  F file;FD fd;std::vector<Index> index;size_t bi=0,p=0;uint32_t left=0;std::string block,high;
-  DiskCursor(F f,const std::string& low={},std::string hi={}):file(std::move(f)),fd(open(file->path.c_str(),O_RDONLY)),high(std::move(hi)){
+struct ReadStats {uint64_t readers=0,index_bytes=0,blocks=0,block_bytes=0,decodes=0,hits=0,seeks=0,live=0,peak=0,handles=0;};
+struct Cached {
+  std::shared_ptr<ReadStats> stats;size_t charge=0;
+  explicit Cached(std::shared_ptr<ReadStats> s):stats(std::move(s)){}
+  void account(size_t n){charge=n;stats->live+=n;stats->peak=std::max(stats->peak,stats->live);}
+  virtual ~Cached(){stats->live-=charge;}
+};
+struct ReadBlock:Cached {std::vector<SRec> rows;explicit ReadBlock(std::shared_ptr<ReadStats>s):Cached(std::move(s)){};};
+struct TableReader:Cached {
+  F file;FD fd;std::vector<Index> index;
+  TableReader(F f,std::shared_ptr<ReadStats>s):Cached(std::move(s)),file(std::move(f)),fd(open(file->path.c_str(),O_RDONLY)){
     io(fd.n>=0,"open referenced SST");uint64_t sz=file_size(fd.n);if(sz<24||read_at(fd.n,0,8)!="LITESST3")throw Err("corruption","SST header");
+    if(sz!=file->bytes)throw Err("corruption","SST size mismatch");++stats->readers;
     std::string foot=read_at(fd.n,sz-16,16);Decode z{foot};uint64_t n=z.u64();
     if(foot.substr(8)!="LSMEND03"||n>sz-24||n>(64u<<20))throw Err("corruption","SST footer");
     std::string ix=uncheck(read_at(fd.n,sz-16-n,(size_t)n));Decode d{ix};uint32_t ni=d.u32();if(ni>ix.size()/16)throw Err("corruption","SST index count");
     uint64_t end=8;for(uint32_t i=0;i<ni;++i){Index a{d.str(),d.u64(),d.u32()};if(a.off!=end||a.bytes<12||a.off+a.bytes>sz-16-n||(!index.empty()&&a.key<=index.back().key))throw Err("corruption","SST index");end=a.off+a.bytes;index.push_back(std::move(a));}d.end();
-    if(end!=sz-16-n)throw Err("corruption","SST block boundary");
-    if(!low.empty()){auto it=std::upper_bound(index.begin(),index.end(),low,[](const std::string& k,const Index& i){return k<i.key;});bi=it==index.begin()?0:size_t(it-index.begin()-1);}
-    next();while(valid&&row.key<low)next();
+    if(end!=sz-16-n)throw Err("corruption","SST block boundary");stats->index_bytes+=n+24;
+    size_t bytes=sizeof(*this)+4096+index.capacity()*sizeof(Index);for(auto&i:index)bytes+=i.key.capacity()+32;account(bytes);++stats->handles;
   }
+  ~TableReader(){--stats->handles;}
+  size_t locate(const std::string&key)const{auto it=std::upper_bound(index.begin(),index.end(),key,[](const std::string&k,const Index&i){return k<i.key;});return it==index.begin()?0:size_t(it-index.begin()-1);}
+  std::shared_ptr<ReadBlock> read(size_t bi){
+    auto&i=index.at(bi);std::string b=read_at(fd.n,i.off,i.bytes);++stats->blocks;stats->block_bytes+=b.size();Decode h{b};if(h.u32()!=b.size()-4)throw Err("corruption","SST block length");
+    std::string raw=uncheck(b.substr(4));Decode d{raw};uint32_t n=d.u32();if(!n||n>raw.size()/17)throw Err("corruption","SST block count");auto out=std::make_shared<ReadBlock>(stats);out->rows.reserve(n);size_t bytes=sizeof(ReadBlock)+n*sizeof(SRec);
+    for(uint32_t j=0;j<n;++j){auto r=decode(d);++stats->decodes;if((j&&r.key<=out->rows.back().key)||(!j&&r.key!=i.key)||(bi+1<index.size()&&r.key>=index[bi+1].key))throw Err("corruption","SST block key order");bytes+=r.key.capacity()+r.value.capacity()+64;out->rows.push_back(std::move(r));}d.end();out->account(bytes);return out;
+  }
+};
+struct ReadCache {
+  using Key=std::pair<uint64_t,size_t>;struct Entry{std::shared_ptr<Cached> value;std::list<Key>::iterator pos;};
+  std::shared_ptr<ReadStats> stats=std::make_shared<ReadStats>();std::map<Key,Entry> entries;std::list<Key> lru;size_t used=0,limit;
+  ReadCache(){const char*e=getenv("LITE_READ_CACHE_MB");limit=(e?size_t(std::max(0,std::atoi(e))):16)<<20;}
+  void remove(std::map<Key,Entry>::iterator it){used-=it->second.value->charge+160;lru.erase(it->second.pos);entries.erase(it);}
+  void retire(uint64_t id){auto it=entries.lower_bound({id,0});while(it!=entries.end()&&it->first.first==id){auto old=it++;remove(old);}}
+  template<class T,class Load> std::shared_ptr<T> fetch(Key key,bool retain,Load load){
+    auto it=entries.find(key);if(it!=entries.end()){lru.splice(lru.end(),lru,it->second.pos);if(key.second)++stats->hits;return std::static_pointer_cast<T>(it->second.value);}
+    auto value=load();size_t n=value->charge+160;if(retain&&n<=limit){while(used>limit-n)remove(entries.find(lru.front()));lru.push_back(key);entries.emplace(key,Entry{value,std::prev(lru.end())});used+=n;}return value;
+  }
+  std::shared_ptr<TableReader> reader(F f){return fetch<TableReader>({f->identity,0},!f->retired,[&](){return std::make_shared<TableReader>(f,stats);});}
+  std::shared_ptr<ReadBlock> block(const std::shared_ptr<TableReader>&r,size_t bi){return fetch<ReadBlock>({r->file->identity,bi+1},!r->file->retired,[&](){return r->read(bi);});}
+};
+struct DiskCursor:Cursor {
+  std::shared_ptr<ReadCache> cache;std::shared_ptr<TableReader> reader;std::shared_ptr<ReadBlock> block;size_t bi=0,pos=0;std::string high;
+  DiskCursor(F f,const std::string&low={},std::string hi={},bool reuse=true):cache(reuse?f->cache.lock():nullptr),high(std::move(hi)){
+    reader=cache?cache->reader(f):std::make_shared<TableReader>(f,std::make_shared<ReadStats>());seek(low);
+  }
+  void seek(const std::string&low){++reader->stats->seeks;size_t next=reader->locate(low);if(!block||bi!=next){bi=next;block.reset();if(bi<reader->index.size())block=cache?cache->block(reader,bi):reader->read(bi);}if(!block){valid=false;return;}
+    pos=std::lower_bound(block->rows.begin(),block->rows.end(),low,[](const SRec&r,const std::string&key){return r.key<key;})-block->rows.begin();next_row();
+  }
+  void next_row(){if(pos==block->rows.size()){block.reset();if(++bi==reader->index.size()){valid=false;return;}block=cache?cache->block(reader,bi):reader->read(bi);pos=0;}row=block->rows[pos++];valid=high.empty()||row.key<high;}
   void next()override{
-    if(!left){if(bi==index.size()){valid=false;return;}auto&i=index[bi++];std::string b=read_at(fd.n,i.off,i.bytes);Decode h{b};if(h.u32()!=b.size()-4)throw Err("corruption","SST block length");block=uncheck(b.substr(4));Decode c{block};left=c.u32();p=c.p;if(!left)throw Err("corruption","empty SST block");}
-    Decode d{block,p};row=decode(d);p=d.p;--left;if(!left)d.end();valid=high.empty()||row.key<high;
+    if(valid)next_row();
   }
 };
 struct MemCursor:Cursor {
@@ -135,6 +175,7 @@ struct Batch {
 };
 
 struct Store {
+  std::shared_ptr<ReadCache> read_cache=std::make_shared<ReadCache>();
   std::string dir,manifest,vector_name="vectors.f32",wal_name,walbuf;FD lock;int wfd=-1,vfd=-1;
   std::map<std::string,SRec> mem;std::vector<F> files;size_t mem_bytes=0,limit;
   uint64_t seq=0,checkpoint_seq=0,vector_end=0,vector_synced=0,next_file=0,wal_bytes=0,wal_advised=0,bytes_in=0,bytes_out=0;
@@ -150,7 +191,7 @@ struct Store {
   }
   ~Store(){if(wfd>=0)close(wfd);}
   std::string fresh(const std::string& ext){return "lsm-"+generation+"-"+std::to_string(++next_file)+"."+ext;}
-  F allocate(int level=0,bool temporary=false){auto f=std::make_shared<File>();f->path=dir+"/"+fresh(temporary?"txn":"sst");f->level=level;return f;}
+  F allocate(int level=0,bool temporary=false){auto f=std::make_shared<File>();f->path=dir+"/"+fresh(temporary?"txn":"sst");f->level=level;f->cache=read_cache;return f;}
   std::unique_ptr<Batch> batch(){return std::make_unique<Batch>(limit,[this](){return allocate(0,true);});}
   void open_wal(){wfd=open((dir+"/"+wal_name).c_str(),O_RDWR|O_APPEND);io(wfd>=0,"open referenced WAL");wal_bytes=file_size(wfd);}
   void sync_vectors(){if(vector_synced>=vector_end)return;io(vfd>=0,"vector file not attached");sync(vfd,true);vector_synced=vector_end;}
@@ -168,7 +209,7 @@ struct Store {
   void load(){FD f(open((dir+"/"+manifest).c_str(),O_RDONLY));io(f.n>=0,"open manifest");uint64_t n=file_size(f.n);if(n>(64u<<20))throw Err("corruption","manifest size");std::string b=uncheck(read_at(f.n,0,n));Decode d{b};d.need(8);old_manifest=b.substr(0,8)=="LITEMAN3";if(!old_manifest&&b.substr(0,8)!="LITEMAN4")throw Err("corruption","manifest format");d.p=8;
     seq=checkpoint_seq=d.u64();vector_end=d.u64();vector_name=d.str();wal_name=d.str();if(!safe_name(vector_name)||!safe_name(wal_name))throw Err("corruption","manifest filename");uint32_t count=d.u32();if(count>b.size()/32)throw Err("corruption","manifest files");
     std::map<int,std::vector<F>> levels;std::set<std::string> names;
-    for(uint32_t i=0;i<count;++i){auto x=std::make_shared<File>();x->level=(int)d.u32();std::string name=d.str();if(!safe_name(name)||!names.insert(name).second||x->level<0||x->level>30)throw Err("corruption","manifest SST");x->path=dir+"/"+name;x->lo=d.str();x->hi=d.str();x->bytes=d.u64();x->maxseq=d.u64();if(x->lo>x->hi||x->maxseq>seq)throw Err("corruption","manifest key range");FD sf(open(x->path.c_str(),O_RDONLY));io(sf.n>=0,"missing referenced SST");if(file_size(sf.n)!=x->bytes)throw Err("corruption","SST size mismatch");files.push_back(x);levels[x->level].push_back(x);}
+    for(uint32_t i=0;i<count;++i){auto x=std::make_shared<File>();x->cache=read_cache;x->level=(int)d.u32();std::string name=d.str();if(!safe_name(name)||!names.insert(name).second||x->level<0||x->level>30)throw Err("corruption","manifest SST");x->path=dir+"/"+name;x->lo=d.str();x->hi=d.str();x->bytes=d.u64();x->maxseq=d.u64();if(x->lo>x->hi||x->maxseq>seq)throw Err("corruption","manifest key range");FD sf(open(x->path.c_str(),O_RDONLY));io(sf.n>=0,"missing referenced SST");if(file_size(sf.n)!=x->bytes)throw Err("corruption","SST size mismatch");files.push_back(x);levels[x->level].push_back(x);}
     d.end();for(auto&l:levels)if(l.first){auto&v=l.second;std::sort(v.begin(),v.end(),[](const F&a,const F&b){return a->lo<b->lo;});for(size_t i=1;i<v.size();++i)if(v[i-1]->hi>=v[i]->lo)throw Err("corruption","overlapping leveled SSTs");}
   }
   std::unique_ptr<Merge> scan(const std::string& lo={},const std::string& hi={},bool live=true)const{
@@ -181,7 +222,7 @@ struct Store {
   std::vector<F> write_stream(Cursor& c,int level,bool drop_tombs=false){std::vector<F> out;std::unique_ptr<Writer> w;size_t target=(size_t)envint("LITE_SST_BYTES",8<<20);
     while(c.valid){if(!drop_tombs||!c.row.tomb){if(!w)w=std::make_unique<Writer>(allocate(level));w->add(c.row);if(w->file->bytes+w->block.size()>=target){out.push_back(w->finish());w.reset();}}c.next();}if(w)out.push_back(w->finish());return out;
   }
-  void retire(const std::vector<F>& old){for(auto&f:old)f->retired=true;}
+  void retire(const std::vector<F>& old){for(auto&f:old){f->retired=true;read_cache->retire(f->identity);}}
   void flush(){if(mem.empty())return;auto frozen=std::move(mem);mem.clear();mem_bytes=0;
     try{MemCursor c(std::move(frozen),{},{});auto out=write_stream(c,0);auto next=files;next.insert(next.end(),out.begin(),out.end());publish(next,seq);for(auto&f:out)bytes_out+=f->bytes;compact(false);}catch(...){failed=true;throw;}
   }
@@ -247,7 +288,7 @@ struct Store {
     DIR*d=opendir(dir.c_str());io(d!=nullptr,"list orphan files");
     while(auto*e=readdir(d)){std::string n=e->d_name;if(n.compare(0,4,"lsm-")||live.count(n))continue;auto dot=n.find_last_of('.');if(dot==std::string::npos)continue;auto ext=n.substr(dot);if(ext!=".sst"&&ext!=".txn"&&ext!=".manifest"&&ext!=".wal"&&ext!=".vectors")continue;std::string p=dir+"/"+n;struct stat st{};if(lstat(p.c_str(),&st)==0&&S_ISREG(st.st_mode))unlink(p.c_str());}closedir(d);
   }
-  void verify()const{for(auto&f:files){DiskCursor c(f);std::string prev;uint64_t maxseq=0;while(c.valid){if(!prev.empty()&&c.row.key<=prev)throw Err("corruption","SST key order");if(prev.empty()&&c.row.key!=f->lo)throw Err("corruption","SST lower key");prev=c.row.key;maxseq=std::max(maxseq,c.row.seq);c.next();}if(prev!=f->hi||maxseq!=f->maxseq)throw Err("corruption","SST upper key or sequence");}}
+  void verify()const{for(auto&f:files){DiskCursor c(f,{},{},false);std::string prev;uint64_t maxseq=0;while(c.valid){if(!prev.empty()&&c.row.key<=prev)throw Err("corruption","SST key order");if(prev.empty()&&c.row.key!=f->lo)throw Err("corruption","SST lower key");prev=c.row.key;maxseq=std::max(maxseq,c.row.seq);c.next();}if(prev!=f->hi||maxseq!=f->maxseq)throw Err("corruption","SST upper key or sequence");}}
   void replace(std::vector<F> next,const std::string& vector,uint64_t vend){auto old=files;auto prev=vector_name;vector_name=vector;vector_end=vector_synced=vend;
     try{publish(next,seq);}catch(...){failed=true;throw;}retire(old);if(prev!=vector)unlink((dir+"/"+prev).c_str());
   }

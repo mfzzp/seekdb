@@ -17,6 +17,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iterator>
+#include <list>
 #include <iostream>
 #include <map>
 #include <queue>
@@ -1012,8 +1013,8 @@ namespace lite {
     template<class Fn> void each_row(const Table&q,const std::vector<Cond>&cs,Fn fn)const{
       // Primary equality needs no range iterator or row-cache materialization.
       for(auto&c:cs)if(c.col==0&&c.op=="="){Row r;if(row_get(q,integer(c.val),r)&&match(q,r,cs))fn(r);return;}
-      std::string lo=prefix(q),hi=lsm::upper(lo);int secondary_col=-1;
-      for(auto&c:cs)if(c.col>0&&q.c[c.col].t!="VECTOR"&&c.op=="="){lo=index_prefix(q,c.col)+scalar_key(q.c[c.col],c.val);hi=lsm::upper(lo);secondary_col=c.col;break;}
+      std::string lo=prefix(q),hi=lsm::upper(lo);int secondary_col=-1;const char*mode=getenv("LITE_LSM_READ");bool sequential=mode&&std::string(mode)=="scan";
+      for(auto&c:cs)if(!sequential&&c.col>0&&q.c[c.col].t!="VECTOR"&&c.op=="="){lo=index_prefix(q,c.col)+scalar_key(q.c[c.col],c.val);hi=lsm::upper(lo);secondary_col=c.col;break;}
       if(secondary_col<0)for(auto&c:cs)if(c.col==0&&c.op!="!="){auto k=skey(q,integer(c.val));if(c.op==">=")lo=std::max(lo,k);else if(c.op==">")lo=std::max(lo,lsm::upper(k));else if(c.op=="<")hi=std::min(hi,k);else if(c.op=="<=")hi=std::min(hi,lsm::upper(k));}
       if(!hi.empty()&&lo>=hi)return;auto c=scan(lo,hi);while(c->valid){Row r;if(secondary_col>=0){long long id=(long long)(lsm::number_value(c->row.key,c->row.key.size()-8)^(1ull<<63));if(!row_get(q,id,r))throw Err("corruption","dangling scalar index");}else r=decode_row(q,c->row.value);if(match(q,r,cs))fn(r);c->next();}
     }
@@ -1070,7 +1071,7 @@ namespace lite {
     }
     void begin_transaction_import(){tx=store->batch();in=true;}
     J cold_select(Table&q,const std::vector<Cond>&cs,const std::vector<std::string>&proj,bool metric,int mc,const std::vector<float>&qv,size_t dp,const std::string&alias,bool ordered,bool distance_order,int oc,bool desc,uint64_t limit,bool profile){
-      using Clock=std::chrono::steady_clock;auto start=profile?Clock::now():Clock::time_point{};
+      using Clock=std::chrono::steady_clock;auto start=profile?Clock::now():Clock::time_point{};auto read_start=*store->read_cache->stats;
       struct Hit {Row row;double d=0;};
       auto better=[&](const Hit&a,const Hit&b){int c=0;
         if(!ordered)return a.row.ordinal<b.row.ordinal;
@@ -1094,7 +1095,7 @@ namespace lite {
       out.o["columns"]=std::move(cols);out.o["rows"]=std::move(rows);J mt=jo();mt.o["planner_path"]=js("exact_scan");mt.o["storage_path"]=js("lsm");mt.o["exact_path"]=js(metric?"scan":"generic");if(ann_mode)mt.o["ann_fallback"]=jb(true);
       mt.o["candidate_count"]=ji(candidates);mt.o["filtered_candidates"]=ji(candidates);mt.o["raw_candidates"]=ji(candidates);mt.o["exact_evaluations"]=ji(distances);mt.o["full_distance_evaluations"]=ji(distances);mt.o["distance_dimensions"]=ji(metric?distances*q.c[mc].d:0);mt.o["heap_updates"]=ji(updates);
       for(auto k:{"probed_lists","distance_pruned","blocks_considered","blocks_pruned","block_pruned_candidates"})mt.o[k]=ji(0);
-      if(profile){J times=jo();for(auto k:{"prepare","matrix","block_build","bounds","block_sort","vector_distance","topk"})times.o[k]=jd(0);times.o["scan_total"]=jd(scan_ms);times.o["result"]=jd(std::chrono::duration<double,std::milli>(Clock::now()-phase).count());times.o["select_total"]=jd(std::chrono::duration<double,std::milli>(Clock::now()-start).count());mt.o["profile_ms"]=std::move(times);}out.o["metrics"]=std::move(mt);return out;
+      if(profile){J times=jo();for(auto k:{"prepare","matrix","block_build","bounds","block_sort","vector_distance","topk"})times.o[k]=jd(0);times.o["scan_total"]=jd(scan_ms);times.o["result"]=jd(std::chrono::duration<double,std::milli>(Clock::now()-phase).count());times.o["select_total"]=jd(std::chrono::duration<double,std::milli>(Clock::now()-start).count());mt.o["profile_ms"]=std::move(times);}if(profile){auto&r=*store->read_cache->stats;mt.o["sst_reader_initializations"]=ji(r.readers-read_start.readers);mt.o["sst_index_bytes"]=ji(r.index_bytes-read_start.index_bytes);mt.o["sst_block_reads"]=ji(r.blocks-read_start.blocks);mt.o["sst_block_bytes"]=ji(r.block_bytes-read_start.block_bytes);mt.o["sst_record_decodes"]=ji(r.decodes-read_start.decodes);mt.o["sst_block_hits"]=ji(r.hits-read_start.hits);mt.o["sst_seeks"]=ji(r.seeks-read_start.seeks);mt.o["read_cache_bytes"]=ji(store->read_cache->used);mt.o["read_live_bytes"]=ji(r.live);mt.o["read_peak_bytes"]=ji(r.peak);mt.o["read_open_files"]=ji(r.handles);}out.o["metrics"]=std::move(mt);return out;
     }
     std::vector<float> query_vec(const std::vector<std::string>&t)const{
       for(auto&x:t)if(x.find("[")!=std::string::npos)return vec(x);
