@@ -4,6 +4,7 @@
 #include <sys/file.h>
 #include <cmath>
 #include <chrono>
+#include <charconv>
 #include <limits>
 #include <immintrin.h>
 #include <cctype>
@@ -746,10 +747,14 @@ namespace lite {
       if(want>0)v.reserve(want);
       const char*p=z.c_str()+1;
       const char*e=z.c_str()+z.size()-1;
+      const char*setting=std::getenv("LITE_FAST_PARSE");bool fast=!setting||std::atoi(setting)!=0;
       while(p<e){
         while(p<e&&std::isspace((unsigned char)*p))++p;
         if(p>=e)break;
-        char*tail=nullptr;double val=std::strtod(p,&tail);
+        char*tail=nullptr;double val=0;
+        // Keep strtod's leading-plus and range/underflow behavior on the fallback.
+        if(fast&&*p!='+'){auto result=std::from_chars(p,e,val,std::chars_format::general);if(result.ec==std::errc{})tail=const_cast<char*>(result.ptr);}
+        if(!tail)val=std::strtod(p,&tail);
         if(tail==p||tail>e)throw Err("invalid_value","vector number");
         for(const char*q=p;q<tail;++q)if(!std::isdigit((unsigned char)*q)&&*q!='.'&&*q!='e'&&*q!='E'&&*q!='+'&&*q!='-')throw Err("invalid_value","vector number");
         p=tail;float x=(float)val;

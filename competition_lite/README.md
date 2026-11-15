@@ -16,6 +16,8 @@ Exact defaults to a batch matrix scan for unfiltered cached data, reusing the wi
 
 Hot single-equality Top-K queries can reuse sorted vector slots. `LITE_HOT_POSTINGS_KB` defaults to 1024 across one table/column; zero disables retention. The estimate includes keys, map nodes and vector capacity. Mutations, rollback, failed statements, GC, table/column changes and slot rebuilds invalidate it. No query answers or extra vectors are cached; unsupported predicates and budget rejection use the prior path. See [small-table comparison](docs/SMALL_HOT_20261116.md).
 
+Vector literals use a checked double `from_chars` conversion before the existing float32 conversion. Leading plus and conversion errors retain the `strtod` fallback; dimensions, characters and finite-value checks remain. `LITE_FAST_PARSE=0` restores the prior conversion for comparisons. See [default-workload write and query results](docs/SMALL_PARSE_20261116.md).
+
 Filtered candidates that occupy a contiguous physical matrix interval can reuse the same batch scan at that interval's offset. This never expands the filtered candidate set. `LITE_CONTIGUOUS_SCAN=0` disables the experiment; `contiguous_candidates` and `matrix_scan_vectors` expose actual use in diagnostic runs.
 
 From a clean Git source tree:
