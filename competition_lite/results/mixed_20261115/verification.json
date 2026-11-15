@@ -1,0 +1,87 @@
+{
+  "archive_files_verified": 277,
+  "main_runs": 18,
+  "passed": 18,
+  "failed": 0,
+  "exact_queries_rechecked": 18000,
+  "full_restore_rows_recorded": 3600000,
+  "diagnostic_passed": {
+    "diagnostic": 6,
+    "stages": 6
+  },
+  "postrun_payload_files_recorded": 18,
+  "outcomes": [
+    {
+      "run": "100000-new-24-r1",
+      "passed": true
+    },
+    {
+      "run": "100000-new-24-r2",
+      "passed": true
+    },
+    {
+      "run": "100000-new-24-r3",
+      "passed": true
+    },
+    {
+      "run": "100000-scored-f885-r1",
+      "passed": true
+    },
+    {
+      "run": "100000-scored-f885-r2",
+      "passed": true
+    },
+    {
+      "run": "100000-scored-f885-r3",
+      "passed": true
+    },
+    {
+      "run": "100000-cpp-449-r1",
+      "passed": true
+    },
+    {
+      "run": "100000-cpp-449-r2",
+      "passed": true
+    },
+    {
+      "run": "100000-cpp-449-r3",
+      "passed": true
+    },
+    {
+      "run": "300000-new-24-r1",
+      "passed": true
+    },
+    {
+      "run": "300000-new-24-r2",
+      "passed": true
+    },
+    {
+      "run": "300000-new-24-r3",
+      "passed": true
+    },
+    {
+      "run": "300000-scored-f885-r1",
+      "passed": true
+    },
+    {
+      "run": "300000-scored-f885-r2",
+      "passed": true
+    },
+    {
+      "run": "300000-scored-f885-r3",
+      "passed": true
+    },
+    {
+      "run": "300000-cpp-449-r1",
+      "passed": true
+    },
+    {
+      "run": "300000-cpp-449-r2",
+      "passed": true
+    },
+    {
+      "run": "300000-cpp-449-r3",
+      "passed": true
+    }
+  ]
+}

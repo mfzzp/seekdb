@@ -1,0 +1,41 @@
+{
+  "200": {
+    "unique_main_sql": 128,
+    "unique_main_and_warmup_vectors": 146,
+    "query_groups": {
+      "128/none": 32,
+      "1024/none": 32,
+      "128/category": 32,
+      "1024/category": 32
+    },
+    "rows_per_dimension": 100,
+    "commits": 2,
+    "all_run_input_hashes_match": true
+  },
+  "100000": {
+    "unique_main_sql": 1000,
+    "unique_main_and_warmup_vectors": 1018,
+    "query_groups": {
+      "128/none": 250,
+      "1024/none": 250,
+      "128/category": 250,
+      "1024/category": 250
+    },
+    "rows_per_dimension": 50000,
+    "commits": 1000,
+    "all_run_input_hashes_match": true
+  },
+  "300000": {
+    "unique_main_sql": 1000,
+    "unique_main_and_warmup_vectors": 1018,
+    "query_groups": {
+      "128/none": 250,
+      "1024/none": 250,
+      "128/category": 250,
+      "1024/category": 250
+    },
+    "rows_per_dimension": 150000,
+    "commits": 3000,
+    "all_run_input_hashes_match": true
+  }
+}

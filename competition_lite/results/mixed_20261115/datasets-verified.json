@@ -1,0 +1,130 @@
+{
+  "root": "/mnt/SSD1/zzp/seekdb-round2-lite2000/mixed-100k-300k-20261115",
+  "all_match": true,
+  "scope": "Post-run payload SHA256 matches pre-run prepared metadata",
+  "datasets": [
+    {
+      "rows": 200,
+      "files": [
+        {
+          "path": "insert.jsonl",
+          "bytes": 1447915,
+          "sha256": "3ca1b14089da0f5b2b7f835ccbfc48beb6c0b2c2b959e60898aa60589b350b33",
+          "matches_prepared": true
+        },
+        {
+          "path": "queries.jsonl",
+          "bytes": 943611,
+          "sha256": "9443c3bb386d8ef9ea53341d49b997d4c4a30277cb192e7d4dfd30ba94aff6db",
+          "matches_prepared": true
+        },
+        {
+          "path": "cases.json",
+          "bytes": 1552662,
+          "sha256": "f05fd51422d84551edbdc07d0c8b503725c48fc958449822edb601f5540eaaea",
+          "matches_prepared": true
+        },
+        {
+          "path": "warmup.json",
+          "bytes": 218464,
+          "sha256": "a3bafcf77b7a8e20876bb15bc28b3d3ef2042e86ff630a70bd2b2e3fe5fc3fd7",
+          "matches_prepared": true
+        },
+        {
+          "path": "vectors128.f32",
+          "bytes": 51200,
+          "sha256": "5524631c74253e31a9bd3c62db9d32f27099f2ce40c6cd811dacd36485f699c3",
+          "matches_prepared": true
+        },
+        {
+          "path": "vectors1024.f32",
+          "bytes": 409600,
+          "sha256": "a2589479db4290709bc69a5efe7ee2391929430a1a5b8aa22ba483c7fe6df634",
+          "matches_prepared": true
+        }
+      ]
+    },
+    {
+      "rows": 100000,
+      "files": [
+        {
+          "path": "insert.jsonl",
+          "bytes": 724665609,
+          "sha256": "72479402a0ba95c2b5fac4ee334527ad85f5490fb80bed3b79cacba5c7d54799",
+          "matches_prepared": true
+        },
+        {
+          "path": "queries.jsonl",
+          "bytes": 7371703,
+          "sha256": "4e99a058245c7db679735a2e8dcd167b8d25e0ba986f1d6dfd5c7e3402aa04ba",
+          "matches_prepared": true
+        },
+        {
+          "path": "cases.json",
+          "bytes": 12131223,
+          "sha256": "a3839bf2bbf17d6963b6a1f0b4866bf5662ca54139c0a1e0353358e87935d9be",
+          "matches_prepared": true
+        },
+        {
+          "path": "warmup.json",
+          "bytes": 218464,
+          "sha256": "a3bafcf77b7a8e20876bb15bc28b3d3ef2042e86ff630a70bd2b2e3fe5fc3fd7",
+          "matches_prepared": true
+        },
+        {
+          "path": "vectors128.f32",
+          "bytes": 25600000,
+          "sha256": "3bf9f575f226574f63ece2b7aa1da45993387447754b8acde3fce69ee7c21855",
+          "matches_prepared": true
+        },
+        {
+          "path": "vectors1024.f32",
+          "bytes": 204800000,
+          "sha256": "3811eb8bbe02c8b81fc4193783cef2f6bbef79af97fe77995304e13a0b91b0d3",
+          "matches_prepared": true
+        }
+      ]
+    },
+    {
+      "rows": 300000,
+      "files": [
+        {
+          "path": "insert.jsonl",
+          "bytes": 2174264764,
+          "sha256": "cca2bf6369f57783300d82e61260d38149003c8cbb682cabeacd43a9c43c0472",
+          "matches_prepared": true
+        },
+        {
+          "path": "queries.jsonl",
+          "bytes": 7371703,
+          "sha256": "4e99a058245c7db679735a2e8dcd167b8d25e0ba986f1d6dfd5c7e3402aa04ba",
+          "matches_prepared": true
+        },
+        {
+          "path": "cases.json",
+          "bytes": 12131223,
+          "sha256": "a3839bf2bbf17d6963b6a1f0b4866bf5662ca54139c0a1e0353358e87935d9be",
+          "matches_prepared": true
+        },
+        {
+          "path": "warmup.json",
+          "bytes": 218464,
+          "sha256": "a3bafcf77b7a8e20876bb15bc28b3d3ef2042e86ff630a70bd2b2e3fe5fc3fd7",
+          "matches_prepared": true
+        },
+        {
+          "path": "vectors128.f32",
+          "bytes": 76800000,
+          "sha256": "1e32b8193da23133e06aedfe40e6bef9d6782a7527e531ae942f873aaebff0de",
+          "matches_prepared": true
+        },
+        {
+          "path": "vectors1024.f32",
+          "bytes": 614400000,
+          "sha256": "dd756af22a4d83472bffc9104351de032055dcf2c0c801a6f289690d44d54985",
+          "matches_prepared": true
+        }
+      ]
+    }
+  ]
+}
