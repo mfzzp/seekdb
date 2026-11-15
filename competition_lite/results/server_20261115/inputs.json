@@ -1,0 +1,15 @@
+{
+  "rows": 10000,
+  "dimension": 128,
+  "schema_columns": 4,
+  "seed": 20261111,
+  "distribution": "local independent N(0,0.5^2), 20 balanced categories; official generator unavailable",
+  "source": "published parameters and SQL example; synthetic generator is ours, not organizer code",
+  "spec_url": "https://oceanbase.yuque.com/org-wiki-obtech-vh7w9r/hc3pio/lg8enxlmwg69unt6",
+  "sha256": {
+    "vectors.f32": "b691483a59f3a7cc1d1c354929254b0000e46853f92eedc2dd75b50ad5c49d27",
+    "rows.jsonl": "bdc693c67bf5b6977be23089004c6a2c2f93621aa246ada500fab4ff3ef08d46",
+    "load_order.u32": "54ab3c558d8e796c72b7ce23e78ddc5334835625fbb8efa124eb5dae5d82597d",
+    "query_cases.jsonl": "8b22f383c9803fe868f5ae5fda95e15dc8a82a8811b94944d110aad3db0d8f33"
+  }
+}

@@ -1,0 +1,62 @@
+[
+  {
+    "variant": "before",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/iteration-20261115-ce21bb9/paired10k/before-r1.json"
+  },
+  {
+    "variant": "after",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/iteration-20261115-ce21bb9/paired10k/after-r1.json"
+  },
+  {
+    "variant": "old",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/iteration-20261115-ce21bb9/paired10k/old-r1.json"
+  },
+  {
+    "variant": "after-block",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/iteration-20261115-ce21bb9/paired10k/after-block-r1.json"
+  },
+  {
+    "variant": "after",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/iteration-20261115-ce21bb9/paired10k/after-r2.json"
+  },
+  {
+    "variant": "old",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/iteration-20261115-ce21bb9/paired10k/old-r2.json"
+  },
+  {
+    "variant": "after-block",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/iteration-20261115-ce21bb9/paired10k/after-block-r2.json"
+  },
+  {
+    "variant": "before",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/iteration-20261115-ce21bb9/paired10k/before-r2.json"
+  },
+  {
+    "variant": "old",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/iteration-20261115-ce21bb9/paired10k/old-r3.json"
+  },
+  {
+    "variant": "after-block",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/iteration-20261115-ce21bb9/paired10k/after-block-r3.json"
+  },
+  {
+    "variant": "before",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/iteration-20261115-ce21bb9/paired10k/before-r3.json"
+  },
+  {
+    "variant": "after",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/iteration-20261115-ce21bb9/paired10k/after-r3.json"
+  }
+]

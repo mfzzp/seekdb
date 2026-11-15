@@ -1,0 +1,4 @@
+{"batch": 256, "columns": 8, "checkpoint": false, "recovered_rows": 256, "pass": true}
+{"batch": 1024, "columns": 8, "checkpoint": false, "recovered_rows": 1024, "pass": true}
+{"batch": 256, "columns": 8, "checkpoint": true, "recovered_rows": 257, "pass": true}
+{"batch": 1024, "columns": 8, "checkpoint": true, "recovered_rows": 1025, "pass": true}

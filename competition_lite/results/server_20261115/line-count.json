@@ -1,0 +1,8 @@
+{
+  "command": "python competition_lite/tools/check_lines.py",
+  "exit_code": 1,
+  "runtime_physical_lines": 2269,
+  "original_limit": 2000,
+  "passed": false,
+  "note": "Pre-existing project line target remains unmet; distinct from functional Docker checks."
+}

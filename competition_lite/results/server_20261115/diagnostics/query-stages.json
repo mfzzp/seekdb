@@ -1,0 +1,122 @@
+{
+  "profile-before": {
+    "category": {
+      "block_build": 0.0,
+      "block_sort": 0.0,
+      "bounds": 0.0,
+      "matrix": 2.3e-05,
+      "prepare": 0.10137499999999999,
+      "result": 0.0073595,
+      "scan_total": 0.027783000000000002,
+      "select_total": 0.136958,
+      "topk": 0.0033569999999999997,
+      "vector_distance": 0.0242665,
+      "request_ms": 0.2029110910370946,
+      "candidates": 500.0
+    },
+    "none": {
+      "block_build": 0.0,
+      "block_sort": 0.0,
+      "bounds": 0.0,
+      "matrix": 0.000224,
+      "prepare": 0.0581015,
+      "result": 0.0092875,
+      "scan_total": 0.2876965,
+      "select_total": 0.356192,
+      "topk": 0.024195,
+      "vector_distance": 0.2621024999999999,
+      "request_ms": 0.4231319762766361,
+      "candidates": 10000.0
+    }
+  },
+  "profile-after-v1": {
+    "category": {
+      "block_build": 0.0,
+      "block_sort": 0.0,
+      "bounds": 0.0,
+      "matrix": 2e-05,
+      "prepare": 0.0329825,
+      "result": 0.0070030000000000005,
+      "scan_total": 0.030424,
+      "select_total": 0.07116800000000001,
+      "topk": 0.003338,
+      "vector_distance": 0.026785,
+      "request_ms": 0.1394840655848384,
+      "candidates": 500.0
+    },
+    "none": {
+      "block_build": 0.0,
+      "block_sort": 0.0,
+      "bounds": 0.0,
+      "matrix": 0.000152,
+      "prepare": 0.021919,
+      "result": 0.0093525,
+      "scan_total": 0.3030235,
+      "select_total": 0.3354035,
+      "topk": 0.022143499999999997,
+      "vector_distance": 0.27854650000000003,
+      "request_ms": 0.40782836731523275,
+      "candidates": 10000.0
+    }
+  },
+  "profile-final-scan": {
+    "category": {
+      "block_build": 0.0,
+      "block_sort": 0.0,
+      "bounds": 0.0,
+      "matrix": 2.4e-05,
+      "prepare": 0.029828,
+      "result": 0.0068295000000000005,
+      "scan_total": 0.028732,
+      "select_total": 0.066344,
+      "topk": 0.003143,
+      "vector_distance": 0.025348500000000003,
+      "request_ms": 0.12973544653505087,
+      "candidates": 500.0
+    },
+    "none": {
+      "block_build": 0.0,
+      "block_sort": 0.0,
+      "bounds": 0.0,
+      "matrix": 0.000152,
+      "prepare": 0.019474,
+      "result": 0.008985,
+      "scan_total": 0.286517,
+      "select_total": 0.316297,
+      "topk": 0.0223775,
+      "vector_distance": 0.262494,
+      "request_ms": 0.38184691220521927,
+      "candidates": 10000.0
+    }
+  },
+  "profile-final-block": {
+    "category": {
+      "block_build": 0.0001655,
+      "block_sort": 8.5e-05,
+      "bounds": 0.0355175,
+      "matrix": 3.6e-05,
+      "prepare": 0.032380500000000006,
+      "result": 0.0074115,
+      "scan_total": 0.049880499999999994,
+      "select_total": 0.125898,
+      "topk": 0.006090500000000014,
+      "vector_distance": 0.03570600000000001,
+      "request_ms": 0.19447947852313519,
+      "candidates": 500.0
+    },
+    "none": {
+      "block_build": 0.000106,
+      "block_sort": 5.5e-05,
+      "bounds": 0.0373285,
+      "matrix": 0.000195,
+      "prepare": 0.060509999999999994,
+      "result": 0.0090825,
+      "scan_total": 0.328171,
+      "select_total": 0.436798,
+      "topk": 0.023654500000000002,
+      "vector_distance": 0.29601299999999986,
+      "request_ms": 0.5072504281997681,
+      "candidates": 10000.0
+    }
+  }
+}

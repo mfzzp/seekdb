@@ -705,7 +705,7 @@ namespace lite {
         try{sync_commit(fd);}catch(...){close(fd);throw;}close(fd);}
     }
     void load_state(){
-      auto finish=[&](){vec_end=fsize(vecfile);ensure_map();sindex.clear();nindex.clear();bool post=load_postings();for(auto&t:tabs){if(post){t.second.fast.clear();refresh_fast(t.second);}else rebuild_scalar(t.second);load_vstats(t.second);if(!load_index(t.second))rebuild_index(t.second);}};
+      auto finish=[&](){vec_end=fsize(vecfile);ensure_map();sindex.clear();nindex.clear();bool post=load_postings();for(auto&t:tabs){if(post){t.second.fast.clear();refresh_fast(t.second);}else rebuild_scalar(t.second);load_vstats(t.second);rebuild_index(t.second);}};
       std::ifstream b(dir+"/STATE",std::ios::binary);uint32_t magic=0;
       if(b.read((char*)&magic,4)&&magic==0x4c535432u){
         uint32_t ver=0,nt=0;uint64_t w=0;int64_t vector_end=0;
@@ -1077,8 +1077,10 @@ namespace lite {
       }
       return s+";";
     }
-    bool match(const Table&q,const Row&r,const std::vector<Cond>&cs)const{
-      for(auto&c:cs){
+    bool match(const Table&q,const Row&r,const std::vector<Cond>&cs,size_t proven=std::numeric_limits<size_t>::max())const{
+      for(size_t j=0;j<cs.size();++j){
+        if(j==proven)continue;
+        const auto&c=cs[j];
         std::string a=c.col==0?std::to_string(r.id):unq(r.v[c.col-1]),b=unq(c.val);
         bool num=q.c[c.col].t=="BIGINT";
         if(num){
@@ -1114,6 +1116,7 @@ namespace lite {
         c.op=t[a++];
         c.val=t[a++];
         if(c.col<0)throw Err("unknown_column","where");
+        if(q.c[c.col].t=="BIGINT")c.val=std::to_string(integer(unq(c.val)));
         if(c.op!="="&&c.op!="!="&&c.op!="<>"&&c.op!="<"&&c.op!=">"&&c.op!="<="&&c.op!=">=")throw Err("unsupported_sql","comparison");
         r.push_back(c);
       }
@@ -1557,6 +1560,11 @@ namespace lite {
       }
     }
     void rebuild_index(Table&q){
+      // Exact and ANN fallback do not consume PQ codes. Keep training/loading
+      // out of requests and recovery until an approximate executor is validated.
+      buckets.erase(q.n);pqs.erase(q.n);
+    }
+    void train_pq_index(Table&q){
       ensure_map();
       buckets[q.n].clear();
       pqs.erase(q.n);
@@ -1862,7 +1870,6 @@ namespace lite {
     J select(const std::vector<std::string>&t){
       // Until IVF/PQ recall is validated, ANN uses the exact executor too.
       // This is a data-independent correctness fallback, not a cached answer.
-      const bool approximate=false;
       using Clock=std::chrono::steady_clock;
       bool profile=std::getenv("LITE_PROFILE")&&std::string(std::getenv("LITE_PROFILE"))=="1";
       auto stamp=[&](){return profile?Clock::now():Clock::time_point{};};
@@ -1937,87 +1944,33 @@ namespace lite {
         double ord;
       };
       // vptr maps on demand. Empty/index-only candidates must not remap vector data.
-      std::vector<long long>scan=q.order;
-      for(auto&c:cs)if(c.col>=0&&q.c[c.col].t!="VECTOR"){
-        std::string k=q.n+"."+q.c[c.col].n;std::vector<long long>cand;bool used=false;
+      std::vector<long long>owned_scan,empty_scan;
+      const std::vector<long long>*scan=&q.order;
+      size_t proven=cs.size();
+      for(size_t j=0;j<cs.size();++j){const auto&c=cs[j];if(q.c[c.col].t=="VECTOR")continue;
+        std::string k=q.n+"."+q.c[c.col].n;std::vector<long long>range;
+        const std::vector<long long>*cand=nullptr;
         if(c.op=="="){
           auto it=sindex.find(k);
-          if(it!=sindex.end()){used=true;auto jt=it->second.find(unq(c.val));if(jt!=it->second.end())cand=jt->second;}
+          if(it!=sindex.end()){auto jt=it->second.find(unq(c.val));cand=jt==it->second.end()?&empty_scan:&jt->second;}
         }
         else if(q.c[c.col].t=="BIGINT"&&c.op!="!="){
           auto it=nindex.find(k);
           if(it!=nindex.end()){
-            used=true;long long y=std::stoll(unq(c.val));auto a=it->second.begin(),b=it->second.end();
+            bool used=true;long long y=std::stoll(c.val);auto a=it->second.begin(),b=it->second.end();
             if(c.op==">")a=it->second.upper_bound(y);else if(c.op==">=")a=it->second.lower_bound(y);else if(c.op=="<")b=it->second.lower_bound(y);else if(c.op=="<=")b=it->second.upper_bound(y);else used=false;
-            if(used)for(;a!=b;++a)cand.insert(cand.end(),a->second.begin(),a->second.end());
+            if(used){for(;a!=b;++a)range.insert(range.end(),a->second.begin(),a->second.end());cand=&range;}
           }
         }
-        if(used&&cand.size()<scan.size())scan=std::move(cand);
+        if(cand&&cand->size()<scan->size()){
+          if(cand==&range){owned_scan=std::move(range);scan=&owned_scan;}else scan=cand;
+          proven=j;
+        }
       }
       size_t ask=li<t.size()?std::stoull(t[li+1]):10;
       int probes_used=0;
       size_t raw_candidates=0;
-      if(metric&&approximate&&index_cols.count(q.n)&&cs.empty()&&pqs.count(q.n)){
-        auto&z=pqs.at(q.n);
-        std::vector<std::pair<double,int>>co;
-        for(int k=0;k<z.nlist;++k)co.push_back({
-          coarse_dist(z,qv,k),k
-        });
-        std::sort(co.begin(),co.end());
-        int probes=std::min(z.nlist,std::max(1,std::getenv("LITE_NPROBE")?std::atoi(std::getenv("LITE_NPROBE")):8));
-        probes_used=probes;
-        scan.clear();
-        for(int k=0;k<probes;++k){
-          auto itb=buckets[q.n].find(co[k].second);
-          if(itb!=buckets[q.n].end())scan.insert(scan.end(),itb->second.begin(),itb->second.end());
-        }
-        std::sort(scan.begin(),scan.end());
-        scan.erase(std::unique(scan.begin(),scan.end()),scan.end());
-        raw_candidates=scan.size();
-        if(scan.size()>=ask){
-          int sub=(z.d+z.m-1)/z.m;
-          std::vector<double>ad(z.m*z.ks);
-          for(int mi=0;mi<z.m;++mi)for(int k=0;k<z.ks;++k){
-            double d0=0;
-            for(int j=0;j<sub;++j){
-              int x=mi*sub+j;
-              if(x<z.d){
-                float a=qv[x]-z.book[(mi*z.ks+k)*sub+j];
-                d0+=a*a;
-              }
-            }
-            ad[mi*z.ks+k]=d0;
-          }
-          std::vector<std::pair<double,long long>>ap;
-          for(auto id:scan){
-            auto ci=z.code.find(id);
-            double d0=0;
-            if(ci!=z.code.end())for(int mi=0;mi<z.m;++mi)d0+=ad[mi*z.ks+ci->second[mi]];
-            ap.push_back({
-              d0,id
-            });
-          }
-          std::sort(ap.begin(),ap.end());
-          size_t cap=std::min(ap.size(),std::max<size_t>(ask*(size_t)envint("LITE_RERANK",32),ask));
-          std::vector<long long>cand; cand.reserve(cap);
-          for(size_t k=0;k<cap;++k)cand.push_back(ap[k].second);
-          bool prune=fast_pos.count(q.n)&&vblocks.count(q.n)&&vblock_col[q.n]==mcol;
-          if(prune){
-            auto&bs=vblocks[q.n];auto&pos=fast_pos[q.n];size_t seed=std::min(ask,cand.size());
-            std::vector<double>sdist;sdist.reserve(seed);
-            for(size_t k=0;k<seed;++k){auto it=q.r.find(cand[k]);if(it!=q.r.end())sdist.push_back(l2(it->second.voff[mcol],q.c[mcol].d,qv));}
-            double threshold=1e300;if(sdist.size()==ask)threshold=*std::max_element(sdist.begin(),sdist.end());
-            int vd=q.c[mcol].d,vs=vd;std::vector<double>lb(bs.size(),-1);
-            auto lower=[&](size_t bi){
-              double z=0;for(int j=0;j<vs;++j){int x=(j*vd)/vs,a=0;double e=qv[x];if(e<bs[bi].lo[j])a=1,e=bs[bi].lo[j]-e;else if(e>bs[bi].hi[j])a=1,e-=bs[bi].hi[j];if(a)z+=e*e;}
-              if(!bs[bi].center.empty()){double c2=0;for(int j=0;j<vs;++j){double e=qv[(j*vd)/vs]-bs[bi].center[j];c2+=e*e;}double r=std::max(0.0,std::sqrt(c2)-bs[bi].radius);z=std::max(z,r*r);}return z;
-            };
-            scan.clear();for(size_t k=0;k<cand.size();++k){if(k<seed||threshold==1e300){scan.push_back(cand[k]);continue;}auto it=pos.find(cand[k]);if(it==pos.end()){scan.push_back(cand[k]);continue;}size_t bi=it->second/64;if(bi>=lb.size()||(lb[bi]<0?((lb[bi]=lower(bi))<=threshold):(lb[bi]<=threshold)))scan.push_back(cand[k]);}
-          }else scan=std::move(cand);
-        }
-        else scan=q.order;
-      }
-      bool exact_topk=metric&&!approximate&&oi+2<t.size()&&li<t.size()&&
+      bool exact_topk=metric&&oi+2<t.size()&&li<t.size()&&
         (up(t[oi+2])=="L2_DISTANCE"||t[oi+2]==alias)&&
         !(oi+3<t.size()&&up(t[oi+3])=="DESC");
       const char* path_env=std::getenv("LITE_EXACT_PATH");
@@ -2027,22 +1980,27 @@ namespace lite {
       bool block_exact=exact_topk&&exact_path=="block";
       if(!path_env&&std::getenv("LITE_BLOCK_EXACT"))block_exact=exact_topk&&std::atoi(std::getenv("LITE_BLOCK_EXACT"))!=0;
       std::vector<size_t>positions;
-      if(exact_topk){
-        positions.reserve(scan.size());
-        if(scan.size()==q.order.size()){
-          for(size_t p=0;p<q.fast.size();++p)if(q.fast[p]&&match(q,*q.fast[p],cs))positions.push_back(p);
+      const bool dense=exact_topk&&!block_exact&&cs.empty();
+      if(dense)filtered_candidates=q.fast.size();
+      else if(exact_topk){
+        positions.reserve(scan->size());
+        if(scan==&q.order){
+          for(size_t p=0;p<q.fast.size();++p)if(q.fast[p]&&match(q,*q.fast[p],cs,proven))positions.push_back(p);
         }else{
           const auto&pos=fast_pos.at(q.n);
-          for(auto id:scan){auto it=pos.find(id);if(it!=pos.end()&&q.fast[it->second]&&match(q,*q.fast[it->second],cs))positions.push_back(it->second);}
+          for(auto id:*scan){auto it=pos.find(id);if(it!=pos.end()&&q.fast[it->second]&&match(q,*q.fast[it->second],cs,proven))positions.push_back(it->second);}
           // Sort integer positions once, without tree lookups in the comparator.
-          std::sort(positions.begin(),positions.end());
+          if(!std::is_sorted(positions.begin(),positions.end()))std::sort(positions.begin(),positions.end());
         }
         filtered_candidates=positions.size();
-      }else if(metric&&!approximate)std::sort(scan.begin(),scan.end(),[&](long long a,long long b){
-        off_t x=q.r.at(a).voff[mcol],y=q.r.at(b).voff[mcol];if(x!=y)return x<y;return a<b;
-      });
+      }else if(metric){
+        owned_scan=*scan;scan=&owned_scan;
+        std::sort(owned_scan.begin(),owned_scan.end(),[&](long long a,long long b){
+          off_t x=q.r.at(a).voff[mcol],y=q.r.at(b).voff[mcol];if(x!=y)return x<y;return a<b;
+        });
+      }
       prepare_ms=elapsed(phase);phase=stamp();
-      if(metric&&(exact_topk?(ask&&positions.size()>2048):(cs.empty()||scan.size()>2048)))ensure_matrix(q,mcol);
+      if(metric&&(exact_topk?(ask&&filtered_candidates>2048):(cs.empty()||scan->size()>2048)))ensure_matrix(q,mcol);
       matrix_ms=elapsed(phase);
       std::vector<H>h;
       uint64_t early_pruned=0,early_dims=0,distance_calls=0;
@@ -2059,7 +2017,7 @@ namespace lite {
           if(it==q.r.end())return;
           row=&it->second;
         }
-        if(!match(q,*row,cs))return;
+        if(!match(q,*row,cs,proven))return;
         double d=0;
         if(metric){
           if(row->voff.size()>=(size_t)q.c.size()&&row->voff[mcol]>=0){
@@ -2104,7 +2062,7 @@ namespace lite {
           for(size_t base=begin;base<end;base+=256){
             H batch[256];size_t count=0;auto dt=stamp();
             for(size_t i=base;i<std::min(end,base+256);++i){
-              size_t p=positions[i];const Row&r=*q.fast[p];
+              size_t p=dense?i:positions[i];if(!q.fast[p])continue;const Row&r=*q.fast[p];
               const float*mp=matrix?matrix->v.data()+p*(size_t)matrix->dim:nullptr;
               double d=mp?l2p(mp,q.c[mcol].d,qv):l2(r.voff[mcol],q.c[mcol].d,qv);
               batch[count++]={r.id,d,d};++distance_calls;early_dims+=q.c[mcol].d;
@@ -2146,11 +2104,11 @@ namespace lite {
             if(top.size()>=ask&&v.bound>top.top().d){++blocks_pruned;block_pruned_candidates+=v.end-v.begin;continue;}
             score(v.begin,v.end);
           }
-        }else if(ask)score(0,positions.size());
+        }else if(ask)score(0,dense?q.fast.size():positions.size());
         scan_ms=elapsed(phase);
         while(!top.empty()){h.push_back(top.top());top.pop();}
       }else{
-        phase=stamp();for(auto id:scan)add_hit(id);scan_ms=elapsed(phase);
+        phase=stamp();for(auto id:*scan)add_hit(id);scan_ms=elapsed(phase);
         filtered_candidates=h.size();
       }
       phase=stamp();
@@ -2207,7 +2165,7 @@ namespace lite {
       J mt=jo();
       mt.o["planner_path"]=js("exact_scan");
       if(ann_mode)mt.o["ann_fallback"]=jb(true);
-      mt.o["candidate_count"]=ji((long long)scan.size());
+      mt.o["candidate_count"]=ji((long long)scan->size());
       mt.o["raw_candidates"]=ji((long long)raw_candidates);
       mt.o["probed_lists"]=ji(probes_used);
       mt.o["exact_evaluations"]=ji((long long)distance_calls);

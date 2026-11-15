@@ -53,7 +53,7 @@ def literal(values):
 
 
 def query_sql(case):
-    condition = (" WHERE category=" + esc(case['category'])) if case['filter'] == 'category' and 'category' in case else filt(case)
+    condition = (' WHERE '+case['where']) if 'where' in case else ((" WHERE category=" + esc(case['category'])) if case['filter'] == 'category' and 'category' in case else filt(case))
     return ('SELECT id,L2_DISTANCE(embedding,' + esc(literal(case['vector'])) +
             ') AS distance FROM docs' + condition + ' ORDER BY distance LIMIT 10;')
 
@@ -109,15 +109,16 @@ def prepare(args):
 
 
 class Client:
-    def __init__(self, binary, data, stderr, image):
+    def __init__(self, binary, data, stderr, image, exact_path=None):
         self.data = Path(data); self.data.mkdir(parents=True, exist_ok=True)
         self.name = 'lite-compare-' + uuid.uuid4().hex[:12]
         self.p = None; self.engine_pid = None
+        path_env = ['--env', 'LITE_EXACT_PATH='+exact_path] if exact_path else []
         subprocess.run(['docker','run','-d','--name',self.name,'--network=none','--cpus=2',
                         '--memory=2g','--memory-swap=2g','--pids-limit=128',
                         '--mount','type=bind,src=%s,dst=/engine,readonly' % binary,
                         '--mount','type=bind,src=%s,dst=/data' % self.data,
-                        '--entrypoint','/bin/sleep',image,'infinity'], check=True, stdout=subprocess.DEVNULL)
+                        '--entrypoint','/bin/sleep']+path_env+[image,'infinity'], check=True, stdout=subprocess.DEVNULL)
         LIVE_CLIENTS.add(self)
         try:
             info = json.loads(subprocess.check_output(['docker','inspect',self.name]))[0]
@@ -149,6 +150,7 @@ class Client:
         return {'device':self.device, 'io':io, 'io_unavailable_reason':None if io is not None else 'rootless daemon delegated cpu/memory/pids only; io controller unavailable',
                 'process_diagnostics_not_official_B':proc, 'memory_peak_bytes':int((cg/'memory.peak').read_text()),
                 'memory_current_bytes':int((cg/'memory.current').read_text()), 'cpu_s':int(cpu['usage_usec'])/1e6,
+                'memory_stat': {k:int(v) for k,v in (line.split() for line in (cg/'memory.stat').read_text().splitlines())},
                 'memory_events':dict(line.split() for line in (cg/'memory.events').read_text().splitlines()),
                 'cpu_max':(cg/'cpu.max').read_text().strip(), 'memory_max':(cg/'memory.max').read_text().strip(),
                 'swap_max':(cg/'memory.swap.max').read_text().strip()}
@@ -212,7 +214,7 @@ def run(args):
     with (prep / 'insert.jsonl').open('rb') as f:
         while f.read(4 << 20): pass
     with (out / 'stderr.log').open('wb') as err:
-        t = time.perf_counter(); client = Client(binary, out / 'data', err, args.image)
+        t = time.perf_counter(); client = Client(binary, out / 'data', err, args.image, args.exact_path)
         startup_s = time.perf_counter() - t
         image_id = client.image; initial = client.initial
         client.ask(meta['schema_sql'])
@@ -249,7 +251,7 @@ def run(args):
         t = time.perf_counter(); after = client.drain(); query_drain_s = time.perf_counter()-t
         t = time.perf_counter(); final = client.close()
         checkpoint_s = client.close_s
-        t = time.perf_counter(); client = Client(binary, out / 'data', err, args.image); restart_s = time.perf_counter() - t
+        t = time.perf_counter(); client = Client(binary, out / 'data', err, args.image, args.exact_path); restart_s = time.perf_counter() - t
         t = time.perf_counter(); checked = 0
         with (Path(meta['data'])/'vectors.f32').open('rb') as vf, (Path(meta['data'])/'rows.jsonl').open() as rf:
             for base in range(1,meta['rows']+1,256):
@@ -265,7 +267,7 @@ def run(args):
         assert not client.ask('SELECT id FROM docs WHERE id > %d ORDER BY id LIMIT 1;'%meta['rows'])['rows']
         verification_s=time.perf_counter()-t
         client.close()
-    result={'label':args.label,'run':str(out),'binary':str(binary),'binary_sha256':sha(binary),'prepared':str(prep),
+    result={'label':args.label,'run':str(out),'binary':str(binary),'binary_sha256':sha(binary),'prepared':str(prep),'exact_path_override':args.exact_path,
             'insert_sha256':meta['insert_sha256'],'query_cases_sha256':meta['query_cases_sha256'],
             'rows':meta['rows'],'dim':meta['dim'],'batch':meta['batch'],'requests':len(timings),
             'startup_s':startup_s,'insert_request_s':sum(timings),'insert_wall_s':insert_wall,
@@ -273,7 +275,7 @@ def run(args):
             'write_drain_s':write_drain_s,'query_wall_s':query_wall_s,'query_drain_s':query_drain_s,
             'checkpoint_s':checkpoint_s,'restart_s':restart_s,'restart_pass':True,'verified_rows':checked,
             'correctness_check_s':verification_s,'image_id':image_id,
-            'resources':{'initial':initial,'write_end':inserted,'query_prepared':query_prepared,'query_end':after,'after_shutdown':final},
+            'resources':{'initial':initial,'write_start':before,'write_end':inserted,'query_prepared':query_prepared,'query_end':after,'after_shutdown':final},
             'final_file_bytes':sum(p.stat().st_size for p in (out/'data').rglob('*') if p.is_file()),
             'queries':queries}
     (out/'result.json').write_text(json.dumps(result,indent=2)+'\n')
@@ -306,9 +308,13 @@ def verify(args):
                 if not math.isfinite(dist) or not math.isclose(dist,actual,rel_tol=1e-5,abs_tol=1e-5):bad_distance=True
             if bad_distance:distance_errors.append(q['id'])
         filters={}
-        for name in FILTERS:
+        for name in sorted({q['filter'] for q in cases}):
             samples=[q['seconds']*1000 for q in cases if q['filter']==name]
-            if samples:filters[name]={'n':len(samples),'mean_ms':statistics.mean(samples),'p50_ms':statistics.median(samples),'p95_ms':sorted(samples)[min(len(samples)-1,int(len(samples)*.95))]}
+            if samples:filters[name]={'n':len(samples),'request_total_s':sum(samples)/1000,'qps':len(samples)/(sum(samples)/1000),'mean_ms':statistics.mean(samples),'p50_ms':statistics.median(samples),'p95_ms':sorted(samples)[min(len(samples)-1,int(len(samples)*.95))]}
+            metrics=[q['metrics'] for q in cases if q['filter']==name]
+            for metric in ['filtered_candidates','full_distance_evaluations','distance_dimensions','blocks_pruned']:
+                values=[m[metric] for m in metrics if metric in m]
+                if values:filters[name][metric+'_mean']=statistics.mean(values)
             if name in recalls_by_filter:filters[name]['recall']=statistics.mean(recalls_by_filter[name])
         groups[mode]={'cases':len(cases),'mean_ms':statistics.mean(q['seconds'] for q in cases)*1000,
                       'id_order_match':1-len(errors)/len(cases),'recall':statistics.mean(recalls) if recalls else None,
@@ -326,6 +332,7 @@ def main():
     p=sub.add_parser('run');p.add_argument('--binary',required=True);p.add_argument('--prepared',required=True)
     p.add_argument('--root',required=True);p.add_argument('--label',required=True)
     p.add_argument('--image',default='python:3.12.10-slim-bookworm')
+    p.add_argument('--exact-path',choices=['scan','block','auto'])
     p=sub.add_parser('verify');p.add_argument('--result',required=True);p.add_argument('--oracle',required=True);p.add_argument('--out',required=True)
     args=ap.parse_args()
     for key in ['root','out']:

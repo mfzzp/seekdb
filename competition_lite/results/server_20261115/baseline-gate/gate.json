@@ -1,0 +1,57 @@
+{
+  "commit": "ce21bb9fdae438f2844b0c9b8704c4242251f184",
+  "source_sha256": "8e199fdeea1e3c4e03a0897c897ff7f505b54bfe460802b1bc395b851d6a1556",
+  "checks": [
+    {
+      "name": "build",
+      "exit_code": 0,
+      "seconds": 13.45201342413202
+    },
+    {
+      "name": "image",
+      "exit_code": 0,
+      "seconds": 0.032353891991078854
+    },
+    {
+      "name": "limits",
+      "exit_code": 0,
+      "seconds": 0.31469311006367207
+    },
+    {
+      "name": "public",
+      "exit_code": 0,
+      "seconds": 9.334258327027783
+    },
+    {
+      "name": "extra",
+      "exit_code": 0,
+      "seconds": 5.375919779064134
+    },
+    {
+      "name": "edges",
+      "exit_code": 0,
+      "seconds": 1.0168507229536772
+    },
+    {
+      "name": "exact",
+      "exit_code": 0,
+      "seconds": 6.329253487987444
+    },
+    {
+      "name": "bulk",
+      "exit_code": 0,
+      "seconds": 0.6656962069682777
+    },
+    {
+      "name": "quotes",
+      "exit_code": 0,
+      "seconds": 0.5656502998899668
+    },
+    {
+      "name": "commit_faults",
+      "exit_code": 0,
+      "seconds": 8.035604058997706
+    }
+  ],
+  "passed": true
+}

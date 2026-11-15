@@ -1,0 +1,57 @@
+{
+  "source_sha256": "434ffe460be96fe1d054c987281f27d02883811ed753020526437afdaeed54d9",
+  "image_tag": "lite:validated-20261115",
+  "passed": true,
+  "checks": [
+    {
+      "name": "build",
+      "exit_code": 0,
+      "seconds": 12.297060714103281
+    },
+    {
+      "name": "image",
+      "exit_code": 0,
+      "seconds": 0.03213080600835383
+    },
+    {
+      "name": "limits",
+      "exit_code": 0,
+      "seconds": 0.31489987298846245
+    },
+    {
+      "name": "public",
+      "exit_code": 0,
+      "seconds": 9.285753895994276
+    },
+    {
+      "name": "extra",
+      "exit_code": 0,
+      "seconds": 5.376225708052516
+    },
+    {
+      "name": "edges",
+      "exit_code": 0,
+      "seconds": 0.9656598488800228
+    },
+    {
+      "name": "exact",
+      "exit_code": 0,
+      "seconds": 6.380283627891913
+    },
+    {
+      "name": "bulk",
+      "exit_code": 0,
+      "seconds": 0.6657605587970465
+    },
+    {
+      "name": "quotes",
+      "exit_code": 0,
+      "seconds": 0.5652873208746314
+    },
+    {
+      "name": "commit_faults",
+      "exit_code": 0,
+      "seconds": 7.63501115096733
+    }
+  ]
+}

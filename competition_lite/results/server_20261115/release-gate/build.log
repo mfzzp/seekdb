@@ -1,0 +1,37 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 590B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.12.10-slim-bookworm
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 140B done
+#3 DONE 0.0s
+
+#4 [1/5] FROM docker.io/library/python:3.12.10-slim-bookworm
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 141B done
+#5 DONE 0.0s
+
+#6 [4/5] COPY competition_lite/src/minivectordb_lite.cpp ./
+#6 CACHED
+
+#7 [3/5] RUN apt-get update     && apt-get install -y --no-install-recommends g++     && rm -rf /var/lib/apt/lists/*
+#7 CACHED
+
+#8 [2/5] WORKDIR /app
+#8 CACHED
+
+#9 [5/5] RUN g++ -O3 -DNDEBUG -std=c++17 -Wall -Wextra -o minivectordb minivectordb_lite.cpp
+#9 CACHED
+
+#10 exporting to image
+#10 exporting layers done
+#10 writing image sha256:31c8112f7694a1b539bf7b1616214ba01dc8145bd0f2f38024cef7797605709f done
+#10 naming to docker.io/library/lite:git-release-20261115 done
+#10 DONE 0.0s

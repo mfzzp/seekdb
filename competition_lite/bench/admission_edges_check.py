@@ -82,6 +82,8 @@ def scalar_validation(s):
         s.error('INSERT INTO docs VALUES '+row+';')
     s.ok("INSERT INTO docs VALUES (1,001,'中文');")
     assert s.ok('SELECT id FROM docs WHERE n=1;')['rows']==[[1]]
+    assert s.ok('SELECT id FROM docs WHERE n=+001;')['rows']==[[1]]
+    s.error('SELECT id FROM docs WHERE n=1.5;')
     s.error("UPDATE docs SET title='太长了' WHERE id=1;")
     assert s.ok('SELECT n,title FROM docs;')['rows']==[[1,'中文']]
 

@@ -1,0 +1,2 @@
+sql_literal_recovery checkpoint=False PASS
+sql_literal_recovery checkpoint=True PASS

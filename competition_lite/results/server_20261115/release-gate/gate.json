@@ -1,0 +1,57 @@
+{
+  "source_sha256": "434ffe460be96fe1d054c987281f27d02883811ed753020526437afdaeed54d9",
+  "image_tag": "lite:git-release-20261115",
+  "passed": true,
+  "checks": [
+    {
+      "name": "build",
+      "exit_code": 0,
+      "seconds": 0.3650832809507847
+    },
+    {
+      "name": "image",
+      "exit_code": 0,
+      "seconds": 0.0321570651140064
+    },
+    {
+      "name": "limits",
+      "exit_code": 0,
+      "seconds": 0.3147640509996563
+    },
+    {
+      "name": "public",
+      "exit_code": 0,
+      "seconds": 9.233827019110322
+    },
+    {
+      "name": "extra",
+      "exit_code": 0,
+      "seconds": 5.375581879867241
+    },
+    {
+      "name": "edges",
+      "exit_code": 0,
+      "seconds": 1.0163911548443139
+    },
+    {
+      "name": "exact",
+      "exit_code": 0,
+      "seconds": 6.3279023468494415
+    },
+    {
+      "name": "bulk",
+      "exit_code": 0,
+      "seconds": 0.6658917439635843
+    },
+    {
+      "name": "quotes",
+      "exit_code": 0,
+      "seconds": 0.5654218930285424
+    },
+    {
+      "name": "commit_faults",
+      "exit_code": 0,
+      "seconds": 7.681866222061217
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "source_sha256": "434ffe460be96fe1d054c987281f27d02883811ed753020526437afdaeed54d9",
+  "image_id": "sha256:ad7d36014017295dd385512eb48dbda1fd565ccc87d7a2c8c38c9ec15487246b",
+  "binary_sha256": "15a6ac71156db9ccd9b7d059feb6933f7bca8e7ffb2cc5b62db81d58b0be9630",
+  "matches_timed_binary": true,
+  "passed": true
+}

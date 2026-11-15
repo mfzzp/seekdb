@@ -1,0 +1,28 @@
+In file included from /checks/competition_lite/bench/write_commit_check.cpp:36:
+/checks/competition_lite/bench/../src/minivectordb_lite.cpp: In function ‘int lite_runtime_main(int, char**)’:
+/checks/competition_lite/bench/../src/minivectordb_lite.cpp:2269:1: warning: control reaches end of non-void function [-Wreturn-type]
+ 2269 | }
+      | ^
+crc PASS CRC 176 buffers and known answer
+ok PASS ok vector_syncs=1 wal_syncs=1 writes=2
+PASS restart rows=3
+short PASS short vector_syncs=1 wal_syncs=1 writes=37
+PASS restart rows=3
+eintr PASS eintr vector_syncs=1 wal_syncs=1 writes=3
+PASS restart rows=3
+sync_eintr PASS sync_eintr vector_syncs=1 wal_syncs=1 writes=2
+PASS restart rows=3
+partial_vector PASS partial_vector vector_syncs=0 wal_syncs=0 writes=2
+PASS restart rows=1
+partial_wal PASS partial_wal vector_syncs=1 wal_syncs=0 writes=3
+PASS restart rows=1
+vector_sync PASS vector_sync vector_syncs=0 wal_syncs=0 writes=1
+PASS restart rows=1
+wal_sync PASS wal_sync vector_syncs=1 wal_syncs=0 writes=2
+PASS restart rows=3
+lsm_failure PASS lsm_failure vector_syncs=1 wal_syncs=1 writes=2
+PASS restart rows=3
+crash_vector PASS restart rows=1
+crash_wal PASS restart rows=3
+statement_undo PASS statement undo and MemTable bytes
+PASS restart rows=3

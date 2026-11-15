@@ -1,0 +1,28 @@
+{
+  "source_sha256": "434ffe460be96fe1d054c987281f27d02883811ed753020526437afdaeed54d9",
+  "image_tag": "lite:git-release-20261115",
+  "passed": false,
+  "checks": [
+    {
+      "name": "build",
+      "exit_code": 0,
+      "seconds": 0.36495725088752806
+    },
+    {
+      "name": "image",
+      "exit_code": 0,
+      "seconds": 0.03224426484666765
+    },
+    {
+      "name": "limits",
+      "exit_code": 0,
+      "seconds": 0.31480567203834653
+    },
+    {
+      "name": "public",
+      "exit_code": 1,
+      "seconds": 0.11447860510088503
+    }
+  ],
+  "error": "RuntimeError('public failed; see /mnt/SSD1/zzp/seekdb-round2-lite2000/iteration-20261115-ce21bb9/gate-release/public.log')"
+}

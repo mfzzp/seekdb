@@ -1,0 +1,57 @@
+[
+    {
+        "Id": "sha256:ad7d36014017295dd385512eb48dbda1fd565ccc87d7a2c8c38c9ec15487246b",
+        "RepoTags": [
+            "lite:validated-20261115"
+        ],
+        "RepoDigests": [],
+        "Comment": "buildkit.dockerfile.v0",
+        "Created": "2026-11-15T13:24:39.958191479+08:00",
+        "Config": {
+            "Env": [
+                "PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "LANG=C.UTF-8",
+                "GPG_KEY=7169605F62C751356D054A26A821E680E5FA6305",
+                "PYTHON_VERSION=3.12.10",
+                "PYTHON_SHA256=07ab697474595e06f06647417d3c7fa97ded07afc1a7e4454c5639919b46eaea"
+            ],
+            "Entrypoint": [
+                "/app/minivectordb",
+                "--data-dir",
+                "/data"
+            ],
+            "Volumes": {
+                "/data": {}
+            },
+            "WorkingDir": "/app"
+        },
+        "Architecture": "amd64",
+        "Os": "linux",
+        "Size": 380220236,
+        "GraphDriver": {
+            "Data": {
+                "LowerDir": "/mnt/SSD1/zzp/docker-runtime-20261111/data/overlay2/oxyrfl1qo4awj7renean3c5e3/diff:/mnt/SSD1/zzp/docker-runtime-20261111/data/overlay2/x2iliztdfave05phkgi4fsvte/diff:/mnt/SSD1/zzp/docker-runtime-20261111/data/overlay2/y7nk1oh2e953uapuz4khjjmho/diff:/mnt/SSD1/zzp/docker-runtime-20261111/data/overlay2/02d5a490f2f356bcee964735de5c96517247493c8bd7f21cf19924769d3863f3/diff:/mnt/SSD1/zzp/docker-runtime-20261111/data/overlay2/68c3ace142ffdc23fc3930d91524d66ba7afbaa9977149f9d143456afb3bf673/diff:/mnt/SSD1/zzp/docker-runtime-20261111/data/overlay2/54c82996033fa4eef2c4a75f5743a9177f4f26939f775cef88549b3da2a3c389/diff:/mnt/SSD1/zzp/docker-runtime-20261111/data/overlay2/b70015219f1158ec02b0c184631251f8667433adf24dfc4d0d0483dc622caf08/diff",
+                "MergedDir": "/mnt/SSD1/zzp/docker-runtime-20261111/data/overlay2/9dacqnbx8q43dh4yh479dx7jz/merged",
+                "UpperDir": "/mnt/SSD1/zzp/docker-runtime-20261111/data/overlay2/9dacqnbx8q43dh4yh479dx7jz/diff",
+                "WorkDir": "/mnt/SSD1/zzp/docker-runtime-20261111/data/overlay2/9dacqnbx8q43dh4yh479dx7jz/work"
+            },
+            "Name": "overlay2"
+        },
+        "RootFS": {
+            "Type": "layers",
+            "Layers": [
+                "sha256:ace34d1d784c01e3f9d156687089e8f58f786e23ccd097bdbbf337d6d28b3783",
+                "sha256:edf2e8d9a6f19eeb93e6adb712ccda0d8e687effd6a79400f258d957f40321a1",
+                "sha256:4a0992abe543a127be2561cc40cd50315516bfbf9d6169f06f3f8d30166fa6ab",
+                "sha256:de0b11a690a6e81271e41db48dea18fc39104f7ba2034e2ecf6971586f66021b",
+                "sha256:90824a16a8baab401220bf0eac6a470988eaecd5b33e058cf0feaf20dec3d2d3",
+                "sha256:460aa3cd8c9df916be3a3a0ec60e6aebc32fa16d7c6931d00affe28155dd8dde",
+                "sha256:40ee43ec5af5666b8c2298baf9a7638ff8e6b6bb385f1d27294bb05c0969328d",
+                "sha256:0a133067a1bc4a7d4e61ccd81f8c1a1963ed52f05dbb33abf0cd5240fa1b5e06"
+            ]
+        },
+        "Metadata": {
+            "LastTagTime": "2026-11-15T13:24:40.046674905+08:00"
+        }
+    }
+]

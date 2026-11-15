@@ -1,0 +1,209 @@
+{
+  "runs": [
+    {
+      "variant": "final",
+      "round": 1,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/iteration-20261115-ce21bb9/paired-selectivity/final-r1.json"
+    },
+    {
+      "variant": "final-block",
+      "round": 1,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/iteration-20261115-ce21bb9/paired-selectivity/final-block-r1.json"
+    },
+    {
+      "variant": "final-block",
+      "round": 2,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/iteration-20261115-ce21bb9/paired-selectivity/final-block-r2.json"
+    },
+    {
+      "variant": "final",
+      "round": 2,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/iteration-20261115-ce21bb9/paired-selectivity/final-r2.json"
+    },
+    {
+      "variant": "final",
+      "round": 3,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/iteration-20261115-ce21bb9/paired-selectivity/final-r3.json"
+    },
+    {
+      "variant": "final-block",
+      "round": 3,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/iteration-20261115-ce21bb9/paired-selectivity/final-block-r3.json"
+    }
+  ],
+  "summary_medians": {
+    "final": {
+      "insert_wall_s": 0.8060468989424407,
+      "insert_request_s": 0.7723764874972403,
+      "index_s": 0.009875717107206583,
+      "query_wall_s": 0.10393028589896858,
+      "checkpoint_s": 0.06653019902296364,
+      "final_file_bytes": 7680122,
+      "exact_mean_ms": 0.38982520151572925,
+      "filters_mean_ms": {
+        "large": 0.7382590284881493,
+        "medium": 0.23106286923090616,
+        "none": 0.4528577206656337,
+        "small": 0.1371211876782278
+      },
+      "peak_bytes": 35762176,
+      "ranges": {
+        "insert_wall_s": [
+          0.7979973440524191,
+          0.8085886009503156
+        ],
+        "query_wall_s": [
+          0.10268682707101107,
+          0.10983094200491905
+        ],
+        "index_s": [
+          0.009840592974796891,
+          0.00998013885691762
+        ]
+      },
+      "filters": {
+        "large": {
+          "n": 60,
+          "request_total_s": 0.044295541709288955,
+          "qps": 1354.5381247119449,
+          "mean_ms": 0.7382590284881493,
+          "p50_ms": 0.740886083804071,
+          "p95_ms": 0.796574167907238,
+          "filtered_candidates_mean": 8000,
+          "full_distance_evaluations_mean": 8000,
+          "distance_dimensions_mean": 1024000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "medium": {
+          "n": 60,
+          "request_total_s": 0.01386377215385437,
+          "qps": 4327.82646267877,
+          "mean_ms": 0.23106286923090616,
+          "p50_ms": 0.2263624919578433,
+          "p95_ms": 0.259957043454051,
+          "filtered_candidates_mean": 1000,
+          "full_distance_evaluations_mean": 1000,
+          "distance_dimensions_mean": 128000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "none": {
+          "n": 60,
+          "request_total_s": 0.02717146323993802,
+          "qps": 2208.1990752639667,
+          "mean_ms": 0.4528577206656337,
+          "p50_ms": 0.4394574789330363,
+          "p95_ms": 0.45350100845098495,
+          "filtered_candidates_mean": 10000,
+          "full_distance_evaluations_mean": 10000,
+          "distance_dimensions_mean": 1280000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "small": {
+          "n": 60,
+          "request_total_s": 0.00822727126069367,
+          "qps": 7292.818979563,
+          "mean_ms": 0.1371211876782278,
+          "p50_ms": 0.13746891636401415,
+          "p95_ms": 0.15331897884607315,
+          "filtered_candidates_mean": 10,
+          "full_distance_evaluations_mean": 10,
+          "distance_dimensions_mean": 1280,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        }
+      }
+    },
+    "final-block": {
+      "insert_wall_s": 0.7853499790653586,
+      "insert_request_s": 0.7533673578873277,
+      "index_s": 0.010019449051469564,
+      "query_wall_s": 0.11887322505936027,
+      "checkpoint_s": 0.06566503481008112,
+      "final_file_bytes": 7680122,
+      "exact_mean_ms": 0.448537496655869,
+      "filters_mean_ms": {
+        "large": 0.8225051686167717,
+        "medium": 0.25187979529922205,
+        "none": 0.5709479640548428,
+        "small": 0.1488170586526394
+      },
+      "peak_bytes": 36220928,
+      "ranges": {
+        "insert_wall_s": [
+          0.7823263029567897,
+          0.8124658958986402
+        ],
+        "query_wall_s": [
+          0.11335004190914333,
+          0.12209051800891757
+        ],
+        "index_s": [
+          0.00974917784333229,
+          0.01004061195999384
+        ]
+      },
+      "filters": {
+        "large": {
+          "n": 60,
+          "request_total_s": 0.0493503101170063,
+          "qps": 1215.7978310114768,
+          "mean_ms": 0.8225051686167717,
+          "p50_ms": 0.803599483333528,
+          "p95_ms": 0.9001721628010273,
+          "filtered_candidates_mean": 8000,
+          "full_distance_evaluations_mean": 8000,
+          "distance_dimensions_mean": 1024000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "medium": {
+          "n": 60,
+          "request_total_s": 0.015112787717953324,
+          "qps": 3970.1477397662807,
+          "mean_ms": 0.25187979529922205,
+          "p50_ms": 0.2415586495772004,
+          "p95_ms": 0.30134478583931923,
+          "filtered_candidates_mean": 1000,
+          "full_distance_evaluations_mean": 1000,
+          "distance_dimensions_mean": 128000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "none": {
+          "n": 60,
+          "request_total_s": 0.03425687784329057,
+          "qps": 1751.4730990510097,
+          "mean_ms": 0.5709479640548428,
+          "p50_ms": 0.5433550104498863,
+          "p95_ms": 0.6115550640970469,
+          "filtered_candidates_mean": 10000,
+          "full_distance_evaluations_mean": 10000,
+          "distance_dimensions_mean": 1280000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "small": {
+          "n": 60,
+          "request_total_s": 0.008929023519158363,
+          "qps": 6719.6597557686255,
+          "mean_ms": 0.1488170586526394,
+          "p50_ms": 0.14585803728550673,
+          "p95_ms": 0.17078779637813568,
+          "filtered_candidates_mean": 10,
+          "full_distance_evaluations_mean": 10,
+          "distance_dimensions_mean": 1280,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        }
+      }
+    }
+  },
+  "caveats": [
+    "Local synthetic workload, not the official scorer.",
+    "Timing includes JSONL transport and response decoding; query_wall_s also includes driver SQL generation.",
+    "Memory includes the container and page cache; unavailable io.stat is not zero I/O."
+  ]
+}

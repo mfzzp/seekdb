@@ -1,0 +1,2 @@
+# Preserve original test stdout, including the public runner's trailing spaces.
+*.log -whitespace
