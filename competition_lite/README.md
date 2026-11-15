@@ -14,6 +14,8 @@ Ordinary nonempty commits synchronize a complete physical WAL transaction, inclu
 
 Exact defaults to a batch matrix scan for unfiltered cached data, reusing the widened query for 128-dimensional AVX-512 distances, and interleaving two vectors for filtered candidates. Row IDs are fetched only when a distance can enter Top-K; ties still use the real primary key. Per-ISA double accumulation order is retained. `LITE_L2_BATCH=auto|1|2|4`, `LITE_LATE_ID=0`, `LITE_MATRIX_SCAN=0`, `LITE_QUERY_WIDE=0`, and `LITE_SIMD=auto|avx2|scalar` support isolated comparisons. `LITE_EARLY=1` enables the measured-but-default-off partial distance experiment. `LITE_MATRIX_MB=0` now genuinely disables the matrix; mmap batches never retain a pointer across a window remap.
 
+Hot single-equality Top-K queries can reuse sorted vector slots. `LITE_HOT_POSTINGS_KB` defaults to 1024 across one table/column; zero disables retention. The estimate includes keys, map nodes and vector capacity. Mutations, rollback, failed statements, GC, table/column changes and slot rebuilds invalidate it. No query answers or extra vectors are cached; unsupported predicates and budget rejection use the prior path. See [small-table comparison](docs/SMALL_HOT_20261116.md).
+
 Filtered candidates that occupy a contiguous physical matrix interval can reuse the same batch scan at that interval's offset. This never expands the filtered candidate set. `LITE_CONTIGUOUS_SCAN=0` disables the experiment; `contiguous_candidates` and `matrix_scan_vectors` expose actual use in diagnostic runs.
 
 From a clean Git source tree:

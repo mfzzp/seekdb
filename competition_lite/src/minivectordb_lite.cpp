@@ -534,6 +534,8 @@ namespace lite {
     std::map<std::string,std::map<long long,std::vector<long long>>>nindex;
     std::map<std::string,std::unordered_map<long long,size_t>>fast_pos;
     std::map<std::string,Matrix>matrices;
+    struct HotPostings {std::string table;int col=-1;size_t bytes=0,cap=0;bool ready=false;std::map<std::string,std::vector<size_t>> slots;};
+    HotPostings hot_posts;uint64_t hot_post_builds=0;
     struct VectorRef {long long id;off_t off;};
     struct QueryView {int col=0,post_col=-1,rejected_col=-1;uint64_t version=0,used=0;std::vector<VectorRef> rows;std::map<std::string,std::vector<uint32_t>> posts;size_t post_bytes=0;size_t bytes()const{return sizeof(*this)+256+post_bytes+rows.capacity()*sizeof(VectorRef);}};
     std::map<std::string,QueryView> query_views;uint64_t view_version=0,view_clock=0;mutable uint64_t row_decodes=0;
@@ -599,8 +601,8 @@ namespace lite {
       else statement->put(skey(q,before->id),{},true);
       if(!before)++q.count;if(!r)--q.count;
     }
-    void clear_caches(){query_views.clear();++view_version;sindex.clear();nindex.clear();fast_pos.clear();matrices.clear();vblocks.clear();vblock_col.clear();}
-    void cool(Table&q){query_views.erase(q.n);++view_version;q.r.clear();q.r.rehash(0);q.order.clear();q.order.shrink_to_fit();q.fast.clear();q.fast.shrink_to_fit();q.hot=false;matrices.erase(q.n);fast_pos.erase(q.n);vblocks.erase(q.n);for(auto&c:q.c){sindex.erase(q.n+"."+c.n);nindex.erase(q.n+"."+c.n);}}
+    void clear_caches(){hot_posts={};query_views.clear();++view_version;sindex.clear();nindex.clear();fast_pos.clear();matrices.clear();vblocks.clear();vblock_col.clear();}
+    void cool(Table&q){if(hot_posts.table==q.n)hot_posts={};query_views.erase(q.n);++view_version;q.r.clear();q.r.rehash(0);q.order.clear();q.order.shrink_to_fit();q.fast.clear();q.fast.shrink_to_fit();q.hot=false;matrices.erase(q.n);fast_pos.erase(q.n);vblocks.erase(q.n);for(auto&c:q.c){sindex.erase(q.n+"."+c.n);nindex.erase(q.n+"."+c.n);}}
     size_t query_view_bytes()const{size_t n=0;for(auto&x:query_views)n+=x.first.capacity()+x.second.bytes();return n;}
     QueryView* query_view(Table&q,int col){
       const char*e=getenv("LITE_QUERY_VIEW_MB");size_t cap=(e?size_t(std::max(0,std::atoi(e))):8)<<20;
@@ -934,6 +936,7 @@ namespace lite {
       }
     }
     void refresh_fast(Table&q){
+      if(hot_posts.table==q.n)hot_posts={};
       q.fast.clear();
       q.fast.reserve(q.order.size());
       for(auto id:q.order){
@@ -950,11 +953,29 @@ namespace lite {
       for(size_t i=0;i<q.fast.size();++i)if(q.fast[i])pos[q.fast[i]->id]=i;
     }
     void rebuild_scalar(Table&q){
+      if(hot_posts.table==q.n)hot_posts={};
       q.fast.clear();
       fast_pos.erase(q.n);matrices.erase(q.n);vblocks.erase(q.n);
       sindex.erase(q.n+"."+q.c[0].n);nindex.erase(q.n+"."+q.c[0].n);
       for(size_t c=1;c<q.c.size();++c)if(q.c[c].t!="VECTOR"){sindex.erase(q.n+"."+q.c[c].n);nindex.erase(q.n+"."+q.c[c].n);}
       for(auto&kv:q.r)scalar_add(q,kv.first);
+    }
+    const std::vector<size_t>* hot_postings(const Table&q,const Cond&c){
+      const char*e=std::getenv("LITE_HOT_POSTINGS_KB");size_t cap=size_t(e?std::max(0,std::atoi(e)):1024)<<10;
+      if(!cap){hot_posts={};return nullptr;}
+      if(hot_posts.table!=q.n||hot_posts.col!=c.col||hot_posts.cap!=cap){
+        hot_posts={};hot_posts.table=q.n;hot_posts.col=c.col;hot_posts.cap=cap;++hot_post_builds;
+        size_t bytes=sizeof(HotPostings)+q.n.capacity();bool fits=bytes<=cap;
+        for(size_t p=0;fits&&p<q.fast.size();++p)if(q.fast[p]){
+          const Row&r=*q.fast[p];std::string key=c.col?unq(r.v[c.col-1]):std::to_string(r.id);
+          auto it=hot_posts.slots.find(key);
+          if(it==hot_posts.slots.end()){size_t need=128+key.size();if(need>cap-bytes){fits=false;break;}bytes+=need;it=hot_posts.slots.emplace(std::move(key),std::vector<size_t>{}).first;}
+          auto&v=it->second;if(v.size()==v.capacity()){size_t next=std::max<size_t>(4,v.capacity()*2),need=(next-v.capacity())*sizeof(size_t);if(need>cap-bytes){fits=false;break;}bytes+=need;v.reserve(next);}v.push_back(p);
+        }
+        if(fits){hot_posts.bytes=bytes;hot_posts.ready=true;}else hot_posts.slots.clear();
+      }
+      if(!hot_posts.ready)return nullptr;static const std::vector<size_t> empty;
+      auto it=hot_posts.slots.find(unq(c.val));return it==hot_posts.slots.end()?&empty:&it->second;
     }
     void build_vblocks(Table&q,int bc){
       auto&bs=vblocks[q.n];
@@ -1152,6 +1173,7 @@ namespace lite {
       auto query_start=stamp(),phase=query_start;
       double prepare_ms=0,matrix_ms=0,block_build_ms=0,bounds_ms=0,block_sort_ms=0,distance_ms=0,topk_ms=0,scan_ms=0;
       uint64_t filtered_candidates=0,blocks_considered=0,blocks_pruned=0,block_pruned_candidates=0,heap_updates=0;
+      uint64_t posting_build_start=hot_post_builds;
 
       size_t from=0;
       for(;from<t.size();++from)if(up(t[from])=="FROM")break;
@@ -1256,18 +1278,21 @@ namespace lite {
       // Auto currently selects scan: shuffled high-dimensional blocks rarely prune.
       bool block_exact=exact_topk&&exact_path=="block";
       if(!path_env&&std::getenv("LITE_BLOCK_EXACT"))block_exact=exact_topk&&std::atoi(std::getenv("LITE_BLOCK_EXACT"))!=0;
-      std::vector<size_t>positions;
+      std::vector<size_t>owned_positions;const std::vector<size_t>*direct_positions=nullptr;
+      if(exact_topk&&!block_exact&&ask&&cs.size()==1&&cs[0].op=="="&&q.c[cs[0].col].t!="VECTOR")direct_positions=hot_postings(q,cs[0]);
+      const std::vector<size_t>&positions=direct_positions?*direct_positions:owned_positions;
       const bool dense=exact_topk&&!block_exact&&cs.empty();
       if(dense)filtered_candidates=q.fast.size();
+      else if(direct_positions)filtered_candidates=positions.size();
       else if(exact_topk){
-        positions.reserve(scan->size());
+        owned_positions.reserve(scan->size());
         if(scan==&q.order){
-          for(size_t p=0;p<q.fast.size();++p)if(q.fast[p]&&match(q,*q.fast[p],cs,proven))positions.push_back(p);
+          for(size_t p=0;p<q.fast.size();++p)if(q.fast[p]&&match(q,*q.fast[p],cs,proven))owned_positions.push_back(p);
         }else{
           const auto&pos=fast_pos.at(q.n);
-          for(auto id:*scan){auto it=pos.find(id);if(it!=pos.end()&&q.fast[it->second]&&match(q,*q.fast[it->second],cs,proven))positions.push_back(it->second);}
+          for(auto id:*scan){auto it=pos.find(id);if(it!=pos.end()&&q.fast[it->second]&&match(q,*q.fast[it->second],cs,proven))owned_positions.push_back(it->second);}
           // Sort integer positions once, without tree lookups in the comparator.
-          if(!std::is_sorted(positions.begin(),positions.end()))std::sort(positions.begin(),positions.end());
+          if(!std::is_sorted(positions.begin(),positions.end()))std::sort(owned_positions.begin(),owned_positions.end());
         }
         filtered_candidates=positions.size();
       }else if(metric){
@@ -1489,6 +1514,7 @@ namespace lite {
       mt.o["block_pruned_candidates"]=ji(block_pruned_candidates);
       mt.o["heap_updates"]=ji(heap_updates);
       if(profile){
+        mt.o["hot_postings"]=jb(direct_positions!=nullptr);mt.o["hot_postings_builds"]=ji(hot_post_builds-posting_build_start);mt.o["hot_postings_bytes"]=ji(hot_posts.bytes);
         mt.o["batched_vectors"]=ji(batched_vectors);mt.o["matrix_enabled"]=jb(matrix!=nullptr);
         mt.o["matrix_scan_vectors"]=ji(matrix_scan_vectors);
         mt.o["contiguous_candidates"]=jb(linear);
