@@ -1,0 +1,309 @@
+{
+  "passed": true,
+  "cases": [
+    {
+      "case": "one-sync-0",
+      "passed": true,
+      "vector": "vectors.f32",
+      "wal": "lsm-1794739087344466742-13-5.wal",
+      "end": 64,
+      "durable_end": 16,
+      "vector_syncs": 0,
+      "wal_syncs": 1,
+      "vector_writes": 2,
+      "wal_writes": 8
+    },
+    {
+      "case": "truncate-0",
+      "passed": true
+    },
+    {
+      "case": "zero_same_length-0",
+      "passed": true
+    },
+    {
+      "case": "torn_same_length-0",
+      "passed": true
+    },
+    {
+      "case": "extra_tail-0",
+      "passed": true
+    },
+    {
+      "case": "gc-generation-replay-0",
+      "passed": true
+    },
+    {
+      "case": "multi-frame-replay-truncate-0",
+      "passed": true
+    },
+    {
+      "case": "multi-frame-replay-zero_same_length-0",
+      "passed": true
+    },
+    {
+      "case": "redo_short-0",
+      "passed": true
+    },
+    {
+      "case": "redo_eintr-0",
+      "passed": true
+    },
+    {
+      "case": "redo_eio-0",
+      "passed": true
+    },
+    {
+      "case": "redo_enospc-0",
+      "passed": true
+    },
+    {
+      "case": "redo_crash-0",
+      "passed": true
+    },
+    {
+      "case": "vector_short-0",
+      "passed": true
+    },
+    {
+      "case": "wal_short-0",
+      "passed": true
+    },
+    {
+      "case": "vector_eintr-0",
+      "passed": true
+    },
+    {
+      "case": "wal_eintr-0",
+      "passed": true
+    },
+    {
+      "case": "sync_eintr-0",
+      "passed": true
+    },
+    {
+      "case": "vector_eio-0",
+      "passed": true
+    },
+    {
+      "case": "wal_eio-0",
+      "passed": true
+    },
+    {
+      "case": "vector_enospc-0",
+      "passed": true
+    },
+    {
+      "case": "wal_enospc-0",
+      "passed": true
+    },
+    {
+      "case": "wal_sync_eio-0",
+      "passed": true
+    },
+    {
+      "case": "wal_sync_enospc-0",
+      "passed": true
+    },
+    {
+      "case": "after_wal-0",
+      "passed": true
+    },
+    {
+      "case": "auto_sync_eio-0",
+      "passed": true
+    },
+    {
+      "case": "auto_sync_enospc-0",
+      "passed": true
+    },
+    {
+      "case": "auto_crash-0",
+      "passed": true
+    },
+    {
+      "case": "checkpoint_vector_sync_eio-0",
+      "passed": true
+    },
+    {
+      "case": "checkpoint_vector_sync_enospc-0",
+      "passed": true
+    },
+    {
+      "case": "flush_vector_sync_eio-0",
+      "passed": true
+    },
+    {
+      "case": "uncommitted-0",
+      "passed": true
+    },
+    {
+      "case": "scalar-0",
+      "passed": true
+    },
+    {
+      "case": "vector_crc-0",
+      "passed": true
+    },
+    {
+      "case": "vector_offset-0",
+      "passed": true
+    },
+    {
+      "case": "commit_truncated-0",
+      "passed": true
+    },
+    {
+      "case": "one-sync-1",
+      "passed": true,
+      "vector": "vectors.f32",
+      "wal": "lsm-1794739088710478538-93-5.wal",
+      "end": 64,
+      "durable_end": 16,
+      "vector_syncs": 0,
+      "wal_syncs": 1,
+      "vector_writes": 2,
+      "wal_writes": 1
+    },
+    {
+      "case": "truncate-1",
+      "passed": true
+    },
+    {
+      "case": "zero_same_length-1",
+      "passed": true
+    },
+    {
+      "case": "torn_same_length-1",
+      "passed": true
+    },
+    {
+      "case": "extra_tail-1",
+      "passed": true
+    },
+    {
+      "case": "gc-generation-replay-1",
+      "passed": true
+    },
+    {
+      "case": "multi-frame-replay-truncate-1",
+      "passed": true
+    },
+    {
+      "case": "multi-frame-replay-zero_same_length-1",
+      "passed": true
+    },
+    {
+      "case": "redo_short-1",
+      "passed": true
+    },
+    {
+      "case": "redo_eintr-1",
+      "passed": true
+    },
+    {
+      "case": "redo_eio-1",
+      "passed": true
+    },
+    {
+      "case": "redo_enospc-1",
+      "passed": true
+    },
+    {
+      "case": "redo_crash-1",
+      "passed": true
+    },
+    {
+      "case": "vector_short-1",
+      "passed": true
+    },
+    {
+      "case": "wal_short-1",
+      "passed": true
+    },
+    {
+      "case": "vector_eintr-1",
+      "passed": true
+    },
+    {
+      "case": "wal_eintr-1",
+      "passed": true
+    },
+    {
+      "case": "sync_eintr-1",
+      "passed": true
+    },
+    {
+      "case": "vector_eio-1",
+      "passed": true
+    },
+    {
+      "case": "wal_eio-1",
+      "passed": true
+    },
+    {
+      "case": "vector_enospc-1",
+      "passed": true
+    },
+    {
+      "case": "wal_enospc-1",
+      "passed": true
+    },
+    {
+      "case": "wal_sync_eio-1",
+      "passed": true
+    },
+    {
+      "case": "wal_sync_enospc-1",
+      "passed": true
+    },
+    {
+      "case": "after_wal-1",
+      "passed": true
+    },
+    {
+      "case": "auto_sync_eio-1",
+      "passed": true
+    },
+    {
+      "case": "auto_sync_enospc-1",
+      "passed": true
+    },
+    {
+      "case": "auto_crash-1",
+      "passed": true
+    },
+    {
+      "case": "checkpoint_vector_sync_eio-1",
+      "passed": true
+    },
+    {
+      "case": "checkpoint_vector_sync_enospc-1",
+      "passed": true
+    },
+    {
+      "case": "flush_vector_sync_eio-1",
+      "passed": true
+    },
+    {
+      "case": "uncommitted-1",
+      "passed": true
+    },
+    {
+      "case": "scalar-1",
+      "passed": true
+    },
+    {
+      "case": "vector_crc-1",
+      "passed": true
+    },
+    {
+      "case": "vector_offset-1",
+      "passed": true
+    },
+    {
+      "case": "commit_truncated-1",
+      "passed": true
+    }
+  ]
+}

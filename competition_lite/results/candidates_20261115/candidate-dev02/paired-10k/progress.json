@@ -1,0 +1,92 @@
+[
+  {
+    "variant": "baseline",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev02/paired-10k/baseline-r1.json",
+    "engine_env": []
+  },
+  {
+    "variant": "sort",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev02/paired-10k/sort-r1.json",
+    "engine_env": [
+      "LITE_CANDIDATE_ORDER=sort"
+    ]
+  },
+  {
+    "variant": "bitmap",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev02/paired-10k/bitmap-r1.json",
+    "engine_env": [
+      "LITE_CANDIDATE_ORDER=bitmap"
+    ]
+  },
+  {
+    "variant": "auto",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev02/paired-10k/auto-r1.json",
+    "engine_env": [
+      "LITE_CANDIDATE_ORDER=auto"
+    ]
+  },
+  {
+    "variant": "sort",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev02/paired-10k/sort-r2.json",
+    "engine_env": [
+      "LITE_CANDIDATE_ORDER=sort"
+    ]
+  },
+  {
+    "variant": "bitmap",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev02/paired-10k/bitmap-r2.json",
+    "engine_env": [
+      "LITE_CANDIDATE_ORDER=bitmap"
+    ]
+  },
+  {
+    "variant": "auto",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev02/paired-10k/auto-r2.json",
+    "engine_env": [
+      "LITE_CANDIDATE_ORDER=auto"
+    ]
+  },
+  {
+    "variant": "baseline",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev02/paired-10k/baseline-r2.json",
+    "engine_env": []
+  },
+  {
+    "variant": "bitmap",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev02/paired-10k/bitmap-r3.json",
+    "engine_env": [
+      "LITE_CANDIDATE_ORDER=bitmap"
+    ]
+  },
+  {
+    "variant": "auto",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev02/paired-10k/auto-r3.json",
+    "engine_env": [
+      "LITE_CANDIDATE_ORDER=auto"
+    ]
+  },
+  {
+    "variant": "baseline",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev02/paired-10k/baseline-r3.json",
+    "engine_env": []
+  },
+  {
+    "variant": "sort",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev02/paired-10k/sort-r3.json",
+    "engine_env": [
+      "LITE_CANDIDATE_ORDER=sort"
+    ]
+  }
+]

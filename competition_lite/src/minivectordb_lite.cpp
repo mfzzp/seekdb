@@ -1235,6 +1235,7 @@ namespace lite {
         });
       }
       prepare_ms=elapsed(phase);phase=stamp();
+      const bool linear=exact_topk&&!block_exact&&!positions.empty()&&positions.back()-positions.front()+1==positions.size()&&(!std::getenv("LITE_CONTIGUOUS_SCAN")||std::atoi(std::getenv("LITE_CONTIGUOUS_SCAN"))!=0);
       if(metric&&(exact_topk?(ask&&filtered_candidates>2048):(cs.empty()||scan->size()>2048)))ensure_matrix(q,mcol);
       matrix_ms=elapsed(phase);
       std::vector<H>h;
@@ -1290,12 +1291,12 @@ namespace lite {
         else h.push_back(hh);
       };
       if(exact_topk){
-        const char*batch_setting=std::getenv("LITE_L2_BATCH");int width=!batch_setting||std::string(batch_setting)=="auto"?(dense?1:2):envint("LITE_L2_BATCH",1);
+        const char*batch_setting=std::getenv("LITE_L2_BATCH");int width=!batch_setting||std::string(batch_setting)=="auto"?(dense||linear?1:2):envint("LITE_L2_BATCH",1);
         if(width!=1&&width!=2&&width!=4)throw Err("invalid_request","LITE_L2_BATCH must be auto, 1, 2 or 4");
         bool early=std::getenv("LITE_EARLY")&&std::atoi(std::getenv("LITE_EARLY"))!=0;
         bool late_id=!std::getenv("LITE_LATE_ID")||std::atoi(std::getenv("LITE_LATE_ID"))!=0;
         int dim=q.c[mcol].d;if(early||!(dim>=32&&has_avx2()))width=1;
-        bool matrix_scan=dense&&matrix&&late_id&&!early&&width==1&&dim>=32&&has_avx2()&&(!std::getenv("LITE_MATRIX_SCAN")||std::atoi(std::getenv("LITE_MATRIX_SCAN"))!=0);
+        bool matrix_scan=(dense||linear)&&matrix&&late_id&&!early&&width==1&&dim>=32&&has_avx2()&&(!std::getenv("LITE_MATRIX_SCAN")||std::atoi(std::getenv("LITE_MATRIX_SCAN"))!=0);
         auto scan_kernel=dim>=64&&has_avx512()?l2_avx512_scan:l2_avx2_scan;
         if(dim==128&&has_avx512()&&(!std::getenv("LITE_QUERY_WIDE")||std::atoi(std::getenv("LITE_QUERY_WIDE"))))scan_kernel=l2_avx512_query128;
         // Interleave independent vectors, retaining each ISA's original double reduction order.
@@ -1305,8 +1306,8 @@ namespace lite {
             H batch[256];size_t count=0;auto dt=stamp();
             size_t stop=std::min(end,base+256);double limit=top.size()>=ask?top.top().d:std::numeric_limits<double>::infinity();
             if(matrix_scan){
-              double ds[256];scan_kernel(matrix->v.data()+base*(size_t)dim,qv.data(),dim,stop-base,ds);
-              for(size_t i=base;i<stop;++i)if(q.fast[i])batch[count++]={(long long)i,ds[i-base],ds[i-base]};
+              double ds[256];scan_kernel(matrix->v.data()+(dense?base:positions[base])*(size_t)dim,qv.data(),dim,stop-base,ds);
+              for(size_t i=base;i<stop;++i){size_t p=dense?i:positions[i];if(q.fast[p])batch[count++]={(long long)p,ds[i-base],ds[i-base]};}
               matrix_scan_vectors+=stop-base;distance_calls+=stop-base;early_dims+=(stop-base)*(size_t)dim;
             }else for(size_t i=base;i<stop;){
               size_t p=dense?i:positions[i];if(!q.fast[p]){++i;continue;}const Row&r=*q.fast[p];
@@ -1448,6 +1449,7 @@ namespace lite {
       if(profile){
         mt.o["batched_vectors"]=ji(batched_vectors);mt.o["matrix_enabled"]=jb(matrix!=nullptr);
         mt.o["matrix_scan_vectors"]=ji(matrix_scan_vectors);
+        mt.o["contiguous_candidates"]=jb(linear);
         mt.o["distance_isa"]=js(metric&&q.c[mcol].d>=64&&has_avx512()?"avx512":metric&&q.c[mcol].d>=32&&has_avx2()?"avx2":"scalar");
         J times=jo();
         times.o["prepare"]=jd(prepare_ms);times.o["matrix"]=jd(matrix_ms);

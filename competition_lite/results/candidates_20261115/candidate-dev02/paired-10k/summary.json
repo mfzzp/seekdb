@@ -1,0 +1,329 @@
+{
+  "runs": [
+    {
+      "variant": "baseline",
+      "round": 1,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev02/paired-10k/baseline-r1.json",
+      "engine_env": []
+    },
+    {
+      "variant": "sort",
+      "round": 1,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev02/paired-10k/sort-r1.json",
+      "engine_env": [
+        "LITE_CANDIDATE_ORDER=sort"
+      ]
+    },
+    {
+      "variant": "bitmap",
+      "round": 1,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev02/paired-10k/bitmap-r1.json",
+      "engine_env": [
+        "LITE_CANDIDATE_ORDER=bitmap"
+      ]
+    },
+    {
+      "variant": "auto",
+      "round": 1,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev02/paired-10k/auto-r1.json",
+      "engine_env": [
+        "LITE_CANDIDATE_ORDER=auto"
+      ]
+    },
+    {
+      "variant": "sort",
+      "round": 2,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev02/paired-10k/sort-r2.json",
+      "engine_env": [
+        "LITE_CANDIDATE_ORDER=sort"
+      ]
+    },
+    {
+      "variant": "bitmap",
+      "round": 2,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev02/paired-10k/bitmap-r2.json",
+      "engine_env": [
+        "LITE_CANDIDATE_ORDER=bitmap"
+      ]
+    },
+    {
+      "variant": "auto",
+      "round": 2,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev02/paired-10k/auto-r2.json",
+      "engine_env": [
+        "LITE_CANDIDATE_ORDER=auto"
+      ]
+    },
+    {
+      "variant": "baseline",
+      "round": 2,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev02/paired-10k/baseline-r2.json",
+      "engine_env": []
+    },
+    {
+      "variant": "bitmap",
+      "round": 3,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev02/paired-10k/bitmap-r3.json",
+      "engine_env": [
+        "LITE_CANDIDATE_ORDER=bitmap"
+      ]
+    },
+    {
+      "variant": "auto",
+      "round": 3,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev02/paired-10k/auto-r3.json",
+      "engine_env": [
+        "LITE_CANDIDATE_ORDER=auto"
+      ]
+    },
+    {
+      "variant": "baseline",
+      "round": 3,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev02/paired-10k/baseline-r3.json",
+      "engine_env": []
+    },
+    {
+      "variant": "sort",
+      "round": 3,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev02/paired-10k/sort-r3.json",
+      "engine_env": [
+        "LITE_CANDIDATE_ORDER=sort"
+      ]
+    }
+  ],
+  "summary_medians": {
+    "baseline": {
+      "insert_wall_s": 0.6323149490635842,
+      "insert_request_s": 0.6115652900189161,
+      "index_s": 0.0027869699988514185,
+      "warmup_s": 0.029181368881836534,
+      "query_wall_s": 0.34665563399903476,
+      "checkpoint_s": 0.04016060498543084,
+      "final_file_bytes": 7071529,
+      "exact_mean_ms": 0.2954589982982725,
+      "filters_mean_ms": {
+        "category": 0.20227457908913493,
+        "none": 0.38864341750741005
+      },
+      "peak_bytes": 24625152,
+      "ranges": {
+        "insert_wall_s": [
+          0.6308834101073444,
+          0.6342483391053975
+        ],
+        "query_wall_s": [
+          0.34643117687664926,
+          0.3669840809889138
+        ],
+        "index_s": [
+          0.002495930064469576,
+          0.002942488994449377
+        ]
+      },
+      "filters": {
+        "category": {
+          "n": 500,
+          "request_total_s": 0.10113728954456747,
+          "qps": 4943.7749642249255,
+          "mean_ms": 0.20227457908913493,
+          "p50_ms": 0.19436399452388287,
+          "p95_ms": 0.21678488701581955,
+          "filtered_candidates_mean": 500,
+          "full_distance_evaluations_mean": 500,
+          "distance_dimensions_mean": 64000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "none": {
+          "n": 500,
+          "request_total_s": 0.19432170875370502,
+          "qps": 2573.052713496514,
+          "mean_ms": 0.38864341750741005,
+          "p50_ms": 0.3894384717568755,
+          "p95_ms": 0.41303900070488453,
+          "filtered_candidates_mean": 10000,
+          "full_distance_evaluations_mean": 10000,
+          "distance_dimensions_mean": 1280000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        }
+      }
+    },
+    "sort": {
+      "insert_wall_s": 0.6322446910198778,
+      "insert_request_s": 0.6110202465206385,
+      "index_s": 0.0027124390471726656,
+      "warmup_s": 0.029827785911038518,
+      "query_wall_s": 0.3598199859261513,
+      "checkpoint_s": 0.03797565517015755,
+      "final_file_bytes": 7071529,
+      "exact_mean_ms": 0.3057734132744372,
+      "filters_mean_ms": {
+        "category": 0.21207346860319376,
+        "none": 0.3994733579456806
+      },
+      "peak_bytes": 24989696,
+      "ranges": {
+        "insert_wall_s": [
+          0.6287903829943389,
+          0.6349581789691001
+        ],
+        "query_wall_s": [
+          0.3587404238060117,
+          0.3615003749728203
+        ],
+        "index_s": [
+          0.002127651823684573,
+          0.0035106800496578217
+        ]
+      },
+      "filters": {
+        "category": {
+          "n": 500,
+          "request_total_s": 0.10603673430159688,
+          "qps": 4715.347028491712,
+          "mean_ms": 0.21207346860319376,
+          "p50_ms": 0.20364555530250072,
+          "p95_ms": 0.22722920402884483,
+          "filtered_candidates_mean": 500,
+          "full_distance_evaluations_mean": 500,
+          "distance_dimensions_mean": 64000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "none": {
+          "n": 500,
+          "request_total_s": 0.1997366789728403,
+          "qps": 2503.295852175397,
+          "mean_ms": 0.3994733579456806,
+          "p50_ms": 0.3979525063186884,
+          "p95_ms": 0.42252009734511375,
+          "filtered_candidates_mean": 10000,
+          "full_distance_evaluations_mean": 10000,
+          "distance_dimensions_mean": 1280000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        }
+      }
+    },
+    "bitmap": {
+      "insert_wall_s": 0.6303363360930234,
+      "insert_request_s": 0.6092701521702111,
+      "index_s": 0.0028650029562413692,
+      "warmup_s": 0.029613699996843934,
+      "query_wall_s": 0.3535277680493891,
+      "checkpoint_s": 0.038244676077738404,
+      "final_file_bytes": 7071529,
+      "exact_mean_ms": 0.3005308413412422,
+      "filters_mean_ms": {
+        "category": 0.20740234944969416,
+        "none": 0.39365933323279023
+      },
+      "peak_bytes": 24752128,
+      "ranges": {
+        "insert_wall_s": [
+          0.6286825791466981,
+          0.6316063578706235
+        ],
+        "query_wall_s": [
+          0.35211559501476586,
+          0.35679180594161153
+        ],
+        "index_s": [
+          0.0021559109445661306,
+          0.0031839730218052864
+        ]
+      },
+      "filters": {
+        "category": {
+          "n": 500,
+          "request_total_s": 0.10370117472484708,
+          "qps": 4821.546152458374,
+          "mean_ms": 0.20740234944969416,
+          "p50_ms": 0.19928754772990942,
+          "p95_ms": 0.225418945774436,
+          "filtered_candidates_mean": 500,
+          "full_distance_evaluations_mean": 500,
+          "distance_dimensions_mean": 64000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "none": {
+          "n": 500,
+          "request_total_s": 0.19682966661639512,
+          "qps": 2540.267473878615,
+          "mean_ms": 0.39365933323279023,
+          "p50_ms": 0.3924350021407008,
+          "p95_ms": 0.4166131839156151,
+          "filtered_candidates_mean": 10000,
+          "full_distance_evaluations_mean": 10000,
+          "distance_dimensions_mean": 1280000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        }
+      }
+    },
+    "auto": {
+      "insert_wall_s": 0.6416181810200214,
+      "insert_request_s": 0.620568365091458,
+      "index_s": 0.0029443069361150265,
+      "warmup_s": 0.030201847897842526,
+      "query_wall_s": 0.3610325460322201,
+      "checkpoint_s": 0.037778775906190276,
+      "final_file_bytes": 7071529,
+      "exact_mean_ms": 0.30754688917659223,
+      "filters_mean_ms": {
+        "category": 0.21104225143790245,
+        "none": 0.4014824558980763
+      },
+      "peak_bytes": 25149440,
+      "ranges": {
+        "insert_wall_s": [
+          0.6301116670947522,
+          0.6442645541392267
+        ],
+        "query_wall_s": [
+          0.35866920719854534,
+          0.36441852897405624
+        ],
+        "index_s": [
+          0.00225160107947886,
+          0.0029495269991457462
+        ]
+      },
+      "filters": {
+        "category": {
+          "n": 500,
+          "request_total_s": 0.10552112571895123,
+          "qps": 4738.387660227565,
+          "mean_ms": 0.21104225143790245,
+          "p50_ms": 0.20193797536194324,
+          "p95_ms": 0.22654514759778976,
+          "filtered_candidates_mean": 500,
+          "full_distance_evaluations_mean": 500,
+          "distance_dimensions_mean": 64000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "none": {
+          "n": 500,
+          "request_total_s": 0.20074122794903815,
+          "qps": 2490.768862522522,
+          "mean_ms": 0.4014824558980763,
+          "p50_ms": 0.3988229436799884,
+          "p95_ms": 0.42432802729308605,
+          "filtered_candidates_mean": 10000,
+          "full_distance_evaluations_mean": 10000,
+          "distance_dimensions_mean": 1280000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        }
+      }
+    }
+  },
+  "caveats": [
+    "Local synthetic workload, not the official scorer.",
+    "Timing includes JSONL transport and response decoding; query_wall_s also includes driver SQL generation.",
+    "Memory includes the container and page cache; unavailable io.stat is not zero I/O."
+  ]
+}

@@ -1,0 +1,62 @@
+[
+  {
+    "variant": "baseline",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-release/paired/baseline-r1.json",
+    "engine_env": []
+  },
+  {
+    "variant": "candidate",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-release/paired/candidate-r1.json",
+    "engine_env": []
+  },
+  {
+    "variant": "candidate",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-release/paired/candidate-r2.json",
+    "engine_env": []
+  },
+  {
+    "variant": "baseline",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-release/paired/baseline-r2.json",
+    "engine_env": []
+  },
+  {
+    "variant": "baseline",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-release/paired/baseline-r3.json",
+    "engine_env": []
+  },
+  {
+    "variant": "candidate",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-release/paired/candidate-r3.json",
+    "engine_env": []
+  },
+  {
+    "variant": "candidate",
+    "round": 4,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-release/paired/candidate-r4.json",
+    "engine_env": []
+  },
+  {
+    "variant": "baseline",
+    "round": 4,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-release/paired/baseline-r4.json",
+    "engine_env": []
+  },
+  {
+    "variant": "baseline",
+    "round": 5,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-release/paired/baseline-r5.json",
+    "engine_env": []
+  },
+  {
+    "variant": "candidate",
+    "round": 5,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-release/paired/candidate-r5.json",
+    "engine_env": []
+  }
+]

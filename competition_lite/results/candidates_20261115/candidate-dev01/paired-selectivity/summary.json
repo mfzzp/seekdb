@@ -1,0 +1,441 @@
+{
+  "runs": [
+    {
+      "variant": "baseline",
+      "round": 1,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev01/paired-selectivity/baseline-r1.json",
+      "engine_env": []
+    },
+    {
+      "variant": "sort",
+      "round": 1,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev01/paired-selectivity/sort-r1.json",
+      "engine_env": [
+        "LITE_CANDIDATE_ORDER=sort"
+      ]
+    },
+    {
+      "variant": "bitmap",
+      "round": 1,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev01/paired-selectivity/bitmap-r1.json",
+      "engine_env": [
+        "LITE_CANDIDATE_ORDER=bitmap"
+      ]
+    },
+    {
+      "variant": "auto",
+      "round": 1,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev01/paired-selectivity/auto-r1.json",
+      "engine_env": [
+        "LITE_CANDIDATE_ORDER=auto"
+      ]
+    },
+    {
+      "variant": "sort",
+      "round": 2,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev01/paired-selectivity/sort-r2.json",
+      "engine_env": [
+        "LITE_CANDIDATE_ORDER=sort"
+      ]
+    },
+    {
+      "variant": "bitmap",
+      "round": 2,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev01/paired-selectivity/bitmap-r2.json",
+      "engine_env": [
+        "LITE_CANDIDATE_ORDER=bitmap"
+      ]
+    },
+    {
+      "variant": "auto",
+      "round": 2,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev01/paired-selectivity/auto-r2.json",
+      "engine_env": [
+        "LITE_CANDIDATE_ORDER=auto"
+      ]
+    },
+    {
+      "variant": "baseline",
+      "round": 2,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev01/paired-selectivity/baseline-r2.json",
+      "engine_env": []
+    },
+    {
+      "variant": "bitmap",
+      "round": 3,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev01/paired-selectivity/bitmap-r3.json",
+      "engine_env": [
+        "LITE_CANDIDATE_ORDER=bitmap"
+      ]
+    },
+    {
+      "variant": "auto",
+      "round": 3,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev01/paired-selectivity/auto-r3.json",
+      "engine_env": [
+        "LITE_CANDIDATE_ORDER=auto"
+      ]
+    },
+    {
+      "variant": "baseline",
+      "round": 3,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev01/paired-selectivity/baseline-r3.json",
+      "engine_env": []
+    },
+    {
+      "variant": "sort",
+      "round": 3,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev01/paired-selectivity/sort-r3.json",
+      "engine_env": [
+        "LITE_CANDIDATE_ORDER=sort"
+      ]
+    }
+  ],
+  "summary_medians": {
+    "baseline": {
+      "insert_wall_s": 0.6405630467925221,
+      "insert_request_s": 0.619060814846307,
+      "index_s": 0.00277460808865726,
+      "warmup_s": 0.029305378207936883,
+      "query_wall_s": 0.10363389598205686,
+      "checkpoint_s": 0.03729187697172165,
+      "final_file_bytes": 7071529,
+      "exact_mean_ms": 0.3811320901149884,
+      "filters_mean_ms": {
+        "large": 0.6961422661940256,
+        "medium": 0.23963983015467724,
+        "none": 0.428350855751584,
+        "small": 0.15988972348471484
+      },
+      "peak_bytes": 23982080,
+      "ranges": {
+        "insert_wall_s": [
+          0.6337388849351555,
+          0.6447496239561588
+        ],
+        "query_wall_s": [
+          0.10027851187624037,
+          0.104833765886724
+        ],
+        "index_s": [
+          0.002522295108065009,
+          0.002909851958975196
+        ]
+      },
+      "filters": {
+        "large": {
+          "n": 60,
+          "request_total_s": 0.04176853597164154,
+          "qps": 1436.4879832210684,
+          "mean_ms": 0.6961422661940256,
+          "p50_ms": 0.6928995717316866,
+          "p95_ms": 0.7826469372957945,
+          "filtered_candidates_mean": 8000,
+          "full_distance_evaluations_mean": 8000,
+          "distance_dimensions_mean": 1024000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "medium": {
+          "n": 60,
+          "request_total_s": 0.014378389809280634,
+          "qps": 4172.929013321963,
+          "mean_ms": 0.23963983015467724,
+          "p50_ms": 0.2338445046916604,
+          "p95_ms": 0.2598010469228029,
+          "filtered_candidates_mean": 1000,
+          "full_distance_evaluations_mean": 1000,
+          "distance_dimensions_mean": 128000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "none": {
+          "n": 60,
+          "request_total_s": 0.02570105134509504,
+          "qps": 2334.5348481804735,
+          "mean_ms": 0.428350855751584,
+          "p50_ms": 0.40710403118282557,
+          "p95_ms": 0.4631960764527321,
+          "filtered_candidates_mean": 10000,
+          "full_distance_evaluations_mean": 10000,
+          "distance_dimensions_mean": 1280000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "small": {
+          "n": 60,
+          "request_total_s": 0.00959338340908289,
+          "qps": 6254.3106473981625,
+          "mean_ms": 0.15988972348471484,
+          "p50_ms": 0.1580865355208516,
+          "p95_ms": 0.19278191030025482,
+          "filtered_candidates_mean": 10,
+          "full_distance_evaluations_mean": 10,
+          "distance_dimensions_mean": 1280,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        }
+      }
+    },
+    "sort": {
+      "insert_wall_s": 0.6306955250911415,
+      "insert_request_s": 0.6095660720020533,
+      "index_s": 0.0029945638962090015,
+      "warmup_s": 0.02761728805489838,
+      "query_wall_s": 0.0959770530462265,
+      "checkpoint_s": 0.037701515946537256,
+      "final_file_bytes": 7071529,
+      "exact_mean_ms": 0.3448643178368608,
+      "filters_mean_ms": {
+        "large": 0.6047062575817108,
+        "medium": 0.2155148540623486,
+        "none": 0.38412924235065776,
+        "small": 0.15303816180676222
+      },
+      "peak_bytes": 24453120,
+      "ranges": {
+        "insert_wall_s": [
+          0.6266354729887098,
+          0.6386499439831823
+        ],
+        "query_wall_s": [
+          0.09335307497531176,
+          0.09648056305013597
+        ],
+        "index_s": [
+          0.0029610961209982634,
+          0.0033480420242995024
+        ]
+      },
+      "filters": {
+        "large": {
+          "n": 60,
+          "request_total_s": 0.03628237545490265,
+          "qps": 1653.695471912452,
+          "mean_ms": 0.6047062575817108,
+          "p50_ms": 0.6128025706857443,
+          "p95_ms": 0.6614062003791332,
+          "filtered_candidates_mean": 8000,
+          "full_distance_evaluations_mean": 8000,
+          "distance_dimensions_mean": 1024000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "medium": {
+          "n": 60,
+          "request_total_s": 0.012930891243740916,
+          "qps": 4640.051398548609,
+          "mean_ms": 0.2155148540623486,
+          "p50_ms": 0.2144494792446494,
+          "p95_ms": 0.24194014258682728,
+          "filtered_candidates_mean": 1000,
+          "full_distance_evaluations_mean": 1000,
+          "distance_dimensions_mean": 128000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "none": {
+          "n": 60,
+          "request_total_s": 0.023047754541039467,
+          "qps": 2603.290480778175,
+          "mean_ms": 0.38412924235065776,
+          "p50_ms": 0.38386054802685976,
+          "p95_ms": 0.4168059676885605,
+          "filtered_candidates_mean": 10000,
+          "full_distance_evaluations_mean": 10000,
+          "distance_dimensions_mean": 1280000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "small": {
+          "n": 60,
+          "request_total_s": 0.009182289708405733,
+          "qps": 6534.317899496709,
+          "mean_ms": 0.15303816180676222,
+          "p50_ms": 0.15308649744838476,
+          "p95_ms": 0.17101108096539974,
+          "filtered_candidates_mean": 10,
+          "full_distance_evaluations_mean": 10,
+          "distance_dimensions_mean": 1280,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        }
+      }
+    },
+    "bitmap": {
+      "insert_wall_s": 0.6269707209430635,
+      "insert_request_s": 0.6048872012179345,
+      "index_s": 0.003098765155300498,
+      "warmup_s": 0.027224778896197677,
+      "query_wall_s": 0.09148236806504428,
+      "checkpoint_s": 0.037689835065975785,
+      "final_file_bytes": 7071529,
+      "exact_mean_ms": 0.3272765529497216,
+      "filters_mean_ms": {
+        "large": 0.5845523128906885,
+        "medium": 0.2136062403830389,
+        "none": 0.3663436354448398,
+        "small": 0.14745012546579042
+      },
+      "peak_bytes": 24088576,
+      "ranges": {
+        "insert_wall_s": [
+          0.6227324020583183,
+          0.6271836420055479
+        ],
+        "query_wall_s": [
+          0.0897379070520401,
+          0.10033058514818549
+        ],
+        "index_s": [
+          0.0023574000224471092,
+          0.0031510789413005114
+        ]
+      },
+      "filters": {
+        "large": {
+          "n": 60,
+          "request_total_s": 0.035073138773441315,
+          "qps": 1710.7108772778054,
+          "mean_ms": 0.5845523128906885,
+          "p50_ms": 0.5680120084434748,
+          "p95_ms": 0.6448039785027504,
+          "filtered_candidates_mean": 8000,
+          "full_distance_evaluations_mean": 8000,
+          "distance_dimensions_mean": 1024000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "medium": {
+          "n": 60,
+          "request_total_s": 0.012816374422982335,
+          "qps": 4681.511168432154,
+          "mean_ms": 0.2136062403830389,
+          "p50_ms": 0.21065399050712585,
+          "p95_ms": 0.23896107450127602,
+          "filtered_candidates_mean": 1000,
+          "full_distance_evaluations_mean": 1000,
+          "distance_dimensions_mean": 128000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "none": {
+          "n": 60,
+          "request_total_s": 0.021980618126690388,
+          "qps": 2729.6775574816,
+          "mean_ms": 0.3663436354448398,
+          "p50_ms": 0.3593055298551917,
+          "p95_ms": 0.4045108798891306,
+          "filtered_candidates_mean": 10000,
+          "full_distance_evaluations_mean": 10000,
+          "distance_dimensions_mean": 1280000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "small": {
+          "n": 60,
+          "request_total_s": 0.008847007527947426,
+          "qps": 6781.954215644311,
+          "mean_ms": 0.14745012546579042,
+          "p50_ms": 0.14733197167515755,
+          "p95_ms": 0.17042690888047218,
+          "filtered_candidates_mean": 10,
+          "full_distance_evaluations_mean": 10,
+          "distance_dimensions_mean": 1280,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        }
+      }
+    },
+    "auto": {
+      "insert_wall_s": 0.6287881031166762,
+      "insert_request_s": 0.6077405151445419,
+      "index_s": 0.0029637289699167013,
+      "warmup_s": 0.027459194185212255,
+      "query_wall_s": 0.0922264358960092,
+      "checkpoint_s": 0.038030169904232025,
+      "final_file_bytes": 7071529,
+      "exact_mean_ms": 0.33005540511415654,
+      "filters_mean_ms": {
+        "large": 0.5859665921889246,
+        "medium": 0.21405854495242238,
+        "none": 0.37202561895052594,
+        "small": 0.1510075448701779
+      },
+      "peak_bytes": 24002560,
+      "ranges": {
+        "insert_wall_s": [
+          0.6268081520684063,
+          0.631648686947301
+        ],
+        "query_wall_s": [
+          0.09145550290122628,
+          0.09299999801442027
+        ],
+        "index_s": [
+          0.0029411260038614273,
+          0.0032054309267550707
+        ]
+      },
+      "filters": {
+        "large": {
+          "n": 60,
+          "request_total_s": 0.03515799553133547,
+          "qps": 1706.5819337317864,
+          "mean_ms": 0.5859665921889246,
+          "p50_ms": 0.5823709070682526,
+          "p95_ms": 0.6355340592563152,
+          "filtered_candidates_mean": 8000,
+          "full_distance_evaluations_mean": 8000,
+          "distance_dimensions_mean": 1024000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "medium": {
+          "n": 60,
+          "request_total_s": 0.012843512697145343,
+          "qps": 4671.619160180055,
+          "mean_ms": 0.21405854495242238,
+          "p50_ms": 0.21058705169707537,
+          "p95_ms": 0.23604393936693668,
+          "filtered_candidates_mean": 1000,
+          "full_distance_evaluations_mean": 1000,
+          "distance_dimensions_mean": 128000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "none": {
+          "n": 60,
+          "request_total_s": 0.022321537137031555,
+          "qps": 2687.986926333118,
+          "mean_ms": 0.37202561895052594,
+          "p50_ms": 0.3723655827343464,
+          "p95_ms": 0.4114180337637663,
+          "filtered_candidates_mean": 10000,
+          "full_distance_evaluations_mean": 10000,
+          "distance_dimensions_mean": 1280000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "small": {
+          "n": 60,
+          "request_total_s": 0.009060452692210674,
+          "qps": 6622.18567197888,
+          "mean_ms": 0.1510075448701779,
+          "p50_ms": 0.14823197852820158,
+          "p95_ms": 0.17640390433371067,
+          "filtered_candidates_mean": 10,
+          "full_distance_evaluations_mean": 10,
+          "distance_dimensions_mean": 1280,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        }
+      }
+    }
+  },
+  "caveats": [
+    "Local synthetic workload, not the official scorer.",
+    "Timing includes JSONL transport and response decoding; query_wall_s also includes driver SQL generation.",
+    "Memory includes the container and page cache; unavailable io.stat is not zero I/O."
+  ]
+}

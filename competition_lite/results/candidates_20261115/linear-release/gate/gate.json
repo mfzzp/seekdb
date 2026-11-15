@@ -1,0 +1,96 @@
+{
+  "source_sha256": "0236762f1ae263143ab51ca56a3fbbbde3a9bf5ebe6201e6c499898b8b947382",
+  "runtime_sources": {
+    "lsm_store.hpp": "f87edd798afffb069e0a6b5dbcfac940cd46e12b259bf77ee2437884a07710b7",
+    "minivectordb_lite.cpp": "0236762f1ae263143ab51ca56a3fbbbde3a9bf5ebe6201e6c499898b8b947382"
+  },
+  "image_tag": "lite:linear-20261115",
+  "passed": true,
+  "checks": [
+    {
+      "name": "line_budget",
+      "exit_code": 0,
+      "seconds": 0.03208349505439401
+    },
+    {
+      "name": "build",
+      "exit_code": 0,
+      "seconds": 14.351157357916236
+    },
+    {
+      "name": "image",
+      "exit_code": 0,
+      "seconds": 0.0323451180011034
+    },
+    {
+      "name": "limits",
+      "exit_code": 0,
+      "seconds": 0.3149027288891375
+    },
+    {
+      "name": "public",
+      "exit_code": 0,
+      "seconds": 9.785407962976024
+    },
+    {
+      "name": "extra",
+      "exit_code": 0,
+      "seconds": 5.4756813298445195
+    },
+    {
+      "name": "edges",
+      "exit_code": 0,
+      "seconds": 1.0169561901129782
+    },
+    {
+      "name": "exact",
+      "exit_code": 0,
+      "seconds": 5.780273327138275
+    },
+    {
+      "name": "exact_kernel_paths",
+      "exit_code": 0,
+      "seconds": 9.036510025151074
+    },
+    {
+      "name": "bulk",
+      "exit_code": 0,
+      "seconds": 0.8156085249502212
+    },
+    {
+      "name": "quotes",
+      "exit_code": 0,
+      "seconds": 0.6158630608115345
+    },
+    {
+      "name": "lsm_model",
+      "exit_code": 0,
+      "seconds": 1.5682944660075009
+    },
+    {
+      "name": "lsm_corruption",
+      "exit_code": 0,
+      "seconds": 0.5656755790114403
+    },
+    {
+      "name": "kernel",
+      "exit_code": 0,
+      "seconds": 14.253767514135689
+    },
+    {
+      "name": "commit_faults",
+      "exit_code": 0,
+      "seconds": 8.739479459123686
+    },
+    {
+      "name": "lsm_faults",
+      "exit_code": 0,
+      "seconds": 10.69382639694959
+    },
+    {
+      "name": "wal_vectors",
+      "exit_code": 0,
+      "seconds": 10.994879984064028
+    }
+  ]
+}

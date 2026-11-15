@@ -1,0 +1,62 @@
+[
+  {
+    "variant": "exact-9884",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/linear-release/selectivity/exact-9884-r1.json",
+    "engine_env": []
+  },
+  {
+    "variant": "exact",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/linear-release/selectivity/exact-r1.json",
+    "engine_env": []
+  },
+  {
+    "variant": "exact",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/linear-release/selectivity/exact-r2.json",
+    "engine_env": []
+  },
+  {
+    "variant": "exact-9884",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/linear-release/selectivity/exact-9884-r2.json",
+    "engine_env": []
+  },
+  {
+    "variant": "exact-9884",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/linear-release/selectivity/exact-9884-r3.json",
+    "engine_env": []
+  },
+  {
+    "variant": "exact",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/linear-release/selectivity/exact-r3.json",
+    "engine_env": []
+  },
+  {
+    "variant": "exact",
+    "round": 4,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/linear-release/selectivity/exact-r4.json",
+    "engine_env": []
+  },
+  {
+    "variant": "exact-9884",
+    "round": 4,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/linear-release/selectivity/exact-9884-r4.json",
+    "engine_env": []
+  },
+  {
+    "variant": "exact-9884",
+    "round": 5,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/linear-release/selectivity/exact-9884-r5.json",
+    "engine_env": []
+  },
+  {
+    "variant": "exact",
+    "round": 5,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/linear-release/selectivity/exact-r5.json",
+    "engine_env": []
+  }
+]

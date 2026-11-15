@@ -1,0 +1,67 @@
+[
+  {
+    "name": "build-runtime",
+    "returncode": 0,
+    "seconds": 13.652099238010123
+  },
+  {
+    "name": "build-kernel-check",
+    "returncode": 0,
+    "seconds": 13.853299632901326
+  },
+  {
+    "name": "kernel",
+    "returncode": 0,
+    "seconds": 0.5156586018856615
+  },
+  {
+    "name": "exact_paths_check.py-bitmap",
+    "returncode": 0,
+    "seconds": 5.880048508988693
+  },
+  {
+    "name": "exact_kernel_paths_check.py-bitmap",
+    "returncode": 0,
+    "seconds": 9.538952114060521
+  },
+  {
+    "name": "exact_paths_check.py-sort",
+    "returncode": 0,
+    "seconds": 6.0307140939403325
+  },
+  {
+    "name": "exact_kernel_paths_check.py-sort",
+    "returncode": 0,
+    "seconds": 8.989122478989884
+  },
+  {
+    "name": "paired-10k",
+    "returncode": 0,
+    "seconds": 47.7901977810543
+  },
+  {
+    "name": "paired-selectivity",
+    "returncode": 0,
+    "seconds": 41.97272027190775
+  },
+  {
+    "name": "profile-baseline",
+    "returncode": 0,
+    "seconds": 1.3178602231200784
+  },
+  {
+    "name": "profile-sort",
+    "returncode": 0,
+    "seconds": 1.3676880488637835
+  },
+  {
+    "name": "profile-bitmap",
+    "returncode": 0,
+    "seconds": 1.317619731882587
+  },
+  {
+    "name": "profile-auto",
+    "returncode": 0,
+    "seconds": 1.418097356101498
+  }
+]

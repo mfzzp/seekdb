@@ -1,0 +1,68 @@
+[
+  {
+    "variant": "baseline",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev03/paired-10k/baseline-r1.json",
+    "engine_env": []
+  },
+  {
+    "variant": "off",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev03/paired-10k/off-r1.json",
+    "engine_env": [
+      "LITE_CONTIGUOUS_SCAN=0"
+    ]
+  },
+  {
+    "variant": "linear",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev03/paired-10k/linear-r1.json",
+    "engine_env": [
+      "LITE_CONTIGUOUS_SCAN=1"
+    ]
+  },
+  {
+    "variant": "off",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev03/paired-10k/off-r2.json",
+    "engine_env": [
+      "LITE_CONTIGUOUS_SCAN=0"
+    ]
+  },
+  {
+    "variant": "linear",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev03/paired-10k/linear-r2.json",
+    "engine_env": [
+      "LITE_CONTIGUOUS_SCAN=1"
+    ]
+  },
+  {
+    "variant": "baseline",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev03/paired-10k/baseline-r2.json",
+    "engine_env": []
+  },
+  {
+    "variant": "linear",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev03/paired-10k/linear-r3.json",
+    "engine_env": [
+      "LITE_CONTIGUOUS_SCAN=1"
+    ]
+  },
+  {
+    "variant": "baseline",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev03/paired-10k/baseline-r3.json",
+    "engine_env": []
+  },
+  {
+    "variant": "off",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/candidate-dev03/paired-10k/off-r3.json",
+    "engine_env": [
+      "LITE_CONTIGUOUS_SCAN=0"
+    ]
+  }
+]

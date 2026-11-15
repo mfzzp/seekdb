@@ -1,0 +1,62 @@
+[
+  {
+    "name": "build-runtime",
+    "returncode": 0,
+    "seconds": 13.50163882994093
+  },
+  {
+    "name": "build-kernel-check",
+    "returncode": 0,
+    "seconds": 13.701518553076312
+  },
+  {
+    "name": "kernel",
+    "returncode": 0,
+    "seconds": 0.5160366161726415
+  },
+  {
+    "name": "exact_paths_check.py-linear",
+    "returncode": 0,
+    "seconds": 5.679337498033419
+  },
+  {
+    "name": "exact_kernel_paths_check.py-linear",
+    "returncode": 0,
+    "seconds": 8.687494162935764
+  },
+  {
+    "name": "exact_paths_check.py-off",
+    "returncode": 0,
+    "seconds": 5.779927865136415
+  },
+  {
+    "name": "exact_kernel_paths_check.py-off",
+    "returncode": 0,
+    "seconds": 9.038845564005896
+  },
+  {
+    "name": "paired-10k",
+    "returncode": 0,
+    "seconds": 37.060493803815916
+  },
+  {
+    "name": "paired-selectivity",
+    "returncode": 0,
+    "seconds": 29.844912711996585
+  },
+  {
+    "name": "profile-baseline",
+    "returncode": 0,
+    "seconds": 1.4179466972127557
+  },
+  {
+    "name": "profile-off",
+    "returncode": 0,
+    "seconds": 1.3680258030071855
+  },
+  {
+    "name": "profile-linear",
+    "returncode": 0,
+    "seconds": 1.3681287919171154
+  }
+]
