@@ -109,11 +109,16 @@ def prepare(args):
 
 
 class Client:
-    def __init__(self, binary, data, stderr, image, exact_path=None):
+    def __init__(self, binary, data, stderr, image, exact_path=None, engine_env=None):
         self.data = Path(data); self.data.mkdir(parents=True, exist_ok=True)
         self.name = 'lite-compare-' + uuid.uuid4().hex[:12]
         self.p = None; self.engine_pid = None
         path_env = ['--env', 'LITE_EXACT_PATH='+exact_path] if exact_path else []
+        for setting in engine_env or []:
+            key, sep, value = setting.partition('=')
+            if not sep or not key.startswith('LITE_') or not key.replace('_','').isalnum():raise ValueError('invalid engine setting')
+            if key=='LITE_EXACT_PATH' and exact_path:raise ValueError('duplicate exact path setting')
+            path_env += ['--env',key+'='+value]
         subprocess.run(['docker','run','-d','--name',self.name,'--network=none','--cpus=2',
                         '--memory=2g','--memory-swap=2g','--pids-limit=128',
                         '--mount','type=bind,src=%s,dst=/engine,readonly' % binary,
@@ -214,7 +219,7 @@ def run(args):
     with (prep / 'insert.jsonl').open('rb') as f:
         while f.read(4 << 20): pass
     with (out / 'stderr.log').open('wb') as err:
-        t = time.perf_counter(); client = Client(binary, out / 'data', err, args.image, args.exact_path)
+        t = time.perf_counter(); client = Client(binary, out / 'data', err, args.image, args.exact_path, args.engine_env)
         startup_s = time.perf_counter() - t
         image_id = client.image; initial = client.initial
         client.ask(meta['schema_sql'])
@@ -251,7 +256,7 @@ def run(args):
         t = time.perf_counter(); after = client.drain(); query_drain_s = time.perf_counter()-t
         t = time.perf_counter(); final = client.close()
         checkpoint_s = client.close_s
-        t = time.perf_counter(); client = Client(binary, out / 'data', err, args.image, args.exact_path); restart_s = time.perf_counter() - t
+        t = time.perf_counter(); client = Client(binary, out / 'data', err, args.image, args.exact_path, args.engine_env); restart_s = time.perf_counter() - t
         t = time.perf_counter(); checked = 0
         with (Path(meta['data'])/'vectors.f32').open('rb') as vf, (Path(meta['data'])/'rows.jsonl').open() as rf:
             for base in range(1,meta['rows']+1,256):
@@ -268,7 +273,7 @@ def run(args):
         verification_s=time.perf_counter()-t
         client.close()
     result={'label':args.label,'run':str(out),'binary':str(binary),'binary_sha256':sha(binary),'prepared':str(prep),'exact_path_override':args.exact_path,
-            'insert_sha256':meta['insert_sha256'],'query_cases_sha256':meta['query_cases_sha256'],
+             'insert_sha256':meta['insert_sha256'],'query_cases_sha256':meta['query_cases_sha256'],'engine_env':args.engine_env,
             'rows':meta['rows'],'dim':meta['dim'],'batch':meta['batch'],'requests':len(timings),
             'startup_s':startup_s,'insert_request_s':sum(timings),'insert_wall_s':insert_wall,
             'insert_cpu_s':inserted['cpu_s']-before['cpu_s'],'index_s':index_s,'warmup_s':warmup_s,
@@ -333,6 +338,7 @@ def main():
     p.add_argument('--root',required=True);p.add_argument('--label',required=True)
     p.add_argument('--image',default='python:3.12.10-slim-bookworm')
     p.add_argument('--exact-path',choices=['scan','block','auto'])
+    p.add_argument('--engine-env',action='append',default=[],help='Explicit LITE_NAME=value passed to the engine container')
     p=sub.add_parser('verify');p.add_argument('--result',required=True);p.add_argument('--oracle',required=True);p.add_argument('--out',required=True)
     args=ap.parse_args()
     for key in ['root','out']:

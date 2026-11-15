@@ -14,19 +14,20 @@ def main():
     ap.add_argument('--prepared', type=Path, required=True)
     ap.add_argument('--root', type=Path, required=True)
     ap.add_argument('--image', required=True)
+    ap.add_argument('--engine-env',action='append',default=[])
     a = ap.parse_args()
     a.root.mkdir(parents=True, exist_ok=False)
     meta = json.loads((a.prepared/'prepared.json').read_text())
     requests = (a.prepared/'insert.jsonl').read_bytes().splitlines(keepends=True)
     cases = json.loads((a.prepared/'cases.json').read_text())
-    report = {'batch': meta['batch'], 'rows': meta['rows'], 'insert_sha256': meta['insert_sha256'], 'runs': {}}
+    report = {'batch': meta['batch'], 'rows': meta['rows'], 'insert_sha256': meta['insert_sha256'], 'engine_env':a.engine_env,'runs': {}}
     try:
         for mode in ['auto', 'explicit']:
             root = a.root/mode
             root.mkdir()
             phases = []
             with (root/'trace.jsonl').open('wb') as log:
-                c = Client(str(a.binary.resolve()), root/'data', log, a.image)
+                c = Client(str(a.binary.resolve()), root/'data', log, a.image, engine_env=a.engine_env)
                 c.ask(meta['schema_sql']);phases.append('schema')
                 start_stats = c.metrics();start = time.perf_counter()
                 for line in requests:

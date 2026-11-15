@@ -1,0 +1,264 @@
+{
+  "runs": [
+    {
+      "variant": "baseline-899",
+      "round": 1,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/commit-release/paired/baseline-899-r1.json",
+      "engine_env": []
+    },
+    {
+      "variant": "old-f885",
+      "round": 1,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/commit-release/paired/old-f885-r1.json",
+      "engine_env": []
+    },
+    {
+      "variant": "wal",
+      "round": 1,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/commit-release/paired/wal-r1.json",
+      "engine_env": []
+    },
+    {
+      "variant": "old-f885",
+      "round": 2,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/commit-release/paired/old-f885-r2.json",
+      "engine_env": []
+    },
+    {
+      "variant": "wal",
+      "round": 2,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/commit-release/paired/wal-r2.json",
+      "engine_env": []
+    },
+    {
+      "variant": "baseline-899",
+      "round": 2,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/commit-release/paired/baseline-899-r2.json",
+      "engine_env": []
+    },
+    {
+      "variant": "wal",
+      "round": 3,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/commit-release/paired/wal-r3.json",
+      "engine_env": []
+    },
+    {
+      "variant": "baseline-899",
+      "round": 3,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/commit-release/paired/baseline-899-r3.json",
+      "engine_env": []
+    },
+    {
+      "variant": "old-f885",
+      "round": 3,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/commit-release/paired/old-f885-r3.json",
+      "engine_env": []
+    },
+    {
+      "variant": "baseline-899",
+      "round": 4,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/commit-release/paired/baseline-899-r4.json",
+      "engine_env": []
+    },
+    {
+      "variant": "old-f885",
+      "round": 4,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/commit-release/paired/old-f885-r4.json",
+      "engine_env": []
+    },
+    {
+      "variant": "wal",
+      "round": 4,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/commit-release/paired/wal-r4.json",
+      "engine_env": []
+    },
+    {
+      "variant": "old-f885",
+      "round": 5,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/commit-release/paired/old-f885-r5.json",
+      "engine_env": []
+    },
+    {
+      "variant": "wal",
+      "round": 5,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/commit-release/paired/wal-r5.json",
+      "engine_env": []
+    },
+    {
+      "variant": "baseline-899",
+      "round": 5,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/commit-release/paired/baseline-899-r5.json",
+      "engine_env": []
+    }
+  ],
+  "summary_medians": {
+    "baseline-899": {
+      "insert_wall_s": 0.9118587640114129,
+      "insert_request_s": 0.877239263150841,
+      "index_s": 0.0031058930326253176,
+      "warmup_s": 0.027219556039199233,
+      "query_wall_s": 0.3593649959657341,
+      "checkpoint_s": 0.03697764687240124,
+      "final_file_bytes": 7071529,
+      "exact_mean_ms": 0.3130326373502612,
+      "filters_mean_ms": {
+        "category": 0.18861889466643333,
+        "none": 0.4372653025202453
+      },
+      "peak_bytes": 26402816,
+      "ranges": {
+        "insert_wall_s": [
+          0.8796926909126341,
+          0.9197900269646198
+        ],
+        "query_wall_s": [
+          0.3444180339574814,
+          0.39437190699391067
+        ],
+        "index_s": [
+          0.00300162797793746,
+          0.0032306478824466467
+        ]
+      },
+      "filters": {
+        "category": {
+          "n": 500,
+          "request_total_s": 0.09430944733321667,
+          "qps": 5301.695791232734,
+          "mean_ms": 0.18861889466643333,
+          "p50_ms": 0.1868954859673977,
+          "p95_ms": 0.20454893819987774,
+          "filtered_candidates_mean": 500,
+          "full_distance_evaluations_mean": 500,
+          "distance_dimensions_mean": 64000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "none": {
+          "n": 500,
+          "request_total_s": 0.21863265126012266,
+          "qps": 2286.9411184385026,
+          "mean_ms": 0.4372653025202453,
+          "p50_ms": 0.4330234369263053,
+          "p95_ms": 0.46508805826306343,
+          "filtered_candidates_mean": 10000,
+          "full_distance_evaluations_mean": 10000,
+          "distance_dimensions_mean": 1280000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        }
+      }
+    },
+    "old-f885": {
+      "insert_wall_s": 0.7775534109678119,
+      "insert_request_s": 0.7457805972080678,
+      "index_s": 0.002502219984307885,
+      "warmup_s": 0.015240333043038845,
+      "query_wall_s": 0.4120631490368396,
+      "checkpoint_s": 0.03012304101139307,
+      "final_file_bytes": 11054085,
+      "exact_mean_ms": 0.36637842026539147,
+      "filters_mean_ms": {
+        "category": 0.21555772330611944,
+        "none": 0.5164214833639562
+      },
+      "peak_bytes": 31944704,
+      "ranges": {
+        "insert_wall_s": [
+          0.7524586680810899,
+          0.7973787761293352
+        ],
+        "query_wall_s": [
+          0.39974976889789104,
+          0.42825119919143617
+        ],
+        "index_s": [
+          0.0023275609128177166,
+          0.0031185580883175135
+        ]
+      },
+      "filters": {
+        "category": {
+          "n": 500,
+          "request_total_s": 0.10777886165305972,
+          "qps": 4639.128603988234,
+          "mean_ms": 0.21555772330611944,
+          "p50_ms": 0.20728399977087975,
+          "p95_ms": 0.236984109506011,
+          "recall": 1.0
+        },
+        "none": {
+          "n": 500,
+          "request_total_s": 0.2582107416819781,
+          "qps": 1936.402787672631,
+          "mean_ms": 0.5164214833639562,
+          "p50_ms": 0.50534144975245,
+          "p95_ms": 0.5833369214087725,
+          "recall": 1.0
+        }
+      }
+    },
+    "wal": {
+      "insert_wall_s": 0.6227973839268088,
+      "insert_request_s": 0.6007632974069566,
+      "index_s": 0.0028993338346481323,
+      "warmup_s": 0.027241900097578764,
+      "query_wall_s": 0.36116127809509635,
+      "checkpoint_s": 0.03797070402652025,
+      "final_file_bytes": 7071529,
+      "exact_mean_ms": 0.31598610198125243,
+      "filters_mean_ms": {
+        "category": 0.1918022120371461,
+        "none": 0.43961695581674576
+      },
+      "peak_bytes": 24477696,
+      "ranges": {
+        "insert_wall_s": [
+          0.5935883820056915,
+          0.6276274910196662
+        ],
+        "query_wall_s": [
+          0.3544332319870591,
+          0.3914862109813839
+        ],
+        "index_s": [
+          0.0021640551276504993,
+          0.002982639940455556
+        ]
+      },
+      "filters": {
+        "category": {
+          "n": 500,
+          "request_total_s": 0.09590110601857305,
+          "qps": 5213.704207990736,
+          "mean_ms": 0.1918022120371461,
+          "p50_ms": 0.18647953402251005,
+          "p95_ms": 0.20483089610934258,
+          "filtered_candidates_mean": 500,
+          "full_distance_evaluations_mean": 500,
+          "distance_dimensions_mean": 64000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "none": {
+          "n": 500,
+          "request_total_s": 0.21980847790837288,
+          "qps": 2274.70753065505,
+          "mean_ms": 0.43961695581674576,
+          "p50_ms": 0.43805246241390705,
+          "p95_ms": 0.47061010263860226,
+          "filtered_candidates_mean": 10000,
+          "full_distance_evaluations_mean": 10000,
+          "distance_dimensions_mean": 1280000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        }
+      }
+    }
+  },
+  "caveats": [
+    "Local synthetic workload, not the official scorer.",
+    "Timing includes JSONL transport and response decoding; query_wall_s also includes driver SQL generation.",
+    "Memory includes the container and page cache; unavailable io.stat is not zero I/O."
+  ]
+}

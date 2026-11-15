@@ -1,0 +1,92 @@
+[
+  {
+    "variant": "baseline-899",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/commit-release/paired/baseline-899-r1.json",
+    "engine_env": []
+  },
+  {
+    "variant": "old-f885",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/commit-release/paired/old-f885-r1.json",
+    "engine_env": []
+  },
+  {
+    "variant": "wal",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/commit-release/paired/wal-r1.json",
+    "engine_env": []
+  },
+  {
+    "variant": "old-f885",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/commit-release/paired/old-f885-r2.json",
+    "engine_env": []
+  },
+  {
+    "variant": "wal",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/commit-release/paired/wal-r2.json",
+    "engine_env": []
+  },
+  {
+    "variant": "baseline-899",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/commit-release/paired/baseline-899-r2.json",
+    "engine_env": []
+  },
+  {
+    "variant": "wal",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/commit-release/paired/wal-r3.json",
+    "engine_env": []
+  },
+  {
+    "variant": "baseline-899",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/commit-release/paired/baseline-899-r3.json",
+    "engine_env": []
+  },
+  {
+    "variant": "old-f885",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/commit-release/paired/old-f885-r3.json",
+    "engine_env": []
+  },
+  {
+    "variant": "baseline-899",
+    "round": 4,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/commit-release/paired/baseline-899-r4.json",
+    "engine_env": []
+  },
+  {
+    "variant": "old-f885",
+    "round": 4,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/commit-release/paired/old-f885-r4.json",
+    "engine_env": []
+  },
+  {
+    "variant": "wal",
+    "round": 4,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/commit-release/paired/wal-r4.json",
+    "engine_env": []
+  },
+  {
+    "variant": "old-f885",
+    "round": 5,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/commit-release/paired/old-f885-r5.json",
+    "engine_env": []
+  },
+  {
+    "variant": "wal",
+    "round": 5,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/commit-release/paired/wal-r5.json",
+    "engine_env": []
+  },
+  {
+    "variant": "baseline-899",
+    "round": 5,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/commit-release/paired/baseline-899-r5.json",
+    "engine_env": []
+  }
+]

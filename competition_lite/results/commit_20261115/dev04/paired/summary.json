@@ -1,0 +1,248 @@
+{
+  "runs": [
+    {
+      "variant": "baseline",
+      "round": 1,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/dev04/paired/baseline-r1.json",
+      "engine_env": []
+    },
+    {
+      "variant": "cached",
+      "round": 1,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/dev04/paired/cached-r1.json",
+      "engine_env": [
+        "LITE_WAL_CACHE=1"
+      ]
+    },
+    {
+      "variant": "released",
+      "round": 1,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/dev04/paired/released-r1.json",
+      "engine_env": [
+        "LITE_WAL_CACHE=0"
+      ]
+    },
+    {
+      "variant": "cached",
+      "round": 2,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/dev04/paired/cached-r2.json",
+      "engine_env": [
+        "LITE_WAL_CACHE=1"
+      ]
+    },
+    {
+      "variant": "released",
+      "round": 2,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/dev04/paired/released-r2.json",
+      "engine_env": [
+        "LITE_WAL_CACHE=0"
+      ]
+    },
+    {
+      "variant": "baseline",
+      "round": 2,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/dev04/paired/baseline-r2.json",
+      "engine_env": []
+    },
+    {
+      "variant": "released",
+      "round": 3,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/dev04/paired/released-r3.json",
+      "engine_env": [
+        "LITE_WAL_CACHE=0"
+      ]
+    },
+    {
+      "variant": "baseline",
+      "round": 3,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/dev04/paired/baseline-r3.json",
+      "engine_env": []
+    },
+    {
+      "variant": "cached",
+      "round": 3,
+      "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/dev04/paired/cached-r3.json",
+      "engine_env": [
+        "LITE_WAL_CACHE=1"
+      ]
+    }
+  ],
+  "summary_medians": {
+    "baseline": {
+      "insert_wall_s": 0.914571579080075,
+      "insert_request_s": 0.879842639900744,
+      "index_s": 0.0037137980107218027,
+      "warmup_s": 0.027969371993094683,
+      "query_wall_s": 0.3669576980173588,
+      "checkpoint_s": 0.038843306014314294,
+      "final_file_bytes": 7071529,
+      "exact_mean_ms": 0.3183587552048266,
+      "filters_mean_ms": {
+        "category": 0.1918539055623114,
+        "none": 0.44862074917182326
+      },
+      "peak_bytes": 26681344,
+      "ranges": {
+        "insert_wall_s": [
+          0.9019095900002867,
+          0.9157637788448483
+        ],
+        "query_wall_s": [
+          0.3651940149720758,
+          0.37432254990562797
+        ],
+        "index_s": [
+          0.0029127681627869606,
+          0.0038787571247667074
+        ]
+      },
+      "filters": {
+        "category": {
+          "n": 500,
+          "request_total_s": 0.0959269527811557,
+          "qps": 5212.299416418261,
+          "mean_ms": 0.1918539055623114,
+          "p50_ms": 0.1888279803097248,
+          "p95_ms": 0.21224608644843102,
+          "filtered_candidates_mean": 500,
+          "full_distance_evaluations_mean": 500,
+          "distance_dimensions_mean": 64000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "none": {
+          "n": 500,
+          "request_total_s": 0.22431037458591163,
+          "qps": 2229.054277685664,
+          "mean_ms": 0.44862074917182326,
+          "p50_ms": 0.4445776576176286,
+          "p95_ms": 0.49396394751966,
+          "filtered_candidates_mean": 10000,
+          "full_distance_evaluations_mean": 10000,
+          "distance_dimensions_mean": 1280000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        }
+      }
+    },
+    "cached": {
+      "insert_wall_s": 0.6247434499673545,
+      "insert_request_s": 0.6041501455474645,
+      "index_s": 0.0028130770660936832,
+      "warmup_s": 0.026908726897090673,
+      "query_wall_s": 0.3471624259836972,
+      "checkpoint_s": 0.03967565903440118,
+      "final_file_bytes": 7071529,
+      "exact_mean_ms": 0.3015090534463525,
+      "filters_mean_ms": {
+        "category": 0.18826117785647511,
+        "none": 0.419003592338413
+      },
+      "peak_bytes": 31920128,
+      "ranges": {
+        "insert_wall_s": [
+          0.6216971389949322,
+          0.6256398370023817
+        ],
+        "query_wall_s": [
+          0.34685579198412597,
+          0.3753763029817492
+        ],
+        "index_s": [
+          0.0022751998621970415,
+          0.0028511849232017994
+        ]
+      },
+      "filters": {
+        "category": {
+          "n": 500,
+          "request_total_s": 0.09413058892823756,
+          "qps": 5311.7695925729895,
+          "mean_ms": 0.18826117785647511,
+          "p50_ms": 0.1829995308071375,
+          "p95_ms": 0.20122085697948933,
+          "filtered_candidates_mean": 500,
+          "full_distance_evaluations_mean": 500,
+          "distance_dimensions_mean": 64000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "none": {
+          "n": 500,
+          "request_total_s": 0.2095017961692065,
+          "qps": 2386.614382991587,
+          "mean_ms": 0.419003592338413,
+          "p50_ms": 0.4135825438424945,
+          "p95_ms": 0.4552970640361309,
+          "filtered_candidates_mean": 10000,
+          "full_distance_evaluations_mean": 10000,
+          "distance_dimensions_mean": 1280000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        }
+      }
+    },
+    "released": {
+      "insert_wall_s": 0.6255764800589532,
+      "insert_request_s": 0.6035431211348623,
+      "index_s": 0.003158734878525138,
+      "warmup_s": 0.027518752962350845,
+      "query_wall_s": 0.3780110829975456,
+      "checkpoint_s": 0.03819003305397928,
+      "final_file_bytes": 7071529,
+      "exact_mean_ms": 0.3256314678583294,
+      "filters_mean_ms": {
+        "category": 0.1998505829833448,
+        "none": 0.45603011082857847
+      },
+      "peak_bytes": 24498176,
+      "ranges": {
+        "insert_wall_s": [
+          0.6223152449820191,
+          0.8868369441479445
+        ],
+        "query_wall_s": [
+          0.37268035602755845,
+          0.3783785910345614
+        ],
+        "index_s": [
+          0.002914978889748454,
+          0.003191547002643347
+        ]
+      },
+      "filters": {
+        "category": {
+          "n": 500,
+          "request_total_s": 0.0999252914916724,
+          "qps": 5003.738218183423,
+          "mean_ms": 0.1998505829833448,
+          "p50_ms": 0.1950949663296342,
+          "p95_ms": 0.2169329673051834,
+          "filtered_candidates_mean": 500,
+          "full_distance_evaluations_mean": 500,
+          "distance_dimensions_mean": 64000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        },
+        "none": {
+          "n": 500,
+          "request_total_s": 0.22801505541428924,
+          "qps": 2192.8376575464763,
+          "mean_ms": 0.45603011082857847,
+          "p50_ms": 0.4513639723882079,
+          "p95_ms": 0.4984948318451643,
+          "filtered_candidates_mean": 10000,
+          "full_distance_evaluations_mean": 10000,
+          "distance_dimensions_mean": 1280000,
+          "blocks_pruned_mean": 0,
+          "recall": 1.0
+        }
+      }
+    }
+  },
+  "caveats": [
+    "Local synthetic workload, not the official scorer.",
+    "Timing includes JSONL transport and response decoding; query_wall_s also includes driver SQL generation.",
+    "Memory includes the container and page cache; unavailable io.stat is not zero I/O."
+  ]
+}

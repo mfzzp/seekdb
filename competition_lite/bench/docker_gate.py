@@ -63,6 +63,11 @@ def main():
             '-Wl,--wrap=write -Wl,--wrap=fsync -Wl,--wrap=rename -o /data/storage-check && '
             'python3 -B /checks/competition_lite/bench/lsm_storage_check.py '
             '--binary /data/storage-check --root /data/lsm_faults'])
+        run('wal_vectors', docker+['--tmpfs', '/tmp', '--entrypoint', 'sh', tag, '-c',
+            'g++ -O1 -std=c++17 /checks/competition_lite/bench/wal_vector_check.cpp '
+            '-Wl,--wrap=write -Wl,--wrap=pwrite -Wl,--wrap=fdatasync -o /data/wal-vector-check && '
+            'python3 -B /checks/competition_lite/bench/wal_vector_check.py '
+            '--binary /data/wal-vector-check --root /data/wal_vectors'])
         report['passed'] = True
     except BaseException as e:
         report['error'] = repr(e)

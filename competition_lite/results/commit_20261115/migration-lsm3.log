@@ -1,0 +1,1 @@
+{"passed": true, "oracle_checks": 240, "rows": 513, "migrations": ["state", "wal", "state-wal"]}

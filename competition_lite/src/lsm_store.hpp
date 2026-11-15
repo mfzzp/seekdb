@@ -17,6 +17,7 @@ struct Decode {
 };
 inline void io(bool good,const char* what){if(!good)throw Err("io_error",what);}
 inline void write_all(int fd,const char* p,size_t n){while(n){ssize_t z=::write(fd,p,n);if(z<0&&errno==EINTR)continue;io(z>0,"storage write");p+=z;n-=z;}}
+inline void pwrite_all(int fd,const char* p,size_t n,uint64_t off){while(n){ssize_t z=::pwrite(fd,p,n,(off_t)off);if(z<0&&errno==EINTR)continue;io(z>0,"vector replay write");p+=z;n-=z;off+=(uint64_t)z;}}
 inline void sync(int fd,bool data=false){int z;do{z=data?fdatasync(fd):fsync(fd);}while(z<0&&errno==EINTR);io(z==0,"storage sync");}
 struct FD {
   int n=-1;
@@ -134,14 +135,17 @@ struct Batch {
 };
 
 struct Store {
-  std::string dir,manifest,vector_name="vectors.f32",wal_name;FD lock;int wfd=-1;
+  std::string dir,manifest,vector_name="vectors.f32",wal_name,walbuf;FD lock;int wfd=-1,vfd=-1;
   std::map<std::string,SRec> mem;std::vector<F> files;size_t mem_bytes=0,limit;
-  uint64_t seq=0,checkpoint_seq=0,vector_end=0,next_file=0,wal_bytes=0,bytes_in=0,bytes_out=0;
-  std::string generation;bool failed=false,migrating=false;
+  uint64_t seq=0,checkpoint_seq=0,vector_end=0,vector_synced=0,next_file=0,wal_bytes=0,wal_advised=0,bytes_in=0,bytes_out=0;
+  std::string generation;bool failed=false,migrating=false,old_manifest=false,vector_wal=true,packed_wal=false,cache_wal=false;
   explicit Store(std::string root,bool migration=false):dir(std::move(root)),manifest(migration?"LSM-MIGRATION":"LSM-MANIFEST"),lock(open((dir+"/LOCK").c_str(),O_RDWR|O_CREAT,0644)),limit((size_t)envint("LITE_MEMTABLE_BYTES",4<<20)),migrating(migration){
     io(lock.n>=0&&flock(lock.n,LOCK_EX|LOCK_NB)==0,"database already open or lock unavailable");
+    const char* mode=getenv("LITE_COMMIT_MODE");if(mode&&std::string(mode)!="wal"&&std::string(mode)!="dual")throw Err("invalid_request","LITE_COMMIT_MODE must be wal or dual");vector_wal=!mode||std::string(mode)=="wal";
+    const char* pack=getenv("LITE_WAL_BATCH");packed_wal=pack&&std::string(pack)=="1";
+    const char* cache=getenv("LITE_WAL_CACHE");cache_wal=cache&&std::string(cache)!="0";
     generation=std::to_string((uint64_t)std::chrono::system_clock::now().time_since_epoch().count())+"-"+std::to_string(getpid());
-    if(!migration&&exists(dir+"/LSM-MANIFEST")){load();open_wal();replay();}
+    if(!migration&&exists(dir+"/LSM-MANIFEST")){load();open_wal();}
     else{wal_name=fresh("wal");FD f(open((dir+"/"+wal_name).c_str(),O_WRONLY|O_CREAT|O_EXCL,0644));io(f.n>=0,"create WAL");sync(f.n);publish(files,0);open_wal();}
   }
   ~Store(){if(wfd>=0)close(wfd);}
@@ -149,8 +153,11 @@ struct Store {
   F allocate(int level=0,bool temporary=false){auto f=std::make_shared<File>();f->path=dir+"/"+fresh(temporary?"txn":"sst");f->level=level;return f;}
   std::unique_ptr<Batch> batch(){return std::make_unique<Batch>(limit,[this](){return allocate(0,true);});}
   void open_wal(){wfd=open((dir+"/"+wal_name).c_str(),O_RDWR|O_APPEND);io(wfd>=0,"open referenced WAL");wal_bytes=file_size(wfd);}
+  void sync_vectors(){if(vector_synced>=vector_end)return;io(vfd>=0,"vector file not attached");sync(vfd,true);vector_synced=vector_end;}
   void publish(const std::vector<F>& next,uint64_t high){
-    std::string body="LITEMAN3";u64(body,high);u64(body,vector_end);str(body,vector_name);str(body,wal_name);u32(body,(uint32_t)next.size());
+    // Every published view is independent of unsynced vectors, including an
+    // automatic flush half way through applying a durable WAL transaction.
+    sync_vectors();std::string body="LITEMAN4";u64(body,high);u64(body,vector_end);str(body,vector_name);str(body,wal_name);u32(body,(uint32_t)next.size());
     for(auto&f:next){u32(body,(uint32_t)f->level);str(body,f->path.substr(dir.size()+1));str(body,f->lo);str(body,f->hi);u64(body,f->bytes);u64(body,f->maxseq);}
     body=checked(body);std::string tmp=dir+"/"+fresh("manifest");FD f(open(tmp.c_str(),O_WRONLY|O_CREAT|O_EXCL,0644));io(f.n>=0,"create manifest");write_all(f.n,body.data(),body.size());sync(f.n);sync_dir(dir);
     io(rename(tmp.c_str(),(dir+"/"+manifest).c_str())==0,"publish manifest");
@@ -158,7 +165,7 @@ struct Store {
     sync_dir(dir);files=next;checkpoint_seq=high;
   }
   static bool safe_name(const std::string& s){return !s.empty()&&s.find('/')==std::string::npos&&s.find("..") ==std::string::npos;}
-  void load(){FD f(open((dir+"/"+manifest).c_str(),O_RDONLY));io(f.n>=0,"open manifest");uint64_t n=file_size(f.n);if(n>(64u<<20))throw Err("corruption","manifest size");std::string b=uncheck(read_at(f.n,0,n));Decode d{b};d.need(8);if(b.substr(0,8)!="LITEMAN3")throw Err("corruption","manifest format");d.p=8;
+  void load(){FD f(open((dir+"/"+manifest).c_str(),O_RDONLY));io(f.n>=0,"open manifest");uint64_t n=file_size(f.n);if(n>(64u<<20))throw Err("corruption","manifest size");std::string b=uncheck(read_at(f.n,0,n));Decode d{b};d.need(8);old_manifest=b.substr(0,8)=="LITEMAN3";if(!old_manifest&&b.substr(0,8)!="LITEMAN4")throw Err("corruption","manifest format");d.p=8;
     seq=checkpoint_seq=d.u64();vector_end=d.u64();vector_name=d.str();wal_name=d.str();if(!safe_name(vector_name)||!safe_name(wal_name))throw Err("corruption","manifest filename");uint32_t count=d.u32();if(count>b.size()/32)throw Err("corruption","manifest files");
     std::map<int,std::vector<F>> levels;std::set<std::string> names;
     for(uint32_t i=0;i<count;++i){auto x=std::make_shared<File>();x->level=(int)d.u32();std::string name=d.str();if(!safe_name(name)||!names.insert(name).second||x->level<0||x->level>30)throw Err("corruption","manifest SST");x->path=dir+"/"+name;x->lo=d.str();x->hi=d.str();x->bytes=d.u64();x->maxseq=d.u64();if(x->lo>x->hi||x->maxseq>seq)throw Err("corruption","manifest key range");FD sf(open(x->path.c_str(),O_RDONLY));io(sf.n>=0,"missing referenced SST");if(file_size(sf.n)!=x->bytes)throw Err("corruption","SST size mismatch");files.push_back(x);levels[x->level].push_back(x);}
@@ -191,26 +198,48 @@ struct Store {
       if(level>0)--level;
     }
   }
-  void frame(unsigned char kind,const std::string& data){std::string p(1,char(kind));p+=data;std::string b=checked(p),h;u32(h,(uint32_t)b.size());write_all(wfd,h.data(),h.size());write_all(wfd,b.data(),b.size());wal_bytes+=h.size()+b.size();}
+  void flush_walbuf(){if(walbuf.empty())return;write_all(wfd,walbuf.data(),walbuf.size());walbuf.clear();}
+  void advise_wal(){if(cache_wal)return;static const uint64_t page=(uint64_t)sysconf(_SC_PAGESIZE);if(!page||page>(1u<<20))return;uint64_t end=wal_bytes/page*page;
+    // A hint only, after successful WAL sync. No dirty or partial page is
+    // discarded, and a filesystem rejecting the hint changes no durability.
+    if(end>=wal_advised+(256u<<10)&&posix_fadvise(wfd,(off_t)wal_advised,(off_t)(end-wal_advised),POSIX_FADV_DONTNEED)==0)wal_advised=end;
+  }
+  void frame(unsigned char kind,const std::string& data){std::string p(1,char(kind));p+=data;std::string b=checked(p),h;u32(h,(uint32_t)b.size());
+    if(packed_wal){if(walbuf.size()+h.size()+b.size()>(256u<<10))flush_walbuf();if(h.size()+b.size()<=(256u<<10)){walbuf+=h;walbuf+=b;}else{write_all(wfd,h.data(),h.size());write_all(wfd,b.data(),b.size());}}
+    else{write_all(wfd,h.data(),h.size());write_all(wfd,b.data(),b.size());}wal_bytes+=h.size()+b.size();}
   bool read_frame(uint64_t& at,uint64_t end,unsigned char& kind,std::string& data){if(end-at<4)return false;std::string h=read_at(wfd,at,4);Decode d{h};uint32_t n=d.u32();if(n<5||n>(64u<<20))throw Err("corruption","WAL frame length");if(n>end-at-4)return false;std::string b=uncheck(read_at(wfd,at+4,n));kind=(unsigned char)b[0];data=b.substr(1);at+=4+n;return true;}
   void commit(Batch& batch,uint64_t vend){if(batch.empty())return;try{uint64_t count=0;auto c=batch.scan();while(c->valid){++count;c->next();}if(count>UINT64_MAX-seq)throw Err("io_error","version overflow");
-      std::string begin;u64(begin,seq+1);u64(begin,count);u64(begin,vend);frame(1,begin);uint64_t next=seq;std::string block;c=batch.scan();
-      while(c->valid){SRec r=c->row;r.seq=++next;block+=encode(r);if(block.size()>=65536){frame(2,block);block.clear();}c->next();}if(!block.empty())frame(2,block);frame(3,begin);sync(wfd,true);
+      if(vend<vector_end||vend>uint64_t(INT64_MAX))throw Err("corruption","vector commit boundary");
+      std::string begin;u64(begin,seq+1);u64(begin,count);u64(begin,vend);
+      if(vector_wal){u64(begin,vector_end);str(begin,vector_name);}frame(vector_wal?4:1,begin);
+      if(vector_wal)for(uint64_t off=vector_end;off<vend;){size_t n=(size_t)std::min<uint64_t>(65536,vend-off);std::string payload;u64(payload,off);payload+=read_at(vfd,off,n);frame(5,payload);off+=n;}
+      uint64_t next=seq;std::string block;c=batch.scan();
+      while(c->valid){SRec r=c->row;r.seq=++next;block+=encode(r);if(block.size()>=65536){frame(2,block);block.clear();}c->next();}if(!block.empty())frame(2,block);frame(vector_wal?6:3,begin);flush_walbuf();sync(wfd,true);advise_wal();
       vector_end=vend;uint64_t n=seq;c=batch.scan();while(c->valid){SRec r=c->row;r.seq=++n;apply(r);c->next();}
       if(wal_bytes>=(32u<<20))checkpoint();
     }catch(...){failed=true;throw;}}
-  void replay(){uint64_t end=file_size(wfd),pos=0,good=0,start=0,first=0,count=0,vend=vector_end,seen=0;std::string begin;bool active=false;
+  void replay(){io(vfd>=0,"vector file not attached");if(file_size(vfd)<vector_end)throw Err("corruption","published vector file is incomplete");vector_synced=vector_end;
+    // Linux pwrite on O_APPEND appends: recovery needs its own positional fd.
+    FD redo(open((dir+"/"+vector_name).c_str(),O_RDWR));io(redo.n>=0,"open vector replay file");
+    uint64_t end=file_size(wfd),pos=0,good=0,start=0,first=0,count=0,vend=vector_end,seen=0,vnext=0,last_seq=0,last_vend=0;std::string begin;bool active=false,with_vectors=false,have_previous=false;
     unsigned char kind=0;std::string data;
     while(read_frame(pos,end,kind,data)){
-      if(kind==1){if(active)throw Err("corruption","nested WAL batch");Decode d{data};first=d.u64();count=d.u64();vend=d.u64();d.end();if(!first||!count||count>UINT64_MAX-first)throw Err("corruption","WAL versions");begin=data;start=pos;seen=0;active=true;}
-      else if(kind==2&&active){Decode d{data};while(d.p<data.size()){auto r=decode(d);if(r.seq!=first+seen++)throw Err("corruption","WAL record order");}}
-      else if(kind==3&&active&&data==begin&&seen==count){vector_end=std::max(vector_end,vend);uint64_t p=start;while(p<pos){unsigned char k;std::string b;if(!read_frame(p,pos,k,b))throw Err("corruption","WAL replay");if(k==3)break;Decode d{b};while(d.p<b.size()){auto r=decode(d);if(r.seq>checkpoint_seq)apply(r);}}seq=std::max(seq,first+count-1);good=pos;active=false;}
+      if(kind==1||kind==4){if(active)throw Err("corruption","nested WAL batch");with_vectors=kind==4;Decode d{data};first=d.u64();count=d.u64();vend=d.u64();vnext=vend;
+        if(with_vectors){vnext=d.u64();if(d.str()!=vector_name||vnext>vend||(have_previous?vnext!=last_vend:vnext>vector_end))throw Err("corruption","WAL vector generation/range");}d.end();if(!first||!count||count>UINT64_MAX-first||vend>uint64_t(INT64_MAX)||(have_previous&&(first!=last_seq+1||vend<last_vend)))throw Err("corruption","WAL versions");begin=data;start=pos;seen=0;active=true;}
+      else if(kind==5&&active&&with_vectors&&!seen){Decode d{data};uint64_t off=d.u64();size_t n=data.size()-d.p;if(off!=vnext||!n||n>65536||n>vend-vnext)throw Err("corruption","WAL vector coverage");vnext+=n;}
+      else if(kind==2&&active&&vnext==vend){Decode d{data};while(d.p<data.size()){auto r=decode(d);if(seen>=count||r.seq!=first+seen++)throw Err("corruption","WAL record order");}}
+      else if(kind==(with_vectors?6:3)&&active&&data==begin&&seen==count&&vnext==vend){
+        if(!with_vectors&&file_size(vfd)<vend)throw Err("corruption","legacy WAL vector file is incomplete");
+        uint64_t p=start;while(p<pos){unsigned char k;std::string b;if(!read_frame(p,pos,k,b))throw Err("corruption","WAL replay");if(k==3||k==6)break;Decode d{b};
+          if(k==5){uint64_t off=d.u64();vector_synced=std::min(vector_synced,off);pwrite_all(redo.n,b.data()+d.p,b.size()-d.p,off);}
+          else if(k==2){vector_end=std::max(vector_end,vend);while(d.p<b.size()){auto r=decode(d);if(r.seq>checkpoint_seq)apply(r);}}else throw Err("corruption","WAL replay frame");
+        }last_seq=first+count-1;last_vend=vend;have_previous=true;seq=std::max(seq,last_seq);good=pos;active=false;}
       else throw Err("corruption","WAL batch framing");
     }
     io(ftruncate(wfd,(off_t)good)==0,"truncate incomplete WAL tail");wal_bytes=good;
   }
-  void checkpoint(){try{flush();std::string old=wal_name;std::string next=fresh("wal");FD fd(open((dir+"/"+next).c_str(),O_RDWR|O_APPEND|O_CREAT|O_EXCL,0644));io(fd.n>=0,"create checkpoint WAL");sync(fd.n);wal_name=next;
-      publish(files,seq);if(wfd>=0)close(wfd);wfd=fd.n;fd.n=-1;wal_bytes=0;unlink((dir+"/"+old).c_str());
+  void checkpoint(){try{sync_vectors();flush();std::string old=wal_name;std::string next=fresh("wal");FD fd(open((dir+"/"+next).c_str(),O_RDWR|O_APPEND|O_CREAT|O_EXCL,0644));io(fd.n>=0,"create checkpoint WAL");sync(fd.n);wal_name=next;
+      publish(files,seq);if(wfd>=0)close(wfd);wfd=fd.n;fd.n=-1;wal_bytes=wal_advised=0;unlink((dir+"/"+old).c_str());
     }catch(...){failed=true;throw;}}
   void finish_migration(){checkpoint();io(rename((dir+"/"+manifest).c_str(),(dir+"/LSM-MANIFEST").c_str())==0,"publish migration");sync_dir(dir);manifest="LSM-MANIFEST";migrating=false;}
   void cleanup(){
@@ -219,7 +248,7 @@ struct Store {
     while(auto*e=readdir(d)){std::string n=e->d_name;if(n.compare(0,4,"lsm-")||live.count(n))continue;auto dot=n.find_last_of('.');if(dot==std::string::npos)continue;auto ext=n.substr(dot);if(ext!=".sst"&&ext!=".txn"&&ext!=".manifest"&&ext!=".wal"&&ext!=".vectors")continue;std::string p=dir+"/"+n;struct stat st{};if(lstat(p.c_str(),&st)==0&&S_ISREG(st.st_mode))unlink(p.c_str());}closedir(d);
   }
   void verify()const{for(auto&f:files){DiskCursor c(f);std::string prev;uint64_t maxseq=0;while(c.valid){if(!prev.empty()&&c.row.key<=prev)throw Err("corruption","SST key order");if(prev.empty()&&c.row.key!=f->lo)throw Err("corruption","SST lower key");prev=c.row.key;maxseq=std::max(maxseq,c.row.seq);c.next();}if(prev!=f->hi||maxseq!=f->maxseq)throw Err("corruption","SST upper key or sequence");}}
-  void replace(std::vector<F> next,const std::string& vector,uint64_t vend){auto old=files;auto prev=vector_name;vector_name=vector;vector_end=vend;
+  void replace(std::vector<F> next,const std::string& vector,uint64_t vend){auto old=files;auto prev=vector_name;vector_name=vector;vector_end=vector_synced=vend;
     try{publish(next,seq);}catch(...){failed=true;throw;}retire(old);if(prev!=vector)unlink((dir+"/"+prev).c_str());
   }
 };

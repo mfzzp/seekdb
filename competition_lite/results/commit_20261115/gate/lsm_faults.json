@@ -1,0 +1,215 @@
+{
+  "passed": true,
+  "cases": [
+    {
+      "operation": "flush",
+      "fault": "ok",
+      "passed": true
+    },
+    {
+      "operation": "flush",
+      "fault": "manifest_write",
+      "passed": true
+    },
+    {
+      "operation": "flush",
+      "fault": "manifest_sync",
+      "passed": true
+    },
+    {
+      "operation": "flush",
+      "fault": "manifest_rename",
+      "passed": true
+    },
+    {
+      "operation": "flush",
+      "fault": "dir_before",
+      "passed": true
+    },
+    {
+      "operation": "flush",
+      "fault": "dir_after",
+      "passed": true
+    },
+    {
+      "operation": "flush",
+      "fault": "crash_before",
+      "passed": true
+    },
+    {
+      "operation": "flush",
+      "fault": "crash_after",
+      "passed": true
+    },
+    {
+      "operation": "flush",
+      "fault": "sst_write",
+      "passed": true
+    },
+    {
+      "operation": "flush",
+      "fault": "sst_sync",
+      "passed": true
+    },
+    {
+      "operation": "compact",
+      "fault": "ok",
+      "passed": true
+    },
+    {
+      "operation": "compact",
+      "fault": "manifest_write",
+      "passed": true
+    },
+    {
+      "operation": "compact",
+      "fault": "manifest_sync",
+      "passed": true
+    },
+    {
+      "operation": "compact",
+      "fault": "manifest_rename",
+      "passed": true
+    },
+    {
+      "operation": "compact",
+      "fault": "dir_before",
+      "passed": true
+    },
+    {
+      "operation": "compact",
+      "fault": "dir_after",
+      "passed": true
+    },
+    {
+      "operation": "compact",
+      "fault": "crash_before",
+      "passed": true
+    },
+    {
+      "operation": "compact",
+      "fault": "crash_after",
+      "passed": true
+    },
+    {
+      "operation": "compact",
+      "fault": "sst_write",
+      "passed": true
+    },
+    {
+      "operation": "compact",
+      "fault": "sst_sync",
+      "passed": true
+    },
+    {
+      "operation": "checkpoint",
+      "fault": "ok",
+      "passed": true
+    },
+    {
+      "operation": "checkpoint",
+      "fault": "manifest_write",
+      "passed": true
+    },
+    {
+      "operation": "checkpoint",
+      "fault": "manifest_sync",
+      "passed": true
+    },
+    {
+      "operation": "checkpoint",
+      "fault": "manifest_rename",
+      "passed": true
+    },
+    {
+      "operation": "checkpoint",
+      "fault": "dir_before",
+      "passed": true
+    },
+    {
+      "operation": "checkpoint",
+      "fault": "dir_after",
+      "passed": true
+    },
+    {
+      "operation": "checkpoint",
+      "fault": "crash_before",
+      "passed": true
+    },
+    {
+      "operation": "checkpoint",
+      "fault": "crash_after",
+      "passed": true
+    },
+    {
+      "operation": "checkpoint",
+      "fault": "wal_rotation_sync",
+      "passed": true
+    },
+    {
+      "operation": "gc",
+      "fault": "ok",
+      "passed": true
+    },
+    {
+      "operation": "gc",
+      "fault": "manifest_write",
+      "passed": true
+    },
+    {
+      "operation": "gc",
+      "fault": "manifest_sync",
+      "passed": true
+    },
+    {
+      "operation": "gc",
+      "fault": "manifest_rename",
+      "passed": true
+    },
+    {
+      "operation": "gc",
+      "fault": "dir_before",
+      "passed": true
+    },
+    {
+      "operation": "gc",
+      "fault": "dir_after",
+      "passed": true
+    },
+    {
+      "operation": "gc",
+      "fault": "crash_before",
+      "passed": true
+    },
+    {
+      "operation": "gc",
+      "fault": "crash_after",
+      "passed": true
+    },
+    {
+      "operation": "gc",
+      "fault": "gc_vector_sync",
+      "passed": true
+    },
+    {
+      "operation": "compact",
+      "fault": "pins",
+      "passed": true
+    },
+    {
+      "operation": "checkpoint",
+      "fault": "lock",
+      "passed": true
+    },
+    {
+      "operation": "checkpoint",
+      "fault": "named_primary_cache",
+      "passed": true
+    },
+    {
+      "operation": "large_transaction",
+      "fault": "crash_during_apply_and_two_replays",
+      "passed": true
+    }
+  ]
+}

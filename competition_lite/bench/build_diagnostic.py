@@ -31,6 +31,23 @@ namespace diagnostic {
     }
   }
   static int sync(int fd){Timer t("fsync_other");return ::fsync(fd);}
+  static std::map<int,std::string> paths;
+  static const char* io_scope="flush";
+  struct IoScope {const char* prev;explicit IoScope(const char*s):prev(io_scope){io_scope=s;}~IoScope(){io_scope=prev;}};
+  static bool suffix(const std::string&s,const std::string&t){return s.size()>=t.size()&&s.compare(s.size()-t.size(),t.size(),t)==0;}
+  static const char* io_name(int fd){
+    auto it=paths.find(fd);if(it==paths.end()){char b[4096];std::string link="/proc/self/fd/"+std::to_string(fd);ssize_t n=readlink(link.c_str(),b,sizeof(b));it=paths.emplace(fd,n<0?"?":std::string(b,n)).first;}
+    const auto&p=it->second;
+    if(suffix(p,".wal"))return "io_wal";
+    if(suffix(p,".manifest"))return "io_manifest";
+    if(suffix(p,".f32")||suffix(p,".vectors"))return std::string(io_scope)=="gc"?"io_gc_vector":"io_vector";
+    if(suffix(p,".txn"))return std::string(io_scope)=="txn_merge"?"io_txn_merge":"io_txn_spill";
+    if(suffix(p,".sst"))return std::string(io_scope)=="compact"?"io_sst_compact":std::string(io_scope)=="gc"?"io_sst_gc":"io_sst_flush";
+    return "io_other";
+  }
+  static ssize_t write(int fd,const void*p,size_t n){const char*name=io_name(fd);Timer t(name);ssize_t z=::write(fd,p,n);if(z>0)stats[name].logical_bytes+=(uint64_t)z;return z;}
+  static ssize_t pwrite(int fd,const void*p,size_t n,off_t off){const char*name=io_name(fd);Timer t(name);ssize_t z=::pwrite(fd,p,n,off);if(z>0)stats[name].logical_bytes+=(uint64_t)z;return z;}
+  static int close(int fd){paths.erase(fd);return ::close(fd);}
   struct Request {
     Clock::time_point start;
     Request(){stats.clear();start=Clock::now();}
@@ -92,9 +109,22 @@ def main():
             ('  void compact(bool full=false){', '  void compact(bool full=false){diagnostic::Timer timing("compaction_inclusive");'),
             ('  void commit(Batch& batch,uint64_t vend){', '  void commit(Batch& batch,uint64_t vend){diagnostic::Timer timing("lsm_commit_inclusive");'),
         ]
+        if '  void sync_vectors(){' in h:
+            header_edits += [('sync(vfd,true);', 'DIAG_EXPR("vector_sync",sync(vfd,true));')]
+        header_edits += [
+            ('  void flush(){if(mem.empty())return;', '  void flush(){if(mem.empty())return;diagnostic::IoScope scope("flush");'),
+            ('  void compact(bool full=false){', '  void compact(bool full=false){diagnostic::IoScope scope("compact");'),
+            ('  void spill(){if(mem.empty())return;', '  void spill(){if(mem.empty())return;diagnostic::IoScope scope("txn_spill");'),
+            ('Writer z(out);', 'diagnostic::IoScope merge_scope("txn_merge");Writer z(out);'),
+        ]
+        edits += [('    void gc(){', '    void gc(){diagnostic::IoScope scope("gc");')]
         for before,after in header_edits:
             assert h.count(before)==1,('LSM instrumentation anchor changed',before,h.count(before))
             h=h.replace(before,after,1)
+        h=h.replace('::write(fd,p,n)', 'diagnostic::write(fd,p,n)')
+        h=h.replace('::pwrite(fd,p,n,(off_t)off)', 'diagnostic::pwrite(fd,p,n,(off_t)off)')
+        h=h.replace('::close(n)', 'diagnostic::close(n)').replace('close(wfd)', 'diagnostic::close(wfd)')
+        src=src.replace('close(vfd)', 'diagnostic::close(vfd)')
         a.out.parent.mkdir(parents=True,exist_ok=True)
         a.out.with_name('lsm_store.hpp').write_text(h)
     for old, new in edits:
@@ -105,6 +135,8 @@ def main():
         'production_lsm_sha256': hashlib.sha256(header.read_bytes()).hexdigest() if header.exists() else None,
         'diagnostic_source_sha256': hashlib.sha256(a.out.read_bytes()).hexdigest(),
         'caveats': ['Diagnostic timings include instrumentation overhead.',
+                    'io_* bytes count successful write/pwrite return values; they are application bytes, not device I/O.',
+                    'io_* timing includes wrappers and nested logical counters; do not sum inclusive stages.',
                     'insert_inclusive includes vector_parse and any buffered writes; do not sum nested stages.',
                     'copy logical_bytes excludes map-node allocation, spare capacity and allocator overhead.']}, indent=2)+'\n')
 

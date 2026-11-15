@@ -54,6 +54,8 @@ static void crc_check(){
 }
 int main(int argc,char**argv){
   if(argc!=3)return 2;
+  // Preserve the legacy two-file durability contract as a separate baseline.
+  setenv("LITE_COMMIT_MODE","dual",1);
   try{
     std::string mode=argv[2];
     if(mode=="crc"){crc_check();std::cout<<"PASS CRC 176 buffers and known answer\n";return 0;}

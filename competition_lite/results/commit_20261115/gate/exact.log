@@ -1,0 +1,7 @@
+PASS mode='scan' matrix=False checks=245
+PASS mode='scan' matrix=True checks=490
+PASS mode='block' matrix=False checks=735
+PASS mode='block' matrix=True checks=980
+PASS mode='auto' matrix=False checks=1225
+PASS mode='auto' matrix=True checks=1470
+PASS total oracle queries=1470

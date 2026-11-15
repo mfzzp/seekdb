@@ -444,7 +444,8 @@ namespace lite {
       if(fresh&&!lsm::exists(dir+"/vectors.f32")){lsm::FD f(open((dir+"/vectors.f32").c_str(),O_WRONLY|O_CREAT|O_EXCL,0644));lsm::io(f.n>=0,"create vector file");lsm::sync(f.n);lsm::sync_dir(dir);}
       store=std::make_unique<lsm::Store>(dir,legacy);
       vecfile=dir+"/"+store->vector_name;
-      vfd=open(vecfile.c_str(),O_RDWR|O_APPEND);lsm::io(vfd>=0,"open referenced vector file");vec_end=(off_t)lsm::file_size(vfd);vecbuf_base=vec_end;
+      vfd=open(vecfile.c_str(),O_RDWR|O_APPEND);lsm::io(vfd>=0,"open referenced vector file");store->vfd=vfd;store->replay();
+      if(store->old_manifest)store->checkpoint();vec_end=(off_t)lsm::file_size(vfd);vecbuf_base=vec_end;
       if(legacy)migrate_legacy();
       if(store->vector_end>(uint64_t)vec_end)throw Err("corruption","committed vector file is incomplete");
       if(store->vector_end!=(uint64_t)vec_end)trunc_vec((off_t)store->vector_end);
@@ -501,7 +502,7 @@ namespace lite {
     }
     void begin(bool=true){if(in)throw Err("transaction_active","already active");tx=store->batch();vec_mark=vec_end;in=true;}
     void rollback(){if(failed_io||store->failed)throw Err("io_error","restart required after failed commit");if(!in)return;statement.reset();tx.reset();vecbuf.clear();trunc_vec(vec_mark);vecbuf_base=vec_end;in=false;load_catalog();}
-    void commit(){if(!in)return;try{if(!tx->empty()){flush_vecbuf();sync_commit(vfd);store->commit(*tx,(uint64_t)vec_end);}tx.reset();in=false;vcache.clear();}catch(...){failed_io=true;throw;}}
+    void commit(){if(!in)return;try{if(!tx->empty()){flush_vecbuf();if(!store->vector_wal){sync_commit(vfd);store->vector_synced=(uint64_t)vec_end;}store->commit(*tx,(uint64_t)vec_end);}tx.reset();in=false;vcache.clear();}catch(...){failed_io=true;throw;}}
     void flush_sst(){if(failed_io||store->failed)throw Err("io_error","restart required after failed commit");try{store->flush();}catch(...){failed_io=true;throw;}}
     void compact(){if(in)throw Err("transaction_active","maintenance during transaction");try{store->compact(true);}catch(...){failed_io=true;throw;}}
     void checkpoint(){if(failed_io||store->failed)throw Err("io_error","restart required after failed commit");if(in)throw Err("transaction_active","checkpoint during transaction");try{store->checkpoint();}catch(...){failed_io=true;throw;}}
@@ -515,7 +516,7 @@ namespace lite {
           Row row=decode_row(*q,r.value);for(size_t i=1;i<q->c.size();++i)if(q->c[i].t=="VECTOR"){auto v=read_vec(row.voff[i],q->c[i].d);lsm::write_all(vf.n,(const char*)v.data(),v.size()*4);row.voff[i]=end;end+=v.size()*4;}r.value=row_payload(*q,row);
         }if(!w)w=std::make_unique<lsm::Writer>(store->allocate(1));w->add(r);if(w->file->bytes+w->block.size()>=(size_t)envint("LITE_SST_BYTES",8<<20)){out.push_back(w->finish());w.reset();}c->next();}
         if(w)out.push_back(w->finish());lsm::sync(vf.n);store->replace(out,name,end);
-        if(vmap&&mapsz)munmap(vmap,mapsz);vmap=nullptr;mapsz=0;mapoff=0;close(vfd);vecfile=path;vfd=open(path.c_str(),O_RDWR|O_APPEND);lsm::io(vfd>=0,"open compacted vectors");vec_end=end;vecbuf_base=end;load_catalog();
+        if(vmap&&mapsz)munmap(vmap,mapsz);vmap=nullptr;mapsz=0;mapoff=0;close(vfd);vecfile=path;vfd=open(path.c_str(),O_RDWR|O_APPEND);lsm::io(vfd>=0,"open compacted vectors");store->vfd=vfd;vec_end=end;vecbuf_base=end;load_catalog();
       }catch(...){failed_io=true;throw;}
     }
     J exec(const std::string&sql){

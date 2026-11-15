@@ -1,0 +1,68 @@
+[
+  {
+    "variant": "baseline",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/dev04/paired/baseline-r1.json",
+    "engine_env": []
+  },
+  {
+    "variant": "cached",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/dev04/paired/cached-r1.json",
+    "engine_env": [
+      "LITE_WAL_CACHE=1"
+    ]
+  },
+  {
+    "variant": "released",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/dev04/paired/released-r1.json",
+    "engine_env": [
+      "LITE_WAL_CACHE=0"
+    ]
+  },
+  {
+    "variant": "cached",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/dev04/paired/cached-r2.json",
+    "engine_env": [
+      "LITE_WAL_CACHE=1"
+    ]
+  },
+  {
+    "variant": "released",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/dev04/paired/released-r2.json",
+    "engine_env": [
+      "LITE_WAL_CACHE=0"
+    ]
+  },
+  {
+    "variant": "baseline",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/dev04/paired/baseline-r2.json",
+    "engine_env": []
+  },
+  {
+    "variant": "released",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/dev04/paired/released-r3.json",
+    "engine_env": [
+      "LITE_WAL_CACHE=0"
+    ]
+  },
+  {
+    "variant": "baseline",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/dev04/paired/baseline-r3.json",
+    "engine_env": []
+  },
+  {
+    "variant": "cached",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/dev04/paired/cached-r3.json",
+    "engine_env": [
+      "LITE_WAL_CACHE=1"
+    ]
+  }
+]

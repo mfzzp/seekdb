@@ -1,0 +1,86 @@
+{
+  "source_sha256": "6b690d293755fe0b26a10611bda3f72be9082359a6af7bbc5c1bafd99219da02",
+  "runtime_sources": {
+    "lsm_store.hpp": "f87edd798afffb069e0a6b5dbcfac940cd46e12b259bf77ee2437884a07710b7",
+    "minivectordb_lite.cpp": "6b690d293755fe0b26a10611bda3f72be9082359a6af7bbc5c1bafd99219da02"
+  },
+  "image_tag": "lite:commit-20261115",
+  "passed": true,
+  "checks": [
+    {
+      "name": "line_budget",
+      "exit_code": 0,
+      "seconds": 0.03213859489187598
+    },
+    {
+      "name": "build",
+      "exit_code": 0,
+      "seconds": 13.600249304901809
+    },
+    {
+      "name": "image",
+      "exit_code": 0,
+      "seconds": 0.03241502307355404
+    },
+    {
+      "name": "limits",
+      "exit_code": 0,
+      "seconds": 0.31475812289863825
+    },
+    {
+      "name": "public",
+      "exit_code": 0,
+      "seconds": 9.382882706122473
+    },
+    {
+      "name": "extra",
+      "exit_code": 0,
+      "seconds": 5.326315309852362
+    },
+    {
+      "name": "edges",
+      "exit_code": 0,
+      "seconds": 0.9664867150131613
+    },
+    {
+      "name": "exact",
+      "exit_code": 0,
+      "seconds": 5.628134069032967
+    },
+    {
+      "name": "bulk",
+      "exit_code": 0,
+      "seconds": 0.766089339973405
+    },
+    {
+      "name": "quotes",
+      "exit_code": 0,
+      "seconds": 0.5655411800835282
+    },
+    {
+      "name": "lsm_model",
+      "exit_code": 0,
+      "seconds": 1.4680163550656289
+    },
+    {
+      "name": "lsm_corruption",
+      "exit_code": 0,
+      "seconds": 0.5654199968557805
+    },
+    {
+      "name": "commit_faults",
+      "exit_code": 0,
+      "seconds": 8.085287433117628
+    },
+    {
+      "name": "lsm_faults",
+      "exit_code": 0,
+      "seconds": 9.835577683988959
+    },
+    {
+      "name": "wal_vectors",
+      "exit_code": 0,
+      "seconds": 10.34192165499553
+    }
+  ]
+}

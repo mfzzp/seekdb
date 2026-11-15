@@ -1,0 +1,82 @@
+[
+  {
+    "name": "gate",
+    "returncode": 0,
+    "seconds": 66.97893638396636
+  },
+  {
+    "name": "paired",
+    "returncode": 0,
+    "seconds": 57.70099494396709
+  },
+  {
+    "name": "diagnostic-generate-current",
+    "returncode": 0,
+    "seconds": 0.06463160389102995
+  },
+  {
+    "name": "diagnostic-build-current",
+    "returncode": 0,
+    "seconds": 13.24963466101326
+  },
+  {
+    "name": "profile-current",
+    "returncode": 0,
+    "seconds": 2.4190241880714893
+  },
+  {
+    "name": "diagnostic-generate-baseline",
+    "returncode": 0,
+    "seconds": 0.06466982513666153
+  },
+  {
+    "name": "diagnostic-build-baseline",
+    "returncode": 0,
+    "seconds": 13.099876287160441
+  },
+  {
+    "name": "profile-baseline",
+    "returncode": 0,
+    "seconds": 2.920315569965169
+  },
+  {
+    "name": "capacity",
+    "returncode": 0,
+    "seconds": 22.667907468043268
+  },
+  {
+    "name": "migration-state",
+    "returncode": 0,
+    "seconds": 1.4177542270626873
+  },
+  {
+    "name": "migration-lsm3",
+    "returncode": 0,
+    "seconds": 1.368064956041053
+  },
+  {
+    "name": "sanitizer-build",
+    "returncode": 0,
+    "seconds": 57.82045097392984
+  },
+  {
+    "name": "sanitizer-model",
+    "returncode": 0,
+    "seconds": 5.3783483249135315
+  },
+  {
+    "name": "sanitizer-exact",
+    "returncode": 0,
+    "seconds": 10.894613428972661
+  },
+  {
+    "name": "sanitizer-wal-build",
+    "returncode": 0,
+    "seconds": 59.02254435303621
+  },
+  {
+    "name": "sanitizer-wal",
+    "returncode": 0,
+    "seconds": 10.291347719961777
+  }
+]

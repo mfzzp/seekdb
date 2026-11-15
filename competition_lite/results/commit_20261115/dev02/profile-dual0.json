@@ -1,0 +1,1743 @@
+{
+  "batch": 100,
+  "rows": 10000,
+  "insert_sha256": "cbed135375c7deea4b8342e0b0e2deed667e5694c9212054e0bf9b0c1fd0771d",
+  "engine_env": [
+    "LITE_COMMIT_MODE=dual",
+    "LITE_WAL_BATCH=0"
+  ],
+  "runs": {
+    "auto": {
+      "write_wall_s": 0.9056772440671921,
+      "rows_per_s": 11041.461034277792,
+      "groups": {
+        "copy_probe": {
+          "requests": 2,
+          "engine_request_ms": 0.009907,
+          "stats": {
+            "begin_copy": {
+              "count": 0,
+              "ms": 0,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "begin_write_set": {
+              "count": 1,
+              "ms": 6.8e-05,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "json_encode": {
+              "count": 2,
+              "ms": 0.000947,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "json_parse": {
+              "count": 2,
+              "ms": 0.001487,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "sql_lex": {
+              "count": 2,
+              "ms": 0.0008910000000000001,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "statement_copy": {
+              "count": 0,
+              "ms": 0,
+              "rows": 0,
+              "logical_bytes": 0
+            }
+          }
+        },
+        "query": {
+          "requests": 20,
+          "engine_request_ms": 21.916926,
+          "stats": {
+            "begin_copy": {
+              "count": 0,
+              "ms": 0,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "json_encode": {
+              "count": 20,
+              "ms": 0.291442,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "json_parse": {
+              "count": 20,
+              "ms": 0.10800899999999998,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "sql_lex": {
+              "count": 20,
+              "ms": 0.06712499999999999,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "statement_copy": {
+              "count": 0,
+              "ms": 0,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "vector_parse": {
+              "count": 20,
+              "ms": 0.321153,
+              "rows": 0,
+              "logical_bytes": 0
+            }
+          }
+        },
+        "schema": {
+          "requests": 1,
+          "engine_request_ms": 2.768729,
+          "stats": {
+            "begin_copy": {
+              "count": 0,
+              "ms": 0,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "begin_write_set": {
+              "count": 1,
+              "ms": 0.00034,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "io_wal": {
+              "count": 6,
+              "ms": 0.050244,
+              "rows": 0,
+              "logical_bytes": 253
+            },
+            "json_encode": {
+              "count": 1,
+              "ms": 0.003638,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "json_parse": {
+              "count": 1,
+              "ms": 0.036779,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "lsm_commit_inclusive": {
+              "count": 1,
+              "ms": 2.036209,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "sql_lex": {
+              "count": 1,
+              "ms": 0.023976,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "statement_copy": {
+              "count": 0,
+              "ms": 0,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "statement_merge": {
+              "count": 1,
+              "ms": 0.016101,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "vector_sync": {
+              "count": 1,
+              "ms": 0.581179,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "wal_encode_write": {
+              "count": 3,
+              "ms": 0.083624,
+              "rows": 0,
+              "logical_bytes": 253
+            },
+            "wal_sync": {
+              "count": 1,
+              "ms": 1.935425,
+              "rows": 0,
+              "logical_bytes": 0
+            }
+          }
+        },
+        "shutdown": {
+          "requests": 1,
+          "engine_request_ms": 13.979231,
+          "stats": {
+            "begin_copy": {
+              "count": 0,
+              "ms": 0,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "compaction_inclusive": {
+              "count": 1,
+              "ms": 0.002303,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "fsync_other": {
+              "count": 8,
+              "ms": 13.008915,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "io_manifest": {
+              "count": 2,
+              "ms": 0.020269,
+              "rows": 0,
+              "logical_bytes": 504
+            },
+            "io_sst_flush": {
+              "count": 7,
+              "ms": 0.041665,
+              "rows": 0,
+              "logical_bytes": 56589
+            },
+            "json_parse": {
+              "count": 1,
+              "ms": 0.000848,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "memtable_flush_inclusive": {
+              "count": 1,
+              "ms": 7.563301,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "statement_copy": {
+              "count": 0,
+              "ms": 0,
+              "rows": 0,
+              "logical_bytes": 0
+            }
+          }
+        },
+        "write": {
+          "requests": 100,
+          "engine_request_ms": 857.72218,
+          "stats": {
+            "begin_copy": {
+              "count": 0,
+              "ms": 0,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "begin_write_set": {
+              "count": 100,
+              "ms": 0.010294,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "insert_inclusive": {
+              "count": 100,
+              "ms": 190.79707099999993,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "io_vector": {
+              "count": 100,
+              "ms": 2.7066030000000008,
+              "rows": 0,
+              "logical_bytes": 5120000
+            },
+            "io_wal": {
+              "count": 600,
+              "ms": 1.953307,
+              "rows": 0,
+              "logical_bytes": 1973080
+            },
+            "json_encode": {
+              "count": 100,
+              "ms": 0.19442900000000002,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "json_parse": {
+              "count": 100,
+              "ms": 38.045249999999996,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "lsm_commit_inclusive": {
+              "count": 100,
+              "ms": 337.59821900000003,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "sql_lex": {
+              "count": 100,
+              "ms": 7.696966000000002,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "statement_copy": {
+              "count": 0,
+              "ms": 0,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "statement_merge": {
+              "count": 100,
+              "ms": 14.415081999999998,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "vector_parse": {
+              "count": 10000,
+              "ms": 155.02582099999992,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "vector_sync": {
+              "count": 100,
+              "ms": 258.994541,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "vector_write": {
+              "count": 100,
+              "ms": 2.834819000000001,
+              "rows": 0,
+              "logical_bytes": 5120000
+            },
+            "wal_encode_write": {
+              "count": 300,
+              "ms": 2.6773939999999996,
+              "rows": 0,
+              "logical_bytes": 1973080
+            },
+            "wal_sync": {
+              "count": 100,
+              "ms": 270.83215000000007,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "compaction_inclusive": {
+              "count": 1,
+              "ms": 0.0027,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "fsync_other": {
+              "count": 4,
+              "ms": 7.384599,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "io_manifest": {
+              "count": 1,
+              "ms": 0.004999,
+              "rows": 0,
+              "logical_bytes": 167
+            },
+            "io_sst_flush": {
+              "count": 119,
+              "ms": 0.72441,
+              "rows": 0,
+              "logical_bytes": 1894619
+            },
+            "memtable_flush_inclusive": {
+              "count": 1,
+              "ms": 17.682698,
+              "rows": 0,
+              "logical_bytes": 0
+            }
+          }
+        }
+      },
+      "resources": {
+        "write_start": {
+          "device": "259:4",
+          "io": null,
+          "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+          "process_diagnostics_not_official_B": {
+            "cpu_s": 0.01,
+            "rchar": 57456,
+            "wchar": 11157,
+            "syscr": 41,
+            "syscw": 159,
+            "read_bytes": 0,
+            "write_bytes": 8192,
+            "cancelled_write_bytes": 0,
+            "peak_rss_kib": 4068
+          },
+          "memory_peak_bytes": 5754880,
+          "memory_current_bytes": 3268608,
+          "cpu_s": 0.056612,
+          "memory_stat": {
+            "anon": 356352,
+            "file": 8192,
+            "kernel": 966656,
+            "kernel_stack": 16384,
+            "pagetables": 143360,
+            "sec_pagetables": 0,
+            "percpu": 53040,
+            "sock": 0,
+            "vmalloc": 24576,
+            "shmem": 0,
+            "zswap": 0,
+            "zswapped": 0,
+            "file_mapped": 0,
+            "file_dirty": 0,
+            "file_writeback": 0,
+            "swapcached": 0,
+            "anon_thp": 0,
+            "file_thp": 0,
+            "shmem_thp": 0,
+            "inactive_anon": 0,
+            "active_anon": 290816,
+            "inactive_file": 8192,
+            "active_file": 0,
+            "unevictable": 0,
+            "slab_reclaimable": 368664,
+            "slab_unreclaimable": 346096,
+            "slab": 714760,
+            "workingset_refault_anon": 0,
+            "workingset_refault_file": 0,
+            "workingset_activate_anon": 0,
+            "workingset_activate_file": 0,
+            "workingset_restore_anon": 0,
+            "workingset_restore_file": 0,
+            "workingset_nodereclaim": 0,
+            "pgdemote_kswapd": 0,
+            "pgdemote_direct": 0,
+            "pgdemote_khugepaged": 0,
+            "pgdemote_proactive": 0,
+            "pgpromote_success": 0,
+            "pgscan": 0,
+            "pgsteal": 0,
+            "pswpin": 0,
+            "pswpout": 0,
+            "pgscan_kswapd": 0,
+            "pgscan_direct": 0,
+            "pgscan_khugepaged": 0,
+            "pgscan_proactive": 0,
+            "pgsteal_kswapd": 0,
+            "pgsteal_direct": 0,
+            "pgsteal_khugepaged": 0,
+            "pgsteal_proactive": 0,
+            "pgfault": 1907,
+            "pgmajfault": 0,
+            "pgrefill": 0,
+            "pgactivate": 0,
+            "pgdeactivate": 0,
+            "pglazyfree": 0,
+            "pglazyfreed": 0,
+            "swpin_zero": 0,
+            "swpout_zero": 0,
+            "zswpin": 0,
+            "zswpout": 0,
+            "zswpwb": 0,
+            "thp_fault_alloc": 0,
+            "thp_collapse_alloc": 0,
+            "thp_swpout": 0,
+            "thp_swpout_fallback": 0,
+            "numa_pages_migrated": 0,
+            "numa_pte_updates": 0,
+            "numa_hint_faults": 0
+          },
+          "memory_events": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0"
+          },
+          "cpu_max": "200000 100000",
+          "memory_max": "2147483648",
+          "swap_max": "0"
+        },
+        "write_end": {
+          "device": "259:4",
+          "io": null,
+          "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+          "process_diagnostics_not_official_B": {
+            "cpu_s": 0.36,
+            "rchar": 16372256,
+            "wchar": 9117752,
+            "syscr": 2414,
+            "syscw": 20639,
+            "read_bytes": 0,
+            "write_bytes": 9613312,
+            "cancelled_write_bytes": 0,
+            "peak_rss_kib": 12472
+          },
+          "memory_peak_bytes": 21180416,
+          "memory_current_bytes": 21180416,
+          "cpu_s": 0.404265,
+          "memory_stat": {
+            "anon": 8962048,
+            "file": 8998912,
+            "kernel": 1216512,
+            "kernel_stack": 16384,
+            "pagetables": 139264,
+            "sec_pagetables": 0,
+            "percpu": 53040,
+            "sock": 0,
+            "vmalloc": 24576,
+            "shmem": 0,
+            "zswap": 0,
+            "zswapped": 0,
+            "file_mapped": 0,
+            "file_dirty": 4096,
+            "file_writeback": 0,
+            "swapcached": 0,
+            "anon_thp": 0,
+            "file_thp": 0,
+            "shmem_thp": 0,
+            "inactive_anon": 0,
+            "active_anon": 8957952,
+            "inactive_file": 8998912,
+            "active_file": 0,
+            "unevictable": 0,
+            "slab_reclaimable": 634904,
+            "slab_unreclaimable": 330080,
+            "slab": 964984,
+            "workingset_refault_anon": 0,
+            "workingset_refault_file": 0,
+            "workingset_activate_anon": 0,
+            "workingset_activate_file": 0,
+            "workingset_restore_anon": 0,
+            "workingset_restore_file": 0,
+            "workingset_nodereclaim": 0,
+            "pgdemote_kswapd": 0,
+            "pgdemote_direct": 0,
+            "pgdemote_khugepaged": 0,
+            "pgdemote_proactive": 0,
+            "pgpromote_success": 0,
+            "pgscan": 0,
+            "pgsteal": 0,
+            "pswpin": 0,
+            "pswpout": 0,
+            "pgscan_kswapd": 0,
+            "pgscan_direct": 0,
+            "pgscan_khugepaged": 0,
+            "pgscan_proactive": 0,
+            "pgsteal_kswapd": 0,
+            "pgsteal_direct": 0,
+            "pgsteal_khugepaged": 0,
+            "pgsteal_proactive": 0,
+            "pgfault": 4158,
+            "pgmajfault": 0,
+            "pgrefill": 0,
+            "pgactivate": 0,
+            "pgdeactivate": 0,
+            "pglazyfree": 0,
+            "pglazyfreed": 0,
+            "swpin_zero": 0,
+            "swpout_zero": 0,
+            "zswpin": 0,
+            "zswpout": 0,
+            "zswpwb": 0,
+            "thp_fault_alloc": 0,
+            "thp_collapse_alloc": 0,
+            "thp_swpout": 0,
+            "thp_swpout_fallback": 0,
+            "numa_pages_migrated": 0,
+            "numa_pte_updates": 0,
+            "numa_hint_faults": 0
+          },
+          "memory_events": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0"
+          },
+          "cpu_max": "200000 100000",
+          "memory_max": "2147483648",
+          "swap_max": "0"
+        },
+        "before_begin": {
+          "device": "259:4",
+          "io": null,
+          "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+          "process_diagnostics_not_official_B": {
+            "cpu_s": 0.39,
+            "rchar": 17383194,
+            "wchar": 9139549,
+            "syscr": 2467,
+            "syscw": 22159,
+            "read_bytes": 0,
+            "write_bytes": 9613312,
+            "cancelled_write_bytes": 0,
+            "peak_rss_kib": 22480
+          },
+          "memory_peak_bytes": 26161152,
+          "memory_current_bytes": 26161152,
+          "cpu_s": 0.427145,
+          "memory_stat": {
+            "anon": 8962048,
+            "file": 8998912,
+            "kernel": 1216512,
+            "kernel_stack": 16384,
+            "pagetables": 139264,
+            "sec_pagetables": 0,
+            "percpu": 53040,
+            "sock": 0,
+            "vmalloc": 24576,
+            "shmem": 0,
+            "zswap": 0,
+            "zswapped": 0,
+            "file_mapped": 0,
+            "file_dirty": 4096,
+            "file_writeback": 0,
+            "swapcached": 0,
+            "anon_thp": 0,
+            "file_thp": 0,
+            "shmem_thp": 0,
+            "inactive_anon": 0,
+            "active_anon": 8957952,
+            "inactive_file": 8998912,
+            "active_file": 0,
+            "unevictable": 0,
+            "slab_reclaimable": 634904,
+            "slab_unreclaimable": 330080,
+            "slab": 964984,
+            "workingset_refault_anon": 0,
+            "workingset_refault_file": 0,
+            "workingset_activate_anon": 0,
+            "workingset_activate_file": 0,
+            "workingset_restore_anon": 0,
+            "workingset_restore_file": 0,
+            "workingset_nodereclaim": 0,
+            "pgdemote_kswapd": 0,
+            "pgdemote_direct": 0,
+            "pgdemote_khugepaged": 0,
+            "pgdemote_proactive": 0,
+            "pgpromote_success": 0,
+            "pgscan": 0,
+            "pgsteal": 0,
+            "pswpin": 0,
+            "pswpout": 0,
+            "pgscan_kswapd": 0,
+            "pgscan_direct": 0,
+            "pgscan_khugepaged": 0,
+            "pgscan_proactive": 0,
+            "pgsteal_kswapd": 0,
+            "pgsteal_direct": 0,
+            "pgsteal_khugepaged": 0,
+            "pgsteal_proactive": 0,
+            "pgfault": 4158,
+            "pgmajfault": 0,
+            "pgrefill": 0,
+            "pgactivate": 0,
+            "pgdeactivate": 0,
+            "pglazyfree": 0,
+            "pglazyfreed": 0,
+            "swpin_zero": 0,
+            "swpout_zero": 0,
+            "zswpin": 0,
+            "zswpout": 0,
+            "zswpwb": 0,
+            "thp_fault_alloc": 0,
+            "thp_collapse_alloc": 0,
+            "thp_swpout": 0,
+            "thp_swpout_fallback": 0,
+            "numa_pages_migrated": 0,
+            "numa_pte_updates": 0,
+            "numa_hint_faults": 0
+          },
+          "memory_events": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0"
+          },
+          "cpu_max": "200000 100000",
+          "memory_max": "2147483648",
+          "swap_max": "0"
+        },
+        "after_begin": {
+          "device": "259:4",
+          "io": null,
+          "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+          "process_diagnostics_not_official_B": {
+            "cpu_s": 0.39,
+            "rchar": 17383255,
+            "wchar": 9140008,
+            "syscr": 2468,
+            "syscw": 22235,
+            "read_bytes": 0,
+            "write_bytes": 9613312,
+            "cancelled_write_bytes": 0,
+            "peak_rss_kib": 22480
+          },
+          "memory_peak_bytes": 26161152,
+          "memory_current_bytes": 26161152,
+          "cpu_s": 0.427208,
+          "memory_stat": {
+            "anon": 8962048,
+            "file": 8998912,
+            "kernel": 1216512,
+            "kernel_stack": 16384,
+            "pagetables": 139264,
+            "sec_pagetables": 0,
+            "percpu": 53040,
+            "sock": 0,
+            "vmalloc": 24576,
+            "shmem": 0,
+            "zswap": 0,
+            "zswapped": 0,
+            "file_mapped": 0,
+            "file_dirty": 4096,
+            "file_writeback": 0,
+            "swapcached": 0,
+            "anon_thp": 0,
+            "file_thp": 0,
+            "shmem_thp": 0,
+            "inactive_anon": 0,
+            "active_anon": 8957952,
+            "inactive_file": 8998912,
+            "active_file": 0,
+            "unevictable": 0,
+            "slab_reclaimable": 634904,
+            "slab_unreclaimable": 330080,
+            "slab": 964984,
+            "workingset_refault_anon": 0,
+            "workingset_refault_file": 0,
+            "workingset_activate_anon": 0,
+            "workingset_activate_file": 0,
+            "workingset_restore_anon": 0,
+            "workingset_restore_file": 0,
+            "workingset_nodereclaim": 0,
+            "pgdemote_kswapd": 0,
+            "pgdemote_direct": 0,
+            "pgdemote_khugepaged": 0,
+            "pgdemote_proactive": 0,
+            "pgpromote_success": 0,
+            "pgscan": 0,
+            "pgsteal": 0,
+            "pswpin": 0,
+            "pswpout": 0,
+            "pgscan_kswapd": 0,
+            "pgscan_direct": 0,
+            "pgscan_khugepaged": 0,
+            "pgscan_proactive": 0,
+            "pgsteal_kswapd": 0,
+            "pgsteal_direct": 0,
+            "pgsteal_khugepaged": 0,
+            "pgsteal_proactive": 0,
+            "pgfault": 4158,
+            "pgmajfault": 0,
+            "pgrefill": 0,
+            "pgactivate": 0,
+            "pgdeactivate": 0,
+            "pglazyfree": 0,
+            "pglazyfreed": 0,
+            "swpin_zero": 0,
+            "swpout_zero": 0,
+            "zswpin": 0,
+            "zswpout": 0,
+            "zswpwb": 0,
+            "thp_fault_alloc": 0,
+            "thp_collapse_alloc": 0,
+            "thp_swpout": 0,
+            "thp_swpout_fallback": 0,
+            "numa_pages_migrated": 0,
+            "numa_pte_updates": 0,
+            "numa_hint_faults": 0
+          },
+          "memory_events": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0"
+          },
+          "cpu_max": "200000 100000",
+          "memory_max": "2147483648",
+          "swap_max": "0"
+        },
+        "after_commit": {
+          "device": "259:4",
+          "io": null,
+          "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+          "process_diagnostics_not_official_B": {
+            "cpu_s": 0.39,
+            "rchar": 17383317,
+            "wchar": 9140397,
+            "syscr": 2469,
+            "syscw": 22299,
+            "read_bytes": 0,
+            "write_bytes": 9613312,
+            "cancelled_write_bytes": 0,
+            "peak_rss_kib": 22480
+          },
+          "memory_peak_bytes": 26161152,
+          "memory_current_bytes": 26161152,
+          "cpu_s": 0.42726,
+          "memory_stat": {
+            "anon": 8962048,
+            "file": 8998912,
+            "kernel": 1216512,
+            "kernel_stack": 16384,
+            "pagetables": 139264,
+            "sec_pagetables": 0,
+            "percpu": 53040,
+            "sock": 0,
+            "vmalloc": 24576,
+            "shmem": 0,
+            "zswap": 0,
+            "zswapped": 0,
+            "file_mapped": 0,
+            "file_dirty": 4096,
+            "file_writeback": 0,
+            "swapcached": 0,
+            "anon_thp": 0,
+            "file_thp": 0,
+            "shmem_thp": 0,
+            "inactive_anon": 0,
+            "active_anon": 8957952,
+            "inactive_file": 8998912,
+            "active_file": 0,
+            "unevictable": 0,
+            "slab_reclaimable": 634904,
+            "slab_unreclaimable": 330080,
+            "slab": 964984,
+            "workingset_refault_anon": 0,
+            "workingset_refault_file": 0,
+            "workingset_activate_anon": 0,
+            "workingset_activate_file": 0,
+            "workingset_restore_anon": 0,
+            "workingset_restore_file": 0,
+            "workingset_nodereclaim": 0,
+            "pgdemote_kswapd": 0,
+            "pgdemote_direct": 0,
+            "pgdemote_khugepaged": 0,
+            "pgdemote_proactive": 0,
+            "pgpromote_success": 0,
+            "pgscan": 0,
+            "pgsteal": 0,
+            "pswpin": 0,
+            "pswpout": 0,
+            "pgscan_kswapd": 0,
+            "pgscan_direct": 0,
+            "pgscan_khugepaged": 0,
+            "pgscan_proactive": 0,
+            "pgsteal_kswapd": 0,
+            "pgsteal_direct": 0,
+            "pgsteal_khugepaged": 0,
+            "pgsteal_proactive": 0,
+            "pgfault": 4158,
+            "pgmajfault": 0,
+            "pgrefill": 0,
+            "pgactivate": 0,
+            "pgdeactivate": 0,
+            "pglazyfree": 0,
+            "pglazyfreed": 0,
+            "swpin_zero": 0,
+            "swpout_zero": 0,
+            "zswpin": 0,
+            "zswpout": 0,
+            "zswpwb": 0,
+            "thp_fault_alloc": 0,
+            "thp_collapse_alloc": 0,
+            "thp_swpout": 0,
+            "thp_swpout_fallback": 0,
+            "numa_pages_migrated": 0,
+            "numa_pte_updates": 0,
+            "numa_hint_faults": 0
+          },
+          "memory_events": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0"
+          },
+          "cpu_max": "200000 100000",
+          "memory_max": "2147483648",
+          "swap_max": "0"
+        }
+      }
+    },
+    "explicit": {
+      "write_wall_s": 0.9215647259261459,
+      "rows_per_s": 10851.109768714605,
+      "groups": {
+        "copy_probe": {
+          "requests": 2,
+          "engine_request_ms": 0.010487,
+          "stats": {
+            "begin_copy": {
+              "count": 0,
+              "ms": 0,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "begin_write_set": {
+              "count": 1,
+              "ms": 0.000114,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "json_encode": {
+              "count": 2,
+              "ms": 0.001152,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "json_parse": {
+              "count": 2,
+              "ms": 0.001621,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "sql_lex": {
+              "count": 2,
+              "ms": 0.001054,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "statement_copy": {
+              "count": 0,
+              "ms": 0,
+              "rows": 0,
+              "logical_bytes": 0
+            }
+          }
+        },
+        "query": {
+          "requests": 20,
+          "engine_request_ms": 24.694421,
+          "stats": {
+            "begin_copy": {
+              "count": 0,
+              "ms": 0,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "json_encode": {
+              "count": 20,
+              "ms": 0.354556,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "json_parse": {
+              "count": 20,
+              "ms": 0.11532500000000001,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "sql_lex": {
+              "count": 20,
+              "ms": 0.07739600000000002,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "statement_copy": {
+              "count": 0,
+              "ms": 0,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "vector_parse": {
+              "count": 20,
+              "ms": 0.38272100000000003,
+              "rows": 0,
+              "logical_bytes": 0
+            }
+          }
+        },
+        "schema": {
+          "requests": 1,
+          "engine_request_ms": 2.78857,
+          "stats": {
+            "begin_copy": {
+              "count": 0,
+              "ms": 0,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "begin_write_set": {
+              "count": 1,
+              "ms": 0.00019,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "io_wal": {
+              "count": 6,
+              "ms": 0.025005,
+              "rows": 0,
+              "logical_bytes": 253
+            },
+            "json_encode": {
+              "count": 1,
+              "ms": 0.003782,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "json_parse": {
+              "count": 1,
+              "ms": 0.022106,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "lsm_commit_inclusive": {
+              "count": 1,
+              "ms": 2.185415,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "sql_lex": {
+              "count": 1,
+              "ms": 0.010693,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "statement_copy": {
+              "count": 0,
+              "ms": 0,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "statement_merge": {
+              "count": 1,
+              "ms": 0.009647,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "vector_sync": {
+              "count": 1,
+              "ms": 0.49858,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "wal_encode_write": {
+              "count": 3,
+              "ms": 0.045854,
+              "rows": 0,
+              "logical_bytes": 253
+            },
+            "wal_sync": {
+              "count": 1,
+              "ms": 2.131192,
+              "rows": 0,
+              "logical_bytes": 0
+            }
+          }
+        },
+        "shutdown": {
+          "requests": 1,
+          "engine_request_ms": 14.712684,
+          "stats": {
+            "begin_copy": {
+              "count": 0,
+              "ms": 0,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "compaction_inclusive": {
+              "count": 1,
+              "ms": 0.003456,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "fsync_other": {
+              "count": 8,
+              "ms": 13.459069,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "io_manifest": {
+              "count": 2,
+              "ms": 0.019938,
+              "rows": 0,
+              "logical_bytes": 504
+            },
+            "io_sst_flush": {
+              "count": 7,
+              "ms": 0.039722,
+              "rows": 0,
+              "logical_bytes": 56589
+            },
+            "json_parse": {
+              "count": 1,
+              "ms": 0.000842,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "memtable_flush_inclusive": {
+              "count": 1,
+              "ms": 8.065832,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "statement_copy": {
+              "count": 0,
+              "ms": 0,
+              "rows": 0,
+              "logical_bytes": 0
+            }
+          }
+        },
+        "write": {
+          "requests": 300,
+          "engine_request_ms": 847.761709,
+          "stats": {
+            "begin_copy": {
+              "count": 0,
+              "ms": 0,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "begin_write_set": {
+              "count": 100,
+              "ms": 0.013080999999999997,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "json_encode": {
+              "count": 300,
+              "ms": 0.2856869999999999,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "json_parse": {
+              "count": 300,
+              "ms": 41.642892999999994,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "sql_lex": {
+              "count": 300,
+              "ms": 8.815952,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "statement_copy": {
+              "count": 0,
+              "ms": 0,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "insert_inclusive": {
+              "count": 100,
+              "ms": 195.49508600000007,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "statement_merge": {
+              "count": 100,
+              "ms": 14.723018999999994,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "vector_parse": {
+              "count": 10000,
+              "ms": 158.17158900000004,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "io_vector": {
+              "count": 100,
+              "ms": 2.714843000000001,
+              "rows": 0,
+              "logical_bytes": 5120000
+            },
+            "io_wal": {
+              "count": 600,
+              "ms": 1.8380410000000003,
+              "rows": 0,
+              "logical_bytes": 1973080
+            },
+            "lsm_commit_inclusive": {
+              "count": 100,
+              "ms": 340.59644199999997,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "vector_sync": {
+              "count": 100,
+              "ms": 236.17340399999995,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "vector_write": {
+              "count": 100,
+              "ms": 2.8369720000000007,
+              "rows": 0,
+              "logical_bytes": 5120000
+            },
+            "wal_encode_write": {
+              "count": 300,
+              "ms": 2.4731739999999998,
+              "rows": 0,
+              "logical_bytes": 1973080
+            },
+            "wal_sync": {
+              "count": 100,
+              "ms": 276.75831299999993,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "compaction_inclusive": {
+              "count": 1,
+              "ms": 0.003285,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "fsync_other": {
+              "count": 4,
+              "ms": 6.670876,
+              "rows": 0,
+              "logical_bytes": 0
+            },
+            "io_manifest": {
+              "count": 1,
+              "ms": 0.004957,
+              "rows": 0,
+              "logical_bytes": 167
+            },
+            "io_sst_flush": {
+              "count": 119,
+              "ms": 0.75489,
+              "rows": 0,
+              "logical_bytes": 1894619
+            },
+            "memtable_flush_inclusive": {
+              "count": 1,
+              "ms": 15.306728,
+              "rows": 0,
+              "logical_bytes": 0
+            }
+          }
+        }
+      },
+      "resources": {
+        "write_start": {
+          "device": "259:4",
+          "io": null,
+          "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+          "process_diagnostics_not_official_B": {
+            "cpu_s": 0.01,
+            "rchar": 57460,
+            "wchar": 11155,
+            "syscr": 41,
+            "syscw": 159,
+            "read_bytes": 0,
+            "write_bytes": 8192,
+            "cancelled_write_bytes": 0,
+            "peak_rss_kib": 3952
+          },
+          "memory_peak_bytes": 6008832,
+          "memory_current_bytes": 3264512,
+          "cpu_s": 0.055706,
+          "memory_stat": {
+            "anon": 348160,
+            "file": 8192,
+            "kernel": 962560,
+            "kernel_stack": 16384,
+            "pagetables": 143360,
+            "sec_pagetables": 0,
+            "percpu": 53040,
+            "sock": 0,
+            "vmalloc": 24576,
+            "shmem": 0,
+            "zswap": 0,
+            "zswapped": 0,
+            "file_mapped": 0,
+            "file_dirty": 0,
+            "file_writeback": 0,
+            "swapcached": 0,
+            "anon_thp": 0,
+            "file_thp": 0,
+            "shmem_thp": 0,
+            "inactive_anon": 0,
+            "active_anon": 237568,
+            "inactive_file": 8192,
+            "active_file": 0,
+            "unevictable": 0,
+            "slab_reclaimable": 366984,
+            "slab_unreclaimable": 342016,
+            "slab": 709000,
+            "workingset_refault_anon": 0,
+            "workingset_refault_file": 0,
+            "workingset_activate_anon": 0,
+            "workingset_activate_file": 0,
+            "workingset_restore_anon": 0,
+            "workingset_restore_file": 0,
+            "workingset_nodereclaim": 0,
+            "pgdemote_kswapd": 0,
+            "pgdemote_direct": 0,
+            "pgdemote_khugepaged": 0,
+            "pgdemote_proactive": 0,
+            "pgpromote_success": 0,
+            "pgscan": 0,
+            "pgsteal": 0,
+            "pswpin": 0,
+            "pswpout": 0,
+            "pgscan_kswapd": 0,
+            "pgscan_direct": 0,
+            "pgscan_khugepaged": 0,
+            "pgscan_proactive": 0,
+            "pgsteal_kswapd": 0,
+            "pgsteal_direct": 0,
+            "pgsteal_khugepaged": 0,
+            "pgsteal_proactive": 0,
+            "pgfault": 1860,
+            "pgmajfault": 0,
+            "pgrefill": 0,
+            "pgactivate": 0,
+            "pgdeactivate": 0,
+            "pglazyfree": 0,
+            "pglazyfreed": 0,
+            "swpin_zero": 0,
+            "swpout_zero": 0,
+            "zswpin": 0,
+            "zswpout": 0,
+            "zswpwb": 0,
+            "thp_fault_alloc": 0,
+            "thp_collapse_alloc": 0,
+            "thp_swpout": 0,
+            "thp_swpout_fallback": 0,
+            "numa_pages_migrated": 0,
+            "numa_pte_updates": 0,
+            "numa_hint_faults": 0
+          },
+          "memory_events": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0"
+          },
+          "cpu_max": "200000 100000",
+          "memory_max": "2147483648",
+          "swap_max": "0"
+        },
+        "write_end": {
+          "device": "259:4",
+          "io": null,
+          "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+          "process_diagnostics_not_official_B": {
+            "cpu_s": 0.38,
+            "rchar": 16384560,
+            "wchar": 9195528,
+            "syscr": 2591,
+            "syscw": 33439,
+            "read_bytes": 4096,
+            "write_bytes": 9613312,
+            "cancelled_write_bytes": 0,
+            "peak_rss_kib": 12448
+          },
+          "memory_peak_bytes": 21057536,
+          "memory_current_bytes": 21057536,
+          "cpu_s": 0.420641,
+          "memory_stat": {
+            "anon": 9048064,
+            "file": 9007104,
+            "kernel": 1212416,
+            "kernel_stack": 16384,
+            "pagetables": 143360,
+            "sec_pagetables": 0,
+            "percpu": 53040,
+            "sock": 0,
+            "vmalloc": 24576,
+            "shmem": 0,
+            "zswap": 0,
+            "zswapped": 0,
+            "file_mapped": 0,
+            "file_dirty": 4096,
+            "file_writeback": 0,
+            "swapcached": 0,
+            "anon_thp": 0,
+            "file_thp": 0,
+            "shmem_thp": 0,
+            "inactive_anon": 0,
+            "active_anon": 9043968,
+            "inactive_file": 9007104,
+            "active_file": 0,
+            "unevictable": 0,
+            "slab_reclaimable": 635376,
+            "slab_unreclaimable": 326440,
+            "slab": 961816,
+            "workingset_refault_anon": 0,
+            "workingset_refault_file": 0,
+            "workingset_activate_anon": 0,
+            "workingset_activate_file": 0,
+            "workingset_restore_anon": 0,
+            "workingset_restore_file": 0,
+            "workingset_nodereclaim": 0,
+            "pgdemote_kswapd": 0,
+            "pgdemote_direct": 0,
+            "pgdemote_khugepaged": 0,
+            "pgdemote_proactive": 0,
+            "pgpromote_success": 0,
+            "pgscan": 0,
+            "pgsteal": 0,
+            "pswpin": 0,
+            "pswpout": 0,
+            "pgscan_kswapd": 0,
+            "pgscan_direct": 0,
+            "pgscan_khugepaged": 0,
+            "pgscan_proactive": 0,
+            "pgsteal_kswapd": 0,
+            "pgsteal_direct": 0,
+            "pgsteal_khugepaged": 0,
+            "pgsteal_proactive": 0,
+            "pgfault": 4081,
+            "pgmajfault": 0,
+            "pgrefill": 0,
+            "pgactivate": 0,
+            "pgdeactivate": 0,
+            "pglazyfree": 0,
+            "pglazyfreed": 0,
+            "swpin_zero": 0,
+            "swpout_zero": 0,
+            "zswpin": 0,
+            "zswpout": 0,
+            "zswpwb": 0,
+            "thp_fault_alloc": 0,
+            "thp_collapse_alloc": 0,
+            "thp_swpout": 0,
+            "thp_swpout_fallback": 0,
+            "numa_pages_migrated": 0,
+            "numa_pte_updates": 0,
+            "numa_hint_faults": 0
+          },
+          "memory_events": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0"
+          },
+          "cpu_max": "200000 100000",
+          "memory_max": "2147483648",
+          "swap_max": "0"
+        },
+        "before_begin": {
+          "device": "259:4",
+          "io": null,
+          "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+          "process_diagnostics_not_official_B": {
+            "cpu_s": 0.41,
+            "rchar": 17395498,
+            "wchar": 9217335,
+            "syscr": 2644,
+            "syscw": 34959,
+            "read_bytes": 4096,
+            "write_bytes": 9613312,
+            "cancelled_write_bytes": 0,
+            "peak_rss_kib": 22456
+          },
+          "memory_peak_bytes": 26038272,
+          "memory_current_bytes": 26038272,
+          "cpu_s": 0.446482,
+          "memory_stat": {
+            "anon": 9048064,
+            "file": 9007104,
+            "kernel": 1212416,
+            "kernel_stack": 16384,
+            "pagetables": 143360,
+            "sec_pagetables": 0,
+            "percpu": 53040,
+            "sock": 0,
+            "vmalloc": 24576,
+            "shmem": 0,
+            "zswap": 0,
+            "zswapped": 0,
+            "file_mapped": 0,
+            "file_dirty": 4096,
+            "file_writeback": 0,
+            "swapcached": 0,
+            "anon_thp": 0,
+            "file_thp": 0,
+            "shmem_thp": 0,
+            "inactive_anon": 0,
+            "active_anon": 9043968,
+            "inactive_file": 9007104,
+            "active_file": 0,
+            "unevictable": 0,
+            "slab_reclaimable": 635376,
+            "slab_unreclaimable": 326440,
+            "slab": 961816,
+            "workingset_refault_anon": 0,
+            "workingset_refault_file": 0,
+            "workingset_activate_anon": 0,
+            "workingset_activate_file": 0,
+            "workingset_restore_anon": 0,
+            "workingset_restore_file": 0,
+            "workingset_nodereclaim": 0,
+            "pgdemote_kswapd": 0,
+            "pgdemote_direct": 0,
+            "pgdemote_khugepaged": 0,
+            "pgdemote_proactive": 0,
+            "pgpromote_success": 0,
+            "pgscan": 0,
+            "pgsteal": 0,
+            "pswpin": 0,
+            "pswpout": 0,
+            "pgscan_kswapd": 0,
+            "pgscan_direct": 0,
+            "pgscan_khugepaged": 0,
+            "pgscan_proactive": 0,
+            "pgsteal_kswapd": 0,
+            "pgsteal_direct": 0,
+            "pgsteal_khugepaged": 0,
+            "pgsteal_proactive": 0,
+            "pgfault": 4081,
+            "pgmajfault": 0,
+            "pgrefill": 0,
+            "pgactivate": 0,
+            "pgdeactivate": 0,
+            "pglazyfree": 0,
+            "pglazyfreed": 0,
+            "swpin_zero": 0,
+            "swpout_zero": 0,
+            "zswpin": 0,
+            "zswpout": 0,
+            "zswpwb": 0,
+            "thp_fault_alloc": 0,
+            "thp_collapse_alloc": 0,
+            "thp_swpout": 0,
+            "thp_swpout_fallback": 0,
+            "numa_pages_migrated": 0,
+            "numa_pte_updates": 0,
+            "numa_hint_faults": 0
+          },
+          "memory_events": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0"
+          },
+          "cpu_max": "200000 100000",
+          "memory_max": "2147483648",
+          "swap_max": "0"
+        },
+        "after_begin": {
+          "device": "259:4",
+          "io": null,
+          "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+          "process_diagnostics_not_official_B": {
+            "cpu_s": 0.41,
+            "rchar": 17395559,
+            "wchar": 9217794,
+            "syscr": 2645,
+            "syscw": 35035,
+            "read_bytes": 4096,
+            "write_bytes": 9613312,
+            "cancelled_write_bytes": 0,
+            "peak_rss_kib": 22456
+          },
+          "memory_peak_bytes": 26038272,
+          "memory_current_bytes": 26038272,
+          "cpu_s": 0.446546,
+          "memory_stat": {
+            "anon": 9048064,
+            "file": 9007104,
+            "kernel": 1212416,
+            "kernel_stack": 16384,
+            "pagetables": 143360,
+            "sec_pagetables": 0,
+            "percpu": 53040,
+            "sock": 0,
+            "vmalloc": 24576,
+            "shmem": 0,
+            "zswap": 0,
+            "zswapped": 0,
+            "file_mapped": 0,
+            "file_dirty": 4096,
+            "file_writeback": 0,
+            "swapcached": 0,
+            "anon_thp": 0,
+            "file_thp": 0,
+            "shmem_thp": 0,
+            "inactive_anon": 0,
+            "active_anon": 9043968,
+            "inactive_file": 9007104,
+            "active_file": 0,
+            "unevictable": 0,
+            "slab_reclaimable": 635376,
+            "slab_unreclaimable": 326440,
+            "slab": 961816,
+            "workingset_refault_anon": 0,
+            "workingset_refault_file": 0,
+            "workingset_activate_anon": 0,
+            "workingset_activate_file": 0,
+            "workingset_restore_anon": 0,
+            "workingset_restore_file": 0,
+            "workingset_nodereclaim": 0,
+            "pgdemote_kswapd": 0,
+            "pgdemote_direct": 0,
+            "pgdemote_khugepaged": 0,
+            "pgdemote_proactive": 0,
+            "pgpromote_success": 0,
+            "pgscan": 0,
+            "pgsteal": 0,
+            "pswpin": 0,
+            "pswpout": 0,
+            "pgscan_kswapd": 0,
+            "pgscan_direct": 0,
+            "pgscan_khugepaged": 0,
+            "pgscan_proactive": 0,
+            "pgsteal_kswapd": 0,
+            "pgsteal_direct": 0,
+            "pgsteal_khugepaged": 0,
+            "pgsteal_proactive": 0,
+            "pgfault": 4081,
+            "pgmajfault": 0,
+            "pgrefill": 0,
+            "pgactivate": 0,
+            "pgdeactivate": 0,
+            "pglazyfree": 0,
+            "pglazyfreed": 0,
+            "swpin_zero": 0,
+            "swpout_zero": 0,
+            "zswpin": 0,
+            "zswpout": 0,
+            "zswpwb": 0,
+            "thp_fault_alloc": 0,
+            "thp_collapse_alloc": 0,
+            "thp_swpout": 0,
+            "thp_swpout_fallback": 0,
+            "numa_pages_migrated": 0,
+            "numa_pte_updates": 0,
+            "numa_hint_faults": 0
+          },
+          "memory_events": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0"
+          },
+          "cpu_max": "200000 100000",
+          "memory_max": "2147483648",
+          "swap_max": "0"
+        },
+        "after_commit": {
+          "device": "259:4",
+          "io": null,
+          "io_unavailable_reason": "rootless daemon delegated cpu/memory/pids only; io controller unavailable",
+          "process_diagnostics_not_official_B": {
+            "cpu_s": 0.41,
+            "rchar": 17395621,
+            "wchar": 9218183,
+            "syscr": 2646,
+            "syscw": 35099,
+            "read_bytes": 4096,
+            "write_bytes": 9613312,
+            "cancelled_write_bytes": 0,
+            "peak_rss_kib": 22456
+          },
+          "memory_peak_bytes": 26038272,
+          "memory_current_bytes": 26038272,
+          "cpu_s": 0.446601,
+          "memory_stat": {
+            "anon": 9048064,
+            "file": 9007104,
+            "kernel": 1212416,
+            "kernel_stack": 16384,
+            "pagetables": 143360,
+            "sec_pagetables": 0,
+            "percpu": 53040,
+            "sock": 0,
+            "vmalloc": 24576,
+            "shmem": 0,
+            "zswap": 0,
+            "zswapped": 0,
+            "file_mapped": 0,
+            "file_dirty": 4096,
+            "file_writeback": 0,
+            "swapcached": 0,
+            "anon_thp": 0,
+            "file_thp": 0,
+            "shmem_thp": 0,
+            "inactive_anon": 0,
+            "active_anon": 9043968,
+            "inactive_file": 9007104,
+            "active_file": 0,
+            "unevictable": 0,
+            "slab_reclaimable": 635376,
+            "slab_unreclaimable": 326440,
+            "slab": 961816,
+            "workingset_refault_anon": 0,
+            "workingset_refault_file": 0,
+            "workingset_activate_anon": 0,
+            "workingset_activate_file": 0,
+            "workingset_restore_anon": 0,
+            "workingset_restore_file": 0,
+            "workingset_nodereclaim": 0,
+            "pgdemote_kswapd": 0,
+            "pgdemote_direct": 0,
+            "pgdemote_khugepaged": 0,
+            "pgdemote_proactive": 0,
+            "pgpromote_success": 0,
+            "pgscan": 0,
+            "pgsteal": 0,
+            "pswpin": 0,
+            "pswpout": 0,
+            "pgscan_kswapd": 0,
+            "pgscan_direct": 0,
+            "pgscan_khugepaged": 0,
+            "pgscan_proactive": 0,
+            "pgsteal_kswapd": 0,
+            "pgsteal_direct": 0,
+            "pgsteal_khugepaged": 0,
+            "pgsteal_proactive": 0,
+            "pgfault": 4081,
+            "pgmajfault": 0,
+            "pgrefill": 0,
+            "pgactivate": 0,
+            "pgdeactivate": 0,
+            "pglazyfree": 0,
+            "pglazyfreed": 0,
+            "swpin_zero": 0,
+            "swpout_zero": 0,
+            "zswpin": 0,
+            "zswpout": 0,
+            "zswpwb": 0,
+            "thp_fault_alloc": 0,
+            "thp_collapse_alloc": 0,
+            "thp_swpout": 0,
+            "thp_swpout_fallback": 0,
+            "numa_pages_migrated": 0,
+            "numa_pte_updates": 0,
+            "numa_hint_faults": 0
+          },
+          "memory_events": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0"
+          },
+          "cpu_max": "200000 100000",
+          "memory_max": "2147483648",
+          "swap_max": "0"
+        }
+      }
+    }
+  }
+}

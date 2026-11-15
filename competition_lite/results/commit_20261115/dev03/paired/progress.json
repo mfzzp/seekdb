@@ -1,0 +1,74 @@
+[
+  {
+    "variant": "baseline",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/dev03/paired/baseline-r1.json",
+    "engine_env": []
+  },
+  {
+    "variant": "wal",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/dev03/paired/wal-r1.json",
+    "engine_env": [
+      "LITE_COMMIT_MODE=wal",
+      "LITE_WAL_BATCH=0"
+    ]
+  },
+  {
+    "variant": "packed",
+    "round": 1,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/dev03/paired/packed-r1.json",
+    "engine_env": [
+      "LITE_COMMIT_MODE=wal",
+      "LITE_WAL_BATCH=1"
+    ]
+  },
+  {
+    "variant": "wal",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/dev03/paired/wal-r2.json",
+    "engine_env": [
+      "LITE_COMMIT_MODE=wal",
+      "LITE_WAL_BATCH=0"
+    ]
+  },
+  {
+    "variant": "packed",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/dev03/paired/packed-r2.json",
+    "engine_env": [
+      "LITE_COMMIT_MODE=wal",
+      "LITE_WAL_BATCH=1"
+    ]
+  },
+  {
+    "variant": "baseline",
+    "round": 2,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/dev03/paired/baseline-r2.json",
+    "engine_env": []
+  },
+  {
+    "variant": "packed",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/dev03/paired/packed-r3.json",
+    "engine_env": [
+      "LITE_COMMIT_MODE=wal",
+      "LITE_WAL_BATCH=1"
+    ]
+  },
+  {
+    "variant": "baseline",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/dev03/paired/baseline-r3.json",
+    "engine_env": []
+  },
+  {
+    "variant": "wal",
+    "round": 3,
+    "report": "/mnt/SSD1/zzp/seekdb-round2-lite2000/perf-20261115/dev03/paired/wal-r3.json",
+    "engine_env": [
+      "LITE_COMMIT_MODE=wal",
+      "LITE_WAL_BATCH=0"
+    ]
+  }
+]
