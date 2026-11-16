@@ -69,12 +69,7 @@ namespace lite {
     j.s=std::move(x);
     return j;
   }
-  static J jb(bool x){
-    J j;
-    j.k=J::B;
-    j.b=x;
-    return j;
-  }
+  static J jb(bool x){J j;j.k=J::B;j.b=x;return j;}
   static J ja(){
     J j;
     j.k=J::A;
@@ -85,9 +80,7 @@ namespace lite {
     j.k=J::O;
     return j;
   }
-  static void ws(const std::string&s,size_t&p){
-    while(p<s.size()&&std::isspace((unsigned char)s[p]))++p;
-  }
+  static void ws(const std::string&s,size_t&p){while(p<s.size()&&std::isspace((unsigned char)s[p]))++p;}
   static std::string quoted(const std::string&s,size_t&p,char quote,bool json){
     if(p>=s.size()||s[p++]!=quote)throw Err("invalid_request","string");
     std::string r;
@@ -117,7 +110,11 @@ namespace lite {
     auto hex4=[&](){unsigned v=0;for(int i=0;i<4;++i){if(p==s.size())throw Err("invalid_request","unicode escape");
       unsigned char c=s[p++];int d=c>='0'&&c<='9'?c-'0':c>='a'&&c<='f'?c-'a'+10:c>='A'&&c<='F'?c-'A'+10:-1;
       if(d<0)throw Err("invalid_request","unicode escape");v=(v<<4)|d;}return v;};
+    bool scan=!getenv("LITE_JSON_SCAN")||std::atoi(getenv("LITE_JSON_SCAN"))!=0;
     while(p<s.size()){
+      if(scan){size_t b=p;while(s.size()-p>=16){__m128i v=_mm_loadu_si128((const __m128i*)(s.data()+p)),control=_mm_set1_epi8(31);
+          unsigned mask=_mm_movemask_epi8(_mm_or_si128(_mm_or_si128(_mm_cmpeq_epi8(v,_mm_set1_epi8('"')),_mm_cmpeq_epi8(v,_mm_set1_epi8('\\'))),_mm_cmpeq_epi8(_mm_max_epu8(v,control),control)));
+          if(mask){p+=__builtin_ctz(mask);break;}p+=16;}r.append(s,b,p-b);if(p==s.size())break;}
       unsigned char c=s[p++];if(c=='"')return r;
       if(c<32)throw Err("invalid_request","JSON control character");
       if(c!='\\'){r+=(char)c;continue;}

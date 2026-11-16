@@ -61,6 +61,9 @@ def main():
         run('json_output', docker+['--tmpfs', '/tmp', '--entrypoint', 'sh', tag, '-c',
             'g++ -O3 -DNDEBUG -std=c++17 /checks/competition_lite/bench/json_output_check.cpp '
             '-o /data/json-output-check && /data/json-output-check'])
+        run('json_input', docker+['--tmpfs', '/tmp', '--entrypoint', 'sh', tag, '-c',
+            'g++ -O3 -DNDEBUG -std=c++17 /checks/competition_lite/bench/json_input_check.cpp '
+            '-o /data/json-input-check && /data/json-input-check'])
         run('screen_kernel', docker+['--tmpfs', '/tmp', '--entrypoint', 'sh', tag, '-c',
             'g++ -O3 -DNDEBUG -std=c++17 /checks/competition_lite/bench/screen_kernel_check.cpp '
             '-o /data/screen-kernel-check && /data/screen-kernel-check'])

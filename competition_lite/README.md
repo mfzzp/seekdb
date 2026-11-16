@@ -26,6 +26,8 @@ Filtered candidates that occupy a contiguous physical matrix interval can reuse 
 
 Contiguous physical vectors now borrow mmap pages instead of duplicating the float32 matrix. Each query reacquires the mapping; mutations invalidate descriptors, and fragmented layouts retain the owned-copy fallback. `LITE_MATRIX_VIEW=0` restores copying. Three rounds with physical device I/O show a 16.2% container-peak reduction versus 830fbba; timing differences vary between runs. See [composite measurements](docs/COMPOSITE_VIEW_20261116.md). `bench/score_compare.py` computes a clearly labeled local-reference E and rejects missing physical I/O.
 
+JSON input strings scan ordinary bytes in 16-byte SSE2 groups and append spans, retaining the original escape, Unicode and error handling. `LITE_JSON_SCAN=0` restores byte scanning. Against 830fbba, the combined three-round result is -5.17% mixed request latency and -17.21% container peak; write time and device I/O remain essentially unchanged. Overall 3/5/10x has not been achieved. See [results and validation](docs/JSON_SCAN_20261116.md).
+
 From a clean Git source tree:
 
 ```sh
