@@ -1,0 +1,74 @@
+[
+  {
+    "variant": "base8afe",
+    "round": 1,
+    "report": "compare-three/paired-8afe/base8afe-r1.json",
+    "engine_env": []
+  },
+  {
+    "variant": "a6ff",
+    "round": 1,
+    "report": "compare-three/paired-8afe/a6ff-r1.json",
+    "engine_env": []
+  },
+  {
+    "variant": "ec0",
+    "round": 1,
+    "report": "compare-three/paired-8afe/ec0-r1.json",
+    "engine_env": []
+  },
+  {
+    "variant": "bb",
+    "round": 1,
+    "report": "compare-three/paired-8afe/bb-r1.json",
+    "engine_env": []
+  },
+  {
+    "variant": "a6ff",
+    "round": 2,
+    "report": "compare-three/paired-8afe/a6ff-r2.json",
+    "engine_env": []
+  },
+  {
+    "variant": "ec0",
+    "round": 2,
+    "report": "compare-three/paired-8afe/ec0-r2.json",
+    "engine_env": []
+  },
+  {
+    "variant": "bb",
+    "round": 2,
+    "report": "compare-three/paired-8afe/bb-r2.json",
+    "engine_env": []
+  },
+  {
+    "variant": "base8afe",
+    "round": 2,
+    "report": "compare-three/paired-8afe/base8afe-r2.json",
+    "engine_env": []
+  },
+  {
+    "variant": "ec0",
+    "round": 3,
+    "report": "compare-three/paired-8afe/ec0-r3.json",
+    "engine_env": []
+  },
+  {
+    "variant": "bb",
+    "round": 3,
+    "report": "compare-three/paired-8afe/bb-r3.json",
+    "engine_env": []
+  },
+  {
+    "variant": "base8afe",
+    "round": 3,
+    "report": "compare-three/paired-8afe/base8afe-r3.json",
+    "engine_env": []
+  },
+  {
+    "variant": "a6ff",
+    "round": 3,
+    "report": "compare-three/paired-8afe/a6ff-r3.json",
+    "engine_env": []
+  }
+]
