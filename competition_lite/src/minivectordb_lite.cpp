@@ -505,11 +505,13 @@ namespace lite {
       double s=0;for(double x:z)s+=x;out[i]=s;
     }
   }
-  __attribute__((target("avx512f,avx512bw"))) static void l2_screen128(const int8_t*a,const int8_t*b,const size_t*pos,size_t n,int*out){
+  __attribute__((target("avx512f,avx512bw"))) static void l2_screen128(const int8_t*a,const int8_t*b,const size_t*pos,size_t n,int*out,bool packed=false){
     __m512i q[4];
     #pragma GCC unroll 4
     for(int j=0;j<4;++j)q[j]=_mm512_cvtepi8_epi16(_mm256_loadu_si256((const __m256i*)(b+j*32)));
-    for(size_t i=0;i<n;++i){const int8_t*p=a+(pos?pos[i]:i)*128;__m512i s=_mm512_setzero_si512();
+    for(size_t i=0;i<n;++i){size_t row=pos?pos[i]:i;const int8_t*p=a+row*128;alignas(64) int8_t decoded[128];__m512i s=_mm512_setzero_si512();
+      if(packed){const int8_t*start=a+(row/16)*2048+(row%16)*4;__m512i offsets=_mm512_setr_epi32(0,64,128,192,256,320,384,448,512,576,640,704,768,832,896,960);
+        for(int half=0;half<2;++half)_mm512_store_si512(decoded+half*64,_mm512_xor_si512(_mm512_i32gather_epi32(offsets,start+half*1024,1),_mm512_set1_epi8(char(128))));p=decoded;}
       #pragma GCC unroll 4
       for(int j=0;j<4;++j){__m512i x=_mm512_sub_epi16(_mm512_cvtepi8_epi16(_mm256_loadu_si256((const __m256i*)(p+j*32))),q[j]);s=_mm512_add_epi32(s,_mm512_madd_epi16(x,x));}
       out[i]=_mm512_reduce_add_epi32(s);
@@ -522,9 +524,9 @@ namespace lite {
   static double screen_threshold128(double limit,double scale,double error){
     double radius=std::sqrt(limit)*(1+1e-12)/scale+error;return radius*radius*(1+1e-12);
   }
-  static void screen_pack128(Matrix&m){
-    size_t n=m.codes.size()/128,padded=(n+15)/16*16;m.packed.assign(padded*128,128);m.norms.assign(padded,0);
-    for(size_t i=0;i<n;++i)for(int j=0;j<128;++j){int c=m.codes[i*128+j];m.packed[(i/16)*2048+(j/4)*64+(i%16)*4+j%4]=(uint8_t)(c+128);m.norms[i]+=c*c;}
+  static void screen_pack128(Matrix&m,const float*source=nullptr){
+    size_t n=source?m.values/128:m.codes.size()/128,padded=(n+15)/16*16;m.packed.assign(padded*128,128);m.norms.assign(padded,0);
+    for(size_t i=0;i<n;++i)for(int j=0;j<128;++j){int c=source?(int)std::llround(double(source[i*128+j])/m.scale):m.codes[i*128+j];m.packed[(i/16)*2048+(j/4)*64+(i%16)*4+j%4]=(uint8_t)(c+128);m.norms[i]+=c*c;}
   }
   __attribute__((target("avx512f,avx512vnni"))) static void l2_screen_dot128(const uint8_t*a,const int*norms,const int8_t*q,size_t n,int*out){
     int extra=0;for(int j=0;j<128;++j)extra+=int(q[j])*q[j]+256*int(q[j]);
@@ -917,8 +919,8 @@ namespace lite {
       }
       if(m.dim==128&&has_avx512()&&__builtin_cpu_supports("avx512bw")&&(_mm_getcsr()&0xe040u)==0&&m.values<=(2u<<20)&&bytes+m.values<=lim&&(!std::getenv("LITE_DISTANCE_SCREEN")||std::atoi(std::getenv("LITE_DISTANCE_SCREEN")))){
         double bound=0;for(size_t i=0;i<m.values;++i)bound=std::max(bound,std::abs(double(source[i])));m.scale=bound/127;
-        if(m.scale>0){m.codes.resize(m.values);for(size_t i=0;i<m.values;++i)m.codes[i]=(int8_t)std::llround(double(source[i])/m.scale);
-          if(__builtin_cpu_supports("avx512vnni")&&bytes+2*m.codes.size()+q.fast.size()*4+2112<=lim&&(!std::getenv("LITE_SCREEN_DOT")||std::atoi(std::getenv("LITE_SCREEN_DOT"))))screen_pack128(m);}
+        bool packed=__builtin_cpu_supports("avx512vnni")&&bytes+2*m.values+q.fast.size()*4+2112<=lim&&(!std::getenv("LITE_SCREEN_DOT")||std::atoi(std::getenv("LITE_SCREEN_DOT")));
+        if(m.scale>0){if(packed&&(!getenv("LITE_PACKED_ONLY")||std::atoi(getenv("LITE_PACKED_ONLY"))))screen_pack128(m,source);else{m.codes.resize(m.values);for(size_t i=0;i<m.values;++i)m.codes[i]=(int8_t)std::llround(double(source[i])/m.scale);if(packed)screen_pack128(m);}}
       }
       matrices[q.n]=std::move(m);
     }
@@ -1276,7 +1278,6 @@ namespace lite {
           break;
         }
       }
-
       if(proj.size()==1&&proj[0]=="*"){
         proj.clear();
         for(auto&c:q.c)proj.push_back(c.n);
@@ -1422,16 +1423,15 @@ namespace lite {
         bool matrix_scan=(dense||linear)&&matrix&&late_id&&!early&&width==1&&dim>=32&&has_avx2()&&(!std::getenv("LITE_MATRIX_SCAN")||std::atoi(std::getenv("LITE_MATRIX_SCAN"))!=0);
         auto scan_kernel=dim>=64&&has_avx512()?l2_avx512_scan:l2_avx2_scan;
         if(dim==128&&has_avx512()&&(!std::getenv("LITE_QUERY_WIDE")||std::atoi(std::getenv("LITE_QUERY_WIDE"))))scan_kernel=l2_avx512_query128;
-        bool screen=matrix&&!matrix->codes.empty()&&!block_exact&&!early&&late_id&&(_mm_getcsr()&0xe040u)==0&&(!std::getenv("LITE_DISTANCE_SCREEN")||std::atoi(std::getenv("LITE_DISTANCE_SCREEN"))!=0);
+        bool screen=matrix&&(!matrix->codes.empty()||!matrix->packed.empty())&&!block_exact&&!early&&late_id&&(_mm_getcsr()&0xe040u)==0&&(!std::getenv("LITE_DISTANCE_SCREEN")||std::atoi(std::getenv("LITE_DISTANCE_SCREEN"))!=0);
         int8_t screen_query[128];double screen_error=screen?screen_query128(qv.data(),matrix->scale,screen_query):0;
-        // Interleave independent vectors, retaining each ISA's original double reduction order.
-        // Diagnostic clocks run once per batch, never once per vector.
         auto score=[&](size_t begin,size_t end){
           for(size_t base=begin;base<end;){
             H batch[256];size_t count=0;auto dt=stamp();
             size_t stop=std::min(end,base+(screen&&base==begin?16:256));double limit=top.size()>=ask?top.top().d:std::numeric_limits<double>::infinity();
             if(screen){
               int ds[256];if(dense&&!matrix->packed.empty())l2_screen_dot128(matrix->packed.data()+base*128,matrix->norms.data()+base,screen_query,stop-base,ds);
+              else if(matrix->codes.empty())l2_screen128((const int8_t*)matrix->packed.data(),screen_query,positions.data()+base,stop-base,ds,true);
               else l2_screen128(matrix->codes.data()+(dense?base*128:0),screen_query,dense?nullptr:positions.data()+base,stop-base,ds);double threshold=screen_threshold128(limit,matrix->scale,screen_error);
               screened_vectors+=stop-base;early_dims+=(stop-base)*128;
               for(size_t i=base;i<stop;++i){if(ds[i-base]>threshold){++screen_rejected;continue;}size_t p=dense?i:positions[i];if(!q.fast[p])continue;
