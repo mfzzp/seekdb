@@ -331,6 +331,7 @@ namespace lite {
   struct Matrix{
     int col=0,dim=0;
     std::vector<float>v;
+    std::vector<int8_t>codes;std::vector<uint8_t>packed;std::vector<int>norms;double scale=0;
   };
   struct SRec{
     std::string key,value;
@@ -504,6 +505,36 @@ namespace lite {
       }
       alignas(64) double z[8];_mm512_store_pd(z,_mm512_add_pd(_mm512_add_pd(s0,s1),_mm512_add_pd(s2,s3)));
       double s=0;for(double x:z)s+=x;out[i]=s;
+    }
+  }
+  __attribute__((target("avx512f,avx512bw"))) static void l2_screen128(const int8_t*a,const int8_t*b,const size_t*pos,size_t n,int*out){
+    __m512i q[4];
+    #pragma GCC unroll 4
+    for(int j=0;j<4;++j)q[j]=_mm512_cvtepi8_epi16(_mm256_loadu_si256((const __m256i*)(b+j*32)));
+    for(size_t i=0;i<n;++i){const int8_t*p=a+(pos?pos[i]:i)*128;__m512i s=_mm512_setzero_si512();
+      #pragma GCC unroll 4
+      for(int j=0;j<4;++j){__m512i x=_mm512_sub_epi16(_mm512_cvtepi8_epi16(_mm256_loadu_si256((const __m256i*)(p+j*32))),q[j]);s=_mm512_add_epi32(s,_mm512_madd_epi16(x,x));}
+      out[i]=_mm512_reduce_add_epi32(s);
+    }
+  }
+  static double screen_query128(const float*q,double scale,int8_t*out){
+    double error=0;for(int j=0;j<128;++j){double v=double(q[j])/scale;out[j]=(int8_t)std::llround(std::max(-127.0,std::min(127.0,v)));double d=v-out[j];error+=d*d;}
+    return std::sqrt(error)*(1+1e-12)+std::sqrt(128.0)*(.5+1e-9)+1e-9;
+  }
+  static double screen_threshold128(double limit,double scale,double error){
+    double radius=std::sqrt(limit)*(1+1e-12)/scale+error;return radius*radius*(1+1e-12);
+  }
+  static void screen_pack128(Matrix&m){
+    size_t n=m.codes.size()/128,padded=(n+15)/16*16;m.packed.assign(padded*128,128);m.norms.assign(padded,0);
+    for(size_t i=0;i<n;++i)for(int j=0;j<128;++j){int c=m.codes[i*128+j];m.packed[(i/16)*2048+(j/4)*64+(i%16)*4+j%4]=(uint8_t)(c+128);m.norms[i]+=c*c;}
+  }
+  __attribute__((target("avx512f,avx512vnni"))) static void l2_screen_dot128(const uint8_t*a,const int*norms,const int8_t*q,size_t n,int*out){
+    int extra=0;for(int j=0;j<128;++j)extra+=int(q[j])*q[j]+256*int(q[j]);
+    for(size_t i=0;i<n;i+=16){__m512i dot=_mm512_setzero_si512(),d1=dot,d2=dot,d3=dot;for(int j=0;j<32;j+=4){int w[4];std::memcpy(w,q+j*4,16);
+      dot=_mm512_dpbusd_epi32(dot,_mm512_loadu_si512(a+i*128+j*64),_mm512_set1_epi32(w[0]));d1=_mm512_dpbusd_epi32(d1,_mm512_loadu_si512(a+i*128+(j+1)*64),_mm512_set1_epi32(w[1]));
+      d2=_mm512_dpbusd_epi32(d2,_mm512_loadu_si512(a+i*128+(j+2)*64),_mm512_set1_epi32(w[2]));d3=_mm512_dpbusd_epi32(d3,_mm512_loadu_si512(a+i*128+(j+3)*64),_mm512_set1_epi32(w[3]));}dot=_mm512_add_epi32(_mm512_add_epi32(dot,d1),_mm512_add_epi32(d2,d3));
+      __m512i sum=_mm512_sub_epi32(_mm512_add_epi32(_mm512_loadu_si512(norms+i),_mm512_set1_epi32(extra)),_mm512_slli_epi32(dot,1));
+      _mm512_mask_storeu_epi32(out+i,(__mmask16)((1u<<std::min<size_t>(16,n-i))-1),sum);
     }
   }
   static bool has_avx2(){
@@ -884,6 +915,11 @@ namespace lite {
       for(size_t i=0;i<q.fast.size();++i)if(q.fast[i]){
         const float*p=vptr(q.fast[i]->voff[c],m.dim);if(p)std::memcpy(m.v.data()+i*m.dim,p,m.dim*sizeof(float));
         else{auto x=read_vec(q.fast[i]->voff[c],m.dim);std::memcpy(m.v.data()+i*m.dim,x.data(),m.dim*sizeof(float));}
+      }
+      if(m.dim==128&&has_avx512()&&__builtin_cpu_supports("avx512bw")&&(_mm_getcsr()&0xe040u)==0&&m.v.size()<=(2u<<20)&&bytes+m.v.size()<=lim&&(!std::getenv("LITE_DISTANCE_SCREEN")||std::atoi(std::getenv("LITE_DISTANCE_SCREEN")))){
+        double bound=0;for(float x:m.v)bound=std::max(bound,std::abs(double(x)));m.scale=bound/127;
+        if(m.scale>0){m.codes.resize(m.v.size());for(size_t i=0;i<m.v.size();++i)m.codes[i]=(int8_t)std::llround(double(m.v[i])/m.scale);
+          if(__builtin_cpu_supports("avx512vnni")&&bytes+2*m.codes.size()+q.fast.size()*4+2112<=lim&&(!std::getenv("LITE_SCREEN_DOT")||std::atoi(std::getenv("LITE_SCREEN_DOT"))))screen_pack128(m);}
       }
       matrices[q.n]=std::move(m);
     }
@@ -1328,7 +1364,7 @@ namespace lite {
       if(metric&&(exact_topk?(ask&&filtered_candidates>2048):(cs.empty()||scan->size()>2048)))ensure_matrix(q,mcol);
       matrix_ms=elapsed(phase);
       std::vector<H>h;
-      uint64_t early_pruned=0,early_dims=0,distance_calls=0,batched_vectors=0,matrix_scan_vectors=0;
+      uint64_t early_pruned=0,early_dims=0,distance_calls=0,batched_vectors=0,matrix_scan_vectors=0,screened_vectors=0,screen_rejected=0;
       const Matrix*matrix=nullptr;auto mci=matrices.find(q.n);if(mci!=matrices.end()&&mci->second.col==mcol)matrix=&mci->second;
       auto worse=[](const H&a,const H&b){
         if(a.d!=b.d)return a.d<b.d;
@@ -1388,13 +1424,21 @@ namespace lite {
         bool matrix_scan=(dense||linear)&&matrix&&late_id&&!early&&width==1&&dim>=32&&has_avx2()&&(!std::getenv("LITE_MATRIX_SCAN")||std::atoi(std::getenv("LITE_MATRIX_SCAN"))!=0);
         auto scan_kernel=dim>=64&&has_avx512()?l2_avx512_scan:l2_avx2_scan;
         if(dim==128&&has_avx512()&&(!std::getenv("LITE_QUERY_WIDE")||std::atoi(std::getenv("LITE_QUERY_WIDE"))))scan_kernel=l2_avx512_query128;
+        bool screen=matrix&&!matrix->codes.empty()&&!block_exact&&!early&&late_id&&(_mm_getcsr()&0xe040u)==0&&(!std::getenv("LITE_DISTANCE_SCREEN")||std::atoi(std::getenv("LITE_DISTANCE_SCREEN"))!=0);
+        int8_t screen_query[128];double screen_error=screen?screen_query128(qv.data(),matrix->scale,screen_query):0;
         // Interleave independent vectors, retaining each ISA's original double reduction order.
         // Diagnostic clocks run once per batch, never once per vector.
         auto score=[&](size_t begin,size_t end){
-          for(size_t base=begin;base<end;base+=256){
+          for(size_t base=begin;base<end;){
             H batch[256];size_t count=0;auto dt=stamp();
-            size_t stop=std::min(end,base+256);double limit=top.size()>=ask?top.top().d:std::numeric_limits<double>::infinity();
-            if(matrix_scan){
+            size_t stop=std::min(end,base+(screen&&base==begin?16:256));double limit=top.size()>=ask?top.top().d:std::numeric_limits<double>::infinity();
+            if(screen){
+              int ds[256];if(dense&&!matrix->packed.empty())l2_screen_dot128(matrix->packed.data()+base*128,matrix->norms.data()+base,screen_query,stop-base,ds);
+              else l2_screen128(matrix->codes.data()+(dense?base*128:0),screen_query,dense?nullptr:positions.data()+base,stop-base,ds);double threshold=screen_threshold128(limit,matrix->scale,screen_error);
+              screened_vectors+=stop-base;early_dims+=(stop-base)*128;
+              for(size_t i=base;i<stop;++i){if(ds[i-base]>threshold){++screen_rejected;continue;}size_t p=dense?i:positions[i];if(!q.fast[p])continue;
+                double d=l2p(matrix->v.data()+p*128,128,qv);++distance_calls;early_dims+=128;batch[count++]={(long long)p,d,d};}
+            }else if(matrix_scan){
               double ds[256];scan_kernel(matrix->v.data()+(dense?base:positions[base])*(size_t)dim,qv.data(),dim,stop-base,ds);
               for(size_t i=base;i<stop;++i){size_t p=dense?i:positions[i];if(q.fast[p])batch[count++]={(long long)p,ds[i-base],ds[i-base]};}
               matrix_scan_vectors+=stop-base;distance_calls+=stop-base;early_dims+=(stop-base)*(size_t)dim;
@@ -1430,6 +1474,7 @@ namespace lite {
               else if(worse(batch[i],top.top())){top.pop();top.push(batch[i]);++heap_updates;}
             }
             topk_ms+=elapsed(dt);
+            base=stop;
           }
         };
         phase=stamp();
@@ -1538,6 +1583,7 @@ namespace lite {
       mt.o["block_pruned_candidates"]=ji(block_pruned_candidates);
       mt.o["heap_updates"]=ji(heap_updates);
       if(profile){
+        mt.o["screened_vectors"]=ji(screened_vectors);mt.o["screen_rejected"]=ji(screen_rejected);mt.o["screen_bytes"]=ji(matrix?matrix->codes.capacity()+matrix->packed.capacity()+matrix->norms.capacity()*4:0);
         mt.o["hot_postings"]=jb(direct_positions!=nullptr);mt.o["hot_postings_builds"]=ji(hot_post_builds-posting_build_start);mt.o["hot_postings_bytes"]=ji(hot_posts.bytes);
         mt.o["batched_vectors"]=ji(batched_vectors);mt.o["matrix_enabled"]=jb(matrix!=nullptr);
         mt.o["matrix_scan_vectors"]=ji(matrix_scan_vectors);

@@ -60,6 +60,11 @@ def main():
         run('json_output', docker+['--tmpfs', '/tmp', '--entrypoint', 'sh', tag, '-c',
             'g++ -O3 -DNDEBUG -std=c++17 /checks/competition_lite/bench/json_output_check.cpp '
             '-o /data/json-output-check && /data/json-output-check'])
+        run('screen_kernel', docker+['--tmpfs', '/tmp', '--entrypoint', 'sh', tag, '-c',
+            'g++ -O3 -DNDEBUG -std=c++17 /checks/competition_lite/bench/screen_kernel_check.cpp '
+            '-o /data/screen-kernel-check && /data/screen-kernel-check'])
+        run('screen_paths', docker+['--entrypoint', 'python3', tag, '-B', '/checks/competition_lite/bench/screen_paths_check.py',
+                                   '--binary', '/app/minivectordb', '--root', '/data/screen_paths'])
         run('commit_faults', docker+['--tmpfs', '/tmp', '--entrypoint', 'sh', tag, '-c',
             'g++ -O1 -std=c++17 /checks/competition_lite/bench/write_commit_check.cpp '
             '-Wl,--wrap=write -Wl,--wrap=fdatasync -o /data/commit-check && '

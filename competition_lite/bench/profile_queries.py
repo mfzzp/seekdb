@@ -31,7 +31,7 @@ for kind in sorted({r['filter'] for r in records}):
  keys=group[0]['profile_ms'].keys()
  summary[kind]={k:statistics.median(r['profile_ms'][k] for r in group) for k in keys}
  summary[kind].update(request_ms=statistics.median(r['request_ms'] for r in group),candidates=statistics.median(r['filtered_candidates'] for r in group))
- for key in ['exact_evaluations','full_distance_evaluations','distance_dimensions','batched_vectors','matrix_scan_vectors','candidate_bitmap','contiguous_candidates','blocks_pruned','heap_updates']:
+ for key in ['exact_evaluations','full_distance_evaluations','distance_dimensions','batched_vectors','matrix_scan_vectors','candidate_bitmap','contiguous_candidates','blocks_pruned','heap_updates','screened_vectors','screen_rejected','screen_bytes']:
   if key in group[0]:summary[kind][key+'_mean']=statistics.mean(r[key] for r in group)
 (a.root/'result.json').write_text(json.dumps({'summary':summary,'warmup':warmup,'queries':records,'engine_affinity':[0,1] if hasattr(os,'sched_setaffinity') else None,'env':{k:v for k,v in os.environ.items() if k.startswith('LITE_')}},indent=2)+'\n')
 print(json.dumps(summary),flush=True)
