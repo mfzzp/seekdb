@@ -1415,7 +1415,7 @@ namespace lite {
         else h.push_back(hh);
       };
       if(exact_topk){
-        const char*batch_setting=std::getenv("LITE_L2_BATCH");int width=!batch_setting||std::string(batch_setting)=="auto"?(dense||linear?1:2):envint("LITE_L2_BATCH",1);
+        const bool small_filtered=direct_positions&&filtered_candidates&&filtered_candidates<=1024;const char*batch_setting=std::getenv("LITE_L2_BATCH");int width=!batch_setting||std::string(batch_setting)=="auto"?(dense||linear?1:(small_filtered?4:2)):envint("LITE_L2_BATCH",1);
         if(width!=1&&width!=2&&width!=4)throw Err("invalid_request","LITE_L2_BATCH must be auto, 1, 2 or 4");
         bool early=std::getenv("LITE_EARLY")&&std::atoi(std::getenv("LITE_EARLY"))!=0;
         bool late_id=!std::getenv("LITE_LATE_ID")||std::atoi(std::getenv("LITE_LATE_ID"))!=0;
@@ -1423,7 +1423,7 @@ namespace lite {
         bool matrix_scan=(dense||linear)&&matrix&&late_id&&!early&&width==1&&dim>=32&&has_avx2()&&(!std::getenv("LITE_MATRIX_SCAN")||std::atoi(std::getenv("LITE_MATRIX_SCAN"))!=0);
         auto scan_kernel=dim>=64&&has_avx512()?l2_avx512_scan:l2_avx2_scan;
         if(dim==128&&has_avx512()&&(!std::getenv("LITE_QUERY_WIDE")||std::atoi(std::getenv("LITE_QUERY_WIDE"))))scan_kernel=l2_avx512_query128;
-        bool screen=matrix&&(!matrix->codes.empty()||!matrix->packed.empty())&&!block_exact&&!early&&late_id&&(_mm_getcsr()&0xe040u)==0&&(!std::getenv("LITE_DISTANCE_SCREEN")||std::atoi(std::getenv("LITE_DISTANCE_SCREEN"))!=0);
+        bool screen=!small_filtered&&matrix&&(!matrix->codes.empty()||!matrix->packed.empty())&&!block_exact&&!early&&late_id&&(_mm_getcsr()&0xe040u)==0&&(!std::getenv("LITE_DISTANCE_SCREEN")||std::atoi(std::getenv("LITE_DISTANCE_SCREEN"))!=0);
         int8_t screen_query[128];double screen_error=screen?screen_query128(qv.data(),matrix->scale,screen_query):0;
         auto score=[&](size_t begin,size_t end){
           for(size_t base=begin;base<end;){
