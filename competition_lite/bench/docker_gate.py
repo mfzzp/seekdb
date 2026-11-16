@@ -48,6 +48,7 @@ def main():
         for name, tool, root in [('edges', 'admission_edges_check.py', 'edges'),
                                  ('exact', 'exact_paths_check.py', 'exact'),
                                  ('exact_kernel_paths', 'exact_kernel_paths_check.py', 'exact_kernel_paths'),
+                                 ('matrix_view', 'matrix_view_check.py', 'matrix_view'),
                                  ('bulk', 'bulk_recovery_check.py', 'zzp/bulk'),
                                  ('quotes', 'sql_literal_check.py', 'zzp/quotes'),
                                  ('lsm_model', 'lsm_model_check.py', 'lsm_model'),

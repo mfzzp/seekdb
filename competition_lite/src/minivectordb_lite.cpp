@@ -331,6 +331,7 @@ namespace lite {
   struct Matrix{
     int col=0,dim=0;
     std::vector<float>v;
+    size_t values=0;off_t mapped_off=-1;
     std::vector<int8_t>codes;std::vector<uint8_t>packed;std::vector<int>norms;double scale=0;
   };
   struct SRec{
@@ -908,17 +909,19 @@ namespace lite {
       if(c<=0||c>=(int)q.c.size()||q.c[c].t!="VECTOR")return;
       const char*setting=std::getenv("LITE_MATRIX_MB");size_t lim=(size_t)(setting?std::max(0,std::atoi(setting)):64)<<20;
       size_t bytes=q.order.size()*(size_t)q.c[c].d*sizeof(float);if(!lim)return;
-      auto it=matrices.find(q.n);if(it!=matrices.end()&&it->second.col==c&&it->second.v.size()*sizeof(float)==bytes)return;
+      auto it=matrices.find(q.n);if(it!=matrices.end()&&it->second.col==c&&it->second.values*sizeof(float)==bytes)return;
       if(bytes>lim)return;
       if(q.fast.size()!=q.order.size())refresh_fast(q);
-      Matrix m;m.col=c;m.dim=q.c[c].d;m.v.resize(q.fast.size()*(size_t)m.dim);
-      for(size_t i=0;i<q.fast.size();++i)if(q.fast[i]){
-        const float*p=vptr(q.fast[i]->voff[c],m.dim);if(p)std::memcpy(m.v.data()+i*m.dim,p,m.dim*sizeof(float));
-        else{auto x=read_vec(q.fast[i]->voff[c],m.dim);std::memcpy(m.v.data()+i*m.dim,x.data(),m.dim*sizeof(float));}
+      Matrix m;m.col=c;m.dim=q.c[c].d;m.values=q.fast.size()*(size_t)m.dim;
+      bool direct=!q.fast.empty()&&q.fast[0]&&m.values<=size_t(INT32_MAX/4)&&(!getenv("LITE_MATRIX_VIEW")||std::atoi(getenv("LITE_MATRIX_VIEW"))!=0);off_t first=direct?q.fast[0]->voff[c]:-1;
+      for(size_t i=0;direct&&i<q.fast.size();++i)if(!q.fast[i]||q.fast[i]->voff[c]!=first+off_t(i)*m.dim*4)direct=false;
+      const float*source=direct?vptr(first,(int)m.values):nullptr;if(source)m.mapped_off=first;else{m.v.resize(m.values);
+        for(size_t i=0;i<q.fast.size();++i)if(q.fast[i]){const float*p=vptr(q.fast[i]->voff[c],m.dim);if(p)std::memcpy(m.v.data()+i*m.dim,p,m.dim*sizeof(float));
+          else{auto x=read_vec(q.fast[i]->voff[c],m.dim);std::memcpy(m.v.data()+i*m.dim,x.data(),m.dim*sizeof(float));}}source=m.v.data();
       }
-      if(m.dim==128&&has_avx512()&&__builtin_cpu_supports("avx512bw")&&(_mm_getcsr()&0xe040u)==0&&m.v.size()<=(2u<<20)&&bytes+m.v.size()<=lim&&(!std::getenv("LITE_DISTANCE_SCREEN")||std::atoi(std::getenv("LITE_DISTANCE_SCREEN")))){
-        double bound=0;for(float x:m.v)bound=std::max(bound,std::abs(double(x)));m.scale=bound/127;
-        if(m.scale>0){m.codes.resize(m.v.size());for(size_t i=0;i<m.v.size();++i)m.codes[i]=(int8_t)std::llround(double(m.v[i])/m.scale);
+      if(m.dim==128&&has_avx512()&&__builtin_cpu_supports("avx512bw")&&(_mm_getcsr()&0xe040u)==0&&m.values<=(2u<<20)&&bytes+m.values<=lim&&(!std::getenv("LITE_DISTANCE_SCREEN")||std::atoi(std::getenv("LITE_DISTANCE_SCREEN")))){
+        double bound=0;for(size_t i=0;i<m.values;++i)bound=std::max(bound,std::abs(double(source[i])));m.scale=bound/127;
+        if(m.scale>0){m.codes.resize(m.values);for(size_t i=0;i<m.values;++i)m.codes[i]=(int8_t)std::llround(double(source[i])/m.scale);
           if(__builtin_cpu_supports("avx512vnni")&&bytes+2*m.codes.size()+q.fast.size()*4+2112<=lim&&(!std::getenv("LITE_SCREEN_DOT")||std::atoi(std::getenv("LITE_SCREEN_DOT"))))screen_pack128(m);}
       }
       matrices[q.n]=std::move(m);
@@ -926,7 +929,7 @@ namespace lite {
     const float* matrix_ptr(const Table&q,int c,long long id)const{
       auto m=matrices.find(q.n);if(m==matrices.end()||m->second.col!=c)return nullptr;
       auto p=fast_pos.find(q.n);if(p==fast_pos.end())return nullptr;auto i=p->second.find(id);if(i==p->second.end())return nullptr;
-      size_t off=i->second*(size_t)m->second.dim;if(off+m->second.dim>m->second.v.size())return nullptr;return m->second.v.data()+off;
+      size_t off=i->second*(size_t)m->second.dim;if(off+m->second.dim>m->second.values)return nullptr;return m->second.mapped_off>=0?vptr(m->second.mapped_off+off*4,m->second.dim):m->second.v.data()+off;
     }
     bool match(const Table&q,const Row&r,const std::vector<Cond>&cs,size_t proven=std::numeric_limits<size_t>::max())const{
       for(size_t j=0;j<cs.size();++j){
@@ -1366,6 +1369,7 @@ namespace lite {
       std::vector<H>h;
       uint64_t early_pruned=0,early_dims=0,distance_calls=0,batched_vectors=0,matrix_scan_vectors=0,screened_vectors=0,screen_rejected=0;
       const Matrix*matrix=nullptr;auto mci=matrices.find(q.n);if(mci!=matrices.end()&&mci->second.col==mcol)matrix=&mci->second;
+      const float*matrix_base=nullptr;if(matrix){if(matrix->mapped_off>=0){if(!block_exact)matrix_base=vptr(matrix->mapped_off,(int)matrix->values);}else matrix_base=matrix->v.data();if(!matrix_base)matrix=nullptr;}
       auto worse=[](const H&a,const H&b){
         if(a.d!=b.d)return a.d<b.d;
         return a.id<b.id;
@@ -1437,20 +1441,20 @@ namespace lite {
               else l2_screen128(matrix->codes.data()+(dense?base*128:0),screen_query,dense?nullptr:positions.data()+base,stop-base,ds);double threshold=screen_threshold128(limit,matrix->scale,screen_error);
               screened_vectors+=stop-base;early_dims+=(stop-base)*128;
               for(size_t i=base;i<stop;++i){if(ds[i-base]>threshold){++screen_rejected;continue;}size_t p=dense?i:positions[i];if(!q.fast[p])continue;
-                double d=l2p(matrix->v.data()+p*128,128,qv);++distance_calls;early_dims+=128;batch[count++]={(long long)p,d,d};}
+                double d=l2p(matrix_base+p*128,128,qv);++distance_calls;early_dims+=128;batch[count++]={(long long)p,d,d};}
             }else if(matrix_scan){
-              double ds[256];scan_kernel(matrix->v.data()+(dense?base:positions[base])*(size_t)dim,qv.data(),dim,stop-base,ds);
+              double ds[256];scan_kernel(matrix_base+(dense?base:positions[base])*(size_t)dim,qv.data(),dim,stop-base,ds);
               for(size_t i=base;i<stop;++i){size_t p=dense?i:positions[i];if(q.fast[p])batch[count++]={(long long)p,ds[i-base],ds[i-base]};}
               matrix_scan_vectors+=stop-base;distance_calls+=stop-base;early_dims+=(stop-base)*(size_t)dim;
             }else for(size_t i=base;i<stop;){
               size_t p=dense?i:positions[i];if(!q.fast[p]){++i;continue;}const Row&r=*q.fast[p];
-              const float*mp=matrix?matrix->v.data()+p*(size_t)matrix->dim:nullptr;
+              const float*mp=matrix?matrix_base+p*(size_t)matrix->dim:nullptr;
               if(width>1&&i+(size_t)width<=stop){
                 const Row*rows[4];const float*ptrs[4];double ds[4];bool ready=true;
                 if(!matrix)vptr(r.voff[mcol],dim);
                 for(int k=0;k<width;++k){
                   size_t pos=dense?i+k:positions[i+k];rows[k]=q.fast[pos];if(!rows[k]){ready=false;break;}
-                  if(matrix)ptrs[k]=matrix->v.data()+pos*(size_t)dim;
+                  if(matrix)ptrs[k]=matrix_base+pos*(size_t)dim;
                   else{off_t off=rows[k]->voff[mcol];
                   if(off>=vecbuf_base&&size_t(off-vecbuf_base+dim*4)<=vecbuf.size())ptrs[k]=(const float*)(vecbuf.data()+off-vecbuf_base);
                   else if(vmap&&off>=mapoff&&size_t(off-mapoff+dim*4)<=mapsz)ptrs[k]=(const float*)((const char*)vmap+off-mapoff);
@@ -1583,6 +1587,7 @@ namespace lite {
       mt.o["block_pruned_candidates"]=ji(block_pruned_candidates);
       mt.o["heap_updates"]=ji(heap_updates);
       if(profile){
+        mt.o["matrix_owned_bytes"]=ji(matrix?matrix->v.capacity()*sizeof(float):0);mt.o["matrix_mapped"]=jb(matrix&&matrix->mapped_off>=0);
         mt.o["screened_vectors"]=ji(screened_vectors);mt.o["screen_rejected"]=ji(screen_rejected);mt.o["screen_bytes"]=ji(matrix?matrix->codes.capacity()+matrix->packed.capacity()+matrix->norms.capacity()*4:0);
         mt.o["hot_postings"]=jb(direct_positions!=nullptr);mt.o["hot_postings_builds"]=ji(hot_post_builds-posting_build_start);mt.o["hot_postings_bytes"]=ji(hot_posts.bytes);
         mt.o["batched_vectors"]=ji(batched_vectors);mt.o["matrix_enabled"]=jb(matrix!=nullptr);

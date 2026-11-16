@@ -24,6 +24,8 @@ Eligible 128D hot matrices retain bounded int8 screening codes. AVX-512BW comput
 
 Filtered candidates that occupy a contiguous physical matrix interval can reuse the same batch scan at that interval's offset. This never expands the filtered candidate set. `LITE_CONTIGUOUS_SCAN=0` disables the experiment; `contiguous_candidates` and `matrix_scan_vectors` expose actual use in diagnostic runs.
 
+Contiguous physical vectors now borrow mmap pages instead of duplicating the float32 matrix. Each query reacquires the mapping; mutations invalidate descriptors, and fragmented layouts retain the owned-copy fallback. `LITE_MATRIX_VIEW=0` restores copying. Three rounds with physical device I/O show a 16.2% container-peak reduction versus 830fbba; timing differences vary between runs. See [composite measurements](docs/COMPOSITE_VIEW_20261116.md). `bench/score_compare.py` computes a clearly labeled local-reference E and rejects missing physical I/O.
+
 From a clean Git source tree:
 
 ```sh
