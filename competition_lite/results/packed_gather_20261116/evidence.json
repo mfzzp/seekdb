@@ -4790,5 +4790,6 @@
     }
   ],
   "official_score": false,
-  "reboot_note": "Server restarted during the first gate. Complete gate and paired runs were restarted after reboot."
+  "reboot_note": "Server restarted during the first gate. Complete gate and paired runs were restarted after reboot.",
+  "final_commit_parent": "ab0773e707c3b675f789db80b20c433a56aa4cec"
 }
