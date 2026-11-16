@@ -261,7 +261,7 @@ namespace lite {
       if(s[p]=='\''){
         r.push_back("'"+quoted(s,p,'\'',false)+"'");
       }
-      else if(std::string("(),;=<>!").find(s[p])!=std::string::npos){
+      else if(std::string_view("(),;=<>!").find(s[p])!=std::string::npos){
         if(p+1<s.size()&&(((s[p]=='<'||s[p]=='>'||s[p]=='!')&&s[p+1]=='=')||(s[p]=='<'&&s[p+1]=='>'))){
           r.push_back(s.substr(p,2));
           p+=2;
@@ -270,7 +270,7 @@ namespace lite {
       }
       else{
         size_t b=p;
-        while(p<s.size()&&!std::isspace((unsigned char)s[p])&&std::string("(),;=<>!").find(s[p])==std::string::npos)++p;
+        while(p<s.size()&&!std::isspace((unsigned char)s[p])&&std::string_view("(),;=<>!").find(s[p])==std::string::npos)++p;
         r.push_back(s.substr(b,p-b));
       }
     }
@@ -560,7 +560,6 @@ namespace lite {
   }
   #endif
   #include "lsm_store.hpp"
-
   struct Engine{
     std::string dir,vecfile;
     std::map<std::string,Table>tabs;
@@ -712,7 +711,7 @@ namespace lite {
       }catch(const Err&e){if(e.code=="io_error"||e.code=="corruption")failed_io=true;if(failed_io||store->failed)throw;statement.reset();vecbuf.clear();trunc_vec(mark);vecbuf_base=vec_end;load_catalog();if(autocommit)rollback();throw;}
       catch(...){if(failed_io||store->failed)throw;statement.reset();vecbuf.clear();trunc_vec(mark);vecbuf_base=vec_end;load_catalog();if(autocommit)rollback();throw;}
     }
-    J dispatch(const std::vector<std::string>&t){auto k=up(t.at(0));if(k=="CREATE"&&t.size()>1&&up(t[1])=="VECTOR")return create_index(t);if(k=="CREATE")return create(t,true);if(k=="INSERT")return insert(t,true);if(k=="UPDATE")return update(t,true);if(k=="DELETE")return erase(t,true);throw Err("unsupported_sql","statement");}
+    J dispatch(const std::vector<std::string>&t){auto k=up(t.at(0));if(k=="CREATE"&&t.size()>1&&(t[1].size()==6&&up(t[1])=="VECTOR"))return create_index(t);if(k=="CREATE")return create(t,true);if(k=="INSERT")return insert(t,true);if(k=="UPDATE")return update(t,true);if(k=="DELETE")return erase(t,true);throw Err("unsupported_sql","statement");}
     static bool inttok(const std::string&x){
       size_t p=!x.empty()&&(x[0]=='-'||x[0]=='+');
       if(p==x.size())return false;
@@ -957,7 +956,7 @@ namespace lite {
     std::vector<Cond> conditions(const Table&q,const std::vector<std::string>&t,size_t a,size_t z)const{
       std::vector<Cond>r;
       while(a<z){
-        if(up(t[a])=="AND"){
+        if((t[a].size()==3&&up(t[a])=="AND")){
           ++a;
           continue;
         }
@@ -1077,7 +1076,7 @@ namespace lite {
           ++i;
           continue;
         }
-        if(up(t[i])=="PRIMARY"){
+        if((t[i].size()==7&&up(t[i])=="PRIMARY")){
           i+=3;
           continue;
         }
@@ -1101,7 +1100,6 @@ namespace lite {
       (void)rec;statement->put(catalog_key(q),catalog(q));
       return jo();
     }
-
     J insert(const std::vector<std::string>&t,bool){
       if(t.size()<6||up(t[1])!="INTO"||up(t[3])!="VALUES")throw Err("unsupported_sql","insert");auto&q=tabs.at(t[2]);cool(q);
       std::vector<std::vector<std::string>>rows;
@@ -1232,16 +1230,15 @@ namespace lite {
       double prepare_ms=0,matrix_ms=0,block_build_ms=0,bounds_ms=0,block_sort_ms=0,distance_ms=0,topk_ms=0,scan_ms=0;
       uint64_t filtered_candidates=0,blocks_considered=0,blocks_pruned=0,block_pruned_candidates=0,heap_updates=0;
       uint64_t posting_build_start=hot_post_builds;
-
       size_t from=0;
-      for(;from<t.size();++from)if(up(t[from])=="FROM")break;
+      for(;from<t.size();++from)if((t[from].size()==4&&up(t[from])=="FROM"))break;
       if(from+1>=t.size())throw Err("invalid_request","from");
       auto&q=tabs.at(t[from+1]);
       size_t wi=t.size(),oi=t.size(),li=t.size();
       for(size_t i=from+2;i<t.size();++i){
-        if(up(t[i])=="WHERE"&&wi==t.size())wi=i;
-        if(up(t[i])=="ORDER"&&oi==t.size())oi=i;
-        if(up(t[i])=="LIMIT"&&li==t.size())li=i;
+        if((t[i].size()==5&&up(t[i])=="WHERE")&&wi==t.size())wi=i;
+        if((t[i].size()==5&&up(t[i])=="ORDER")&&oi==t.size())oi=i;
+        if((t[i].size()==5&&up(t[i])=="LIMIT")&&li==t.size())li=i;
       }
       size_t e=std::min(oi,li);
       if(li<t.size()&&(li+1>=t.size()||!inttok(t[li+1])||t[li+1][0]=='-'))throw Err("invalid_request","limit");
@@ -1266,7 +1263,7 @@ namespace lite {
           ++i;
           while(i<from&&t[i]!=")")++i;
           if(i<from)++i;
-          if(i<from&&up(t[i])=="AS"){
+          if(i<from&&(t[i].size()==2&&up(t[i])=="AS")){
             if(i+1<from)alias=t[i+1];
             i+=2;
           }
@@ -1293,7 +1290,7 @@ namespace lite {
         qv=query_vec(t);
         if(mcol<=0||mcol>=(int)q.c.size()||(int)qv.size()!=q.c[mcol].d)throw Err("dimension_mismatch","query");
       }
-      if(!ensure_hot(q))return cold_select(q,cs,proj,metric,mcol,qv,distance_projection,alias,oi<t.size(),distance_order,order_col,oi+3<t.size()&&up(t[oi+3])=="DESC",li<t.size()?std::stoull(t[li+1]):UINT64_MAX,profile);
+      if(!ensure_hot(q))return cold_select(q,cs,proj,metric,mcol,qv,distance_projection,alias,oi<t.size(),distance_order,order_col,oi+3<t.size()&&(t[oi+3].size()==4&&up(t[oi+3])=="DESC"),li<t.size()?std::stoull(t[li+1]):UINT64_MAX,profile);
       if(metric&&q.fast.size()!=q.order.size())refresh_fast(q);
       struct H{
         long long id;
@@ -1329,7 +1326,7 @@ namespace lite {
       size_t raw_candidates=0;
       bool exact_topk=metric&&oi+2<t.size()&&li<t.size()&&
         (up(t[oi+2])=="L2_DISTANCE"||t[oi+2]==alias)&&
-        !(oi+3<t.size()&&up(t[oi+3])=="DESC");
+        !(oi+3<t.size()&&(t[oi+3].size()==4&&up(t[oi+3])=="DESC"));
       const char* path_env=std::getenv("LITE_EXACT_PATH");
       std::string exact_path=path_env?path_env:"auto";
       if(exact_path!="auto"&&exact_path!="scan"&&exact_path!="block")throw Err("invalid_request","LITE_EXACT_PATH must be auto, scan or block");
@@ -1438,7 +1435,13 @@ namespace lite {
               else l2_screen128(matrix->codes.data()+(dense?base*128:0),screen_query,dense?nullptr:positions.data()+base,stop-base,ds);double threshold=screen_threshold128(limit,matrix->scale,screen_error);
               screened_vectors+=stop-base;early_dims+=(stop-base)*128;
               for(size_t i=base;i<stop;++i){if(ds[i-base]>threshold){++screen_rejected;continue;}size_t p=dense?i:positions[i];if(!q.fast[p])continue;
-                double d=l2p(matrix_base+p*128,128,qv);++distance_calls;early_dims+=128;batch[count++]={(long long)p,d,d};}
+                batch[count++]={(long long)p,0,0};}
+              for(size_t i=0;i<count;){
+                int n=has_avx512()&&count-i>=4?4:1;const float* ptrs[4];double distances[4];
+                for(int k=0;k<n;++k)ptrs[k]=matrix_base+(size_t)batch[i+k].id*128;
+                if(n==4)l2_avx512_many<4>(ptrs,qv.data(),128,distances);else distances[0]=l2p(ptrs[0],128,qv);
+                for(int k=0;k<n;++k)batch[i+k].d=batch[i+k].ord=distances[k];distance_calls+=n;early_dims+=128*n;i+=n;
+              }
             }else if(matrix_scan){
               double ds[256];scan_kernel(matrix_base+(dense?base:positions[base])*(size_t)dim,qv.data(),dim,stop-base,ds);
               for(size_t i=base;i<stop;++i){size_t p=dense?i:positions[i];if(q.fast[p])batch[count++]={(long long)p,ds[i-base],ds[i-base]};}
@@ -1515,7 +1518,7 @@ namespace lite {
         filtered_candidates=h.size();
       }
       phase=stamp();
-      if(metric&&li<t.size()&&oi+2<t.size()&&ask<h.size()&&(up(t[oi+2])=="L2_DISTANCE"||t[oi+2]==alias)&&!(oi+3<t.size()&&up(t[oi+3])=="DESC")){
+      if(metric&&li<t.size()&&oi+2<t.size()&&ask<h.size()&&(up(t[oi+2])=="L2_DISTANCE"||t[oi+2]==alias)&&!(oi+3<t.size()&&(t[oi+3].size()==4&&up(t[oi+3])=="DESC"))){
         auto cmp=[&](const H&a,const H&b){
           if(a.d!=b.d)return a.d<b.d;
           return a.id<b.id;
@@ -1524,7 +1527,7 @@ namespace lite {
         h.resize(ask);
       }
       if(oi<t.size()){
-        bool desc=oi+3<t.size()&&up(t[oi+3])=="DESC";
+        bool desc=oi+3<t.size()&&(t[oi+3].size()==4&&up(t[oi+3])=="DESC");
         std::stable_sort(h.begin(),h.end(),[&](const H&a,const H&b){
           int cmp=0;
           if(distance_order)cmp=(a.d>b.d)-(a.d<b.d);
