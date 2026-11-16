@@ -57,6 +57,9 @@ def main():
         run('kernel', docker+['--tmpfs', '/tmp', '--entrypoint', 'sh', tag, '-c',
             'g++ -O3 -DNDEBUG -std=c++17 /checks/competition_lite/bench/l2_kernel_check.cpp '
             '-o /data/kernel-check && /data/kernel-check'])
+        run('json_output', docker+['--tmpfs', '/tmp', '--entrypoint', 'sh', tag, '-c',
+            'g++ -O3 -DNDEBUG -std=c++17 /checks/competition_lite/bench/json_output_check.cpp '
+            '-o /data/json-output-check && /data/json-output-check'])
         run('commit_faults', docker+['--tmpfs', '/tmp', '--entrypoint', 'sh', tag, '-c',
             'g++ -O1 -std=c++17 /checks/competition_lite/bench/write_commit_check.cpp '
             '-Wl,--wrap=write -Wl,--wrap=fdatasync -o /data/commit-check && '

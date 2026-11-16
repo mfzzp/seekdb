@@ -214,7 +214,7 @@ namespace lite {
     }
     return r+"\"";
   }
-  static std::string dump(const J&x){
+  static std::string dump_legacy(const J&x){
     if(x.k==J::N)return"null";
     if(x.k==J::B)return x.b?"true":"false";
     if(x.k==J::I)return std::to_string(x.i);
@@ -227,7 +227,7 @@ namespace lite {
     if(x.k==J::S)return esc(x.s);
     if(x.k==J::A){
       std::string r="[";
-      for(size_t i=0;i<x.a.size();++i)r+=(i?",":"")+dump(x.a[i]);
+      for(size_t i=0;i<x.a.size();++i)r+=(i?",":"")+dump_legacy(x.a[i]);
       return r+"]";
     }
     std::string r="{";
@@ -235,9 +235,26 @@ namespace lite {
     for(auto&v:x.o){
       if(!f)r+=',';
       f=false;
-      r+=esc(v.first)+":"+dump(v.second);
+      r+=esc(v.first)+":"+dump_legacy(v.second);
     }
     return r+"}";
+  }
+  static void dump_into(const J&x,std::string&r){
+    if(x.k==J::N){r+="null";return;}if(x.k==J::B){r+=x.b?"true":"false";return;}
+    if(x.k==J::I){r+=std::to_string(x.i);return;}
+    if(x.k==J::D){
+      if(!std::isfinite(x.d))throw Err("invalid_value","nonfinite result");
+      char b[64];auto end=std::to_chars(b,b+sizeof(b),x.d,std::chars_format::general,17);
+      if(end.ec!=std::errc{})throw Err("invalid_value","number encoding");
+      r.append(b,end.ptr);if(std::find_if(b,end.ptr,[](char c){return c=='.'||c=='e'||c=='E';})==end.ptr)r+=".0";return;
+    }
+    if(x.k==J::S){r+=esc(x.s);return;}
+    if(x.k==J::A){r+='[';for(size_t i=0;i<x.a.size();++i){if(i)r+=',';dump_into(x.a[i],r);}r+=']';return;}
+    r+='{';bool first=true;for(auto&v:x.o){if(!first)r+=',';first=false;r+=esc(v.first);r+=':';dump_into(v.second,r);}r+='}';
+  }
+  static std::string dump(const J&x){
+    const char*e=std::getenv("LITE_JSON_FAST");if(e&&std::atoi(e)==0)return dump_legacy(x);
+    std::string r;r.reserve(1024);dump_into(x,r);return r;
   }
   static std::vector<std::string> tok(const std::string&s){
     std::vector<std::string>r;
@@ -1477,12 +1494,14 @@ namespace lite {
       size_t lim=h.size();
       if(li<t.size())lim=std::stoull(t[li+1]);
       J out=jo(),cols=ja(),rows=ja();
+      rows.a.reserve(std::min(lim,h.size()));
       for(auto&p:proj)cols.a.push_back(js(p));
       if(metric)cols.a.insert(cols.a.begin()+distance_projection,js(alias));
       for(size_t n=0;n<std::min(lim,h.size());++n){
         auto&hh=h[n];
         auto&row=q.r[hh.id];
         J a=ja();
+        a.a.reserve(proj.size()+size_t(metric));
         for(auto&p:proj){
           int c=ci(q,p);
           if(c==0)a.a.push_back(ji(hh.id));
@@ -1498,10 +1517,10 @@ namespace lite {
           }
         }
         if(metric)a.a.insert(a.a.begin()+distance_projection,jd(std::sqrt(hh.d)));
-        rows.a.push_back(a);
+        rows.a.push_back(std::move(a));
       }
-      out.o["columns"]=cols;
-      out.o["rows"]=rows;
+      out.o["columns"]=std::move(cols);
+      out.o["rows"]=std::move(rows);
       J mt=jo();
       mt.o["planner_path"]=js("exact_scan");
       if(ann_mode)mt.o["ann_fallback"]=jb(true);
@@ -1530,7 +1549,7 @@ namespace lite {
         times.o["vector_distance"]=jd(distance_ms);times.o["topk"]=jd(topk_ms);times.o["scan_total"]=jd(scan_ms);
         times.o["result"]=jd(elapsed(phase));times.o["select_total"]=jd(elapsed(query_start));mt.o["profile_ms"]=std::move(times);
       }
-      out.o["metrics"]=mt;
+      out.o["metrics"]=std::move(mt);
       return out;
     }
   };

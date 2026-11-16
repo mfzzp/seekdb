@@ -18,6 +18,8 @@ Hot single-equality Top-K queries can reuse sorted vector slots. `LITE_HOT_POSTI
 
 Vector literals use a checked double `from_chars` conversion before the existing float32 conversion. Leading plus and conversion errors retain the `strtod` fallback; dimensions, characters and finite-value checks remain. `LITE_FAST_PARSE=0` restores the prior conversion for comparisons. See [default-workload write and query results](docs/SMALL_PARSE_20261116.md).
 
+Responses append JSON into one reserved output buffer with 17-digit double conversion; hot query results move their arrays into the response. `LITE_JSON_FAST=0` restores the legacy encoder for comparisons. Random bitwise round trips, types, escaping and the actual Docker protocol/recovery gate pass. The single-round default workload query interval improves 5.36% against a freshly rerun de0eed2; see [query output measurements](docs/QUERY_OUTPUT_20261116.md).
+
 Filtered candidates that occupy a contiguous physical matrix interval can reuse the same batch scan at that interval's offset. This never expands the filtered candidate set. `LITE_CONTIGUOUS_SCAN=0` disables the experiment; `contiguous_candidates` and `matrix_scan_vectors` expose actual use in diagnostic runs.
 
 From a clean Git source tree:
