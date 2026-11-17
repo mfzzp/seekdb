@@ -10,37 +10,129 @@
     "workload": "10,000 rows, 128-dim vectors, 100 rows per committed batch, 1,000 exact Top-10 queries with half using scalar equality filters"
   },
   "user_prompts": [
-    {"id":"u-score-model","role":"user","content":"性能不是单纯比较查询速度；功能必须全部通过后，按端到端耗时 T、cgroup v2 io.stat 的物理 I/O B 和 memory.peak 的峰值内存 M 计算写入与查询的综合指标，查询占三分之二。Exact 结果、持久化和三轮中位数必须保持。"},
-    {"id":"u-server-scope","role":"user","content":"所有修改和测试必须在服务器 /mnt/HDD2/zzp/oceanbase-competition/seekdb 下完成，目标分支是 2026-competition-round2-lite2000；不要停在下载源码或状态汇报。"},
-    {"id":"u-priority","role":"user","content":"继续优化过滤查询的 gather 路径延迟和物理 I/O；保持 Exact 和持久化语义，完成正确性检查和三轮对比。"},
-    {"id":"u-compare","role":"user","content":"请测试 a6ff81a、ec0ddfe、bb0ac19 三份版本，并与 8afe25ae9a40ab4c60df2fed2415f80bb49b1e00 比较，确认哪个性能更好。"}
+    {
+      "id": "u-score-model",
+      "role": "user",
+      "content": "性能不是单纯比较查询速度；功能必须全部通过后，按端到端耗时 T、cgroup v2 io.stat 的物理 I/O B 和 memory.peak 的峰值内存 M 计算写入与查询的综合指标，查询占三分之二。Exact 结果、持久化和三轮中位数必须保持。"
+    },
+    {
+      "id": "u-server-scope",
+      "role": "user",
+      "content": "所有修改和测试必须在服务器 /mnt/HDD2/zzp/oceanbase-competition/seekdb 下完成，目标分支是 2026-competition-round2-lite2000；不要停在下载源码或状态汇报。"
+    },
+    {
+      "id": "u-priority",
+      "role": "user",
+      "content": "继续优化过滤查询的 gather 路径延迟和物理 I/O；保持 Exact 和持久化语义，完成正确性检查和三轮对比。"
+    },
+    {
+      "id": "u-compare",
+      "role": "user",
+      "content": "请测试 a6ff81a、ec0ddfe、bb0ac19 三份版本，并与 8afe25ae9a40ab4c60df2fed2415f80bb49b1e00 比较，确认哪个性能更好。"
+    }
   ],
   "conversations": [
-    {"id":"decision-1","role":"user","content":"我把查询 T 放在最高优先级，但不接受关闭 full-vector WAL、减少 fdatasync 或把 ANN 当作 exact；候选必须用独立 Exact oracle 验证。"},
-    {"id":"decision-2","role":"user","content":"过滤查询仍比基线慢约 6.5%，gather 直接处理过滤候选后仍是瓶颈；物理 I/O 没有下降，说明不能只看筛选代码。"},
-    {"id":"decision-3","role":"user","content":"如果综合收益有效才推送；若过滤查询变慢或 I/O 没有改善，就记录失败原因并继续排查，不拼接不同轮次的最好数据。"}
+    {
+      "id": "decision-1",
+      "role": "user",
+      "content": "我把查询 T 放在最高优先级，但不接受关闭 full-vector WAL、减少 fdatasync 或把 ANN 当作 exact；候选必须用独立 Exact oracle 验证。"
+    },
+    {
+      "id": "decision-2",
+      "role": "user",
+      "content": "过滤查询仍比基线慢约 6.5%，gather 直接处理过滤候选后仍是瓶颈；物理 I/O 没有下降，说明不能只看筛选代码。"
+    },
+    {
+      "id": "decision-3",
+      "role": "user",
+      "content": "如果综合收益有效才推送；若过滤查询变慢或 I/O 没有改善，就记录失败原因并继续排查，不拼接不同轮次的最好数据。"
+    }
   ],
   "experiments": [
-    {"id":"four-version-three-round","kind":"measured","source":"服务器 compare-three/paired-8afe 三轮交替运行，统一 10k/128d/100-batch/1000-query 输入","output":"三轮中位数：8afe25ae insert=1.990390713s, query=0.191903552s, filter=0.128018062ms, no-filter=0.168473756ms, query peak=21.71484375MiB；a6ff81a insert=2.159752766s, query=0.176523699s, filter=0.121443176ms, no-filter=0.148322786ms, query peak=20.2578125MiB；ec0ddfe insert=1.971145512s, query=0.189695630s, filter=0.124952430ms, no-filter=0.168001648ms, query peak=20.6640625MiB；bb0ac19 insert=1.906135033s, query=0.192068336s, filter=0.131033802ms, no-filter=0.168506119ms, query peak=21.98046875MiB。相对 8afe 的本地 E：0.500000、a6ff 0.507538、ec0 0.504004、bb 0.501495；a6ff 是四者中综合最高。物理 I/O 在四版间基本相同。"},
-    {"id":"correctness-gate","kind":"measured","source":"服务器 gate-gather / Exact oracle / restart checks","output":"功能门槛和 Docker gate 全部通过；Exact 查询在有过滤、无过滤、尾部批次、更新和回滚后保持结果正确；重启保留已提交数据并丢弃未提交变化。没有用 Recall 代替 Exact 正确性。"},
-    {"id":"packed-gather","kind":"measured","source":"competition_lite/src/minivectordb_lite.cpp 的 packed int8 screening 与 survivor gather 路径","output":"a6ff 通过复用 packed screening 数据并批量处理少量 survivor，查询中位数相对 8afe 从 0.191903552s 降到 0.176523699s；过滤平均延迟从 0.128018062ms 降到 0.121443176ms；峰值内存从 21.71484375MiB 降到 20.2578125MiB。最终距离仍使用 double，Top-K 和主键 tie-break 保持。"},
-    {"id":"continuous-decode-rejected","kind":"measured_rejected","source":"服务器三轮对照实验","output":"把向量解码改成连续临时缓冲后，三轮过滤查询和/或写入出现回退；在 Exact、重启和资源检查没有额外收益的情况下没有保留该改动。该实验是失败候选，不把计划或单轮最好值写成最终结果。"},
-    {"id":"io-investigation","kind":"measured","source":"服务器 strace -c、/usr/bin/time -v、HDD2/SSD1/dev-shm 交叉测量及 cgroup 资源记录","output":"写入瓶颈主要是 WAL 与向量文件的写放大和机械盘回写；fsync/fdatasync 调用次数约 126 次但系统调用耗时约 3.4ms，不能通过关闭持久化换取合法成绩。a6ff 与 8afe 的官方口径物理 I/O 没有可确认下降，因此没有宣称 B 改善。"}
+    {
+      "id": "four-version-three-round",
+      "kind": "measured",
+      "source": "服务器 compare-three/paired-8afe 三轮交替运行，统一 10k/128d/100-batch/1000-query 输入",
+      "output": "三轮中位数：8afe25ae insert=1.990390713s, query=0.191903552s, filter=0.128018062ms, no-filter=0.168473756ms, query peak=21.71484375MiB；a6ff81a insert=2.159752766s, query=0.176523699s, filter=0.121443176ms, no-filter=0.148322786ms, query peak=20.2578125MiB；ec0ddfe insert=1.971145512s, query=0.189695630s, filter=0.124952430ms, no-filter=0.168001648ms, query peak=20.6640625MiB；bb0ac19 insert=1.906135033s, query=0.192068336s, filter=0.131033802ms, no-filter=0.168506119ms, query peak=21.98046875MiB。相对 8afe 的本地 E：0.500000、a6ff 0.507538、ec0 0.504004、bb 0.501495；a6ff 是四者中综合最高。物理 I/O 在四版间基本相同。"
+    },
+    {
+      "id": "correctness-gate",
+      "kind": "measured",
+      "source": "服务器 gate-gather / Exact oracle / restart checks",
+      "output": "功能门槛和 Docker gate 全部通过；Exact 查询在有过滤、无过滤、尾部批次、更新和回滚后保持结果正确；重启保留已提交数据并丢弃未提交变化。没有用 Recall 代替 Exact 正确性。"
+    },
+    {
+      "id": "packed-gather",
+      "kind": "measured",
+      "source": "competition_lite/src/minivectordb_lite.cpp 的 packed int8 screening 与 survivor gather 路径",
+      "output": "a6ff 通过复用 packed screening 数据并批量处理少量 survivor，查询中位数相对 8afe 从 0.191903552s 降到 0.176523699s；过滤平均延迟从 0.128018062ms 降到 0.121443176ms；峰值内存从 21.71484375MiB 降到 20.2578125MiB。最终距离仍使用 double，Top-K 和主键 tie-break 保持。"
+    },
+    {
+      "id": "continuous-decode-rejected",
+      "kind": "measured_rejected",
+      "source": "服务器三轮对照实验",
+      "output": "把向量解码改成连续临时缓冲后，三轮过滤查询和/或写入出现回退；在 Exact、重启和资源检查没有额外收益的情况下没有保留该改动。该实验是失败候选，不把计划或单轮最好值写成最终结果。"
+    },
+    {
+      "id": "io-investigation",
+      "kind": "measured",
+      "source": "服务器 strace -c、/usr/bin/time -v、HDD2/SSD1/dev-shm 交叉测量及 cgroup 资源记录",
+      "output": "写入瓶颈主要是 WAL 与向量文件的写放大和机械盘回写；fsync/fdatasync 调用次数约 126 次但系统调用耗时约 3.4ms，不能通过关闭持久化换取合法成绩。a6ff 与 8afe 的官方口径物理 I/O 没有可确认下降，因此没有宣称 B 改善。"
+    },
+    {
+      "id": "avx2-screen-rejected",
+      "kind": "measured_rejected",
+      "source": "同一 Docker 编译环境，C++ AVX2 int8 screening，三轮 paired_compare",
+      "output": "Exact 与重启验证全部通过，但查询中位数 0.233816s，高于同环境基线 0.201167s；category 过滤均值 0.151792ms，高于基线 0.137819ms；峰值内存 22.061MiB，高于基线 20.758MiB。原因是 AVX2 int8 筛选的全表筛选成本超过了节省的精确距离计算。"
+    },
+    {
+      "id": "memtable-16m-rejected",
+      "kind": "measured_rejected",
+      "source": "同一 Docker 编译环境，LITE_MEMTABLE_BYTES=16777216，三轮 paired_compare",
+      "output": "Exact 与重启验证全部通过，但查询中位数 0.217949s，高于基线 0.193456s；category 过滤均值 0.150848ms，高于基线 0.133744ms；峰值内存 28.062MiB。没有形成 B/T/M 综合收益，因此没有改 C++ 默认容量。"
+    },
+    {
+      "id": "append-vec-direct-rejected",
+      "kind": "measured_rejected",
+      "source": "competition_lite/src/minivectordb_lite.cpp append_vec 的 C++ 临时字符串消除候选，三轮 paired_compare",
+      "output": "写入中位数 1.899735s，接近基线 1.915935s，但查询中位数 0.2206626s，高于基线 0.193456s。Exact、重启和资源检查通过，候选已撤回。"
+    },
+    {
+      "id": "hot-dense-filter-cache-rejected",
+      "kind": "measured_rejected",
+      "source": "C++ hot postings 紧凑过滤向量缓存候选，三轮 paired_compare",
+      "output": "Exact 与重启验证全部通过，但查询中位数 0.210119s，高于基线 0.193456s；category 过滤均值 0.143951ms，高于基线 0.133744ms。缓存复制成本抵消了连续扫描收益，候选已撤回。"
+    }
   ],
   "student_understanding": [
-    {"id":"understanding-metric-boundary","evidence":"用户明确要求区分驱动构造、stdin、引擎解析、SELECT、响应编码和读取解码，并要求只有在官方 T 边界内才优化对应路径。","conclusion":"学生理解端到端计时边界，未把单请求微基准当作官方 T。"},
-    {"id":"understanding-correctness-tradeoff","evidence":"用户要求最终距离为 double、Exact oracle、Top-K tie-break、更新回滚和强杀恢复均复验，并拒绝 ANN 冒充 exact。","conclusion":"学生把正确性、事务和持久化视为不可牺牲约束。"},
-    {"id":"understanding-resource-metric","evidence":"用户指出物理 I/O 必须看 cgroup v2 io.stat，峰值内存必须看 memory.peak，不能用文件大小或单进程 RSS 代替。","conclusion":"学生能区分代码局部开销和平台资源统计口径。"}
+    {
+      "id": "understanding-metric-boundary",
+      "evidence": "用户明确要求区分驱动构造、stdin、引擎解析、SELECT、响应编码和读取解码，并要求只有在官方 T 边界内才优化对应路径。",
+      "conclusion": "学生理解端到端计时边界，未把单请求微基准当作官方 T。"
+    },
+    {
+      "id": "understanding-correctness-tradeoff",
+      "evidence": "用户要求最终距离为 double、Exact oracle、Top-K tie-break、更新回滚和强杀恢复均复验，并拒绝 ANN 冒充 exact。",
+      "conclusion": "学生把正确性、事务和持久化视为不可牺牲约束。"
+    },
+    {
+      "id": "understanding-resource-metric",
+      "evidence": "用户指出物理 I/O 必须看 cgroup v2 io.stat，峰值内存必须看 memory.peak，不能用文件大小或单进程 RSS 代替。",
+      "conclusion": "学生能区分代码局部开销和平台资源统计口径。"
+    }
   ],
   "retrospective": {
-    "what_worked":"packed screening 与小批 survivor gather 同时降低了查询 T 和查询阶段峰值内存，且 Exact 与持久化语义未变；a6ff 在四版本三轮本地对照中综合最好。",
-    "what_did_not_work":"gather 本身不能降低平台统计的物理 I/O；连续临时 decode、关闭持久化、降低同步强度和 ANN/几何剪枝都没有形成可接受的综合收益，因此被拒绝。",
-    "next_plan":"若继续改动，先修正提交入口为 agent/conversation.json 并用同一版本重新做 gate 和三轮测量；代码侧优先做过滤值到 RowId 的低内存倒排/位图试验，必须同时记录 T/B/M 和 Exact oracle，未验证前不替换 a6ff。"
+    "what_worked": "packed screening 与小批 survivor gather 同时降低了查询 T 和查询阶段峰值内存，且 Exact 与持久化语义未变；a6ff 在四版本三轮本地对照中综合最好。",
+    "what_did_not_work": "gather 本身不能降低平台统计的物理 I/O；连续临时 decode、关闭持久化、降低同步强度和 ANN/几何剪枝都没有形成可接受的综合收益，因此被拒绝。 新增的 AVX2 screening、16 MiB MemTable、append_vec 临时字符串消除和 hot postings 紧凑缓存均在同一 Docker 三轮对照中回退，未进入运行时代码。",
+    "next_plan": "若继续改动，先修正提交入口为 agent/conversation.json 并用同一版本重新做 gate 和三轮测量；代码侧优先做过滤值到 RowId 的低内存倒排/位图试验，必须同时记录 T/B/M 和 Exact oracle，未验证前不替换 a6ff。"
   },
   "limitations": [
     "以上是本地服务器和同一输入上的可复现实验，不是官方隐藏基线或最终排名；官方基线数值未公开。",
     "四版本对照显示物理 I/O 基本不变，因此不能把 a6ff 的性能提升解释为 B 指标改善。",
     "本材料只陈述已执行的实验；未执行的倒排/位图方案明确标为 next_plan，不作为结果。"
   ],
-  "secrets_check": {"credentials_in_prompt":false,"tokens_in_prompt":false}
+  "secrets_check": {
+    "credentials_in_prompt": false,
+    "tokens_in_prompt": false
+  }
 }
