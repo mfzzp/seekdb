@@ -1,5 +1,4 @@
 #pragma once
-
 // Included inside namespace lite. SSTs and the manifest, rather than a second
 // snapshot of the row cache, are authoritative. All publication is single writer.
 namespace lsm {

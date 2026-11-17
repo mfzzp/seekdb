@@ -640,12 +640,13 @@ namespace lite {
       c=scan("V","W");while(c->valid){lsm::Decode d{c->row.value};std::string table=d.str();int col=(int)d.u32();d.end();if(!tabs.count(table)||col<=0||col>=(int)tabs.at(table).c.size())throw Err("corruption","vector index catalog");index_cols[table]=col;c->next();}
       SRec r;ordinal=0;if(get("O",r)){lsm::Decode d{r.value};ordinal=d.u64();d.end();}
     }
+    static bool persist_scalar(const Col&c){return c.t!="VECTOR"&&(c.t!="VARCHAR"||c.d<=128);}
     static std::string index_prefix(const Table&q,int c){return "I"+lsm::part(q.n)+lsm::number((uint64_t)c);}
     static std::string scalar_key(const Col&c,const std::string&v){return c.t=="BIGINT"?lsm::number(uint64_t(std::stoll(unq(v)))^(1ull<<63)):lsm::part(unq(v));}
     static std::string secondary(const Table&q,const Row&r,int c){return index_prefix(q,c)+scalar_key(q.c[c],r.v.at(c-1))+lsm::number(uint64_t(r.id)^(1ull<<63));}
     void row_put(Table&q,const Row*r,const Row*before){
-      if(before){for(size_t c=1;c<q.c.size();++c)if(q.c[c].t!="VECTOR"&&(!r||r->v[c-1]!=before->v[c-1]))statement->put(secondary(q,*before,(int)c),{},true);q.row_bytes-=row_payload(q,*before).size();}
-      if(r){for(size_t c=1;c<q.c.size();++c)if(q.c[c].t!="VECTOR"&&(!before||r->v[c-1]!=before->v[c-1]))statement->put(secondary(q,*r,(int)c),{});std::string s=row_payload(q,*r);q.row_bytes+=s.size();statement->put(skey(q,r->id),std::move(s));}
+      if(before){for(size_t c=1;c<q.c.size();++c)if(persist_scalar(q.c[c])&&(!r||r->v[c-1]!=before->v[c-1]))statement->put(secondary(q,*before,(int)c),{},true);q.row_bytes-=row_payload(q,*before).size();}
+      if(r){for(size_t c=1;c<q.c.size();++c)if(persist_scalar(q.c[c])&&(!before||r->v[c-1]!=before->v[c-1]))statement->put(secondary(q,*r,(int)c),{});std::string s=row_payload(q,*r);q.row_bytes+=s.size();statement->put(skey(q,r->id),std::move(s));}
       else statement->put(skey(q,before->id),{},true);
       if(!before)++q.count;if(!r)--q.count;
     }
@@ -977,7 +978,7 @@ namespace lite {
     void scalar_add(Table&q,long long id){
       auto&row=q.r[id];
       sindex[q.n+"."+q.c[0].n][std::to_string(id)].push_back(id);nindex[q.n+"."+q.c[0].n][id].push_back(id);
-      for(size_t c=1;c<q.c.size();++c)if(q.c[c].t!="VECTOR"){
+      for(size_t c=1;c<q.c.size();++c)if(persist_scalar(q.c[c])){
         std::string k=q.n+"."+q.c[c].n,v=unq(row.v[c-1]);
         sindex[k][v].push_back(id);
         if(q.c[c].t=="BIGINT")nindex[k][std::stoll(v)].push_back(id);
@@ -987,7 +988,7 @@ namespace lite {
       if(!q.r.count(id))return;
       auto&row=q.r[id];
       auto&iv=sindex[q.n+"."+q.c[0].n][std::to_string(id)];iv.erase(std::remove(iv.begin(),iv.end(),id),iv.end());auto&iw=nindex[q.n+"."+q.c[0].n][id];iw.erase(std::remove(iw.begin(),iw.end(),id),iw.end());
-      for(size_t c=1;c<q.c.size();++c)if(q.c[c].t!="VECTOR"){
+      for(size_t c=1;c<q.c.size();++c)if(persist_scalar(q.c[c])){
         std::string k=q.n+"."+q.c[c].n,v0=unq(row.v[c-1]);
         auto&v=sindex[k][v0];
         v.erase(std::remove(v.begin(),v.end(),id),v.end());
@@ -1118,7 +1119,7 @@ namespace lite {
       // Primary equality needs no range iterator or row-cache materialization.
       for(auto&c:cs)if(c.col==0&&c.op=="="){Row r;if(row_get(q,integer(c.val),r)&&match(q,r,cs))fn(r);return;}
       std::string lo=prefix(q),hi=lsm::upper(lo);int secondary_col=-1;const char*mode=getenv("LITE_LSM_READ");bool sequential=mode&&std::string(mode)=="scan";
-      for(auto&c:cs)if(!sequential&&c.col>0&&q.c[c.col].t!="VECTOR"&&c.op=="="){lo=index_prefix(q,c.col)+scalar_key(q.c[c.col],c.val);hi=lsm::upper(lo);secondary_col=c.col;break;}
+      for(auto&c:cs)if(!sequential&&c.col>0&&persist_scalar(q.c[c.col])&&c.op=="="){lo=index_prefix(q,c.col)+scalar_key(q.c[c.col],c.val);hi=lsm::upper(lo);secondary_col=c.col;break;}
       if(secondary_col<0)for(auto&c:cs)if(c.col==0&&c.op!="!="){auto k=skey(q,integer(c.val));if(c.op==">=")lo=std::max(lo,k);else if(c.op==">")lo=std::max(lo,lsm::upper(k));else if(c.op=="<")hi=std::min(hi,k);else if(c.op=="<=")hi=std::min(hi,lsm::upper(k));}
       if(!hi.empty()&&lo>=hi)return;auto c=scan(lo,hi);while(c->valid){
         if(secondary_col<0){auto r=decode_row(q,c->row.value);if(match(q,r,cs))fn(r);c->next();continue;}
@@ -1139,7 +1140,7 @@ namespace lite {
       // is durable. Interrupted imports have only unreachable generation files.
       recovering=true;uint64_t legacy_tx=0;off_t boundary=0;
       auto put=[&](std::string key,std::string value){SRec r{std::move(key),std::move(value),store->seq+1,false};store->apply(r);};
-      auto import_row=[&](Table&q,Row&r){r.ordinal=++ordinal;std::string s=row_payload(q,r);q.row_bytes+=s.size();++q.count;put(skey(q,r.id),std::move(s));for(size_t c=1;c<q.c.size();++c)if(q.c[c].t!="VECTOR")put(secondary(q,r,(int)c),{});};
+      auto import_row=[&](Table&q,Row&r){r.ordinal=++ordinal;std::string s=row_payload(q,r);q.row_bytes+=s.size();++q.count;put(skey(q,r.id),std::move(s));for(size_t c=1;c<q.c.size();++c)if(persist_scalar(q.c[c]))put(secondary(q,r,(int)c),{});};
       std::ifstream f(dir+"/STATE",std::ios::binary);uint32_t magic=0;
       if(f.read((char*)&magic,4)&&magic==0x4c535432u){uint32_t ver=0,nt=0;int64_t end=0;
         if(!rd(f,ver)||(ver!=2&&ver!=3)||!rd(f,legacy_tx))throw Err("corruption","legacy state header");
@@ -1181,7 +1182,7 @@ namespace lite {
     J cold_select(Table&q,const std::vector<Cond>&cs,const std::vector<std::string>&proj,bool metric,int mc,const std::vector<float>&qv,size_t dp,const std::string&alias,bool ordered,bool distance_order,int oc,bool desc,uint64_t limit,bool profile){
       using Clock=std::chrono::steady_clock;auto start=profile?Clock::now():Clock::time_point{};store->read_cache->begin_trace(profile);auto read_start=*store->read_cache->stats;
       uint64_t maps_start=map_calls;uint64_t decoded_start=row_decodes;const Cond* equality=nullptr;bool eligible=metric&&distance_order&&limit;const char*read_mode=getenv("LITE_LSM_READ");if(read_mode&&std::string(read_mode)!="auto")eligible=false;std::vector<std::pair<const Cond*,long long>> primary;
-      for(auto&c:cs){if(!c.col)primary.push_back({&c,integer(c.val)});else if(c.op=="="&&q.c[c.col].t!="VECTOR"&&(!equality||(equality->col==c.col&&scalar_key(q.c[c.col],equality->val)==scalar_key(q.c[c.col],c.val))))equality=&c;else eligible=false;}
+      for(auto&c:cs){if(!c.col)primary.push_back({&c,integer(c.val)});else if(c.op=="="&&persist_scalar(q.c[c.col])&&(!equality||(equality->col==c.col&&scalar_key(q.c[c.col],equality->val)==scalar_key(q.c[c.col],c.val))))equality=&c;else eligible=false;}
       QueryView* view=eligible?query_view(q,mc):nullptr;
       auto matches_id=[&](long long id){for(auto&x:primary){auto&op=x.first->op;auto n=x.second;if((op=="="&&id!=n)||(op=="!="&&id==n)||(op=="<"&&id>=n)||(op=="<="&&id>n)||(op==">"&&id<=n)||(op==">="&&id<n))return false;}return true;};
       struct Hit {Row row;double d=0;size_t bytes=0;};

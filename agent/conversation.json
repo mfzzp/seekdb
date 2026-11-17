@@ -1,51 +1,66 @@
 {
   "schema": "agent-learning-evidence-v3-unbounded",
   "synthetic": false,
-  "scope": "本文件是 a6ff81af4d258da4221b4723f7e0493a250daf96 版本的脱敏真实学习记录摘要。只保留本次 competition_lite 优化中可核对的用户决策、实验输出和复盘；不包含密钥、令牌或隐藏思维链。",
+  "scope": "competition_lite 的脱敏开发记录，含 a6ff 的历史对照和本次 C++ 存储变更的本地验证。历史提示词中有摘要转述，摘要不作为逐字引语。",
   "submission": {
     "branch": "2026-competition-round2-lite2000",
-    "commit": "d532ae622b1fa00e4ebe7489db0d3cc309bdc0ed",
     "runtime_parent": "a6ff81af4d258da4221b4723f7e0493a250daf96",
     "work_directory": "/mnt/HDD2/zzp/oceanbase-competition/seekdb",
-    "workload": "10,000 rows, 128-dim vectors, 100 rows per committed batch, 1,000 exact Top-10 queries with half using scalar equality filters"
+    "workload": "10,000 rows, 128-dim vectors, 100 rows per committed batch, 1,000 exact Top-10 queries with half using scalar equality filters",
+    "baseline_commit": "3cce8a7bf5b8e957b4cf07c2e241f6a6db3baf3e",
+    "runtime_source_sha256": "076c8b6483bcfebe1cbb22d52456c13b8e5df22ceb5d1229ac40f077333376bf",
+    "storage_header_sha256": "4a4b71f8917caf17b3186796bae38227389f9f9e7ee113aa450b250c9bd6a356"
   },
   "user_prompts": [
     {
       "id": "u-score-model",
       "role": "user",
-      "content": "性能不是单纯比较查询速度；功能必须全部通过后，按端到端耗时 T、cgroup v2 io.stat 的物理 I/O B 和 memory.peak 的峰值内存 M 计算写入与查询的综合指标，查询占三分之二。Exact 结果、持久化和三轮中位数必须保持。"
+      "content": "性能不是单纯比较查询速度；功能必须全部通过后，按端到端耗时 T、cgroup v2 io.stat 的物理 I/O B 和 memory.peak 的峰值内存 M 计算写入与查询的综合指标，查询占三分之二。Exact 结果、持久化和三轮中位数必须保持。",
+      "verbatim": false
     },
     {
       "id": "u-server-scope",
       "role": "user",
-      "content": "所有修改和测试必须在服务器 /mnt/HDD2/zzp/oceanbase-competition/seekdb 下完成，目标分支是 2026-competition-round2-lite2000；不要停在下载源码或状态汇报。"
+      "content": "所有修改和测试必须在服务器 /mnt/HDD2/zzp/oceanbase-competition/seekdb 下完成，目标分支是 2026-competition-round2-lite2000；不要停在下载源码或状态汇报。",
+      "verbatim": false
     },
     {
       "id": "u-priority",
       "role": "user",
-      "content": "继续优化过滤查询的 gather 路径延迟和物理 I/O；保持 Exact 和持久化语义，完成正确性检查和三轮对比。"
+      "content": "继续优化过滤查询的 gather 路径延迟和物理 I/O；保持 Exact 和持久化语义，完成正确性检查和三轮对比。",
+      "verbatim": false
     },
     {
       "id": "u-compare",
       "role": "user",
-      "content": "请测试 a6ff81a、ec0ddfe、bb0ac19 三份版本，并与 8afe25ae9a40ab4c60df2fed2415f80bb49b1e00 比较，确认哪个性能更好。"
+      "content": "请测试 a6ff81a、ec0ddfe、bb0ac19 三份版本，并与 8afe25ae9a40ab4c60df2fed2415f80bb49b1e00 比较，确认哪个性能更好。",
+      "verbatim": false
+    },
+    {
+      "id": "user-cpp-and-prompt",
+      "role": "user",
+      "verbatim": true,
+      "content": "性能原始分还需要约 52% 提升给我继续提升性能分数，并且是所有代码实现是c++，prompt也同步更新最终交给我合并的commit"
     }
   ],
   "conversations": [
     {
       "id": "decision-1",
       "role": "user",
-      "content": "我把查询 T 放在最高优先级，但不接受关闭 full-vector WAL、减少 fdatasync 或把 ANN 当作 exact；候选必须用独立 Exact oracle 验证。"
+      "content": "我把查询 T 放在最高优先级，但不接受关闭 full-vector WAL、减少 fdatasync 或把 ANN 当作 exact；候选必须用独立 Exact oracle 验证。",
+      "verbatim": false
     },
     {
       "id": "decision-2",
       "role": "user",
-      "content": "过滤查询仍比基线慢约 6.5%，gather 直接处理过滤候选后仍是瓶颈；物理 I/O 没有下降，说明不能只看筛选代码。"
+      "content": "过滤查询仍比基线慢约 6.5%，gather 直接处理过滤候选后仍是瓶颈；物理 I/O 没有下降，说明不能只看筛选代码。",
+      "verbatim": false
     },
     {
       "id": "decision-3",
       "role": "user",
-      "content": "如果综合收益有效才推送；若过滤查询变慢或 I/O 没有改善，就记录失败原因并继续排查，不拼接不同轮次的最好数据。"
+      "content": "如果综合收益有效才推送；若过滤查询变慢或 I/O 没有改善，就记录失败原因并继续排查，不拼接不同轮次的最好数据。",
+      "verbatim": false
     }
   ],
   "experiments": [
@@ -102,6 +117,171 @@
       "kind": "measured_rejected",
       "source": "C++ hot postings 紧凑过滤向量缓存候选，三轮 paired_compare",
       "output": "Exact 与重启验证全部通过，但查询中位数 0.210119s，高于基线 0.193456s；category 过滤均值 0.143951ms，高于基线 0.133744ms。缓存复制成本抵消了连续扫描收益，候选已撤回。"
+    },
+    {
+      "id": "wide-text-scalar-index",
+      "kind": "measured_retained",
+      "source": "Codex ran the C++17 engine in Docker on HDD2. Baseline and candidate alternated on identical prepared 10k/128D inputs. Every run used a fresh data directory.",
+      "output": "VARCHAR with declared length above 128 uses authoritative row values and builds exact hot postings on demand where eligible. This avoids duplicate keys in WAL/SST and the eager in-memory scalar indexes. All six runs passed independent exact checks and restart verification of 10000 rows. Local median E is 0.515582 vs 0.500000. Write T 1.997750 to 1.786345 s, query T 0.182104 to 0.187299 s. Write B fell from median 14528512 to 12136448 bytes, query B from 14606336 to 13623296 bytes. Write M 19488768 to 14671872 bytes, query M 21561344 to 22794240 bytes.",
+      "rounds": [
+        {
+          "baseline": {
+            "write": {
+              "T": 1.9977496780047659,
+              "B": 14532608,
+              "M": 19488768
+            },
+            "query": {
+              "T": 0.18083298999408726,
+              "B": 14610432,
+              "M": 21561344
+            }
+          },
+          "candidate": {
+            "write": {
+              "T": 1.5748421079915715,
+              "B": 12136448,
+              "M": 13824000
+            },
+            "query": {
+              "T": 0.18492530399817042,
+              "B": 13623296,
+              "M": 21950464
+            }
+          },
+          "phases": {
+            "write": {
+              "f_ratios": {
+                "T": 0.5591546665090484,
+                "B": 0.541648868005126,
+                "M": 0.5799884326200115
+              },
+              "E": 0.5598202600304566
+            },
+            "query": {
+              "f_ratios": {
+                "T": 0.49443613635513367,
+                "B": 0.5162727886563133,
+                "M": 0.4957341715312079
+              },
+              "E": 0.49906307385058446
+            }
+          },
+          "E_local": 0.5193154692438752
+        },
+        {
+          "baseline": {
+            "write": {
+              "T": 1.8127317290054634,
+              "B": 14528512,
+              "M": 19435520
+            },
+            "query": {
+              "T": 0.18210448799072765,
+              "B": 14606336,
+              "M": 21508096
+            }
+          },
+          "candidate": {
+            "write": {
+              "T": 1.8649372629879508,
+              "B": 12136448,
+              "M": 14671872
+            },
+            "query": {
+              "T": 0.22335553700395394,
+              "B": 13623296,
+              "M": 22794240
+            }
+          },
+          "phases": {
+            "write": {
+              "f_ratios": {
+                "T": 0.4929062187256406,
+                "B": 0.5415835944175449,
+                "M": 0.565787985066184
+              },
+              "E": 0.5172180471321302
+            },
+            "query": {
+              "f_ratios": {
+                "T": 0.4493802502297437,
+                "B": 0.5162074554294975,
+                "M": 0.4861405367231638
+              },
+              "E": 0.4700977485683785
+            }
+          },
+          "E_local": 0.4858045147562957
+        },
+        {
+          "baseline": {
+            "write": {
+              "T": 2.0707537200069055,
+              "B": 14528512,
+              "M": 20062208
+            },
+            "query": {
+              "T": 0.19124426601047162,
+              "B": 14606336,
+              "M": 21831680
+            }
+          },
+          "candidate": {
+            "write": {
+              "T": 1.7863450849981746,
+              "B": 12136448,
+              "M": 15642624
+            },
+            "query": {
+              "T": 0.18729874800192192,
+              "B": 13623296,
+              "M": 23756800
+            }
+          },
+          "phases": {
+            "write": {
+              "f_ratios": {
+                "T": 0.5368490999297382,
+                "B": 0.5415835944175449,
+                "M": 0.5584570375988731
+              },
+              "E": 0.5421175863611265
+            },
+            "query": {
+              "f_ratios": {
+                "T": 0.5051840631193681,
+                "B": 0.5162074554294975,
+                "M": 0.47981446486857926
+              },
+              "E": 0.5023148219312362
+            }
+          },
+          "E_local": 0.515582410074533
+        }
+      ],
+      "baseline_binary_sha256": "297ff6a58e1a764fc910b440e3cd0563445e08e2c95bb585058811033fac0298",
+      "candidate_binary_sha256": "4c4dc6cfc3596cb681b374c6d3f2746cc66e1a0481ea0f5196c49b9058471cac",
+      "insert_sha256": "cbed135375c7deea4b8342e0b0e2deed667e5694c9212054e0bf9b0c1fd0771d",
+      "query_cases_sha256": "c8ecc80cf5baca8a83204a54ad07cf8737c46e56b1175e216aea0f8469afc504"
+    },
+    {
+      "id": "wide-text-persist-only",
+      "kind": "measured_retired",
+      "source": "HDD2 first candidate kept the eager memory index for wide VARCHAR",
+      "output": "Three paired E values: 0.503827, 0.505573, 0.502526. Query peak median 24469504 bytes versus 21749760 bytes. Full Docker gate passed. Removing the eager in-memory index was the next experiment."
+    },
+    {
+      "id": "wide-text-memtable-3m",
+      "kind": "measured_rejected",
+      "source": "HDD2 three alternating rounds, first candidate with LITE_MEMTABLE_BYTES=3145728",
+      "output": "Median local E 0.489968. Every run passed Exact and restart. Retained the 4 MiB default."
+    },
+    {
+      "id": "wide-text-correctness",
+      "kind": "measured",
+      "source": "Final sources, repository Docker gate and additional local C++ checks",
+      "output": "22/22 gate checks passed, including LSM model, corruption, commit faults and WAL vectors. In both hot and forced cold runs the baseline wrote the original database, the new build queried and changed it, and restart returned the expected rows and tie order. The C++ query view check also passed 224 compact/stream comparisons."
     }
   ],
   "student_understanding": [
@@ -124,12 +304,15 @@
   "retrospective": {
     "what_worked": "packed screening 与小批 survivor gather 同时降低了查询 T 和查询阶段峰值内存，且 Exact 与持久化语义未变；a6ff 在四版本三轮本地对照中综合最好。",
     "what_did_not_work": "gather 本身不能降低平台统计的物理 I/O；连续临时 decode、关闭持久化、降低同步强度和 ANN/几何剪枝都没有形成可接受的综合收益，因此被拒绝。 新增的 AVX2 screening、16 MiB MemTable、append_vec 临时字符串消除和 hot postings 紧凑缓存均在同一 Docker 三轮对照中回退，未进入运行时代码。",
-    "next_plan": "若继续改动，先修正提交入口为 agent/conversation.json 并用同一版本重新做 gate 和三轮测量；代码侧优先做过滤值到 RowId 的低内存倒排/位图试验，必须同时记录 T/B/M 和 Exact oracle，未验证前不替换 a6ff。"
+    "next_plan": "若继续改动，先修正提交入口为 agent/conversation.json 并用同一版本重新做 gate 和三轮测量；代码侧优先做过滤值到 RowId 的低内存倒排/位图试验，必须同时记录 T/B/M 和 Exact oracle，未验证前不替换 a6ff。",
+    "latest": "Codex retained the schema-based C++ index policy after the 22 gate checks, cold and hot upgrade checks, and six alternating runs. Both stages use less physical I/O. Query latency and container peak memory rose in the three-round comparison, and one round fell below the local baseline. A changing row-count threshold could make a partially maintained index appear complete again after deletes, so index eligibility uses the declared schema."
   },
   "limitations": [
     "以上是本地服务器和同一输入上的可复现实验，不是官方隐藏基线或最终排名；官方基线数值未公开。",
     "四版本对照显示物理 I/O 基本不变，因此不能把 a6ff 的性能提升解释为 B 指标改善。",
-    "本材料只陈述已执行的实验；未执行的倒排/位图方案明确标为 next_plan，不作为结果。"
+    "本材料只陈述已执行的实验；未执行的倒排/位图方案明确标为 next_plan，不作为结果。",
+    "本次对照使用同样的 Docker 资源、输入及独立 Exact 参考答案，每轮重新建库，交替运行。T 为本地测量，B 使用数据设备 io.stat，M 使用容器 memory.peak；与正式平台原始分没有已知换算关系。",
+    "长字符串列索引变更支持读取旧数据。已经由新版本修改的数据目录不能直接交给依赖旧索引的旧版本读取。"
   ],
   "secrets_check": {
     "credentials_in_prompt": false,
