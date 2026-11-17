@@ -640,13 +640,12 @@ namespace lite {
       c=scan("V","W");while(c->valid){lsm::Decode d{c->row.value};std::string table=d.str();int col=(int)d.u32();d.end();if(!tabs.count(table)||col<=0||col>=(int)tabs.at(table).c.size())throw Err("corruption","vector index catalog");index_cols[table]=col;c->next();}
       SRec r;ordinal=0;if(get("O",r)){lsm::Decode d{r.value};ordinal=d.u64();d.end();}
     }
-    static bool persist_scalar(const Col&c){return c.t!="VECTOR"&&(c.t!="VARCHAR"||c.d<=128);}
-    static std::string index_prefix(const Table&q,int c){return "I"+lsm::part(q.n)+lsm::number((uint64_t)c);}
+    static bool eager_scalar_index(const Col&c){return c.t!="VECTOR"&&(c.t!="VARCHAR"||c.d<=128);}
     static std::string scalar_key(const Col&c,const std::string&v){return c.t=="BIGINT"?lsm::number(uint64_t(std::stoll(unq(v)))^(1ull<<63)):lsm::part(unq(v));}
-    static std::string secondary(const Table&q,const Row&r,int c){return index_prefix(q,c)+scalar_key(q.c[c],r.v.at(c-1))+lsm::number(uint64_t(r.id)^(1ull<<63));}
+    // Scalar postings are derived from visible row records, including transaction overlays.
     void row_put(Table&q,const Row*r,const Row*before){
-      if(before){for(size_t c=1;c<q.c.size();++c)if(persist_scalar(q.c[c])&&(!r||r->v[c-1]!=before->v[c-1]))statement->put(secondary(q,*before,(int)c),{},true);q.row_bytes-=row_payload(q,*before).size();}
-      if(r){for(size_t c=1;c<q.c.size();++c)if(persist_scalar(q.c[c])&&(!before||r->v[c-1]!=before->v[c-1]))statement->put(secondary(q,*r,(int)c),{});std::string s=row_payload(q,*r);q.row_bytes+=s.size();statement->put(skey(q,r->id),std::move(s));}
+      if(before)q.row_bytes-=row_payload(q,*before).size();
+      if(r){std::string s=row_payload(q,*r);q.row_bytes+=s.size();statement->put(skey(q,r->id),std::move(s));}
       else statement->put(skey(q,before->id),{},true);
       if(!before)++q.count;if(!r)--q.count;
     }
@@ -667,10 +666,13 @@ namespace lite {
     }
     const std::vector<uint32_t>* query_postings(Table&q,QueryView&v,int col,const std::string&key){
       if(v.rejected_col==col||v.rows.size()>UINT32_MAX)return nullptr;if(v.post_col!=col){v.rejected_col=col;const char*e=getenv("LITE_QUERY_VIEW_MB");size_t cap=(e?size_t(std::max(0,std::atoi(e))):8)<<20;size_t held=query_view_bytes();if(held>=cap)return nullptr;size_t available=cap-held,bytes=0;std::map<std::string,std::vector<uint32_t>> posts;
-        auto p=index_prefix(q,col);auto c=scan(p,lsm::upper(p));while(c->valid){const auto&k=c->row.key;if(k.size()<p.size()+8)throw Err("corruption","query posting key");std::string value=k.substr(p.size(),k.size()-p.size()-8);auto it=posts.find(value);
+        auto p=prefix(q);auto c=scan(p,lsm::upper(p));size_t row=0;while(c->valid){lsm::Decode d{c->row.value};
+          if(row>=v.rows.size()||(long long)d.u64()!=v.rows[row].id)throw Err("corruption","query posting row");d.u64();
+          for(int i=1;i<col;++i){size_t n=d.u32();d.need(n+8);d.p+=n+8;}std::string value=scalar_key(q.c[col],d.str());auto it=posts.find(value);
           if(it==posts.end()){size_t n=std::max<size_t>(15,value.capacity())+sizeof(decltype(posts)::value_type)+128;if(n>available-bytes)return nullptr;bytes+=n;it=posts.emplace(std::move(value),std::vector<uint32_t>{}).first;}
           auto&list=it->second;if(list.size()==list.capacity()){size_t next=std::max<size_t>(4,list.capacity()*2),n=(next-list.capacity())*sizeof(uint32_t);if(n>available-bytes)return nullptr;bytes+=n;list.reserve(next);}
-          long long id=(long long)(lsm::number_value(k,k.size()-8)^(1ull<<63));auto row=std::lower_bound(v.rows.begin(),v.rows.end(),id,[](const VectorRef&r,long long x){return r.id<x;});if(row==v.rows.end()||row->id!=id)throw Err("corruption","query posting row");list.push_back((uint32_t)(row-v.rows.begin()));c->next();}
+          list.push_back((uint32_t)row++);c->next();}
+        if(row!=v.rows.size())throw Err("corruption","query posting count");
         v.posts=std::move(posts);v.post_bytes=bytes;v.post_col=col;v.rejected_col=-1;
       }static const std::vector<uint32_t> empty;auto it=v.posts.find(key);return it==v.posts.end()?&empty:&it->second;
     }
@@ -978,7 +980,7 @@ namespace lite {
     void scalar_add(Table&q,long long id){
       auto&row=q.r[id];
       sindex[q.n+"."+q.c[0].n][std::to_string(id)].push_back(id);nindex[q.n+"."+q.c[0].n][id].push_back(id);
-      for(size_t c=1;c<q.c.size();++c)if(persist_scalar(q.c[c])){
+      for(size_t c=1;c<q.c.size();++c)if(eager_scalar_index(q.c[c])){
         std::string k=q.n+"."+q.c[c].n,v=unq(row.v[c-1]);
         sindex[k][v].push_back(id);
         if(q.c[c].t=="BIGINT")nindex[k][std::stoll(v)].push_back(id);
@@ -988,7 +990,7 @@ namespace lite {
       if(!q.r.count(id))return;
       auto&row=q.r[id];
       auto&iv=sindex[q.n+"."+q.c[0].n][std::to_string(id)];iv.erase(std::remove(iv.begin(),iv.end(),id),iv.end());auto&iw=nindex[q.n+"."+q.c[0].n][id];iw.erase(std::remove(iw.begin(),iw.end(),id),iw.end());
-      for(size_t c=1;c<q.c.size();++c)if(persist_scalar(q.c[c])){
+      for(size_t c=1;c<q.c.size();++c)if(eager_scalar_index(q.c[c])){
         std::string k=q.n+"."+q.c[c].n,v0=unq(row.v[c-1]);
         auto&v=sindex[k][v0];
         v.erase(std::remove(v.begin(),v.end(),id),v.end());
@@ -1118,14 +1120,9 @@ namespace lite {
     template<class Fn> void each_row(const Table&q,const std::vector<Cond>&cs,Fn fn)const{
       // Primary equality needs no range iterator or row-cache materialization.
       for(auto&c:cs)if(c.col==0&&c.op=="="){Row r;if(row_get(q,integer(c.val),r)&&match(q,r,cs))fn(r);return;}
-      std::string lo=prefix(q),hi=lsm::upper(lo);int secondary_col=-1;const char*mode=getenv("LITE_LSM_READ");bool sequential=mode&&std::string(mode)=="scan";
-      for(auto&c:cs)if(!sequential&&c.col>0&&persist_scalar(q.c[c.col])&&c.op=="="){lo=index_prefix(q,c.col)+scalar_key(q.c[c.col],c.val);hi=lsm::upper(lo);secondary_col=c.col;break;}
-      if(secondary_col<0)for(auto&c:cs)if(c.col==0&&c.op!="!="){auto k=skey(q,integer(c.val));if(c.op==">=")lo=std::max(lo,k);else if(c.op==">")lo=std::max(lo,lsm::upper(k));else if(c.op=="<")hi=std::min(hi,k);else if(c.op=="<=")hi=std::min(hi,lsm::upper(k));}
-      if(!hi.empty()&&lo>=hi)return;auto c=scan(lo,hi);while(c->valid){
-        if(secondary_col<0){auto r=decode_row(q,c->row.value);if(match(q,r,cs))fn(r);c->next();continue;}
-        std::vector<std::string> keys;keys.reserve(1024);while(c->valid&&keys.size()<1024){long long id=(long long)(lsm::number_value(c->row.key,c->row.key.size()-8)^(1ull<<63));keys.push_back(skey(q,id));c->next();}
-        size_t count=0;auto rows=rows_get(keys);while(rows->valid){auto r=decode_row(q,rows->row.value);if(match(q,r,cs))fn(r);++count;rows->next();}if(count!=keys.size())throw Err("corruption","dangling scalar index");
-      }
+      std::string lo=prefix(q),hi=lsm::upper(lo);
+      for(auto&c:cs)if(c.col==0&&c.op!="!="){auto k=skey(q,integer(c.val));if(c.op==">=")lo=std::max(lo,k);else if(c.op==">")lo=std::max(lo,lsm::upper(k));else if(c.op=="<")hi=std::min(hi,k);else if(c.op=="<=")hi=std::min(hi,lsm::upper(k));}
+      if(!hi.empty()&&lo>=hi)return;auto c=scan(lo,hi);while(c->valid){auto r=decode_row(q,c->row.value);if(match(q,r,cs))fn(r);c->next();}
     }
     J update(const std::vector<std::string>&t,bool){
       if(t.size()<6||up(t[2])!="SET")throw Err("unsupported_sql","update");auto&q=tabs.at(t[1]);cool(q);size_t p=3;std::vector<std::pair<int,std::string>>as;
@@ -1140,7 +1137,7 @@ namespace lite {
       // is durable. Interrupted imports have only unreachable generation files.
       recovering=true;uint64_t legacy_tx=0;off_t boundary=0;
       auto put=[&](std::string key,std::string value){SRec r{std::move(key),std::move(value),store->seq+1,false};store->apply(r);};
-      auto import_row=[&](Table&q,Row&r){r.ordinal=++ordinal;std::string s=row_payload(q,r);q.row_bytes+=s.size();++q.count;put(skey(q,r.id),std::move(s));for(size_t c=1;c<q.c.size();++c)if(persist_scalar(q.c[c]))put(secondary(q,r,(int)c),{});};
+      auto import_row=[&](Table&q,Row&r){r.ordinal=++ordinal;std::string s=row_payload(q,r);q.row_bytes+=s.size();++q.count;put(skey(q,r.id),std::move(s));};
       std::ifstream f(dir+"/STATE",std::ios::binary);uint32_t magic=0;
       if(f.read((char*)&magic,4)&&magic==0x4c535432u){uint32_t ver=0,nt=0;int64_t end=0;
         if(!rd(f,ver)||(ver!=2&&ver!=3)||!rd(f,legacy_tx))throw Err("corruption","legacy state header");
@@ -1182,8 +1179,9 @@ namespace lite {
     J cold_select(Table&q,const std::vector<Cond>&cs,const std::vector<std::string>&proj,bool metric,int mc,const std::vector<float>&qv,size_t dp,const std::string&alias,bool ordered,bool distance_order,int oc,bool desc,uint64_t limit,bool profile){
       using Clock=std::chrono::steady_clock;auto start=profile?Clock::now():Clock::time_point{};store->read_cache->begin_trace(profile);auto read_start=*store->read_cache->stats;
       uint64_t maps_start=map_calls;uint64_t decoded_start=row_decodes;const Cond* equality=nullptr;bool eligible=metric&&distance_order&&limit;const char*read_mode=getenv("LITE_LSM_READ");if(read_mode&&std::string(read_mode)!="auto")eligible=false;std::vector<std::pair<const Cond*,long long>> primary;
-      for(auto&c:cs){if(!c.col)primary.push_back({&c,integer(c.val)});else if(c.op=="="&&persist_scalar(q.c[c.col])&&(!equality||(equality->col==c.col&&scalar_key(q.c[c.col],equality->val)==scalar_key(q.c[c.col],c.val))))equality=&c;else eligible=false;}
-      QueryView* view=eligible?query_view(q,mc):nullptr;
+      for(auto&c:cs){if(!c.col)primary.push_back({&c,integer(c.val)});else if(c.op=="="&&q.c[c.col].t!="VECTOR"&&(!equality||(equality->col==c.col&&scalar_key(q.c[c.col],equality->val)==scalar_key(q.c[c.col],c.val))))equality=&c;else eligible=false;}
+      QueryView* view=eligible?query_view(q,mc):nullptr;const std::vector<uint32_t>*posts=nullptr;
+      if(view&&equality){posts=query_postings(q,*view,equality->col,scalar_key(q.c[equality->col],equality->val));if(!posts)view=nullptr;}
       auto matches_id=[&](long long id){for(auto&x:primary){auto&op=x.first->op;auto n=x.second;if((op=="="&&id!=n)||(op=="!="&&id==n)||(op=="<"&&id>=n)||(op=="<="&&id>n)||(op==">"&&id<=n)||(op==">="&&id<n))return false;}return true;};
       struct Hit {Row row;double d=0;size_t bytes=0;};
       auto better=[&](const Hit&a,const Hit&b){int c=0;
@@ -1204,8 +1202,7 @@ namespace lite {
       if(view){auto visit=[&](const VectorRef&r){if(!matches_id(r.id))return;++candidates;double d=l2(r.off,q.c[mc].d,qv);++distances;
           if(top.size()>=limit){const auto&worst=top.top();if((desc?d<worst.d:d>worst.d)||(d==worst.d&&r.id>=worst.row.id))return;held-=worst.bytes;top.pop();}
           Hit h;h.row.id=r.id;h.d=d;h.bytes=256;held+=h.bytes;if(held>(64u<<20))throw Err("resource_limit","query result exceeds 64 MiB; use LIMIT");top.push(std::move(h));++updates;};
-        if(!equality){for(auto&r:view->rows)visit(r);}else if(auto posts=query_postings(q,*view,equality->col,scalar_key(q.c[equality->col],equality->val))){for(auto i:*posts)visit(view->rows.at(i));}else{auto p=index_prefix(q,equality->col)+scalar_key(q.c[equality->col],equality->val);auto c=scan(p,lsm::upper(p));auto at=view->rows.begin();
-          while(c->valid){long long id=(long long)(lsm::number_value(c->row.key,c->row.key.size()-8)^(1ull<<63));at=std::lower_bound(at,view->rows.end(),id,[](const VectorRef&r,long long key){return r.id<key;});if(at==view->rows.end()||at->id!=id)throw Err("corruption","query view dangling index");visit(*at);c->next();}}
+        if(posts){for(auto i:*posts)visit(view->rows.at(i));}else for(auto&r:view->rows)visit(r);
       }else if(limit)each_row(q,cs,[&](const Row&r){consider(r,metric?r.voff[mc]:-1);});
       double scan_ms=profile?std::chrono::duration<double,std::milli>(Clock::now()-start).count():0;auto phase=profile?Clock::now():Clock::time_point{};
       std::vector<Hit> hits;hits.reserve(top.size());while(!top.empty()){hits.push_back(top.top());top.pop();}std::reverse(hits.begin(),hits.end());
