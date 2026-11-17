@@ -4,7 +4,8 @@
   "scope": "本文件是 a6ff81af4d258da4221b4723f7e0493a250daf96 版本的脱敏真实学习记录摘要。只保留本次 competition_lite 优化中可核对的用户决策、实验输出和复盘；不包含密钥、令牌或隐藏思维链。",
   "submission": {
     "branch": "2026-competition-round2-lite2000",
-    "commit": "a6ff81af4d258da4221b4723f7e0493a250daf96",
+    "commit": "d532ae622b1fa00e4ebe7489db0d3cc309bdc0ed",
+    "runtime_parent": "a6ff81af4d258da4221b4723f7e0493a250daf96",
     "work_directory": "/mnt/HDD2/zzp/oceanbase-competition/seekdb",
     "workload": "10,000 rows, 128-dim vectors, 100 rows per committed batch, 1,000 exact Top-10 queries with half using scalar equality filters"
   },
