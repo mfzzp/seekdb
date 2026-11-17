@@ -528,13 +528,15 @@ namespace lite {
     size_t n=source?m.values/128:m.codes.size()/128,padded=(n+15)/16*16;m.packed.assign(padded*128,128);m.norms.assign(padded,0);
     for(size_t i=0;i<n;++i)for(int j=0;j<128;++j){int c=source?(int)std::llround(double(source[i*128+j])/m.scale):m.codes[i*128+j];m.packed[(i/16)*2048+(j/4)*64+(i%16)*4+j%4]=(uint8_t)(c+128);m.norms[i]+=c*c;}
   }
-  __attribute__((target("avx512f,avx512vnni"))) static void l2_screen_dot128(const uint8_t*a,const int*norms,const int8_t*q,size_t n,int*out){
+  __attribute__((target("avx512f,avx512vnni"))) static void l2_screen_dot128(const uint8_t*a,const int*norms,const int8_t*q,size_t n,int*out,uint16_t*masks=nullptr,int cutoff=INT32_MAX){
     int extra=0;for(int j=0;j<128;++j)extra+=int(q[j])*q[j]+256*int(q[j]);
     for(size_t i=0;i<n;i+=16){__m512i dot=_mm512_setzero_si512(),d1=dot,d2=dot,d3=dot;for(int j=0;j<32;j+=4){int w[4];std::memcpy(w,q+j*4,16);
       dot=_mm512_dpbusd_epi32(dot,_mm512_loadu_si512(a+i*128+j*64),_mm512_set1_epi32(w[0]));d1=_mm512_dpbusd_epi32(d1,_mm512_loadu_si512(a+i*128+(j+1)*64),_mm512_set1_epi32(w[1]));
       d2=_mm512_dpbusd_epi32(d2,_mm512_loadu_si512(a+i*128+(j+2)*64),_mm512_set1_epi32(w[2]));d3=_mm512_dpbusd_epi32(d3,_mm512_loadu_si512(a+i*128+(j+3)*64),_mm512_set1_epi32(w[3]));}dot=_mm512_add_epi32(_mm512_add_epi32(dot,d1),_mm512_add_epi32(d2,d3));
       __m512i sum=_mm512_sub_epi32(_mm512_add_epi32(_mm512_loadu_si512(norms+i),_mm512_set1_epi32(extra)),_mm512_slli_epi32(dot,1));
-      _mm512_mask_storeu_epi32(out+i,(__mmask16)((1u<<std::min<size_t>(16,n-i))-1),sum);
+      const auto lanes=(__mmask16)((1u<<std::min<size_t>(16,n-i))-1);
+      if(masks)masks[i/16]=_mm512_mask_cmp_epi32_mask(lanes,sum,_mm512_set1_epi32(cutoff),_MM_CMPINT_LE);
+      else _mm512_mask_storeu_epi32(out+i,lanes,sum);
     }
   }
   static bool has_avx2(){
@@ -1419,11 +1421,20 @@ namespace lite {
             H batch[256];size_t count=0;auto dt=stamp();
             size_t stop=std::min(end,base+(screen&&base==begin?16:256));double limit=top.size()>=ask?top.top().d:std::numeric_limits<double>::infinity();
             if(screen){
-              int ds[256];if(dense&&!matrix->packed.empty())l2_screen_dot128(matrix->packed.data()+base*128,matrix->norms.data()+base,screen_query,stop-base,ds);
+              const double threshold=screen_threshold128(limit,matrix->scale,screen_error);
+              const bool use_masks=dense&&!matrix->packed.empty();
+              int ds[256];uint16_t masks[16];
+              if(use_masks)l2_screen_dot128(matrix->packed.data()+base*128,matrix->norms.data()+base,screen_query,stop-base,nullptr,masks,(int)std::min(threshold,double(INT32_MAX)));
               else if(matrix->codes.empty())l2_screen128((const int8_t*)matrix->packed.data(),screen_query,positions.data()+base,stop-base,ds,true);
-              else l2_screen128(matrix->codes.data()+(dense?base*128:0),screen_query,dense?nullptr:positions.data()+base,stop-base,ds);double threshold=screen_threshold128(limit,matrix->scale,screen_error);
+              else l2_screen128(matrix->codes.data()+(dense?base*128:0),screen_query,dense?nullptr:positions.data()+base,stop-base,ds);
               screened_vectors+=stop-base;early_dims+=(stop-base)*128;
-              for(size_t i=base;i<stop;++i){if(ds[i-base]>threshold){++screen_rejected;continue;}size_t p=dense?i:positions[i];if(!q.fast[p])continue;
+              if(use_masks)for(size_t i=base;i<stop;i+=16){
+                unsigned lanes=masks[(i-base)/16];screen_rejected+=std::min<size_t>(16,stop-i)-__builtin_popcount(lanes);
+                while(lanes){
+                  size_t p=i+__builtin_ctz(lanes);lanes&=lanes-1;
+                  if(q.fast[p])batch[count++]={(long long)p,0,0};
+                }
+              }else for(size_t i=base;i<stop;++i){if(ds[i-base]>threshold){++screen_rejected;continue;}size_t p=dense?i:positions[i];if(!q.fast[p])continue;
                 batch[count++]={(long long)p,0,0};}
               for(size_t i=0;i<count;){
                 int n=has_avx512()&&count-i>=4?4:1;const float* ptrs[4];double distances[4];

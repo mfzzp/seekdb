@@ -25,6 +25,18 @@ int main(){try{
     lite::l2_screen128(data,qc,nullptr,257,ds);lite::l2_screen128(data,qc,positions.data(),257,selected);
     if(__builtin_cpu_supports("avx512vnni")){lite::Matrix m;m.codes.assign(data,data+257*128);lite::screen_pack128(m);int dot[257];
       lite::l2_screen_dot128(m.packed.data(),m.norms.data(),qc,257,dot);if(std::memcmp(dot,ds,sizeof(ds)))throw std::runtime_error("dot differs");
+      uint16_t masks[17];
+      const int cutoff=ds[trial%257];
+      for(size_t start:{size_t(0),size_t(16)}){
+        const size_t count=257-start;
+        lite::l2_screen_dot128(m.packed.data()+start*128,m.norms.data()+start,qc,count,nullptr,masks,cutoff);
+        for(size_t i=0;i<count;i+=16){
+          unsigned expected=0;
+          for(size_t j=0;j<16&&i+j<count;++j)
+            if(ds[start+i+j]<=cutoff)expected|=1u<<j;
+          if(masks[i/16]!=expected)throw std::runtime_error("screen survivor mask differs");
+        }
+      }
       lite::l2_screen_dot128(m.packed.data()+16*128,m.norms.data()+16,qc,241,dot);if(std::memcmp(dot,ds+16,241*sizeof(int)))throw std::runtime_error("dot offset/tail differs");}
     for(size_t i=0;i<257;++i){
       if(selected[i]!=ds[positions[i]])throw std::runtime_error("position mismatch");
