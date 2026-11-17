@@ -684,7 +684,7 @@ namespace lite {
       auto p=prefix(q);auto c=scan(p,lsm::upper(p));size_t bytes=0;
       while(c->valid){auto r=decode_row(q,c->row.value);bytes+=c->row.value.size()+384+q.c.size()*160;if(bytes>cap){cool(q);return false;}q.order.push_back(r.id);q.r.emplace(r.id,std::move(r));c->next();}
       if(q.r.size()!=q.count)throw Err("corruption","catalog row count mismatch");
-      std::sort(q.order.begin(),q.order.end(),[&](long long a,long long b){return q.r.at(a).ordinal<q.r.at(b).ordinal;});q.hot=true;rebuild_scalar(q);return true;
+      std::sort(q.order.begin(),q.order.end(),[&](long long a,long long b){return q.r.at(a).ordinal<q.r.at(b).ordinal;});q.hot=true;return true;
     }
     void begin(bool=true){if(in)throw Err("transaction_active","already active");tx=store->batch();vec_mark=vec_end;in=true;}
     void rollback(){if(failed_io||store->failed)throw Err("io_error","restart required after failed commit");if(!in)return;statement.reset();tx.reset();vecbuf.clear();trunc_vec(vec_mark);vecbuf_base=vec_end;in=false;load_catalog();}
@@ -986,17 +986,6 @@ namespace lite {
         if(q.c[c].t=="BIGINT")nindex[k][std::stoll(v)].push_back(id);
       }
     }
-    void scalar_remove(Table&q,long long id){
-      if(!q.r.count(id))return;
-      auto&row=q.r[id];
-      auto&iv=sindex[q.n+"."+q.c[0].n][std::to_string(id)];iv.erase(std::remove(iv.begin(),iv.end(),id),iv.end());auto&iw=nindex[q.n+"."+q.c[0].n][id];iw.erase(std::remove(iw.begin(),iw.end(),id),iw.end());
-      for(size_t c=1;c<q.c.size();++c)if(eager_scalar_index(q.c[c])){
-        std::string k=q.n+"."+q.c[c].n,v0=unq(row.v[c-1]);
-        auto&v=sindex[k][v0];
-        v.erase(std::remove(v.begin(),v.end(),id),v.end());
-        if(q.c[c].t=="BIGINT"){auto&w=nindex[k][std::stoll(v0)];w.erase(std::remove(w.begin(),w.end(),id),w.end());}
-      }
-    }
     void refresh_fast(Table&q){
       if(hot_posts.table==q.n)hot_posts={};
       q.fast.clear();
@@ -1015,12 +1004,13 @@ namespace lite {
       for(size_t i=0;i<q.fast.size();++i)if(q.fast[i])pos[q.fast[i]->id]=i;
     }
     void rebuild_scalar(Table&q){
-      if(hot_posts.table==q.n)hot_posts={};
-      q.fast.clear();
-      fast_pos.erase(q.n);matrices.erase(q.n);vblocks.erase(q.n);
-      sindex.erase(q.n+"."+q.c[0].n);nindex.erase(q.n+"."+q.c[0].n);
-      for(size_t c=1;c<q.c.size();++c)if(q.c[c].t!="VECTOR"){sindex.erase(q.n+"."+q.c[c].n);nindex.erase(q.n+"."+q.c[c].n);}
-      for(auto&kv:q.r)scalar_add(q,kv.first);
+      try{
+        for(auto&kv:q.r)scalar_add(q,kv.first);
+      }catch(...){
+        sindex.clear();
+        nindex.clear();
+        throw;
+      }
     }
     const std::vector<size_t>* hot_postings(const Table&q,const Cond&c){
       const char*e=std::getenv("LITE_HOT_POSTINGS_KB");size_t cap=size_t(e?std::max(0,std::atoi(e)):1024)<<10;
@@ -1300,7 +1290,23 @@ namespace lite {
       std::vector<long long>owned_scan,empty_scan;
       const std::vector<long long>*scan=&q.order;
       size_t proven=cs.size();
-      for(size_t j=0;j<cs.size();++j){const auto&c=cs[j];if(q.c[c.col].t=="VECTOR")continue;
+      size_t ask=li<t.size()?std::stoull(t[li+1]):10;
+      int probes_used=0;
+      size_t raw_candidates=0;
+      bool exact_topk=metric&&oi+2<t.size()&&li<t.size()&&
+        (up(t[oi+2])=="L2_DISTANCE"||t[oi+2]==alias)&&
+        !(oi+3<t.size()&&(t[oi+3].size()==4&&up(t[oi+3])=="DESC"));
+      const char* path_env=std::getenv("LITE_EXACT_PATH");
+      std::string exact_path=path_env?path_env:"auto";
+      if(exact_path!="auto"&&exact_path!="scan"&&exact_path!="block")throw Err("invalid_request","LITE_EXACT_PATH must be auto, scan or block");
+      // Auto currently selects scan: shuffled high-dimensional blocks rarely prune.
+      bool block_exact=exact_topk&&exact_path=="block";
+      if(!path_env&&std::getenv("LITE_BLOCK_EXACT"))block_exact=exact_topk&&std::atoi(std::getenv("LITE_BLOCK_EXACT"))!=0;
+      std::vector<size_t>owned_positions;const std::vector<size_t>*direct_positions=nullptr;
+      if(exact_topk&&!block_exact&&ask&&cs.size()==1&&cs[0].op=="="&&q.c[cs[0].col].t!="VECTOR")direct_positions=hot_postings(q,cs[0]);
+      const std::vector<size_t>&positions=direct_positions?*direct_positions:owned_positions;
+      if(!direct_positions)for(size_t j=0;j<cs.size();++j){const auto&c=cs[j];if(q.c[c.col].t=="VECTOR")continue;
+        if(sindex.empty()&&(c.op=="="||q.c[c.col].t=="BIGINT"))rebuild_scalar(q);
         std::string k=q.n+"."+q.c[c.col].n;std::vector<long long>range;
         const std::vector<long long>*cand=nullptr;
         if(c.op=="="){
@@ -1320,21 +1326,6 @@ namespace lite {
           proven=j;
         }
       }
-      size_t ask=li<t.size()?std::stoull(t[li+1]):10;
-      int probes_used=0;
-      size_t raw_candidates=0;
-      bool exact_topk=metric&&oi+2<t.size()&&li<t.size()&&
-        (up(t[oi+2])=="L2_DISTANCE"||t[oi+2]==alias)&&
-        !(oi+3<t.size()&&(t[oi+3].size()==4&&up(t[oi+3])=="DESC"));
-      const char* path_env=std::getenv("LITE_EXACT_PATH");
-      std::string exact_path=path_env?path_env:"auto";
-      if(exact_path!="auto"&&exact_path!="scan"&&exact_path!="block")throw Err("invalid_request","LITE_EXACT_PATH must be auto, scan or block");
-      // Auto currently selects scan: shuffled high-dimensional blocks rarely prune.
-      bool block_exact=exact_topk&&exact_path=="block";
-      if(!path_env&&std::getenv("LITE_BLOCK_EXACT"))block_exact=exact_topk&&std::atoi(std::getenv("LITE_BLOCK_EXACT"))!=0;
-      std::vector<size_t>owned_positions;const std::vector<size_t>*direct_positions=nullptr;
-      if(exact_topk&&!block_exact&&ask&&cs.size()==1&&cs[0].op=="="&&q.c[cs[0].col].t!="VECTOR")direct_positions=hot_postings(q,cs[0]);
-      const std::vector<size_t>&positions=direct_positions?*direct_positions:owned_positions;
       const bool dense=exact_topk&&!block_exact&&cs.empty();
       if(dense)filtered_candidates=q.fast.size();
       else if(direct_positions)filtered_candidates=positions.size();
