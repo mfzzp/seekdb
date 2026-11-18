@@ -709,8 +709,8 @@ namespace lite {
       if(k=="SELECT"){try{flush_vecbuf();return select(t);}catch(const Err&e){if(e.code=="io_error"||e.code=="corruption")failed_io=true;throw;}}
       bool autocommit=!in;if(autocommit)begin();flush_vecbuf();off_t mark=vec_end;statement=store->batch();
       try{J result=dispatch(t);std::string o;lsm::u64(o,ordinal);statement->put("O",std::move(o));
-        // The statement is private until every row has passed validation.
-        try{tx->absorb(*statement);}catch(...){failed_io=true;throw;}statement.reset();if(autocommit)commit();return result;
+        if(autocommit){tx=std::move(statement);commit();return result;}
+        try{tx->absorb(*statement);}catch(...){failed_io=true;throw;}statement.reset();return result;
       }catch(const Err&e){if(e.code=="io_error"||e.code=="corruption")failed_io=true;if(failed_io||store->failed)throw;statement.reset();vecbuf.clear();trunc_vec(mark);vecbuf_base=vec_end;load_catalog();if(autocommit)rollback();throw;}
       catch(...){if(failed_io||store->failed)throw;statement.reset();vecbuf.clear();trunc_vec(mark);vecbuf_base=vec_end;load_catalog();if(autocommit)rollback();throw;}
     }

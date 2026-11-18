@@ -1,20 +1,110 @@
 {
   "schema": "agent-learning-evidence-v3-unbounded",
   "synthetic": false,
-  "scope": "MiniVectorDB 真实协作记录。用户发言、助手执行、服务器实测和平台反馈分别标注。历史完整实验索引见 agent/conversation.json。",
-  "summary": "按端到端耗时、物理 I/O 和容器内存联合优化 C++17 数据库。保留事务、重启恢复和精确 Top-K。实际合入了派生标量候选、延迟构建通用标量索引和 VNNI 筛选位掩码。",
+  "scope": "MiniVectorDB 的真实学习和优化记录。用户回报、本地实测、助手决策分别署明来源。",
+  "summary": "用户要求在 C++17 引擎保持 Exact Top-K、事务和崩溃恢复的前提下，同时测端到端时间、物理 I/O 和容器峰值内存，并在正确性通过后按综合 E 决定是否合入。",
   "submission": {
     "branch": "2026-competition-round2-lite2000",
-    "runtime_parent": "85bd1075a7e2bc44da6aca70d3ffa39c2eee9be7",
+    "runtime_parent": "715ed8e4285d9404d9c459f2f4559ece123f0c19",
     "work_directory": "/mnt/HDD2/zzp/oceanbase-competition/seekdb",
     "workload": "10,000 rows, 128-dim vectors, 100 rows per committed batch, 1,000 exact Top-10 queries with half using scalar equality filters",
-    "baseline_commit": "85bd1075a7e2bc44da6aca70d3ffa39c2eee9be7",
-    "runtime_source_sha256": "0c8662ad5dbfa9a0e594b46abc12f93d2cb239cfded14b42edb09db60287c906",
+    "baseline_commit": "715ed8e4285d9404d9c459f2f4559ece123f0c19",
+    "runtime_source_sha256": "a9569f53785394d40ec545b47fa2d3ce37b002968a339634e2537a8fb809b53e",
     "storage_header_sha256": "4a4b71f8917caf17b3186796bae38227389f9f9e7ee113aa450b250c9bd6a356",
     "organizer_template_commit": "9f6df2ba5acf871376e22b64a3d0724e4b575044",
     "verified_runtime_lines": 2000,
-    "verified_local_docker_checks": 22
+    "verified_local_docker_checks": 22,
+    "dockerfile_sha256": "a05a4b4ab8ed450bb6fbd7a4a582fefd46a1e4e20e3c578417dd5c9005716385"
   },
+  "verification": {
+    "workload": "10,000 rows, 128-dim vectors, 100 rows per committed batch, 1,000 exact Top-10 queries with half using scalar equality filters",
+    "evidence_index": "agent/conversation.json",
+    "candidate_binary_sha256": "2f0bbb9ef5e93ae2cf0575af660ae7b1cb8d067b1f36bab99b43f94fd748cc2b",
+    "local_score_comparison": "每轮使用对应对照二进制的 T、B、M 计算 E，再取中位数。平台 3700 分来自用户报告，属于 fff2594。",
+    "reproducibility": [
+      "运行 competition_lite/tools/check_lines.py 检查行数。",
+      "运行 competition_lite/bench/docker_gate.py 验证公开用例、Exact、故障注入和恢复。",
+      "使用 paired_compare.py、score_compare.py 对照原始实验索引中的二进制和输入 SHA 及每轮 T/B/M。"
+    ]
+  },
+  "platform_feedback": [
+    {
+      "source": "用户回报",
+      "commit": "fff2594f843df4be5a0ec38451a3ec657e28f980",
+      "performance_raw": 3700,
+      "prompt_raw": null,
+      "evidence": "platform-feedback"
+    },
+    {
+      "source": "用户回报",
+      "commit": "c378f56a8b3b01d30afa222835f299c45aac8dba",
+      "prompt_raw": 2.5,
+      "evidence": "user-c378-prompt-reference"
+    }
+  ],
+  "user_prompts": [
+    {
+      "id": "scope",
+      "role": "user",
+      "verbatim": true,
+      "content": "继续在服务器这个目录下按我提供的思路优化代码，完成正确性检查和三轮性能对比，确认有效后推送到小队的2026-competition-round2-lite2000分支并给我commit，不要停在下载源码这一步。"
+    },
+    {
+      "id": "measure-io-and-filter",
+      "role": "user",
+      "verbatim": true,
+      "content": "继续在服务器指定目录下优化，重点解决过滤查询变慢和物理 I/O 没有改善的问题，按综合 E 争取更大提升。保持 Exact 和持久化语义，完成正确性检查和三轮对比后给我结果与 commit。"
+    },
+    {
+      "id": "profile-feedback",
+      "role": "user",
+      "verbatim": true,
+      "content": "性能剖析跑完了，结论比较明确。先说数据，再说该动哪里。"
+    },
+    {
+      "id": "profile-finding",
+      "role": "user",
+      "verbatim": true,
+      "excerpt": true,
+      "content": "诊断：写入瓶颈不是 CPU、也不是 fsync 系统调用，而是写放大 + 机械盘回写。向量被写了两遍（WAL 一遍、vectors.f32 一遍），SST 元数据 4.5 MB 对 10k 行来说也偏大（约 450 B/行），再加 checkpoint 重写，最终物理写接近原始数据的 4 倍。"
+    },
+    {
+      "id": "language",
+      "role": "user",
+      "verbatim": true,
+      "content": "记得是所有代码都是c++"
+    },
+    {
+      "id": "validation-question",
+      "role": "user",
+      "verbatim": true,
+      "content": "确定这一版的prompt都正确吧，确定是c++实现的吧"
+    },
+    {
+      "id": "platform-feedback",
+      "role": "user",
+      "verbatim": true,
+      "content": "`fff2594`  这个版本分数为3700，prompt没有分数，你的目标是性能分5229分以上或者prompt30分以上"
+    },
+    {
+      "id": "user-c378-prompt-reference",
+      "role": "user",
+      "verbatim": true,
+      "content": "继续在`71d7c13bddbb0d64102bc1eeb691e9`上优化性能和prompt，截图中的版本中prompt为2.5分可以参考一下"
+    },
+    {
+      "id": "user-checkpoint-memory-continue",
+      "role": "user",
+      "verbatim": true,
+      "content": "继续优化"
+    },
+    {
+      "id": "user-score-5000",
+      "role": "user",
+      "verbatim": true,
+      "content": "继续优化到五千分并完美优化prompt"
+    }
+  ],
   "conversations": [
     {
       "id": "scope",
@@ -94,2138 +184,566 @@
       "role": "user",
       "verbatim": true,
       "content": "继续优化"
+    },
+    {
+      "id": "user-score-5000",
+      "role": "user",
+      "verbatim": true,
+      "content": "继续优化到五千分并完美优化prompt"
+    }
+  ],
+  "student_understanding": [
+    {
+      "id": "understanding-workload",
+      "evidence": "用户报告 HDD2 批量写入为 2.18 秒，共享内存为 0.226 秒。用户使用 strace、time、数据目录和 dsync 写入对照，指出写入瓶颈应从写放大和机械盘回写调查。",
+      "source": "profile-feedback、profile-finding",
+      "conclusion": "分开验证 CPU、物理写入和端到端墙钟。实际测量采用 cgroup io.stat 和 memory.peak。"
+    },
+    {
+      "id": "understanding-constraints",
+      "evidence": "用户把过滤延迟和物理 I/O 列为优先调查对象，要求保留 Exact 和持久化，随后追问代码语言及 Prompt 是否已核对。",
+      "source": "measure-io-and-filter、language、validation-question",
+      "conclusion": "写路径的性能收益必须一起核对显式事务、自动提交、回滚和重启；距离改动须对照独立 Exact oracle。"
+    },
+    {
+      "id": "understanding-material-entry",
+      "evidence": "用户遇到 Prompt 空分，提供有分的 c378f56 作为对照并指定目标。",
+      "source": "platform-feedback、user-c378-prompt-reference、user-score-5000",
+      "conclusion": "保留题包根目录入口，沿用对照版本的用户提示、实测记录和复盘字段。平台结果用于后续核对材料是否被读取。"
     }
   ],
   "learning_evidence": [
     {
       "dimension": "问题理解与学习规划",
-      "actor": "用户",
-      "observed": "用户要求以指定服务器完整流程衡量改动，守住 Exact 和恢复。用户报告用 HDD2、SSD1 和共享内存对照，并用系统调用、进程时间与目录布局交叉验证写入开销。",
-      "source": "measure-io-and-filter、profile-feedback 和 profile-finding。用户剖析与助手后续实测分别记录。"
+      "evidence": [
+        "profile-finding",
+        "measure-io-and-filter"
+      ],
+      "action": "从用户自己的写入对照出发，精确区分端到端耗时与物理写放大。"
     },
     {
       "dimension": "Prompt 设计与迭代",
-      "actor": "用户",
-      "observed": "先把工作聚焦到过滤 gather 和物理 I/O，再要求运行时用 C++、同步提交 Prompt。收到线上 3700 分与空分回执后，给出性能和 Prompt 两个可独立验证的目标。",
-      "source": "scope、measure-io-and-filter、language、platform-feedback"
+      "evidence": [
+        "scope",
+        "language",
+        "user-c378-prompt-reference",
+        "user-score-5000"
+      ],
+      "action": "从继续整体优化收敛到可证伪的提交、语言限制和平台复评。"
     },
     {
       "dimension": "验证纠错与独立判断",
-      "actor": "用户与助手",
-      "observed": "用户要求在合入前验证功能和综合收益，追问运行时语言和材料。助手用独立 Exact oracle、cgroup 指标和重启检查对照。逐步收紧筛选阈值减少了复核次数，但复测综合 E 无稳定收益。无损 WAL 编码每轮少写 638976 字节，但实验版达 2053 行，超过门槛。",
-      "source": "validation-question、assistant-wal-codec-decision；历史实验 exact-screening-and-memtable-9817、lazy-scalar-cache"
+      "evidence": [
+        "validation-question",
+        "assistant-wal-codec-decision"
+      ],
+      "action": "比较两份二进制的独立 Exact、逐轮资源数据与门禁。物理字节减少但突破行数或综合 E 回退的候选不合入。"
     },
     {
       "dimension": "总结复盘与知识迁移",
-      "actor": "助手实验复盘",
-      "observed": "同时测端到端时延、物理字节和内存峰值，避免把内核复核次数当成整题收益。派生标量候选改善物理 I/O，按需构建索引改善查询内存，VNNI 位掩码改善无过滤查询。复查其他提交时可复用同一 Oracle、故障恢复和逐轮资源对照；线上空分先确认评测材料入口。",
-      "source": "derived-scalar-postings、lazy-scalar-cache、vector-slot-and-screen-mask-fff2594"
+      "evidence": [
+        "terminal-checkpoint-memory-85bd107",
+        "compiler-and-autocommit-715ed8e"
+      ],
+      "action": "把以往检查迁移到编译选项和写入协议，逐阶段解释变化，并用换序复测排查运行波动。"
     }
   ],
-  "verification": {
-    "workload": "10,000 rows, 128-dim vectors, 100 rows per committed batch, 1,000 exact Top-10 queries with half using scalar equality filters",
-    "evidence_index": "agent/conversation.json",
-    "candidate_binary_sha256": "00b8dbf6e78349b92a9213c71f41d2c21529e9c50318dd781506fa3e207d5df9",
-    "local_score_comparison": "每轮使用对应对照二进制的 T、B、M 计算 E，再取中位数。平台 3700 分来自用户报告，属于 fff2594。",
-    "reproducibility": [
-      "运行 competition_lite/tools/check_lines.py 检查行数。",
-      "运行 competition_lite/bench/docker_gate.py 验证公开用例、Exact、故障注入和恢复。",
-      "使用 paired_compare.py、score_compare.py 对照原始实验索引中的二进制和输入 SHA 及每轮 T/B/M。"
-    ]
-  },
   "experiments": [
     {
       "id": "derived-scalar-postings",
       "kind": "measured_retained",
-      "source": "Codex ran three alternating Docker comparisons on HDD2 against c378f56, with fresh data directories and the same prepared 10000-row inputs.",
       "output": "本地 E 中位 0.509135，三轮为 0.508355、0.509135、0.509994。写入阶段物理 I/O 12136448 → 11673600 字节，查询全流程 13623296 → 12693504 字节，三轮均复现。写入中位 1.754027 → 1.777796 s，查询中位 0.183996 → 0.182968 s。查询阶段峰值 23056384 → 20443136 字节。三轮 Exact 和重启后的 10000 行校验均通过。冷查询从可见行构建候选，预算不足时扫描原始行，保留全量向量 WAL 和同步顺序。",
       "verification": "全部 22 项 Docker 门禁通过。旧库升级后，冷、热两种路径的短字段等值过滤、事务内更新、回滚、删除和重启均通过。C++ query_view_check 验证了 224 组 compact/stream 结果一致。",
-      "rounds": [
-        {
-          "baseline": {
-            "write": {
-              "T": 1.786310333001893,
-              "B": 12136448,
-              "M": 14905344
-            },
-            "query": {
-              "T": 0.18399567500455305,
-              "B": 13623296,
-              "M": 22769664
-            }
-          },
-          "candidate": {
-            "write": {
-              "T": 1.8440088499919511,
-              "B": 11673600,
-              "M": 12886016
-            },
-            "query": {
-              "T": 0.18125728699669708,
-              "B": 12693504,
-              "M": 20443136
-            }
-          },
-          "phases": {
-            "write": {
-              "f_ratios": {
-                "T": 0.4920576202030652,
-                "B": 0.5089328063241106,
-                "M": 0.5337810058928326
-              },
-              "E": 0.5037773345652278
-            },
-            "query": {
-              "f_ratios": {
-                "T": 0.5037282041143165,
-                "B": 0.5163615395704195,
-                "M": 0.5256734767673115
-              },
-              "E": 0.5106439257361362
-            }
-          },
-          "E_local": 0.5083550620125
-        },
-        {
-          "baseline": {
-            "write": {
-              "T": 1.6735255629901076,
-              "B": 12136448,
-              "M": 15077376
-            },
-            "query": {
-              "T": 0.18084256100701168,
-              "B": 13623296,
-              "M": 23203840
-            }
-          },
-          "candidate": {
-            "write": {
-              "T": 1.777795692003565,
-              "B": 11673600,
-              "M": 11456512
-            },
-            "query": {
-              "T": 0.18296826700679958,
-              "B": 12693504,
-              "M": 19001344
-            }
-          },
-          "phases": {
-            "write": {
-              "f_ratios": {
-                "T": 0.4849029207950639,
-                "B": 0.5089328063241106,
-                "M": 0.5632331902718168
-              },
-              "E": 0.5053749517962238
-            },
-            "query": {
-              "f_ratios": {
-                "T": 0.49709452832310963,
-                "B": 0.5163615395704195,
-                "M": 0.5474297337278107
-              },
-              "E": 0.5110149716535118
-            }
-          },
-          "E_local": 0.5091349650344158
-        },
-        {
-          "baseline": {
-            "write": {
-              "T": 1.7540269070013892,
-              "B": 12136448,
-              "M": 14929920
-            },
-            "query": {
-              "T": 0.187949582003057,
-              "B": 13623296,
-              "M": 23056384
-            }
-          },
-          "candidate": {
-            "write": {
-              "T": 1.7582283090014243,
-              "B": 11673600,
-              "M": 13316096
-            },
-            "query": {
-              "T": 0.18356181599665433,
-              "B": 12693504,
-              "M": 20873216
-            }
-          },
-          "phases": {
-            "write": {
-              "f_ratios": {
-                "T": 0.49940223436520725,
-                "B": 0.5089328063241106,
-                "M": 0.5265928725701944
-              },
-              "E": 0.5067464763979853
-            },
-            "query": {
-              "f_ratios": {
-                "T": 0.5058736708302621,
-                "B": 0.5163615395704195,
-                "M": 0.5237162943846222
-              },
-              "E": 0.5115397692891657
-            }
-          },
-          "E_local": 0.5099420049921055
-        }
-      ],
-      "baseline_binary_sha256": "4c4dc6cfc3596cb681b374c6d3f2746cc66e1a0481ea0f5196c49b9058471cac",
-      "candidate_binary_sha256": "8ca3afc31d43a26369437e08ddce543c2ec56adfcf66d8d9c808f2c14f88343a",
-      "insert_sha256": "cbed135375c7deea4b8342e0b0e2deed667e5694c9212054e0bf9b0c1fd0771d",
-      "query_cases_sha256": "c8ecc80cf5baca8a83204a54ad07cf8737c46e56b1175e216aea0f8469afc504"
+      "details_at": "715ed8e4285d9404d9c459f2f4559ece123f0c19:conversation.json"
     },
     {
       "id": "lazy-scalar-cache",
       "kind": "measured_retained",
-      "source": "Codex compared Docker binaries on HDD2 using alternating order, identical prepared data, fresh data directories, independent Exact results, and a 10000-row post-restart check.",
-      "question": "热表加载时，是否需要提前为主键和所有短标量列建立通用索引？单列 Exact 等值查询已有独立候选列表。",
-      "implementation": "在热表扫描完成后延迟构建通用标量索引。Exact 等值候选列表可用时直接使用。范围过滤、其他普通过滤和禁用候选列表时按需构建，更新和回滚沿用现有缓存失效规则。异常中止时清空部分建立的缓存。",
-      "baseline_binary_sha256": "8ca3afc31d43a26369437e08ddce543c2ec56adfcf66d8d9c808f2c14f88343a",
-      "candidate_binary_sha256": "bca86cc10b40171521037c9880bf4c991ed66c7968a1f32a1177c7158557e419",
-      "insert_sha256": "cbed135375c7deea4b8342e0b0e2deed667e5694c9212054e0bf9b0c1fd0771d",
-      "query_cases_sha256": "c8ecc80cf5baca8a83204a54ad07cf8737c46e56b1175e216aea0f8469afc504",
-      "runtime_physical_lines": 1988,
-      "rounds": [
-        {
-          "baseline": {
-            "write": {
-              "T": 2.27346995100379,
-              "B": 11673600,
-              "M": 12107776
-            },
-            "query": {
-              "T": 0.1902386449946789,
-              "B": 12693504,
-              "M": 19914752
-            }
-          },
-          "candidate": {
-            "write": {
-              "T": 1.6442231870023534,
-              "B": 11673600,
-              "M": 11575296
-            },
-            "query": {
-              "T": 0.18781242199474946,
-              "B": 12693504,
-              "M": 16769024
-            }
-          },
-          "phases": {
-            "write": {
-              "f_ratios": {
-                "T": 0.5802673502550661,
-                "B": 0.5,
-                "M": 0.5103272958373054
-              },
-              "E": 0.5502258693205008
-            },
-            "query": {
-              "f_ratios": {
-                "T": 0.503191969725475,
-                "B": 0.5,
-                "M": 0.5405576679340938
-              },
-              "E": 0.5100267154221038
-            }
-          },
-          "E_local": 0.5234264333882361
-        },
-        {
-          "baseline": {
-            "write": {
-              "T": 2.162915177003015,
-              "B": 11673600,
-              "M": 12443648
-            },
-            "query": {
-              "T": 0.18338351800048258,
-              "B": 12693504,
-              "M": 19501056
-            }
-          },
-          "candidate": {
-            "write": {
-              "T": 1.947806408003089,
-              "B": 11673600,
-              "M": 13271040
-            },
-            "query": {
-              "T": 0.18303555899183266,
-              "B": 12693504,
-              "M": 18202624
-            }
-          },
-          "phases": {
-            "write": {
-              "f_ratios": {
-                "T": 0.5261516327514311,
-                "B": 0.5,
-                "M": 0.48512518409425626
-              },
-              "E": 0.5127160164697099
-            },
-            "query": {
-              "f_ratios": {
-                "T": 0.5004722326154912,
-                "B": 0.5,
-                "M": 0.5163116188123906
-              },
-              "E": 0.5035456633317729
-            }
-          },
-          "E_local": 0.5066024477110852
-        },
-        {
-          "baseline": {
-            "write": {
-              "T": 1.7744256089936243,
-              "B": 11673600,
-              "M": 13160448
-            },
-            "query": {
-              "T": 0.24204062999342568,
-              "B": 12693504,
-              "M": 20717568
-            }
-          },
-          "candidate": {
-            "write": {
-              "T": 1.789301302007516,
-              "B": 11673600,
-              "M": 13291520
-            },
-            "query": {
-              "T": 0.18001088299206458,
-              "B": 12693504,
-              "M": 18448384
-            }
-          },
-          "phases": {
-            "write": {
-              "f_ratios": {
-                "T": 0.4979140728685648,
-                "B": 0.5,
-                "M": 0.4977044476327116
-              },
-              "E": 0.4982893332476812
-            },
-            "query": {
-              "f_ratios": {
-                "T": 0.5731394006410296,
-                "B": 0.5,
-                "M": 0.5274965257097479
-              },
-              "E": 0.5493829455265674
-            }
-          },
-          "E_local": 0.5323517414336053
-        }
-      ],
       "output": "最终 C++ 版本本地 E 中位 0.523426，三轮为 0.523426、0.506602、0.533235，全部高于同轮基线。查询全流程峰值内存中位从 19914752 降到 18202624 字节，查询墙钟从 0.190239 降到 0.183036 秒。写入时间中位从 2.162915 降到 1.789301 秒，服务器机械盘时间波动较大。写入峰值内存从 12443648 增至 13271040 字节，写入和查询物理 I/O 三轮持平。两次独立三轮对比均观察到查询内存下降和 E 提升。",
       "verification": "最终 C++ 版本通过 22 项 Docker 门禁和三轮独立 Exact 检查。独立 C++ 用例还覆盖同距主键排序、延迟构建范围索引、禁用候选列表的回退、更新、回滚及重启。",
-      "decisions": "WAL 对齐三轮只省 40960 物理字节，E 下降。无损编码三轮省 638976 物理字节，E 中位数 0.501867，实验版共 2053 行并超过 2000 行门槛。较小的 SST 读缓存没有提高三轮 E 中位数。基于 Exact 检查、门禁和 E 复测，保留延迟索引方案。",
-      "limitation": "本地 E 使用 9817c2f 的同轮数据为参考。正式平台原始分仍待平台复评。"
+      "details_at": "715ed8e4285d9404d9c459f2f4559ece123f0c19:conversation.json"
     },
     {
       "id": "vector-slot-and-screen-mask-fff2594",
       "kind": "measured_retained",
-      "baseline_commit": "fff2594f843df4be5a0ec38451a3ec657e28f980",
-      "source": "Codex ran same-input, alternating Docker benchmarks on HDD2, checked Exact results against an independent oracle, and verified persisted rows after restart.",
-      "implementation": "候选一将向量位置放入热行对象并跳过已排序的向量排列。候选二仅在已有 packed VNNI 矩阵的稠密查询中使用逐组位掩码，按行顺序精确复核通过项。带过滤查询、非 VNNI 路径和 double 精确复核保持原有求值规则。",
-      "comparisons": [
-        {
-          "name": "热行保存向量位置",
-          "median_E_local": 0.498218,
-          "rounds": [
-            {
-              "baseline": {
-                "write": {
-                  "T": 1.7007724909926765,
-                  "B": 11673600,
-                  "M": 13598720
-                },
-                "query": {
-                  "T": 0.19123057500110008,
-                  "B": 12693504,
-                  "M": 18534400
-                }
-              },
-              "candidate": {
-                "write": {
-                  "T": 1.8481325220054714,
-                  "B": 11673600,
-                  "M": 12046336
-                },
-                "query": {
-                  "T": 0.19762303899915423,
-                  "B": 12693504,
-                  "M": 16982016
-                }
-              },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.47925035582853087,
-                    "B": 0.5,
-                    "M": 0.5279787391111768
-                  },
-                  "E": 0.49314596131935384
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.4918224320192035,
-                    "B": 0.5,
-                    "M": 0.5206359577480126
-                  },
-                  "E": 0.49922065076112465
-                }
-              },
-              "E_local": 0.49719575428053436
-            },
-            {
-              "baseline": {
-                "write": {
-                  "T": 2.019657900003949,
-                  "B": 11673600,
-                  "M": 12693504
-                },
-                "query": {
-                  "T": 0.17641077299776953,
-                  "B": 12693504,
-                  "M": 17821696
-                }
-              },
-              "candidate": {
-                "write": {
-                  "T": 1.925548119994346,
-                  "B": 11673600,
-                  "M": 13234176
-                },
-                "query": {
-                  "T": 0.183578394993674,
-                  "B": 12693504,
-                  "M": 17575936
-                }
-              },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.5119210625861433,
-                    "B": 0.5,
-                    "M": 0.4903536977491961
-                  },
-                  "E": 0.5052233771015252
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.4900996733746548,
-                    "B": 0.5,
-                    "M": 0.5032772558444396
-                  },
-                  "E": 0.4947152551936808
-                }
-              },
-              "E_local": 0.49821796249629563
-            },
-            {
-              "baseline": {
-                "write": {
-                  "T": 1.9355331080005271,
-                  "B": 11673600,
-                  "M": 13115392
-                },
-                "query": {
-                  "T": 0.18141252599889413,
-                  "B": 12693504,
-                  "M": 18313216
-                }
-              },
-              "candidate": {
-                "write": {
-                  "T": 1.7589205269905506,
-                  "B": 11673600,
-                  "M": 12222464
-                },
-                "query": {
-                  "T": 0.18444741699204315,
-                  "B": 12693504,
-                  "M": 17416192
-                }
-              },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.5238894625024024,
-                    "B": 0.5,
-                    "M": 0.5162735144819349
-                  },
-                  "E": 0.5175883803978284
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.4958749368462445,
-                    "B": 0.5,
-                    "M": 0.5118570655116405
-                  },
-                  "E": 0.4998963752100748
-                }
-              },
-              "E_local": 0.5057937102726594
-            }
-          ]
-        },
-        {
-          "name": "VNNI 位掩码，首次三轮",
-          "median_E_local": 0.501162,
-          "rounds": [
-            {
-              "baseline": {
-                "write": {
-                  "T": 1.8228908040036913,
-                  "B": 11673600,
-                  "M": 12148736
-                },
-                "query": {
-                  "T": 0.18411092599853873,
-                  "B": 12693504,
-                  "M": 17240064
-                }
-              },
-              "candidate": {
-                "write": {
-                  "T": 1.8739402310020523,
-                  "B": 11673600,
-                  "M": 13262848
-                },
-                "query": {
-                  "T": 0.1837124559970107,
-                  "B": 12693504,
-                  "M": 18460672
-                }
-              },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.49309924858485976,
-                    "B": 0.5,
-                    "M": 0.4797498511018463
-                  },
-                  "E": 0.49180951937128514
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.5005387301356906,
-                    "B": 0.5,
-                    "M": 0.4838534893801474
-                  },
-                  "E": 0.4970939359574439
-                }
-              },
-              "E_local": 0.4953324637620577
-            },
-            {
-              "baseline": {
-                "write": {
-                  "T": 2.1727559599967208,
-                  "B": 11673600,
-                  "M": 12570624
-                },
-                "query": {
-                  "T": 0.1762689729948761,
-                  "B": 12693504,
-                  "M": 17768448
-                }
-              },
-              "candidate": {
-                "write": {
-                  "T": 1.8753351519990247,
-                  "B": 11673600,
-                  "M": 12754944
-                },
-                "query": {
-                  "T": 0.17718276700179558,
-                  "B": 12693504,
-                  "M": 17952768
-                }
-              },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.5367177922388933,
-                    "B": 0.5,
-                    "M": 0.49663928304705
-                  },
-                  "E": 0.521358531952746
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.4987146018656034,
-                    "B": 0.5,
-                    "M": 0.49756308892017764
-                  },
-                  "E": 0.49874137890339754
-                }
-              },
-              "E_local": 0.506280429919847
-            },
-            {
-              "baseline": {
-                "write": {
-                  "T": 1.857244834987796,
-                  "B": 11673600,
-                  "M": 12484608
-                },
-                "query": {
-                  "T": 0.18048098699364346,
-                  "B": 12693504,
-                  "M": 17682432
-                }
-              },
-              "candidate": {
-                "write": {
-                  "T": 1.9565993370051729,
-                  "B": 11673600,
-                  "M": 12746752
-                },
-                "query": {
-                  "T": 0.17241000500507653,
-                  "B": 12693504,
-                  "M": 17944576
-                }
-              },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.4869813208376529,
-                    "B": 0.5,
-                    "M": 0.4952038369304556
-                  },
-                  "E": 0.4912295598886829
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.5113710719214254,
-                    "B": 0.5,
-                    "M": 0.4965255157437568
-                  },
-                  "E": 0.5061277463016066
-                }
-              },
-              "E_local": 0.5011616841639653
-            }
-          ]
-        },
-        {
-          "name": "VNNI 位掩码，倒换顺序复测",
-          "median_E_local": 0.499794,
-          "rounds": [
-            {
-              "baseline": {
-                "write": {
-                  "T": 1.8314599840086885,
-                  "B": 11673600,
-                  "M": 12775424
-                },
-                "query": {
-                  "T": 0.17885313599254005,
-                  "B": 12693504,
-                  "M": 17973248
-                }
-              },
-              "candidate": {
-                "write": {
-                  "T": 2.353087644005427,
-                  "B": 11673600,
-                  "M": 12677120
-                },
-                "query": {
-                  "T": 0.17245923999871593,
-                  "B": 12693504,
-                  "M": 16818176
-                }
-              },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.4377019317174026,
-                    "B": 0.5,
-                    "M": 0.5017841213202497
-                  },
-                  "E": 0.4629779832944916
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.5090485027249404,
-                    "B": 0.5,
-                    "M": 0.5156562291805463
-                  },
-                  "E": 0.5085603474710735
-                }
-              },
-              "E_local": 0.49336622607887953
-            },
-            {
-              "baseline": {
-                "write": {
-                  "T": 1.790041032989393,
-                  "B": 11673600,
-                  "M": 12566528
-                },
-                "query": {
-                  "T": 0.18670902399753686,
-                  "B": 12693504,
-                  "M": 17764352
-                }
-              },
-              "candidate": {
-                "write": {
-                  "T": 1.9308674119965872,
-                  "B": 11673600,
-                  "M": 12820480
-                },
-                "query": {
-                  "T": 0.1787512859882554,
-                  "B": 12693504,
-                  "M": 18018304
-                }
-              },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.48108651057523866,
-                    "B": 0.5,
-                    "M": 0.49538002980625934
-                  },
-                  "E": 0.4877279123063951
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.5108280238613921,
-                    "B": 0.5,
-                    "M": 0.49664792387543255
-                  },
-                  "E": 0.5058263990919218
-                }
-              },
-              "E_local": 0.4997935701634129
-            },
-            {
-              "baseline": {
-                "write": {
-                  "T": 2.0036762450035894,
-                  "B": 11673600,
-                  "M": 12357632
-                },
-                "query": {
-                  "T": 0.18042308700387366,
-                  "B": 12693504,
-                  "M": 17555456
-                }
-              },
-              "candidate": {
-                "write": {
-                  "T": 1.7216038269980345,
-                  "B": 11677696,
-                  "M": 11436032
-                },
-                "query": {
-                  "T": 0.17422613900271244,
-                  "B": 12697600,
-                  "M": 16633856
-                }
-              },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.5378389083402145,
-                    "B": 0.4999195235795912,
-                    "M": 0.517797816801139
-                  },
-                  "E": 0.5262468130802748
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.5086877351039685,
-                    "B": 0.49992549545522275,
-                    "M": 0.5126989502201151
-                  },
-                  "E": 0.5077375301974486
-                }
-              },
-              "E_local": 0.5139072911583907
-            }
-          ]
-        },
-        {
-          "name": "VNNI 位掩码，第三组独立对照",
-          "median_E_local": 0.506851,
-          "rounds": [
-            {
-              "baseline": {
-                "write": {
-                  "T": 1.9052641210146248,
-                  "B": 11673600,
-                  "M": 13398016
-                },
-                "query": {
-                  "T": 0.1801373960042838,
-                  "B": 12693504,
-                  "M": 18595840
-                }
-              },
-              "candidate": {
-                "write": {
-                  "T": 1.8583991790073924,
-                  "B": 11673600,
-                  "M": 12533760
-                },
-                "query": {
-                  "T": 0.17464482999639586,
-                  "B": 12693504,
-                  "M": 17731584
-                }
-              },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.5062226675984226,
-                    "B": 0.5,
-                    "M": 0.5154172146719275
-                  },
-                  "E": 0.506817043493439
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.5076973649576891,
-                    "B": 0.5,
-                    "M": 0.5112461358064172
-                  },
-                  "E": 0.5068676461358969
-                }
-              },
-              "E_local": 0.506850778588411
-            },
-            {
-              "baseline": {
-                "write": {
-                  "T": 1.9773670729773585,
-                  "B": 11673600,
-                  "M": 12185600
-                },
-                "query": {
-                  "T": 0.18157396800233983,
-                  "B": 12693504,
-                  "M": 17383424
-                }
-              },
-              "candidate": {
-                "write": {
-                  "T": 1.6900832619867288,
-                  "B": 11673600,
-                  "M": 12632064
-                },
-                "query": {
-                  "T": 0.1743521819880698,
-                  "B": 12693504,
-                  "M": 17313792
-                }
-              },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.5391453466822084,
-                    "B": 0.5,
-                    "M": 0.4917059808248364
-                  },
-                  "E": 0.5218284041742923
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.5100883743957567,
-                    "B": 0.5,
-                    "M": 0.5009462317711232
-                  },
-                  "E": 0.5062422709916787
-                }
-              },
-              "E_local": 0.5114376487192166
-            },
-            {
-              "baseline": {
-                "write": {
-                  "T": 1.7216120719967876,
-                  "B": 11673600,
-                  "M": 12693504
-                },
-                "query": {
-                  "T": 0.17991983899264596,
-                  "B": 12693504,
-                  "M": 17891328
-                }
-              },
-              "candidate": {
-                "write": {
-                  "T": 1.7004373149829917,
-                  "B": 11673600,
-                  "M": 12611584
-                },
-                "query": {
-                  "T": 0.17355364601826295,
-                  "B": 12693504,
-                  "M": 17809408
-                }
-              },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.5030920636095838,
-                    "B": 0.5,
-                    "M": 0.5014947683109118
-                  },
-                  "E": 0.5021541918279326
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.5089545257843741,
-                    "B": 0.5,
-                    "M": 0.5010836584308626
-                  },
-                  "E": 0.505589447156797
-                }
-              },
-              "E_local": 0.5044443620471756
-            }
-          ]
-        }
-      ],
-      "verification": "两个候选均通过 22 项 Docker 门禁。新增 C++ 验证逐位对照 257 条候选及偏移 16 的子段，覆盖端部不满 16 项、等于阈值和裁剪查询值。Exact Top-K 和重启后行校验通过。",
       "output": "保留 VNNI 筛选位掩码。三个独立三轮对比的本地 E 中位数为 0.501162、0.499794 和 0.506851。合计九轮 E 中位数 0.504444，六轮 E 高于基线，八轮查询墙钟更短。最后一组查询墙钟中位从 0.180137 秒降到 0.174352 秒，无过滤平均延迟从 0.151680 毫秒降到 0.141594 毫秒，写入与查询物理 I/O 三轮持平。运行时 1999 行。热行向量位置方案虽然降低查询峰值内存，但 E 中位数 0.498218，未合入。",
-      "limitation": "本地 E 使用同轮 fff2594 作参考，平台原始分需平台复评。"
+      "verification": "两个候选均通过 22 项 Docker 门禁。新增 C++ 验证逐位对照 257 条候选及偏移 16 的子段，覆盖端部不满 16 项、等于阈值和裁剪查询值。Exact Top-K 和重启后行校验通过。",
+      "details_at": "715ed8e4285d9404d9c459f2f4559ece123f0c19:conversation.json"
     },
     {
       "id": "compact-scalar-rows-71d7c13",
       "kind": "measured_retained",
-      "baseline_commit": "71d7c13bddbb0d64102bc1eeb691e9f0ba752944",
-      "implementation": "在标量字段长度标记隐含的 -1 向量偏移，旧记录仍由同一路径解析，向量文件、全量向量 WAL 和同步顺序沿用原实现。第二版按列数预先为行字段分配容量。第三版沿用旧格式，仅预分配行字段容量和编码缓冲区。",
-      "comparisons": [
-        {
-          "name": "紧凑标量行记录",
-          "median_E_local": 0.497627,
-          "rounds": [
-            {
-              "baseline": {
-                "write": {
-                  "T": 1.7324960900004953,
-                  "B": 11673600,
-                  "M": 12320768
-                },
-                "query": {
-                  "T": 0.1763224820024334,
-                  "B": 12693504,
-                  "M": 17518592
-                }
-              },
-              "candidate": {
-                "write": {
-                  "T": 1.9679085210082121,
-                  "B": 11513856,
-                  "M": 12603392
-                },
-                "query": {
-                  "T": 0.1876074180181604,
-                  "B": 12369920,
-                  "M": 18595840
-                }
-              },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.46820817066998255,
-                    "B": 0.5031589178681354,
-                    "M": 0.49477035015916326
-                  },
-                  "E": 0.48051075600744925
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.48458046744049627,
-                    "B": 0.5059568692504901,
-                    "M": 0.48590416979311823
-                  },
-                  "E": 0.4891204882730194
-                }
-              },
-              "E_local": 0.48625057751782935
-            },
-            {
-              "baseline": {
-                "write": {
-                  "T": 1.8229063299950212,
-                  "B": 11673600,
-                  "M": 12804096
-                },
-                "query": {
-                  "T": 0.17176440998446196,
-                  "B": 12693504,
-                  "M": 18001920
-                }
-              },
-              "candidate": {
-                "write": {
-                  "T": 1.5829656429996248,
-                  "B": 11513856,
-                  "M": 12693504
-                },
-                "query": {
-                  "T": 0.17661332999705337,
-                  "B": 12369920,
-                  "M": 18948096
-                }
-              },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.5352038880710284,
-                    "B": 0.5031589178681354,
-                    "M": 0.502003859284548
-                  },
-                  "E": 0.5221548882731537
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.4930804393954262,
-                    "B": 0.5059568692504901,
-                    "M": 0.48788419175495645
-                  },
-                  "E": 0.494616475838345
-                }
-              },
-              "E_local": 0.5037959466499479
-            },
-            {
-              "baseline": {
-                "write": {
-                  "T": 1.7799172659870237,
-                  "B": 11673600,
-                  "M": 11620352
-                },
-                "query": {
-                  "T": 0.17272313899593428,
-                  "B": 12693504,
-                  "M": 16818176
-                }
-              },
-              "candidate": {
-                "write": {
-                  "T": 1.7688724120089319,
-                  "B": 11513856,
-                  "M": 11726848
-                },
-                "query": {
-                  "T": 0.17526921798707917,
-                  "B": 12369920,
-                  "M": 17977344
-                }
-              },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.5015552672756903,
-                    "B": 0.5031589178681354,
-                    "M": 0.4979072762395364
-                  },
-                  "E": 0.5011463991869486
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.496362664869181,
-                    "B": 0.5059568692504901,
-                    "M": 0.48428999666925726
-                  },
-                  "E": 0.4958669721054581
-                }
-              },
-              "E_local": 0.4976267811326216
-            }
-          ]
-        },
-        {
-          "name": "紧凑记录加预分配",
-          "median_E_local": 0.498895,
-          "rounds": [
-            {
-              "baseline": {
-                "write": {
-                  "T": 1.873924576007994,
-                  "B": 11673600,
-                  "M": 12402688
-                },
-                "query": {
-                  "T": 0.17707254600827582,
-                  "B": 12693504,
-                  "M": 17600512
-                }
-              },
-              "candidate": {
-                "write": {
-                  "T": 1.7387137049809098,
-                  "B": 11513856,
-                  "M": 13078528
-                },
-                "query": {
-                  "T": 0.18238831899361685,
-                  "B": 12369920,
-                  "M": 18808832
-                }
-              },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.5187032367440778,
-                    "B": 0.5031589178681354,
-                    "M": 0.4877469181642656
-                  },
-                  "E": 0.5094031092529269
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.4926468208594128,
-                    "B": 0.5059568692504901,
-                    "M": 0.48431017976810975
-                  },
-                  "E": 0.49364150231936765
-                }
-              },
-              "E_local": 0.4988953712972208
-            },
-            {
-              "baseline": {
-                "write": {
-                  "T": 2.173792755987961,
-                  "B": 11673600,
-                  "M": 11943936
-                },
-                "query": {
-                  "T": 0.17237427100189961,
-                  "B": 12693504,
-                  "M": 16875520
-                }
-              },
-              "candidate": {
-                "write": {
-                  "T": 1.667064636014402,
-                  "B": 11513856,
-                  "M": 12288000
-                },
-                "query": {
-                  "T": 0.17561450999346562,
-                  "B": 12369920,
-                  "M": 18276352
-                }
-              },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.5659311637517627,
-                    "B": 0.5031589178681354,
-                    "M": 0.49346608587429996
-                  },
-                  "E": 0.5388836989995447
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.4953709387735933,
-                    "B": 0.5059568692504901,
-                    "M": 0.48119639322630303
-                  },
-                  "E": 0.4946532157595146
-                }
-              },
-              "E_local": 0.5093967101728579
-            },
-            {
-              "baseline": {
-                "write": {
-                  "T": 1.657788917014841,
-                  "B": 11673600,
-                  "M": 12525568
-                },
-                "query": {
-                  "T": 0.1752445780148264,
-                  "B": 12693504,
-                  "M": 17461248
-                }
-              },
-              "candidate": {
-                "write": {
-                  "T": 1.8622499360062648,
-                  "B": 11513856,
-                  "M": 12783616
-                },
-                "query": {
-                  "T": 0.17414948498480953,
-                  "B": 12369920,
-                  "M": 18771968
-                }
-              },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.47097405401759795,
-                    "B": 0.5031589178681354,
-                    "M": 0.49529218353011506
-                  },
-                  "E": 0.48227465269020886
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.5015582121972533,
-                    "B": 0.5059568692504901,
-                    "M": 0.48290232955759776
-                  },
-                  "E": 0.4987067670799695
-                }
-              },
-              "E_local": 0.49322939561671597
-            }
-          ]
-        },
-        {
-          "name": "保留旧格式并预分配行对象",
-          "median_E_local": 0.500871,
-          "rounds": [
-            {
-              "baseline": {
-                "write": {
-                  "T": 1.8732081060006749,
-                  "B": 11673600,
-                  "M": 13189120
-                },
-                "query": {
-                  "T": 0.1812465460097883,
-                  "B": 12693504,
-                  "M": 18386944
-                }
-              },
-              "candidate": {
-                "write": {
-                  "T": 2.0257755769998766,
-                  "B": 11673600,
-                  "M": 11718656
-                },
-                "query": {
-                  "T": 0.17315503399004228,
-                  "B": 12693504,
-                  "M": 16392192
-                }
-              },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.48044500010804325,
-                    "B": 0.5,
-                    "M": 0.5272258455938116
-                  },
-                  "E": 0.49371216918358823
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.5113516780982703,
-                    "B": 0.5,
-                    "M": 0.5270465400422082
-                  },
-                  "E": 0.5122203148674038
-                }
-              },
-              "E_local": 0.5060509329727986
-            },
-            {
-              "baseline": {
-                "write": {
-                  "T": 1.816852693009423,
-                  "B": 11673600,
-                  "M": 13139968
-                },
-                "query": {
-                  "T": 0.17470488298567943,
-                  "B": 12693504,
-                  "M": 17014784
-                }
-              },
-              "candidate": {
-                "write": {
-                  "T": 2.2298508459934965,
-                  "B": 11673600,
-                  "M": 12328960
-                },
-                "query": {
-                  "T": 0.17410177699639462,
-                  "B": 12693504,
-                  "M": 17264640
-                }
-              },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.448996246699038,
-                    "B": 0.5,
-                    "M": 0.5147102526002971
-                  },
-                  "E": 0.4723397985394822
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.500859598830472,
-                    "B": 0.5,
-                    "M": 0.49656570206057876
-                  },
-                  "E": 0.499828899710399
-                }
-              },
-              "E_local": 0.49066586598676004
-            },
-            {
-              "baseline": {
-                "write": {
-                  "T": 1.917349308001576,
-                  "B": 11673600,
-                  "M": 13139968
-                },
-                "query": {
-                  "T": 0.17346286302199587,
-                  "B": 12693504,
-                  "M": 18333696
-                }
-              },
-              "candidate": {
-                "write": {
-                  "T": 1.8223907920182683,
-                  "B": 11673600,
-                  "M": 12898304
-                },
-                "query": {
-                  "T": 0.17928034099168144,
-                  "B": 12697600,
-                  "M": 17571840
-                }
-              },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.5126890849504492,
-                    "B": 0.5,
-                    "M": 0.5042946571553356
-                  },
-                  "E": 0.5084723824013366
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.49180043774783455,
-                    "B": 0.49992549545522275,
-                    "M": 0.510023712006898
-                  },
-                  "E": 0.4970701041411249
-                }
-              },
-              "E_local": 0.5008708635611955
-            }
-          ]
-        },
-        {
-          "name": "预分配换序复测",
-          "median_E_local": 0.505725,
-          "rounds": [
-            {
-              "baseline": {
-                "write": {
-                  "T": 1.60871388198575,
-                  "B": 11673600,
-                  "M": 12267520
-                },
-                "query": {
-                  "T": 0.180940805003047,
-                  "B": 12693504,
-                  "M": 17465344
-                }
-              },
-              "candidate": {
-                "write": {
-                  "T": 1.8300355710089207,
-                  "B": 11673600,
-                  "M": 13365248
-                },
-                "query": {
-                  "T": 0.17646595599944703,
-                  "B": 12693504,
-                  "M": 18300928
-                }
-              },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.4678381567669011,
-                    "B": 0.5,
-                    "M": 0.48020679468242244
-                  },
-                  "E": 0.47674425299662515
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.5062253266899018,
-                    "B": 0.5,
-                    "M": 0.4889658156642146
-                  },
-                  "E": 0.5015283591467841
-                }
-              },
-              "E_local": 0.4932669904300644
-            },
-            {
-              "baseline": {
-                "write": {
-                  "T": 1.7346549360081553,
-                  "B": 11673600,
-                  "M": 13107200
-                },
-                "query": {
-                  "T": 0.18415694599389099,
-                  "B": 12693504,
-                  "M": 18305024
-                }
-              },
-              "candidate": {
-                "write": {
-                  "T": 1.5882766800059471,
-                  "B": 11673600,
-                  "M": 12591104
-                },
-                "query": {
-                  "T": 0.17377687999396585,
-                  "B": 12693504,
-                  "M": 17260544
-                }
-              },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.5220122205366866,
-                    "B": 0.5,
-                    "M": 0.5092838196286472
-                  },
-                  "E": 0.5150640962477414
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.5144194088613879,
-                    "B": 0.5,
-                    "M": 0.5138662316476346
-                  },
-                  "E": 0.5114248916463597
-                }
-              },
-              "E_local": 0.5126379598468204
-            },
-            {
-              "baseline": {
-                "write": {
-                  "T": 1.8091814979852643,
-                  "B": 11673600,
-                  "M": 12476416
-                },
-                "query": {
-                  "T": 0.175507938984083,
-                  "B": 12693504,
-                  "M": 17412096
-                }
-              },
-              "candidate": {
-                "write": {
-                  "T": 1.6663242030190304,
-                  "B": 11673600,
-                  "M": 12705792
-                },
-                "query": {
-                  "T": 0.1714785810036119,
-                  "B": 12693504,
-                  "M": 17641472
-                }
-              },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.5205401956530189,
-                    "B": 0.5,
-                    "M": 0.4957957957957958
-                  },
-                  "E": 0.5114832765509705
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.5057729421477557,
-                    "B": 0.5,
-                    "M": 0.49691289966923924
-                  },
-                  "E": 0.5028463452225013
-                }
-              },
-              "E_local": 0.505725322331991
-            }
-          ]
-        }
-      ],
       "output": "保留原有落盘格式，只预分配行字段与编码缓冲区。两组三轮本地 E 中位数为 0.500871 和 0.505725，合计六轮 E 中位数为 0.503298，四轮高于 71d7c13。最后一组查询总耗时中位由 0.180941 秒降为 0.173777 秒，查询峰值内存中位由 17465344 增至 17641472 字节，物理 I/O 持平。两版紧凑格式虽降低物理 I/O，但综合 E 中位数均低于基线，未合入。",
-      "verification": "三份候选均通过 22 项 Docker 门禁。紧凑格式的独立升级用例覆盖旧 WAL、旧 SST、混合格式、冷查询、更新回滚、GC 和重新打开。最终预分配版六轮独立 Exact 和重启检验通过。平台分数待复评。"
+      "verification": "三份候选均通过 22 项 Docker 门禁。紧凑格式的独立升级用例覆盖旧 WAL、旧 SST、混合格式、冷查询、更新回滚、GC 和重新打开。最终预分配版六轮独立 Exact 和重启检验通过。平台分数待复评。",
+      "details_at": "715ed8e4285d9404d9c459f2f4559ece123f0c19:conversation.json"
     },
     {
       "id": "terminal-checkpoint-memory-85bd107",
       "kind": "measured_retained",
-      "baseline_commit": "85bd1075a7e2bc44da6aca70d3ffa39c2eee9be7",
-      "hypothesis": "终止会话后不再使用查询缓存。若在 checkpoint 前销毁这些对象并把空闲页归还系统，可降低写出 SST 时的内存峰值。",
+      "output": "保留终止会话时释放查询缓存并将空闲堆页归还系统的 C++ 改动。两组三轮 E 中位数为 0.508966 和 0.502495，六轮中位数为 0.505087，六轮均高于 85bd107。基线六轮关闭阶段的峰值均增加 1 MiB，候选六轮增量均为零。查询全流程峰值五轮降低，六轮写入和查询物理 I/O 持平。首组 checkpoint 中位耗时从 64.13 ms 到 165.25 ms，换序复测从 71.82 ms 到 68.85 ms。单独销毁缓存的版本三轮全流程峰值都增加，未合入。评分为本地对照，平台结果待复评。",
+      "verification": "两个候选均通过完整 Docker 门禁。归还页候选额外检查了终止时回滚未提交事务、返回原始请求 ID、checkpoint 和重启 Exact。",
+      "details_at": "715ed8e4285d9404d9c459f2f4559ece123f0c19:conversation.json"
+    },
+    {
+      "id": "compiler-and-autocommit-715ed8e",
+      "kind": "measured_retained",
+      "baseline_commit": "715ed8e4285d9404d9c459f2f4559ece123f0c19",
+      "hypotheses": "分别测试 Release 编译优化和自动提交语句批次直接移交。前者缩减编译生成代码的调用成本，后者省掉合并空事务的复制。",
+      "input": {
+        "insert_sha256": "cbed135375c7deea4b8342e0b0e2deed667e5694c9212054e0bf9b0c1fd0771d",
+        "query_cases_sha256": "c8ecc80cf5baca8a83204a54ad07cf8737c46e56b1175e216aea0f8469afc504",
+        "rows": 10000,
+        "dim": 128,
+        "batch": 100,
+        "requests": 100
+      },
       "comparisons": [
         {
-          "name": "释放查询缓存",
-          "median_E_local": 0.50566,
+          "name": "编译优化",
+          "median_E_local": 0.509544,
           "rounds": [
             {
               "baseline": {
                 "write": {
-                  "T": 1.937032084009843,
+                  "T": 1.9963264849793632,
                   "B": 11673600,
-                  "M": 12087296
+                  "M": 10907648
                 },
                 "query": {
-                  "T": 0.17532605698215775,
+                  "T": 0.178388589003589,
                   "B": 12693504,
-                  "M": 16760832
+                  "M": 14532608
                 }
               },
               "candidate": {
                 "write": {
-                  "T": 1.5973950439947657,
+                  "T": 1.5785435599973425,
                   "B": 11673600,
-                  "M": 12963840
+                  "M": 12013568
                 },
                 "query": {
-                  "T": 0.1740347750019282,
+                  "T": 0.17550157100777142,
                   "B": 12693504,
-                  "M": 17752064
+                  "M": 15638528
                 }
               },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.548019799040326,
-                    "B": 0.5,
-                    "M": 0.48385636692818346
-                  },
-                  "E": 0.5255831528098323
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.5018375440041764,
-                    "B": 0.5,
-                    "M": 0.48646229581561873
-                  },
-                  "E": 0.49839498556562956
-                }
-              },
-              "E_local": 0.5074577079803638
+              "E_local": 0.5095442254398191
             },
             {
               "baseline": {
                 "write": {
-                  "T": 1.836336587992264,
+                  "T": 1.8372438580263406,
                   "B": 11673600,
-                  "M": 12873728
+                  "M": 11456512
                 },
                 "query": {
-                  "T": 0.17316156200831756,
+                  "T": 0.21315423300256953,
                   "B": 12693504,
-                  "M": 17543168
+                  "M": 15343616
                 }
               },
               "candidate": {
                 "write": {
-                  "T": 1.58980997998151,
+                  "T": 1.5666077170171775,
                   "B": 11673600,
-                  "M": 13279232
+                  "M": 13217792
                 },
                 "query": {
-                  "T": 0.1737307719886303,
+                  "T": 0.17577068202081136,
                   "B": 12693504,
-                  "M": 17952768
+                  "M": 17104896
                 }
               },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.5359562526167697,
-                    "B": 0.5,
-                    "M": 0.49282296650717705
-                  },
-                  "E": 0.5201383448714972
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.4991842612679508,
-                    "B": 0.5,
-                    "M": 0.4945521900196121
-                  },
-                  "E": 0.4984209947646929
-                }
-              },
-              "E_local": 0.5056601114669611
+              "E_local": 0.5214799811417682
             },
             {
               "baseline": {
                 "write": {
-                  "T": 1.7281974079960492,
+                  "T": 1.7106021239887923,
                   "B": 11673600,
-                  "M": 12144640
+                  "M": 12767232
                 },
                 "query": {
-                  "T": 0.17831610701978207,
+                  "T": 0.1868903480062727,
                   "B": 12693504,
-                  "M": 16818176
+                  "M": 16392192
                 }
               },
               "candidate": {
                 "write": {
-                  "T": 1.856304529006593,
+                  "T": 1.758898195985239,
                   "B": 11673600,
-                  "M": 12578816
+                  "M": 12369920
                 },
                 "query": {
-                  "T": 0.17211121501168236,
+                  "T": 0.17622760601807386,
                   "B": 12693504,
-                  "M": 17145856
+                  "M": 16257024
                 }
               },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.48214038033984624,
-                    "B": 0.5,
-                    "M": 0.491905925473427
-                  },
-                  "E": 0.48766541329859314
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.5088030802667816,
-                    "B": 0.5,
-                    "M": 0.4954566106315311
-                  },
-                  "E": 0.5043731702863752
-                }
-              },
-              "E_local": 0.4988039179571145
+              "E_local": 0.5051951256161425
             }
           ]
         },
         {
-          "name": "释放缓存并归还空闲页",
-          "median_E_local": 0.508966,
+          "name": "自动提交移动批次",
+          "median_E_local": 0.502132,
           "rounds": [
             {
               "baseline": {
                 "write": {
-                  "T": 1.9048367400246207,
+                  "T": 1.7480404489906505,
                   "B": 11673600,
-                  "M": 13250560
+                  "M": 13242368
                 },
                 "query": {
-                  "T": 0.1800505089922808,
+                  "T": 0.20255607197759673,
                   "B": 12693504,
-                  "M": 18010112
+                  "M": 16867328
                 }
               },
               "candidate": {
                 "write": {
-                  "T": 1.7189819740015082,
+                  "T": 1.734741258987924,
                   "B": 11673600,
-                  "M": 12996608
+                  "M": 12591104
                 },
                 "query": {
-                  "T": 0.17663490201812238,
+                  "T": 0.17494011000962928,
                   "B": 12693504,
-                  "M": 16621568
+                  "M": 16478208
                 }
               },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.5256293516970597,
-                    "B": 0.5,
-                    "M": 0.5044797687861272
-                  },
-                  "E": 0.5162735647754613
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.5047612850555265,
-                    "B": 0.5,
-                    "M": 0.5189026430244229
-                  },
-                  "E": 0.5066372996382005
-                }
-              },
-              "E_local": 0.5098493880172874
+              "E_local": 0.5164448127981389
             },
             {
               "baseline": {
                 "write": {
-                  "T": 2.0456614659924526,
+                  "T": 1.9494119080191012,
                   "B": 11673600,
-                  "M": 13008896
+                  "M": 12607488
                 },
                 "query": {
-                  "T": 0.18159218397340737,
+                  "T": 0.17602564199478365,
                   "B": 12693504,
-                  "M": 17944576
+                  "M": 16494592
                 }
               },
               "candidate": {
                 "write": {
-                  "T": 1.9421329639735632,
+                  "T": 1.9011333379894495,
                   "B": 11673600,
-                  "M": 12636160
+                  "M": 12562432
                 },
                 "query": {
-                  "T": 0.1756214429915417,
+                  "T": 0.17472383499261923,
                   "B": 12693504,
-                  "M": 16519168
+                  "M": 16449536
                 }
               },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.512974164939592,
-                    "B": 0.5,
-                    "M": 0.5067178502879078
-                  },
-                  "E": 0.5091280690213368
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.5083108497752624,
-                    "B": 0.5,
-                    "M": 0.5194936141608784
-                  },
-                  "E": 0.5088852326973331
-                }
-              },
-              "E_local": 0.5089661781386677
+              "E_local": 0.5021320516096753
             },
             {
               "baseline": {
                 "write": {
-                  "T": 1.8892472510051448,
+                  "T": 1.7890926130057778,
                   "B": 11673600,
-                  "M": 13811712
+                  "M": 13053952
                 },
                 "query": {
-                  "T": 0.17691467099939473,
+                  "T": 0.18051788202137686,
                   "B": 12693504,
-                  "M": 18485248
+                  "M": 16896000
                 }
               },
               "candidate": {
                 "write": {
-                  "T": 1.8496136059984565,
+                  "T": 1.7664143150032032,
                   "B": 11673600,
-                  "M": 12394496
+                  "M": 12611584
                 },
                 "query": {
-                  "T": 0.1770136069972068,
+                  "T": 0.18325281000579707,
                   "B": 12693504,
-                  "M": 16281600
+                  "M": 16498688
                 }
               },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.5052973963108633,
-                    "B": 0.5,
-                    "M": 0.5250361794500723
-                  },
-                  "E": 0.5081856736765324
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.4998610169464914,
-                    "B": 0.5,
-                    "M": 0.5298888888888889
-                  },
-                  "E": 0.5058943879456727
-                }
-              },
-              "E_local": 0.5066581498559593
+              "E_local": 0.5004194716687301
             }
           ]
         },
         {
-          "name": "归还空闲页换序复测",
-          "median_E_local": 0.502495,
+          "name": "组合版本",
+          "median_E_local": 0.507476,
           "rounds": [
             {
               "baseline": {
                 "write": {
-                  "T": 1.8589588240138255,
+                  "T": 1.9971165279857814,
                   "B": 11673600,
-                  "M": 13049856
+                  "M": 13045760
                 },
                 "query": {
-                  "T": 0.1747595100023318,
+                  "T": 0.17450706599629484,
                   "B": 12693504,
-                  "M": 17719296
+                  "M": 16666624
                 }
               },
               "candidate": {
                 "write": {
-                  "T": 1.9375162220094353,
+                  "T": 1.7616008600161877,
                   "B": 11673600,
-                  "M": 12177408
+                  "M": 12468224
                 },
                 "query": {
-                  "T": 0.17223630301305093,
+                  "T": 0.17552953501581214,
                   "B": 12693504,
-                  "M": 16064512
+                  "M": 16093184
                 }
               },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.48965935052306664,
-                    "B": 0.5,
-                    "M": 0.5159646229950532
-                  },
-                  "E": 0.49698853491285067
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.5036149530956833,
-                    "B": 0.5,
-                    "M": 0.5230593607305936
-                  },
-                  "E": 0.5067808440035286
-                }
-              },
-              "E_local": 0.5035167409733027
+              "E_local": 0.5074756066661784
             },
             {
               "baseline": {
                 "write": {
-                  "T": 1.7562323679740075,
+                  "T": 1.807257888984168,
                   "B": 11673600,
-                  "M": 12001280
+                  "M": 12853248
                 },
                 "query": {
-                  "T": 0.1740998250024859,
+                  "T": 0.17338547599501908,
                   "B": 12693504,
-                  "M": 16674816
+                  "M": 16474112
                 }
               },
               "candidate": {
                 "write": {
-                  "T": 1.6265469930076506,
+                  "T": 1.6731012020027265,
                   "B": 11673600,
-                  "M": 13266944
+                  "M": 11251712
                 },
                 "query": {
-                  "T": 0.173033883998869,
+                  "T": 0.1719356819812674,
                   "B": 12693504,
-                  "M": 16891904
+                  "M": 15138816
                 }
               },
-              "phases": {
-                "write": {
-                  "f_ratios": {
-                    "T": 0.519157138639717,
-                    "B": 0.5,
-                    "M": 0.4768747193533902
-                  },
-                  "E": 0.5068692270545083
-                },
-                "query": {
-                  "f_ratios": {
-                    "T": 0.5015265512554858,
-                    "B": 0.5,
-                    "M": 0.4969564718042954
-                  },
-                  "E": 0.5003072251141506
-                }
-              },
-              "E_local": 0.5024945590942699
+              "E_local": 0.5093654677144416
             },
             {
               "baseline": {
                 "write": {
-                  "T": 1.8775260660040658,
+                  "T": 1.9788913250085898,
                   "B": 11673600,
-                  "M": 12689408
+                  "M": 12353536
                 },
                 "query": {
-                  "T": 0.17740622800192796,
+                  "T": 0.174559417006094,
                   "B": 12693504,
-                  "M": 17580032
+                  "M": 15978496
                 }
               },
               "candidate": {
                 "write": {
-                  "T": 1.8050539469986688,
+                  "T": 1.925227506988449,
                   "B": 11673600,
-                  "M": 12898304
+                  "M": 11124736
                 },
                 "query": {
-                  "T": 0.18098263099091128,
+                  "T": 0.17133237098460086,
                   "B": 12693504,
-                  "M": 16523264
+                  "M": 15011840
                 }
               },
-              "phases": {
+              "E_local": 0.5067782551997254
+            }
+          ]
+        },
+        {
+          "name": "轮换对比编译版",
+          "median_E_local": 0.495995,
+          "rounds": [
+            {
+              "baseline": {
                 "write": {
-                  "f_ratios": {
-                    "T": 0.5098345155688906,
-                    "B": 0.5,
-                    "M": 0.49622725255215266
-                  },
-                  "E": 0.5051461598517649
+                  "T": 1.8802185420063324,
+                  "B": 11673600,
+                  "M": 11255808
                 },
                 "query": {
-                  "f_ratios": {
-                    "T": 0.49503813325559215,
-                    "B": 0.5,
-                    "M": 0.5145960624575696
-                  },
-                  "E": 0.4999420924448692
+                  "T": 0.1759127100231126,
+                  "B": 12693504,
+                  "M": 15142912
                 }
               },
-              "E_local": 0.5016767815805011
+              "candidate": {
+                "write": {
+                  "T": 2.0884058699884918,
+                  "B": 11673600,
+                  "M": 12288000
+                },
+                "query": {
+                  "T": 0.17355676100123674,
+                  "B": 12693504,
+                  "M": 15912960
+                }
+              },
+              "E_local": 0.4932071141813437
+            },
+            {
+              "baseline": {
+                "write": {
+                  "T": 2.00696417799918,
+                  "B": 11673600,
+                  "M": 12750848
+                },
+                "query": {
+                  "T": 0.17299338002339937,
+                  "B": 12693504,
+                  "M": 16375808
+                }
+              },
+              "candidate": {
+                "write": {
+                  "T": 1.8919616240018513,
+                  "B": 11673600,
+                  "M": 11358208
+                },
+                "query": {
+                  "T": 0.17467307898914441,
+                  "B": 12693504,
+                  "M": 14983168
+                }
+              },
+              "E_local": 0.5065337840856058
+            },
+            {
+              "baseline": {
+                "write": {
+                  "T": 2.004702724982053,
+                  "B": 11673600,
+                  "M": 11931648
+                },
+                "query": {
+                  "T": 0.18275730800814927,
+                  "B": 12693504,
+                  "M": 15556608
+                }
+              },
+              "candidate": {
+                "write": {
+                  "T": 2.0634161809866782,
+                  "B": 11673600,
+                  "M": 13017088
+                },
+                "query": {
+                  "T": 0.18375409400323406,
+                  "B": 12693504,
+                  "M": 15900672
+                }
+              },
+              "E_local": 0.49599510184858203
+            }
+          ]
+        },
+        {
+          "name": "轮换对比组合版",
+          "median_E_local": 0.499386,
+          "rounds": [
+            {
+              "baseline": {
+                "write": {
+                  "T": 1.8802185420063324,
+                  "B": 11673600,
+                  "M": 11255808
+                },
+                "query": {
+                  "T": 0.1759127100231126,
+                  "B": 12693504,
+                  "M": 15142912
+                }
+              },
+              "candidate": {
+                "write": {
+                  "T": 1.7804808159999084,
+                  "B": 11673600,
+                  "M": 12816384
+                },
+                "query": {
+                  "T": 0.17805275300634094,
+                  "B": 12693504,
+                  "M": 16703488
+                }
+              },
+              "E_local": 0.49646784500395924
+            },
+            {
+              "baseline": {
+                "write": {
+                  "T": 2.00696417799918,
+                  "B": 11673600,
+                  "M": 12750848
+                },
+                "query": {
+                  "T": 0.17299338002339937,
+                  "B": 12693504,
+                  "M": 16375808
+                }
+              },
+              "candidate": {
+                "write": {
+                  "T": 1.9659069019835442,
+                  "B": 11673600,
+                  "M": 12783616
+                },
+                "query": {
+                  "T": 0.17482581801596098,
+                  "B": 12693504,
+                  "M": 16670720
+                }
+              },
+              "E_local": 0.4993863021745999
+            },
+            {
+              "baseline": {
+                "write": {
+                  "T": 2.004702724982053,
+                  "B": 11673600,
+                  "M": 11931648
+                },
+                "query": {
+                  "T": 0.18275730800814927,
+                  "B": 12693504,
+                  "M": 15556608
+                }
+              },
+              "candidate": {
+                "write": {
+                  "T": 2.0463606840057764,
+                  "B": 11673600,
+                  "M": 12021760
+                },
+                "query": {
+                  "T": 0.1732090509904083,
+                  "B": 12693504,
+                  "M": 15908864
+                }
+              },
+              "E_local": 0.5034919060027371
             }
           ]
         }
       ],
-      "memory_peak_growth_after_query_bytes": [
-        {
-          "trial": "bench-tmp/shutdown-cache-release-v1",
-          "runs": [
-            {
-              "label": "base-r1",
-              "query_peak": 15974400,
-              "final_peak": 16760832,
-              "checkpoint_s": 0.07676451400038786
-            },
-            {
-              "label": "base-r2",
-              "query_peak": 16494592,
-              "final_peak": 17543168,
-              "checkpoint_s": 0.05927896499633789
-            },
-            {
-              "label": "base-r3",
-              "query_peak": 15769600,
-              "final_peak": 16818176,
-              "checkpoint_s": 0.06966367599670775
-            },
-            {
-              "label": "candidate-r1",
-              "query_peak": 16703488,
-              "final_peak": 17752064,
-              "checkpoint_s": 0.08551546299713664
-            },
-            {
-              "label": "candidate-r2",
-              "query_peak": 16904192,
-              "final_peak": 17952768,
-              "checkpoint_s": 0.06145461698179133
-            },
-            {
-              "label": "candidate-r3",
-              "query_peak": 16097280,
-              "final_peak": 17145856,
-              "checkpoint_s": 0.06772135201026686
-            }
-          ]
-        },
-        {
-          "trial": "bench-tmp/shutdown-cache-trim-v1",
-          "runs": [
-            {
-              "label": "base-r1",
-              "query_peak": 16961536,
-              "final_peak": 18010112,
-              "checkpoint_s": 0.10370536101981997
-            },
-            {
-              "label": "base-r2",
-              "query_peak": 16896000,
-              "final_peak": 17944576,
-              "checkpoint_s": 0.058693621976999566
-            },
-            {
-              "label": "base-r3",
-              "query_peak": 17436672,
-              "final_peak": 18485248,
-              "checkpoint_s": 0.06412753299809992
-            },
-            {
-              "label": "candidate-r1",
-              "query_peak": 16621568,
-              "final_peak": 16621568,
-              "checkpoint_s": 0.08871156300301664
-            },
-            {
-              "label": "candidate-r2",
-              "query_peak": 16519168,
-              "final_peak": 16519168,
-              "checkpoint_s": 0.18805737400543876
-            },
-            {
-              "label": "candidate-r3",
-              "query_peak": 16281600,
-              "final_peak": 16281600,
-              "checkpoint_s": 0.16524562000995502
-            }
-          ]
-        },
-        {
-          "trial": "bench-tmp/shutdown-cache-trim-retest",
-          "runs": [
-            {
-              "label": "base-r1",
-              "query_peak": 16670720,
-              "final_peak": 17719296,
-              "checkpoint_s": 0.07588026797748171
-            },
-            {
-              "label": "base-r2",
-              "query_peak": 15626240,
-              "final_peak": 16674816,
-              "checkpoint_s": 0.0678808489756193
-            },
-            {
-              "label": "base-r3",
-              "query_peak": 16531456,
-              "final_peak": 17580032,
-              "checkpoint_s": 0.07181682699592784
-            },
-            {
-              "label": "candidate-r1",
-              "query_peak": 16064512,
-              "final_peak": 16064512,
-              "checkpoint_s": 0.06885228000464849
-            },
-            {
-              "label": "candidate-r2",
-              "query_peak": 16891904,
-              "final_peak": 16891904,
-              "checkpoint_s": 0.10411399099393748
-            },
-            {
-              "label": "candidate-r3",
-              "query_peak": 16523264,
-              "final_peak": 16523264,
-              "checkpoint_s": 0.06760639697313309
-            }
-          ]
-        }
-      ],
-      "verification": "两个候选均通过完整 Docker 门禁。归还页候选额外检查了终止时回滚未提交事务、返回原始请求 ID、checkpoint 和重启 Exact。",
-      "output": "保留终止会话时释放查询缓存并将空闲堆页归还系统的 C++ 改动。两组三轮 E 中位数为 0.508966 和 0.502495，六轮中位数为 0.505087，六轮均高于 85bd107。基线六轮关闭阶段的峰值均增加 1 MiB，候选六轮增量均为零。查询全流程峰值五轮降低，六轮写入和查询物理 I/O 持平。首组 checkpoint 中位耗时从 64.13 ms 到 165.25 ms，换序复测从 71.82 ms 到 68.85 ms。单独销毁缓存的版本三轮全流程峰值都增加，未合入。评分为本地对照，平台结果待复评。"
+      "output": "保留 Release 编译优化和自动提交直接接管已验证批次。各自首组三轮 E 中位数分别为 0.509544、0.502132，组合版首组为 0.507476。轮换对比中，编译版和组合版中位数分别为 0.495995、0.499386。组合版合计六轮中位数 0.505135，四轮高于 715ed8e，六轮物理 I/O 持平。轮换复测组合版写入中位从 2.004703 秒降到 1.965907 秒，查询峰值内存从 15556608 增至 16670720 字节。结果为本地 E，平台 5000 分仍待复评。",
+      "verification": "三个候选各通过 22 项 Docker 门禁。自动提交与组合二进制还通过 100 行强制批次溢写、显式事务回滚和重启。最终组合二进制通过独立 Exact、Top-K 与逐轮重启校验。Release 选项未启用 -ffast-math 或依赖服务器 CPU 的 -march=native。"
     }
   ],
-  "limitations": [
-    "3700 分和 Prompt 空分是用户反馈。平台尚未确认空分原因或复评结果。",
-    "主办方题包可见的 conversation.json 是空占位文件。根目录来源于题包 Git 树，文件结构沿用现有可读 JSON 对象。",
-    "实验结论为助手记录。用户自述的剖析与助手实测分别标注。"
-  ],
-  "user_prompts": [
-    {
-      "id": "scope",
-      "role": "user",
-      "verbatim": true,
-      "content": "继续在服务器这个目录下按我提供的思路优化代码，完成正确性检查和三轮性能对比，确认有效后推送到小队的2026-competition-round2-lite2000分支并给我commit，不要停在下载源码这一步。"
-    },
-    {
-      "id": "measure-io-and-filter",
-      "role": "user",
-      "verbatim": true,
-      "content": "继续在服务器指定目录下优化，重点解决过滤查询变慢和物理 I/O 没有改善的问题，按综合 E 争取更大提升。保持 Exact 和持久化语义，完成正确性检查和三轮对比后给我结果与 commit。"
-    },
-    {
-      "id": "profile-feedback",
-      "role": "user",
-      "verbatim": true,
-      "content": "性能剖析跑完了，结论比较明确。先说数据，再说该动哪里。"
-    },
-    {
-      "id": "profile-finding",
-      "role": "user",
-      "verbatim": true,
-      "excerpt": true,
-      "content": "诊断：写入瓶颈不是 CPU、也不是 fsync 系统调用，而是写放大 + 机械盘回写。向量被写了两遍（WAL 一遍、vectors.f32 一遍），SST 元数据 4.5 MB 对 10k 行来说也偏大（约 450 B/行），再加 checkpoint 重写，最终物理写接近原始数据的 4 倍。"
-    },
-    {
-      "id": "language",
-      "role": "user",
-      "verbatim": true,
-      "content": "记得是所有代码都是c++"
-    },
-    {
-      "id": "validation-question",
-      "role": "user",
-      "verbatim": true,
-      "content": "确定这一版的prompt都正确吧，确定是c++实现的吧"
-    },
-    {
-      "id": "platform-feedback",
-      "role": "user",
-      "verbatim": true,
-      "content": "`fff2594`  这个版本分数为3700，prompt没有分数，你的目标是性能分5229分以上或者prompt30分以上"
-    },
-    {
-      "id": "user-c378-prompt-reference",
-      "role": "user",
-      "verbatim": true,
-      "content": "继续在`71d7c13bddbb0d64102bc1eeb691e9`上优化性能和prompt，截图中的版本中prompt为2.5分可以参考一下"
-    },
-    {
-      "id": "user-checkpoint-memory-continue",
-      "role": "user",
-      "verbatim": true,
-      "content": "继续优化"
-    }
-  ],
-  "student_understanding": [
-    {
-      "id": "understanding-metric-boundary",
-      "evidence": "用户报告 HDD2 插入 2.18 秒、共享内存 0.226 秒，并对照系统调用与落盘量。",
-      "conclusion": "需分别看端到端计时、容器物理字节和峰值内存，避免用单次内核计时代替正式指标。",
-      "source": "profile-feedback、profile-finding"
-    },
-    {
-      "id": "understanding-correctness-tradeoff",
-      "evidence": "用户要求保持 Exact 与持久化并先通过独立正确性检查，随后追问运行时语言和 Prompt。",
-      "conclusion": "压缩行记录的实验应验证旧 WAL、旧 SST、事务回滚和冷查询。",
-      "source": "measure-io-and-filter、validation-question"
-    },
-    {
-      "id": "understanding-resource-metric",
-      "evidence": "用户在收到空分后提供有分的历史提交作为对照。",
-      "conclusion": "核对旧版文件和实际读取入口，保留题包的根目录入口，并沿用旧记录结构。",
-      "source": "user-c378-prompt-reference"
-    }
-  ],
+  "retrospective": {
+    "what_worked": "延迟标量索引降低了查询内存，VNNI 位掩码改善了无过滤查询。紧凑标量行格式的首组三轮均降低物理 I/O。",
+    "what_did_not_work": "首版紧凑行的查询内存上升，综合 E 中位数为 0.497627。仅有物理 I/O 下降无法证明整题收益。",
+    "latest": "保留 Release 编译优化和自动提交直接接管已验证批次。各自首组三轮 E 中位数分别为 0.509544、0.502132，组合版首组为 0.507476。轮换对比中，编译版和组合版中位数分别为 0.495995、0.499386。组合版合计六轮中位数 0.505135，四轮高于 715ed8e，六轮物理 I/O 持平。轮换复测组合版写入中位从 2.004703 秒降到 1.965907 秒，查询峰值内存从 15556608 增至 16670720 字节。结果为本地 E，平台 5000 分仍待复评。",
+    "next_plan": "用这个完整提交复评，分别核对性能原始分和 Prompt 回执，再根据平台报告选择下一轮优化。"
+  },
   "reference_submission": {
     "commit": "c378f56a8b3b01d30afa222835f299c45aac8dba",
     "path": "agent/conversation.json",
@@ -2238,14 +756,12 @@
     ],
     "observation": "Git 树显示该版仅在 agent/ 下有材料。用户反馈该版曾获得分数，目录差异无法单独解释另一版的空分。"
   },
-  "retrospective": {
-    "what_worked": "延迟标量索引降低了查询内存，VNNI 位掩码改善了无过滤查询。紧凑标量行格式的首组三轮均降低物理 I/O。",
-    "what_did_not_work": "首版紧凑行的查询内存上升，综合 E 中位数为 0.497627。仅有物理 I/O 下降无法证明整题收益。",
-    "latest": "保留终止会话时释放查询缓存并将空闲堆页归还系统的 C++ 改动。两组三轮 E 中位数为 0.508966 和 0.502495，六轮中位数为 0.505087，六轮均高于 85bd107。基线六轮关闭阶段的峰值均增加 1 MiB，候选六轮增量均为零。查询全流程峰值五轮降低，六轮写入和查询物理 I/O 持平。首组 checkpoint 中位耗时从 64.13 ms 到 165.25 ms，换序复测从 71.82 ms 到 68.85 ms。单独销毁缓存的版本三轮全流程峰值都增加，未合入。评分为本地对照，平台结果待复评。",
-    "next_plan": "将提交交平台复评，分别记录性能和 Prompt 结果。"
-  },
   "secrets_check": {
     "credentials_in_prompt": false,
     "tokens_in_prompt": false
-  }
+  },
+  "limitations": [
+    "平台分数与本地 E 的量纲不同。5000 分是平台目标，当前提交的线上分仍待复评。",
+    "旧版证据保留在 Git 历史和 agent/conversation.json。助手实验、助手复盘和用户发言在材料中分别标注。"
+  ]
 }

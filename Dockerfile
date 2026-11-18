@@ -7,6 +7,6 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends g++ \
     && rm -rf /var/lib/apt/lists/*
 COPY competition_lite/src/ ./
-RUN g++ -O3 -DNDEBUG -std=c++17 -Wall -Wextra -o minivectordb minivectordb_lite.cpp
+RUN g++ -O3 -flto=auto -fno-math-errno -fno-plt -DNDEBUG -std=c++17 -Wall -Wextra -o minivectordb minivectordb_lite.cpp
 VOLUME ["/data"]
 ENTRYPOINT ["/app/minivectordb", "--data-dir", "/data"]

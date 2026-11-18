@@ -4,15 +4,16 @@
   "scope": "本材料记录实际的 C++ 数据库优化、用户反馈与本地验证。历史提示词中有摘要转述，摘要不作为逐字引语。",
   "submission": {
     "branch": "2026-competition-round2-lite2000",
-    "runtime_parent": "85bd1075a7e2bc44da6aca70d3ffa39c2eee9be7",
+    "runtime_parent": "715ed8e4285d9404d9c459f2f4559ece123f0c19",
     "work_directory": "/mnt/HDD2/zzp/oceanbase-competition/seekdb",
     "workload": "10,000 rows, 128-dim vectors, 100 rows per committed batch, 1,000 exact Top-10 queries with half using scalar equality filters",
-    "baseline_commit": "85bd1075a7e2bc44da6aca70d3ffa39c2eee9be7",
-    "runtime_source_sha256": "0c8662ad5dbfa9a0e594b46abc12f93d2cb239cfded14b42edb09db60287c906",
+    "baseline_commit": "715ed8e4285d9404d9c459f2f4559ece123f0c19",
+    "runtime_source_sha256": "a9569f53785394d40ec545b47fa2d3ce37b002968a339634e2537a8fb809b53e",
     "storage_header_sha256": "4a4b71f8917caf17b3186796bae38227389f9f9e7ee113aa450b250c9bd6a356",
     "organizer_template_commit": "9f6df2ba5acf871376e22b64a3d0724e4b575044",
     "verified_runtime_lines": 2000,
-    "verified_local_docker_checks": 22
+    "verified_local_docker_checks": 22,
+    "dockerfile_sha256": "a05a4b4ab8ed450bb6fbd7a4a582fefd46a1e4e20e3c578417dd5c9005716385"
   },
   "user_prompts": [
     {
@@ -86,6 +87,12 @@
       "role": "user",
       "verbatim": true,
       "content": "继续优化"
+    },
+    {
+      "id": "user-score-5000",
+      "role": "user",
+      "verbatim": true,
+      "content": "继续优化到五千分并完美优化prompt"
     }
   ],
   "conversations": [
@@ -160,6 +167,12 @@
       "role": "user",
       "verbatim": true,
       "content": "继续优化"
+    },
+    {
+      "id": "user-score-5000",
+      "role": "user",
+      "verbatim": true,
+      "content": "继续优化到五千分并完美优化prompt"
     }
   ],
   "experiments": [
@@ -3805,6 +3818,45 @@
       "verification": "两个候选均通过完整 Docker 门禁。归还页候选额外检查了终止时回滚未提交事务、返回原始请求 ID、checkpoint 和重启 Exact。",
       "output": "保留终止会话时释放查询缓存并将空闲堆页归还系统的 C++ 改动。两组三轮 E 中位数为 0.508966 和 0.502495，六轮中位数为 0.505087，六轮均高于 85bd107。基线六轮关闭阶段的峰值均增加 1 MiB，候选六轮增量均为零。查询全流程峰值五轮降低，六轮写入和查询物理 I/O 持平。首组 checkpoint 中位耗时从 64.13 ms 到 165.25 ms，换序复测从 71.82 ms 到 68.85 ms。单独销毁缓存的版本三轮全流程峰值都增加，未合入。评分为本地对照，平台结果待复评。",
       "evidence_path": "conversation.json"
+    },
+    {
+      "id": "compiler-and-autocommit-715ed8e",
+      "kind": "measured_retained",
+      "baseline_commit": "715ed8e4285d9404d9c459f2f4559ece123f0c19",
+      "hypotheses": "分别测试 Release 编译优化和自动提交语句批次直接移交。前者缩减编译生成代码的调用成本，后者省掉合并空事务的复制。",
+      "input": {
+        "insert_sha256": "cbed135375c7deea4b8342e0b0e2deed667e5694c9212054e0bf9b0c1fd0771d",
+        "query_cases_sha256": "c8ecc80cf5baca8a83204a54ad07cf8737c46e56b1175e216aea0f8469afc504",
+        "rows": 10000,
+        "dim": 128,
+        "batch": 100,
+        "requests": 100
+      },
+      "comparisons": [
+        {
+          "name": "编译优化",
+          "median_E_local": 0.509544
+        },
+        {
+          "name": "自动提交移动批次",
+          "median_E_local": 0.502132
+        },
+        {
+          "name": "组合版本",
+          "median_E_local": 0.507476
+        },
+        {
+          "name": "轮换对比编译版",
+          "median_E_local": 0.495995
+        },
+        {
+          "name": "轮换对比组合版",
+          "median_E_local": 0.499386
+        }
+      ],
+      "output": "保留 Release 编译优化和自动提交直接接管已验证批次。各自首组三轮 E 中位数分别为 0.509544、0.502132，组合版首组为 0.507476。轮换对比中，编译版和组合版中位数分别为 0.495995、0.499386。组合版合计六轮中位数 0.505135，四轮高于 715ed8e，六轮物理 I/O 持平。轮换复测组合版写入中位从 2.004703 秒降到 1.965907 秒，查询峰值内存从 15556608 增至 16670720 字节。结果为本地 E，平台 5000 分仍待复评。",
+      "verification": "三个候选各通过 22 项 Docker 门禁。自动提交与组合二进制还通过 100 行强制批次溢写、显式事务回滚和重启。最终组合二进制通过独立 Exact、Top-K 与逐轮重启校验。Release 选项未启用 -ffast-math 或依赖服务器 CPU 的 -march=native。",
+      "evidence_path": "conversation.json"
     }
   ],
   "student_understanding": [
@@ -3827,7 +3879,7 @@
   "retrospective": {
     "what_worked": "延迟标量索引降低了查询内存，VNNI 位掩码改善了无过滤查询。紧凑标量行格式的首组三轮均降低物理 I/O。",
     "what_did_not_work": "首版紧凑行的查询内存上升，综合 E 中位数为 0.497627。仅有物理 I/O 下降无法证明整题收益。",
-    "latest": "保留终止会话时释放查询缓存并将空闲堆页归还系统的 C++ 改动。两组三轮 E 中位数为 0.508966 和 0.502495，六轮中位数为 0.505087，六轮均高于 85bd107。基线六轮关闭阶段的峰值均增加 1 MiB，候选六轮增量均为零。查询全流程峰值五轮降低，六轮写入和查询物理 I/O 持平。首组 checkpoint 中位耗时从 64.13 ms 到 165.25 ms，换序复测从 71.82 ms 到 68.85 ms。单独销毁缓存的版本三轮全流程峰值都增加，未合入。评分为本地对照，平台结果待复评。",
+    "latest": "保留 Release 编译优化和自动提交直接接管已验证批次。各自首组三轮 E 中位数分别为 0.509544、0.502132，组合版首组为 0.507476。轮换对比中，编译版和组合版中位数分别为 0.495995、0.499386。组合版合计六轮中位数 0.505135，四轮高于 715ed8e，六轮物理 I/O 持平。轮换复测组合版写入中位从 2.004703 秒降到 1.965907 秒，查询峰值内存从 15556608 增至 16670720 字节。结果为本地 E，平台 5000 分仍待复评。",
     "next_plan": "将提交交平台复评，分别记录性能和 Prompt 结果。"
   },
   "limitations": [
