@@ -21,6 +21,7 @@
 #include <list>
 #include <iostream>
 #include <map>
+#include <malloc.h>
 #include <queue>
 #include <set>
 #include <sstream>
@@ -312,12 +313,6 @@ namespace lite {
   struct Cond{
     int col=-1;
     std::string op,val;
-  };
-  struct PQ{
-    int d=0,m=0,ks=0,nlist=0;
-    std::vector<float>coarse,book;
-    std::unordered_map<long long,std::vector<unsigned char>>code;
-    std::unordered_map<long long,int>cell;
   };
   struct VBlock{
     size_t begin=0,end=0;
@@ -854,7 +849,6 @@ namespace lite {
         void*p=mmap(nullptr,len,PROT_READ,MAP_SHARED,vfd,base);++map_calls;if(p!=MAP_FAILED){vector_maps.push_back({p,base,len,++map_clock});vmap=p;mapsz=len;mapoff=base;}
       }
     }
-    void ensure_map()const{map_window(0,1);}
     const float* vptr(off_t off,int d)const{
       if(off<0)return nullptr;
       if(off>=vecbuf_base&&size_t(off-vecbuf_base+d*4)<=vecbuf.size())return (const float*)(vecbuf.data()+off-vecbuf_base);
@@ -1646,11 +1640,17 @@ int main(int argc,char**argv){
         bool shut=(req.o.count("type")&&req.o["type"].k==lite::J::S&&req.o["type"].s=="shutdown")||(req.o.count("op")&&req.o["op"].k==lite::J::S&&req.o["op"].s=="shutdown");
         if(shut){
           e.rollback();
-          e.checkpoint();
           lite::J o=lite::jo();
           o.o["ok"]=lite::jb(true);
           if(req.o.count("id"))o.o["id"]=req.o["id"];
-          std::cout<<lite::dump(o)<<"\n"<<std::flush;
+          const auto reply=lite::dump(o);
+          // Query state is no longer needed during terminal checkpoint.
+          e.clear_caches();
+          e.tabs.clear();
+          e.clear_maps();
+          malloc_trim(0);
+          e.checkpoint();
+          std::cout<<reply<<"\n"<<std::flush;
           break;
         }
         if(!req.o.count("sql")||req.o["sql"].k!=lite::J::S)throw lite::Err("invalid_request","sql");
